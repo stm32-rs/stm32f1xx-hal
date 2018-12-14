@@ -15,10 +15,10 @@ impl AfioExt for AFIO {
         Parts {
             evcr: EVCR { _0: () },
             mapr: MAPR { _0: () },
-            exticr1:  EXTICR1 { _0: () },
-            exticr2:  EXTICR2 { _0: () },
-            exticr3:  EXTICR3 { _0: () },
-            exticr4:  EXTICR4 { _0: () },
+            exticr1: EXTICR1 { _0: () },
+            exticr2: EXTICR2 { _0: () },
+            exticr3: EXTICR3 { _0: () },
+            exticr4: EXTICR4 { _0: () },
             mapr2: MAPR2 { _0: () },
         }
     }
@@ -55,7 +55,8 @@ impl MAPR {
 
     /// Disables the JTAG to free up pb3, pb4 and pa15 for normal use
     pub fn disable_jtag(&mut self) {
-        self.mapr().modify(|_, w| unsafe{w.swj_cfg().bits(0b010)})
+        self.mapr()
+            .modify(|_, w| unsafe { w.swj_cfg().bits(0b010) })
     }
 }
 

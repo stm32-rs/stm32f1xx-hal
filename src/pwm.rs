@@ -10,7 +10,7 @@ use bb;
 use gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7};
 use gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
 use gpio::{Alternate, PushPull};
-use rcc::{APB1, Clocks};
+use rcc::{Clocks, APB1};
 use time::Hertz;
 
 pub trait Pins<TIM> {
@@ -191,31 +191,31 @@ macro_rules! hal {
 
                 if PINS::C1 {
                     tim.ccmr1_output
-                        .modify(|_, w| w.oc1pe().set_bit().oc1m().bits(6));
+                        .modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
                 }
 
                 if PINS::C2 {
                     tim.ccmr1_output
-                        .modify(|_, w| w.oc2pe().set_bit().oc2m().bits(6));
+                        .modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
                 }
 
                 if PINS::C3 {
                     tim.ccmr2_output
-                        .modify(|_, w| w.oc3pe().set_bit().oc3m().bits(6));
+                        .modify(|_, w| unsafe { w.oc3pe().set_bit().oc3m().bits(6) });
                 }
 
                 if PINS::C4 {
                     tim.ccmr2_output
-                        .modify(|_, w| w.oc4pe().set_bit().oc4m().bits(6));
+                        .modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
                 }
 
                 let clk = clocks.pclk1().0 * if clocks.ppre1() == 1 { 1 } else { 2 };
                 let freq = freq.0;
                 let ticks = clk / freq;
                 let psc = u16(ticks / (1 << 16)).unwrap();
-                tim.psc.write(|w| w.psc().bits(psc));
+                tim.psc.write(|w| unsafe { w.psc().bits(psc) });
                 let arr = u16(ticks / u32(psc + 1)).unwrap();
-                tim.arr.write(|w| w.arr().bits(arr));
+                tim.arr.write(|w| { w.arr().bits(arr) });
 
                 tim.cr1.write(|w| unsafe {
                     w.cms()

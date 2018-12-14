@@ -56,8 +56,6 @@ pub mod afio;
 pub mod bb;
 pub mod delay;
 pub mod dma;
-#[cfg(feature = "doc")]
-pub mod examples;
 pub mod flash;
 pub mod gpio;
 pub mod i2c;

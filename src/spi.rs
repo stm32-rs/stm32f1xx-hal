@@ -9,7 +9,7 @@ use afio::MAPR;
 use gpio::gpioa::{PA5, PA6, PA7};
 use gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 use gpio::{Alternate, Floating, Input, PushPull};
-use rcc::{APB1, APB2, Clocks};
+use rcc::{Clocks, APB1, APB2};
 use time::Hertz;
 
 /// SPI error
@@ -139,7 +139,7 @@ macro_rules! hal {
                     // dff: 8 bit frames
                     // bidimode: 2-line unidirectional
                     // spe: enable the SPI bus
-                    spi.cr1.write(|w| {
+                    spi.cr1.write(|w| unsafe {
                         w.cpha()
                             .bit(mode.phase == Phase::CaptureOnSecondTransition)
                             .cpol()

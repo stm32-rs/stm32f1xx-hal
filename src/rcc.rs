@@ -1,7 +1,6 @@
 use core::cmp;
 
 use cast::u32;
-use stm32::rcc::cfgr::{SWW, USBPREW};
 use stm32::{rcc, RCC};
 
 use flash::ACR;
@@ -160,7 +159,8 @@ impl CFGR {
 
         assert!(sysclk <= 72_000_000);
 
-        let hpre_bits = self.hclk
+        let hpre_bits = self
+            .hclk
             .map(|hclk| match sysclk / hclk {
                 0 => unreachable!(),
                 1 => 0b0111,
@@ -179,7 +179,8 @@ impl CFGR {
 
         assert!(hclk <= 72_000_000);
 
-        let ppre1_bits = self.pclk1
+        let ppre1_bits = self
+            .pclk1
             .map(|pclk1| match hclk / pclk1 {
                 0 => unreachable!(),
                 1 => 0b011,
@@ -195,7 +196,8 @@ impl CFGR {
 
         assert!(pclk1 <= 36_000_000);
 
-        let ppre2_bits = self.pclk2
+        let ppre2_bits = self
+            .pclk2
             .map(|pclk2| match hclk / pclk2 {
                 0 => unreachable!(),
                 1 => 0b011,
@@ -226,10 +228,11 @@ impl CFGR {
 
         // the USB clock is only valid if an external crystal is used, the PLL is enabled, and the
         // PLL output frequency is a supported one.
+        // usbpre == true: divide clock by 1.5, otherwise no division
         let (usbpre, usbclk_valid) = match (self.hse, pllmul_bits, sysclk) {
-            (Some(_), Some(_), 72_000_000) => (USBPREW::DIV15, true),
-            (Some(_), Some(_), 48_000_000) => (USBPREW::NODIV, true),
-            _ => (USBPREW::NODIV, false),
+            (Some(_), Some(_), 72_000_000) => (false, true),
+            (Some(_), Some(_), 48_000_000) => (true, true),
+            _ => (true, false),
         };
 
         let rcc = unsafe { &*RCC::ptr() };
@@ -249,11 +252,7 @@ impl CFGR {
                 w.pllmul()
                     .bits(pllmul_bits)
                     .pllsrc()
-                    .bit(if self.hse.is_some() {
-                        true
-                    } else {
-                        false
-                    })
+                    .bit(if self.hse.is_some() { true } else { false })
             });
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
@@ -270,14 +269,17 @@ impl CFGR {
                 .hpre()
                 .bits(hpre_bits)
                 .usbpre()
-                .variant(usbpre)
+                .bit(usbpre)
                 .sw()
-                .variant(if pllmul_bits.is_some() {
-                    SWW::PLL
+                .bits(if pllmul_bits.is_some() {
+                    // PLL
+                    0b10
                 } else if self.hse.is_some() {
-                    SWW::HSE
+                    // HSE
+                    0b1
                 } else {
-                    SWW::HSI
+                    // HSI
+                    0b0
                 })
         });
 

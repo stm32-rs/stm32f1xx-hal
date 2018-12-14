@@ -1,6 +1,6 @@
 pub use afio::AfioExt as _stm32_hal_afio_AfioExt;
-pub use dma::DmaExt as _stm32_hal_dma_DmaExt;
 pub use dma::DmaChannel as _stm32_hal_dma_DmaChannel;
+pub use dma::DmaExt as _stm32_hal_dma_DmaExt;
 pub use flash::FlashExt as _stm32_hal_flash_FlashExt;
 pub use gpio::GpioExt as _stm32_hal_gpio_GpioExt;
 pub use hal::digital::StatefulOutputPin as _embedded_hal_digital_StatefulOutputPin;

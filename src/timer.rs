@@ -8,7 +8,7 @@ use void::Void;
 
 use core::any::TypeId;
 
-use rcc::{APB1, APB2, Clocks};
+use rcc::{Clocks, APB1, APB2};
 use time::Hertz;
 
 /// Interrupt events
@@ -154,8 +154,8 @@ macro_rules! hal {
                     let ticks = timer_clock.0 / frequency;
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
-                    self.tim.psc.write(|w| w.psc().bits(psc));
-                    
+                    self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
+
                     let arr = u16(ticks / u32(psc + 1)).unwrap();
 
                     self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });

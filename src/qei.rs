@@ -93,7 +93,7 @@ macro_rules! hal {
                     });
 
                     // configure as quadrature encoder
-                    tim.smcr.write(|w| w.sms().bits(3));
+                    tim.smcr.write(|w| unsafe { w.sms().bits(3) });
 
                     tim.arr.write(|w| w.arr().bits(u16::MAX));
                     tim.cr1.write(|w| w.cen().set_bit());

@@ -62,7 +62,7 @@ macro_rules! gpio {
                 Alternate, Floating, GpioExt, Input,
                 OpenDrain,
                 Output,
-                PullDown, 
+                PullDown,
                 PullUp,
                 PushPull,
                 Analog,
@@ -340,7 +340,7 @@ macro_rules! gpio {
 
                         $PXi { _mode: PhantomData }
                     }
-                    
+
                     /// Configures the pin to operate as an analog input pin
                     pub fn into_analog(self, cr: &mut $CR) -> $PXi<Analog> {
                         let offset = (4 * $i) % 32;

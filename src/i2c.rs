@@ -1,14 +1,14 @@
 //! Inter-Integrated Circuit (I2C) bus
 
 use afio::MAPR;
-use gpio::{Alternate, OpenDrain};
 use gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
+use gpio::{Alternate, OpenDrain};
 use hal::blocking::i2c::{Read, Write, WriteRead};
-use nb::{Error as NbError, Result as NbResult};
 use nb::Error::{Other, WouldBlock};
-use rcc::{APB1, Clocks};
-use stm32::{I2C1, I2C2};
+use nb::{Error as NbError, Result as NbResult};
+use rcc::{Clocks, APB1};
 use stm32::DWT;
+use stm32::{I2C1, I2C2};
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
@@ -24,7 +24,8 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
-    #[doc(hidden)] _Extensible,
+    #[doc(hidden)]
+    _Extensible,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -35,8 +36,13 @@ pub enum DutyCycle {
 
 #[derive(Debug, PartialEq)]
 pub enum Mode {
-    Standard { frequency: u32 },
-    Fast { frequency: u32, duty_cycle: DutyCycle },
+    Standard {
+        frequency: u32,
+    },
+    Fast {
+        frequency: u32,
+        duty_cycle: DutyCycle,
+    },
 }
 
 impl Mode {
@@ -48,32 +54,19 @@ impl Mode {
     }
 }
 
-
 pub trait Pins<I2C> {
     const REMAP: bool;
 }
 
-impl Pins<I2C1>
-for (
-    PB6<Alternate<OpenDrain>>,
-    PB7<Alternate<OpenDrain>>,
-) {
+impl Pins<I2C1> for (PB6<Alternate<OpenDrain>>, PB7<Alternate<OpenDrain>>) {
     const REMAP: bool = false;
 }
 
-impl Pins<I2C1>
-for (
-    PB8<Alternate<OpenDrain>>,
-    PB9<Alternate<OpenDrain>>,
-) {
+impl Pins<I2C1> for (PB8<Alternate<OpenDrain>>, PB9<Alternate<OpenDrain>>) {
     const REMAP: bool = true;
 }
 
-impl Pins<I2C2>
-for (
-    PB10<Alternate<OpenDrain>>,
-    PB11<Alternate<OpenDrain>>,
-) {
+impl Pins<I2C2> for (PB10<Alternate<OpenDrain>>, PB11<Alternate<OpenDrain>>) {
     const REMAP: bool = false;
 }
 
@@ -102,8 +95,8 @@ impl<PINS> I2c<I2C1, PINS> {
         clocks: Clocks,
         apb: &mut APB1,
     ) -> Self
-        where
-            PINS: Pins<I2C1>,
+    where
+        PINS: Pins<I2C1>,
     {
         mapr.mapr().modify(|_, w| w.i2c1_remap().bit(PINS::REMAP));
         I2c::_i2c1(i2c, pins, mode, clocks, apb)
@@ -123,25 +116,28 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> Self
-        where
-            PINS: Pins<I2C1>,
+    where
+        PINS: Pins<I2C1>,
     {
         mapr.mapr().modify(|_, w| w.i2c1_remap().bit(PINS::REMAP));
-        BlockingI2c::_i2c1(i2c, pins, mode, clocks, apb,
-                           start_timeout_us, start_retries, addr_timeout_us, data_timeout_us)
+        BlockingI2c::_i2c1(
+            i2c,
+            pins,
+            mode,
+            clocks,
+            apb,
+            start_timeout_us,
+            start_retries,
+            addr_timeout_us,
+            data_timeout_us,
+        )
     }
 }
 
 impl<PINS> I2c<I2C2, PINS> {
-    pub fn i2c2(
-        i2c: I2C2,
-        pins: PINS,
-        mode: Mode,
-        clocks: Clocks,
-        apb: &mut APB1,
-    ) -> Self
-        where
-            PINS: Pins<I2C2>,
+    pub fn i2c2(i2c: I2C2, pins: PINS, mode: Mode, clocks: Clocks, apb: &mut APB1) -> Self
+    where
+        PINS: Pins<I2C2>,
     {
         I2c::_i2c2(i2c, pins, mode, clocks, apb)
     }
@@ -159,20 +155,31 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> Self
-        where
-            PINS: Pins<I2C2>,
+    where
+        PINS: Pins<I2C2>,
     {
-        BlockingI2c::_i2c2(i2c, pins, mode, clocks, apb,
-                           start_timeout_us, start_retries, addr_timeout_us, data_timeout_us)
+        BlockingI2c::_i2c2(
+            i2c,
+            pins,
+            mode,
+            clocks,
+            apb,
+            start_timeout_us,
+            start_retries,
+            addr_timeout_us,
+            data_timeout_us,
+        )
     }
 }
 
-pub fn blocking_i2c<I2C, PINS>(i2c: I2c<I2C, PINS>,
-                               clocks: Clocks,
-                               start_timeout_us: u32,
-                               start_retries: u8,
-                               addr_timeout_us: u32,
-                               data_timeout_us: u32) -> BlockingI2c<I2C, PINS> {
+pub fn blocking_i2c<I2C, PINS>(
+    i2c: I2c<I2C, PINS>,
+    clocks: Clocks,
+    start_timeout_us: u32,
+    start_retries: u8,
+    addr_timeout_us: u32,
+    data_timeout_us: u32,
+) -> BlockingI2c<I2C, PINS> {
     let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
     return BlockingI2c {
         nb: i2c,
@@ -184,51 +191,48 @@ pub fn blocking_i2c<I2C, PINS>(i2c: I2c<I2C, PINS>,
 }
 
 macro_rules! wait_for_flag {
-    ($i2c:expr, $flag:ident) => {
-        {
-            let sr1 = $i2c.sr1.read();
+    ($i2c:expr, $flag:ident) => {{
+        let sr1 = $i2c.sr1.read();
 
-            if sr1.berr().bit_is_set() {
-                Err(Other(Error::Bus))
-            } else if sr1.arlo().bit_is_set() {
-                Err(Other(Error::Arbitration))
-            } else if sr1.af().bit_is_set() {
-                Err(Other(Error::Acknowledge))
-            } else if sr1.ovr().bit_is_set() {
-                Err(Other(Error::Overrun))
-            } else if sr1.$flag().bit_is_set() {
-                Ok(())
-            } else {
-                Err(WouldBlock)
-            }
+        if sr1.berr().bit_is_set() {
+            Err(Other(Error::Bus))
+        } else if sr1.arlo().bit_is_set() {
+            Err(Other(Error::Arbitration))
+        } else if sr1.af().bit_is_set() {
+            Err(Other(Error::Acknowledge))
+        } else if sr1.ovr().bit_is_set() {
+            Err(Other(Error::Overrun))
+        } else if sr1.$flag().bit_is_set() {
+            Ok(())
+        } else {
+            Err(WouldBlock)
         }
-    }
+    }};
 }
 
 macro_rules! busy_wait {
-    ($nb_expr:expr, $exit_cond:expr) => {
-        {
-            loop {
-                let res = $nb_expr;
-                if res != Err(WouldBlock) {
-                    break res;
-                }
-                if $exit_cond {
-                    break res;
-                }
+    ($nb_expr:expr, $exit_cond:expr) => {{
+        loop {
+            let res = $nb_expr;
+            if res != Err(WouldBlock) {
+                break res;
+            }
+            if $exit_cond {
+                break res;
             }
         }
-    }
+    }};
 }
 
 macro_rules! busy_wait_cycles {
-    ($nb_expr:expr, $cycles:expr) => {
-        {
-            let started = DWT::get_cycle_count();
-            let cycles = $cycles;
-            busy_wait!($nb_expr, DWT::get_cycle_count().wrapping_sub(started) >= cycles)
-        }
-    }
+    ($nb_expr:expr, $cycles:expr) => {{
+        let started = DWT::get_cycle_count();
+        let cycles = $cycles;
+        busy_wait!(
+            $nb_expr,
+            DWT::get_cycle_count().wrapping_sub(started) >= cycles
+        )
+    }};
 }
 
 macro_rules! hal {
@@ -267,7 +271,7 @@ macro_rules! hal {
 
                     match self.mode {
                         Mode::Standard { .. } => {
-                            self.i2c.trise.write(|w| unsafe {
+                            self.i2c.trise.write(|w| {
                                 w.trise().bits((pclk1_mhz + 1) as u8)
                             });
                             self.i2c.ccr.write(|w| unsafe {
@@ -275,7 +279,7 @@ macro_rules! hal {
                             });
                         },
                         Mode::Fast { ref duty_cycle, .. } => {
-                            self.i2c.trise.write(|w| unsafe {
+                            self.i2c.trise.write(|w| {
                                 w.trise().bits((pclk1_mhz * 300 / 1000 + 1) as u8)
                             });
 
@@ -310,7 +314,7 @@ macro_rules! hal {
                 }
 
                 fn send_addr(&self, addr: u8, read: bool) {
-                    self.i2c.dr.write(|w| unsafe { w.dr().bits(addr << 1 | (if read {1} else {0})) });
+                    self.i2c.dr.write(|w| { w.dr().bits(addr << 1 | (if read {1} else {0})) });
                 }
 
                 fn wait_after_sent_addr(&self) -> NbResult<(), Error> {
@@ -375,7 +379,7 @@ macro_rules! hal {
 
                     for byte in bytes {
                         busy_wait_cycles!(wait_for_flag!(self.nb.i2c, tx_e), self.data_timeout)?;
-                        self.nb.i2c.dr.write(|w| unsafe { w.dr().bits(*byte) });
+                        self.nb.i2c.dr.write(|w| { w.dr().bits(*byte) });
                     }
                     busy_wait_cycles!(wait_for_flag!(self.nb.i2c, tx_e), self.data_timeout)?;
 

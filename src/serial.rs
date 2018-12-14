@@ -13,7 +13,7 @@ use dma::{dma1, CircBuffer, Static, Transfer, R, W};
 use gpio::gpioa::{PA10, PA2, PA3, PA9};
 use gpio::gpiob::{PB10, PB11, PB6, PB7};
 use gpio::{Alternate, Floating, Input, PushPull};
-use rcc::{APB1, APB2, Clocks};
+use rcc::{Clocks, APB1, APB2};
 use time::Bps;
 
 /// Interrupt event
@@ -221,10 +221,10 @@ macro_rules! hal {
                 {
                     {
                         let buffer = buffer[0].as_mut();
-                        chan.cmar().write(|w| unsafe {
+                        chan.cmar().write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.cndtr().write(|w| unsafe{
+                        chan.cndtr().write(|w| {
                             w.ndt().bits(u16(buffer.len() * 2).unwrap())
                         });
                         chan.cpar().write(|w| unsafe {
@@ -266,10 +266,10 @@ macro_rules! hal {
                 {
                     {
                         let buffer = buffer.as_mut();
-                        chan.cmar().write(|w| unsafe {
+                        chan.cmar().write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.cndtr().write(|w| unsafe{
+                        chan.cndtr().write(|w| {
                             w.ndt().bits(u16(buffer.len()).unwrap())
                         });
                         chan.cpar().write(|w| unsafe {
@@ -313,10 +313,10 @@ macro_rules! hal {
                 {
                     {
                         let buffer = buffer.borrow().as_ref();
-                        chan.cmar().write(|w| unsafe {
+                        chan.cmar().write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.cndtr().write(|w| unsafe{
+                        chan.cndtr().write(|w| {
                             w.ndt().bits(u16(buffer.len()).unwrap())
                         });
                         chan.cpar().write(|w| unsafe {
