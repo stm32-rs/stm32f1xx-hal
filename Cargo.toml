@@ -1,7 +1,7 @@
 [package]
 authors = ["Jorge Aparicio <jorge@japaric.io>", "Daniel Egger <daniel@eggers-club.de>"]
 categories = ["embedded", "hardware-support", "no-std"]
-description = "HAL for the STM32F100xx family of microcontrollers"
+description = "HAL for the STM32F1xx family of microcontrollers"
 keywords = ["arm", "cortex-m", "stm32", "hal"]
 license = "MIT OR Apache-2.0"
 name = "stm32f1xx-hal"
