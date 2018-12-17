@@ -9,7 +9,8 @@ use stm32::{USART1, USART2, USART3};
 use void::Void;
 
 use afio::MAPR;
-use dma::{dma1, CircBuffer, Static, Transfer, R, W};
+//use dma::{dma1, CircBuffer, Static, Transfer, R, W};
+use dma::{CircBuffer, Static, Transfer, R, W};
 use gpio::gpioa::{PA10, PA2, PA3, PA9};
 use gpio::gpiob::{PB10, PB11, PB6, PB7};
 use gpio::{Alternate, Floating, Input, PushPull};
@@ -215,6 +216,7 @@ macro_rules! hal {
                 }
             }
 
+            /*
             impl<B> ReadDma<B> for Rx<$USARTX> where B: AsMut<[u8]> {
                 fn circ_read(self, mut chan: Self::Dma, buffer: &'static mut [B; 2],
                 ) -> CircBuffer<B, Self::Dma>
@@ -306,7 +308,9 @@ macro_rules! hal {
                     Transfer::w(buffer, chan, self)
                 }
             }
+            */
 
+            /*
             impl<A, B> WriteDma<A, B> for Tx<$USARTX> where A: AsRef<[u8]>, B: Static<A> {
                 fn write_all(self, mut chan: Self::Dma, buffer: B
                 ) -> Transfer<R, B, Self::Dma, Self>
@@ -353,6 +357,7 @@ macro_rules! hal {
                     Transfer::r(buffer, chan, self)
                 }
             }
+            */
 
             impl hal::serial::Write<u8> for Tx<$USARTX> {
                 type Error = Void;
@@ -418,6 +423,7 @@ hal! {
     ),
 }
 
+/*
 use dma::DmaChannel;
 
 impl DmaChannel for Rx<USART1> {
@@ -465,3 +471,4 @@ where
 {
     fn write_all(self, chan: Self::Dma, buffer: B) -> Transfer<R, B, Self::Dma, Self>;
 }
+*/

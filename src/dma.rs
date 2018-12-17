@@ -317,6 +317,7 @@ macro_rules! dma {
     }
 }
 
+/*
 dma! {
     DMA1: (dma1, dma1en, dma1rst, {
         C1: (
@@ -420,6 +421,7 @@ dma! {
         ),
     }),
 }
+*/
 
 pub trait DmaChannel {
     type Dma;
