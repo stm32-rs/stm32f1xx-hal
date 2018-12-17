@@ -10,12 +10,12 @@ extern crate panic_semihosting;
 extern crate stm32f1xx_hal as hal;
 
 use hal::prelude::*;
-use hal::stm32f103xx;
+use hal::stm32;
 use rt::{entry, exception, ExceptionFrame};
 
 #[entry]
 fn main() -> ! {
-    let p = stm32f103xx::Peripherals::take().unwrap();
+    let p = stm32::Peripherals::take().unwrap();
 
     let mut rcc = p.RCC.constrain();
     let mut gpiob = p.GPIOB.split(&mut rcc.apb2);

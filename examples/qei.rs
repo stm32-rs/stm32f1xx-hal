@@ -16,13 +16,13 @@ use core::fmt::Write;
 use hal::delay::Delay;
 use hal::prelude::*;
 use hal::qei::Qei;
-use hal::stm32f103xx;
+use hal::stm32;
 use rt::{entry, exception, ExceptionFrame};
 use semihosting::hio;
 
 #[entry]
 fn main() -> ! {
-    let dp = stm32f103xx::Peripherals::take().unwrap();
+    let dp = stm32::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();

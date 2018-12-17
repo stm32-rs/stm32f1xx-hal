@@ -12,12 +12,12 @@ extern crate stm32f1xx_hal as hal;
 
 use hal::delay::Delay;
 use hal::prelude::*;
-use hal::stm32f103xx;
+use hal::stm32;
 use rt::{entry, exception, ExceptionFrame};
 
 #[entry]
 fn main() -> ! {
-    let dp = stm32f103xx::Peripherals::take().unwrap();
+    let dp = stm32::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();

@@ -1,18 +1,19 @@
 [package]
-authors = ["Jorge Aparicio <jorge@japaric.io>"]
+authors = ["Jorge Aparicio <jorge@japaric.io>", "Daniel Egger <daniel@eggers-club.de>"]
 categories = ["embedded", "hardware-support", "no-std"]
 description = "HAL for the STM32F100xx family of microcontrollers"
 keywords = ["arm", "cortex-m", "stm32", "hal"]
 license = "MIT OR Apache-2.0"
 name = "stm32f1xx-hal"
 repository = "https://github.com/stm32-rs/stm32f1xx-hal"
-version = "0.0.0"
+documentation = "https://docs.rs/crate/stm32f1xx-hal"
+version = "0.1.0"
 
 [dependencies]
 cortex-m = "0.5.8"
 nb = "0.1.1"
-cortex-m-rt = "0.6.6"
-stm32f1 = "0.4.0"
+cortex-m-rt = "0.6.7"
+stm32f1 = "0.5.0"
 
 [dependencies.void]
 default-features = false
@@ -32,10 +33,10 @@ panic-itm = "0.4.0"
 # cortex-m-rtfm = "0.3.1"
 cortex-m-semihosting = "0.3.2"
 enc28j60 = "0.2.0"
-heapless = "0.4.0"
+heapless = "0.4.1"
 m = "0.1.1"
 mfrc522 = "0.2.0"
-serde_derive = "1.0.81"
+serde_derive = "1.0.82"
 
 [dev-dependencies.byteorder]
 default-features = false
@@ -67,15 +68,11 @@ version = "1.5.0"
 
 [dev-dependencies.serde]
 default-features = false
-version = "1.0.81"
+version = "1.0.82"
 
 #[dev-dependencies.serde-json-core]
 #git = "https://github.com/japaric/serde-json-core"
 #rev = "6f12b77c1ffeae167989fe06e0d8b15978bd6d18"
-
-[dev-dependencies.stm32f103xx]
-features = ["rt"]
-version = "0.11.0"
 
 [features]
 doc = []

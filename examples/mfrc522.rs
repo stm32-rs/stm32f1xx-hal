@@ -12,14 +12,14 @@ extern crate stm32f1xx_hal as hal;
 
 use hal::prelude::*;
 use hal::spi::Spi;
-use hal::stm32f103xx;
+use hal::stm32;
 use mfrc522::Mfrc522;
 use rt::{entry, exception, ExceptionFrame};
 
 #[entry]
 fn main() -> ! {
     let mut cp = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32f103xx::Peripherals::take().unwrap();
+    let dp = stm32::Peripherals::take().unwrap();
 
     let _stim = &mut cp.ITM.stim[0];
     let mut rcc = dp.RCC.constrain();

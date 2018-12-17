@@ -48,10 +48,6 @@ pub extern crate stm32f1;
 #[cfg(feature = "stm32f103")]
 pub use stm32f1::stm32f103 as stm32;
 
-// Enable use of interrupt macro
-#[cfg(feature = "rt")]
-pub use stm32f1::interrupt;
-
 pub mod afio;
 pub mod bb;
 pub mod delay;

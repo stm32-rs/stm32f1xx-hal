@@ -17,12 +17,12 @@ extern crate stm32f1xx_hal as hal;
 use cortex_m::asm;
 use hal::prelude::*;
 use hal::serial::Serial;
-use hal::stm32f103xx;
+use hal::stm32;
 use rt::{entry, exception, ExceptionFrame};
 
 #[entry]
 fn main() -> ! {
-    let p = stm32f103xx::Peripherals::take().unwrap();
+    let p = stm32::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
