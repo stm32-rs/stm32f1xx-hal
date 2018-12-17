@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 use core::ops;
 
-use rcc::AHB;
+use crate::rcc::AHB;
 
 #[derive(Debug)]
 pub enum Error {
@@ -33,7 +33,7 @@ where
 }
 
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
-    pub(crate) fn new(buf: &'static mut [BUFFER; 2], chan: CHANNEL) -> Self {
+    pub fn new(buf: &'static mut [BUFFER; 2], chan: CHANNEL) -> Self {
         CircBuffer {
             buffer: buf,
             channel: chan,
@@ -110,14 +110,7 @@ pub struct W;
 macro_rules! dma {
     ($($DMAX:ident: ($dmaX:ident, $dmaXen:ident, $dmaXrst:ident, {
         $($CX:ident: (
-            $ccrX:ident,
-            $CCRX:ident,
-            $cndtrX:ident,
-            $CNDTRX:ident,
-            $cparX:ident,
-            $CPARX:ident,
-            $cmarX:ident,
-            $CMARX:ident,
+            $chX:ident,
             $htifX:ident,
             $tcifX:ident,
             $chtifX:ident,
@@ -131,8 +124,8 @@ macro_rules! dma {
 
                 use stm32::{$DMAX, dma1};
 
-                use dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
-                use rcc::AHB;
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
+                use crate::rcc::AHB;
 
                 pub struct Channels((), $(pub $CX),+);
 
@@ -142,9 +135,9 @@ macro_rules! dma {
                     impl $CX {
                         pub fn listen(&mut self, event: Event) {
                             match event {
-                                Event::HalfTransfer => self.ccr().modify(|_, w| w.htie().set_bit()),
+                                Event::HalfTransfer => self.cr().modify(|_, w| w.htie().set_bit()),
                                 Event::TransferComplete => {
-                                    self.ccr().modify(|_, w| w.tcie().set_bit())
+                                    self.cr().modify(|_, w| w.tcie().set_bit())
                                 }
                             }
                         }
@@ -152,42 +145,45 @@ macro_rules! dma {
                         pub fn unlisten(&mut self, event: Event) {
                             match event {
                                 Event::HalfTransfer => {
-                                    self.ccr().modify(|_, w| w.htie().clear_bit())
+                                    self.cr().modify(|_, w| w.htie().clear_bit())
                                 },
                                 Event::TransferComplete => {
-                                    self.ccr().modify(|_, w| w.tcie().clear_bit())
+                                    self.cr().modify(|_, w| w.tcie().clear_bit())
                                 }
                             }
                         }
 
-                        pub(crate) fn isr(&self) -> dma1::isr::R {
+                        fn ch(&self) -> &dma1::CH {
+                            unsafe { &(*$DMAX::ptr()).$chX }
+                        }
+
+                        pub fn isr(&self) -> dma1::isr::R {
                             // NOTE(unsafe) atomic read with no side effects
                             unsafe { (*$DMAX::ptr()).isr.read() }
                         }
 
-                        pub(crate) fn ifcr(&self) -> &dma1::IFCR {
+                        pub fn ifcr(&self) -> &dma1::IFCR {
                             unsafe { &(*$DMAX::ptr()).ifcr }
                         }
-
-                        pub(crate) fn ccr(&mut self) -> &dma1::$CCRX {
-                            unsafe { &(*$DMAX::ptr()).$ccrX }
+                        pub fn cr(&mut self) -> &dma1::ch::CR {
+                            &self.ch().ccr
                         }
 
-                        pub(crate) fn cndtr(&mut self) -> &dma1::$CNDTRX {
-                            unsafe { &(*$DMAX::ptr()).$cndtrX }
+                        pub fn ndtr(&mut self) -> &dma1::ch::NDTR {
+                            &self.ch().cndtr
                         }
 
-                        pub(crate) fn cpar(&mut self) -> &dma1::$CPARX {
-                            unsafe { &(*$DMAX::ptr()).$cparX }
+                        pub fn par(&mut self) -> &dma1::ch::PAR {
+                            &self.ch().cpar
                         }
 
-                        pub(crate) fn cmar(&mut self) -> &dma1::$CMARX {
-                            unsafe { &(*$DMAX::ptr()).$cmarX }
+                        pub fn mar(&mut self) -> &dma1::ch::MAR {
+                            &self.ch().cmar
                         }
 
-                        pub(crate) fn get_cndtr(&self) -> u32 {
+                        pub fn get_ndtr(&self) -> u32 {
                             // NOTE(unsafe) atomic read with no side effects
-                            unsafe { (*$DMAX::ptr()).$cndtrX.read().bits() }
+                            self.ch().ndtr.read().bits()
                         }
 
                     }
@@ -288,7 +284,7 @@ macro_rules! dma {
                         where
                             BUFFER: AsRef<[T]>,
                         {
-                            let pending = self.channel.get_cndtr() as usize;
+                            let pending = self.channel.get_ndtr() as usize;
 
                             let slice = self.buffer.as_ref();
                             let capacity = slice.len();
@@ -302,11 +298,11 @@ macro_rules! dma {
                     type Channels = Channels;
 
                     fn split(self, ahb: &mut AHB) -> Channels {
-                        ahb.enr().modify(|_, w| w.$dmaXen().set_bit());
+                        ahb.enr().modify(|_, w| w.$dmaXen().enabled());
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(
-                            self.$ccrX.reset();
+                            self.$chX.cr.reset();
                         )+
 
                         Channels((), $($CX { _0: () }),+)
@@ -317,62 +313,40 @@ macro_rules! dma {
     }
 }
 
-/*
 dma! {
     DMA1: (dma1, dma1en, dma1rst, {
         C1: (
-            ccr1, CCR1,
-            cndtr1, CNDTR1,
-            cpar1, CPAR1,
-            cmar1, CMAR1,
+            ch1,
             htif1, tcif1,
             chtif1, ctcif1, cgif1
         ),
         C2: (
-            ccr2, CCR2,
-            cndtr2, CNDTR2,
-            cpar2, CPAR2,
-            cmar2, CMAR2,
+            ch2,
             htif2, tcif2,
             chtif2, ctcif2, cgif2
         ),
         C3: (
-            ccr3, CCR3,
-            cndtr3, CNDTR3,
-            cpar3, CPAR3,
-            cmar3, CMAR3,
+            ch3,
             htif3, tcif3,
             chtif3, ctcif3, cgif3
         ),
         C4: (
-            ccr4, CCR4,
-            cndtr4, CNDTR4,
-            cpar4, CPAR4,
-            cmar4, CMAR4,
+            ch4,
             htif4, tcif4,
             chtif4, ctcif4, cgif4
         ),
         C5: (
-            ccr5, CCR5,
-            cndtr5, CNDTR5,
-            cpar5, CPAR5,
-            cmar5, CMAR5,
+            ch5,
             htif5, tcif5,
             chtif5, ctcif5, cgif5
         ),
         C6: (
-            ccr6, CCR6,
-            cndtr6, CNDTR6,
-            cpar6, CPAR6,
-            cmar6, CMAR6,
+            ch6,
             htif6, tcif6,
             chtif6, ctcif6, cgif6
         ),
         C7: (
-            ccr7, CCR7,
-            cndtr7, CNDTR7,
-            cpar7, CPAR7,
-            cmar7, CMAR7,
+            ch7,
             htif7, tcif7,
             chtif7, ctcif7, cgif7
         ),
@@ -380,48 +354,32 @@ dma! {
 
     DMA2: (dma2, dma2en, dma2rst, {
         C1: (
-            ccr1, CCR1,
-            cndtr1, CNDTR1,
-            cpar1, CPAR1,
-            cmar1, CMAR1,
+            ch1,
             htif1, tcif1,
             chtif1, ctcif1, cgif1
         ),
         C2: (
-            ccr2, CCR2,
-            cndtr2, CNDTR2,
-            cpar2, CPAR2,
-            cmar2, CMAR2,
+            ch2,
             htif2, tcif2,
             chtif2, ctcif2, cgif2
         ),
         C3: (
-            ccr3, CCR3,
-            cndtr3, CNDTR3,
-            cpar3, CPAR3,
-            cmar3, CMAR3,
+            ch3,
             htif3, tcif3,
             chtif3, ctcif3, cgif3
         ),
         C4: (
-            ccr4, CCR4,
-            cndtr4, CNDTR4,
-            cpar4, CPAR4,
-            cmar4, CMAR4,
+            ch4,
             htif4, tcif4,
             chtif4, ctcif4, cgif4
         ),
         C5: (
-            ccr5, CCR5,
-            cndtr5, CNDTR5,
-            cpar5, CPAR5,
-            cmar5, CMAR5,
+            ch5,
             htif5, tcif5,
             chtif5, ctcif5, cgif5
         ),
     }),
 }
-*/
 
 pub trait DmaChannel {
     type Dma;
