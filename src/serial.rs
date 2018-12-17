@@ -41,14 +41,12 @@ use core::ptr;
 use core::sync::atomic::{self, Ordering};
 
 use cast::u16;
-use crate::hal;
 use nb;
 use crate::pac::{USART1, USART2, USART3};
 use void::Void;
 
 use crate::afio::MAPR;
-//use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W};
-use crate::dma::{CircBuffer, Static, Transfer, R, W};
+use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
@@ -284,20 +282,19 @@ macro_rules! hal {
                 }
             }
 
-            /*
             impl<B> ReadDma<B> for Rx<$USARTX> where B: AsMut<[u8]> {
                 fn circ_read(self, mut chan: Self::Dma, buffer: &'static mut [B; 2],
                 ) -> CircBuffer<B, Self::Dma>
                 {
                     {
                         let buffer = buffer[0].as_mut();
-                        chan.cmar().write(|w| {
+                        chan.ch().mar.write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.cndtr().write(|w| {
+                        chan.ch().ndtr.write(|w| {
                             w.ndt().bits(u16(buffer.len() * 2).unwrap())
                         });
-                        chan.cpar().write(|w| unsafe {
+                        chan.ch().par.write(|w| unsafe {
                             w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
                         });
 
@@ -306,7 +303,7 @@ macro_rules! hal {
                         // the next statement, which starts the DMA transfer
                         atomic::compiler_fence(Ordering::SeqCst);
 
-                        chan.ccr().modify(|_, w| {
+                        chan.ch().cr.modify(|_, w| {
                             w.mem2mem()
                                 .clear_bit()
                                 .pl()
@@ -336,13 +333,13 @@ macro_rules! hal {
                 {
                     {
                         let buffer = buffer.as_mut();
-                        chan.cmar().write(|w| {
+                        chan.ch().mar.write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.cndtr().write(|w| {
+                        chan.ch().ndtr.write(|w| {
                             w.ndt().bits(u16(buffer.len()).unwrap())
                         });
-                        chan.cpar().write(|w| unsafe {
+                        chan.ch().par.write(|w| unsafe {
                             w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
                         });
 
@@ -351,7 +348,7 @@ macro_rules! hal {
                         // the next statement, which starts the DMA transfer
                         atomic::compiler_fence(Ordering::SeqCst);
 
-                        chan.ccr().modify(|_, w| {
+                        chan.ch().cr.modify(|_, w| {
                             w.mem2mem()
                                 .clear_bit()
                                 .pl()
@@ -376,22 +373,20 @@ macro_rules! hal {
                     Transfer::w(buffer, chan, self)
                 }
             }
-            */
 
-            /*
             impl<A, B> WriteDma<A, B> for Tx<$USARTX> where A: AsRef<[u8]>, B: Static<A> {
                 fn write_all(self, mut chan: Self::Dma, buffer: B
                 ) -> Transfer<R, B, Self::Dma, Self>
                 {
                     {
                         let buffer = buffer.borrow().as_ref();
-                        chan.cmar().write(|w| {
+                        chan.ch().mar.write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.cndtr().write(|w| {
+                        chan.ch().ndtr.write(|w| {
                             w.ndt().bits(u16(buffer.len()).unwrap())
                         });
-                        chan.cpar().write(|w| unsafe {
+                        chan.ch().par.write(|w| unsafe {
                             w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
                         });
 
@@ -400,7 +395,7 @@ macro_rules! hal {
                         // the next statement, which starts the DMA transfer
                         atomic::compiler_fence(Ordering::SeqCst);
 
-                        chan.ccr().modify(|_, w| {
+                        chan.ch().cr.modify(|_, w| {
                             w.mem2mem()
                                 .clear_bit()
                                 .pl()
@@ -425,7 +420,6 @@ macro_rules! hal {
                     Transfer::r(buffer, chan, self)
                 }
             }
-            */
 
             impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
                 type Error = Void;
@@ -497,8 +491,7 @@ hal! {
     ),
 }
 
-/*
-use dma::DmaChannel;
+use crate::dma::DmaChannel;
 
 impl DmaChannel for Rx<USART1> {
     type Dma = dma1::C5;
@@ -545,4 +538,3 @@ where
 {
     fn write_all(self, chan: Self::Dma, buffer: B) -> Transfer<R, B, Self::Dma, Self>;
 }
-*/
