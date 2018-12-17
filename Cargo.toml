@@ -53,25 +53,25 @@ version = "0.4.0"
 default-features = false
 version = "1.5.0"
 
-[dev-dependencies.jnet]
-git = "https://github.com/japaric/jnet"
-rev = "df96b408049ca952ad7844d6552e87cf8fc18d2a"
+#[dev-dependencies.jnet]
+#git = "https://github.com/japaric/jnet"
+#rev = "df96b408049ca952ad7844d6552e87cf8fc18d2a"
 
-[dev-dependencies.motor-driver]
-git = "https://github.com/japaric/motor-driver"
-rev = "00c8b15223643090d69f1acfb8b7a7a43a440417"
+#[dev-dependencies.motor-driver]
+#git = "https://github.com/japaric/motor-driver"
+#rev = "00c8b15223643090d69f1acfb8b7a7a43a440417"
 
-[dev-dependencies.mpu9250]
-git = "https://github.com/japaric/mpu9250"
-rev = "8f9ecad690093cb71c41301ca5e5705706150610"
+#[dev-dependencies.mpu9250]
+#git = "https://github.com/japaric/mpu9250"
+#rev = "8f9ecad690093cb71c41301ca5e5705706150610"
 
 [dev-dependencies.serde]
 default-features = false
 version = "1.0.81"
 
-[dev-dependencies.serde-json-core]
-git = "https://github.com/japaric/serde-json-core"
-rev = "6f12b77c1ffeae167989fe06e0d8b15978bd6d18"
+#[dev-dependencies.serde-json-core]
+#git = "https://github.com/japaric/serde-json-core"
+#rev = "6f12b77c1ffeae167989fe06e0d8b15978bd6d18"
 
 [dev-dependencies.stm32f103xx]
 features = ["rt"]
