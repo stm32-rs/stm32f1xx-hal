@@ -1,0 +1,14 @@
+language: rust
+rust:
+  - stable
+  - nightly
+cache: cargo
+env:
+- MCU=stm32f103
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+script:
+  - rustup target add thumbv7m-none-eabi
+  - cargo build --features=$MCU

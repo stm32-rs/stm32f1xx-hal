@@ -7,7 +7,10 @@ license = "MIT OR Apache-2.0"
 name = "stm32f1xx-hal"
 repository = "https://github.com/stm32-rs/stm32f1xx-hal"
 documentation = "https://docs.rs/crate/stm32f1xx-hal"
-version = "0.1.0"
+version = "0.1.1"
+
+[package.metadata.docs.rs]
+features = ["stm32f103", "rt"]
 
 [dependencies]
 cortex-m = "0.5.8"
