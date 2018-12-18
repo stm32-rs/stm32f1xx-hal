@@ -1,9 +1,9 @@
-//! Serial interface DMA RX transfer test
+//! Serial interface circular DMA RX transfer test
 
 #![deny(unsafe_code)]
 #![deny(warnings)]
-#![no_main]
 #![no_std]
+#![no_main]
 
 extern crate cortex_m_rt as rt;
 #[macro_use(singleton)]
@@ -12,14 +12,15 @@ extern crate panic_semihosting;
 extern crate stm32f1xx_hal as hal;
 
 use cortex_m::asm;
+use hal::dma::Half;
 use hal::prelude::*;
 use hal::serial::Serial;
-use hal::stm32f103xx;
+use hal::stm32;
 use rt::{entry, exception, ExceptionFrame};
 
 #[entry]
 fn main() -> ! {
-    let p = stm32f103xx::Peripherals::take().unwrap();
+    let p = stm32::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
@@ -58,9 +59,17 @@ fn main() -> ! {
     );
 
     let rx = serial.split().1;
-    let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
+    let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
 
-    let (_buf, _c, _rx) = rx.read_exact(channels.5, buf).wait();
+    let mut circ_buffer = rx.circ_read(channels.5, buf);
+
+    while circ_buffer.readable_half().unwrap() != Half::First {}
+
+    let _first_half = circ_buffer.peek(|half, _| *half).unwrap();
+
+    while circ_buffer.readable_half().unwrap() != Half::Second {}
+
+    let _second_half = circ_buffer.peek(|half, _| *half).unwrap();
 
     asm::bkpt();
 

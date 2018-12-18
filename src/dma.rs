@@ -135,9 +135,9 @@ macro_rules! dma {
                     impl $CX {
                         pub fn listen(&mut self, event: Event) {
                             match event {
-                                Event::HalfTransfer => self.cr().modify(|_, w| w.htie().set_bit()),
+                                Event::HalfTransfer => self.ch().cr.modify(|_, w| w.htie().set_bit()),
                                 Event::TransferComplete => {
-                                    self.cr().modify(|_, w| w.tcie().set_bit())
+                                    self.ch().cr.modify(|_, w| w.tcie().set_bit())
                                 }
                             }
                         }
@@ -145,15 +145,15 @@ macro_rules! dma {
                         pub fn unlisten(&mut self, event: Event) {
                             match event {
                                 Event::HalfTransfer => {
-                                    self.cr().modify(|_, w| w.htie().clear_bit())
+                                    self.ch().cr.modify(|_, w| w.htie().clear_bit())
                                 },
                                 Event::TransferComplete => {
-                                    self.cr().modify(|_, w| w.tcie().clear_bit())
+                                    self.ch().cr.modify(|_, w| w.tcie().clear_bit())
                                 }
                             }
                         }
 
-                        fn ch(&self) -> &dma1::CH {
+                        pub(crate) fn ch(&mut self) -> &dma1::CH {
                             unsafe { &(*$DMAX::ptr()).$chX }
                         }
 
@@ -165,25 +165,10 @@ macro_rules! dma {
                         pub fn ifcr(&self) -> &dma1::IFCR {
                             unsafe { &(*$DMAX::ptr()).ifcr }
                         }
-                        pub fn cr(&mut self) -> &dma1::ch::CR {
-                            &self.ch().ccr
-                        }
-
-                        pub fn ndtr(&mut self) -> &dma1::ch::NDTR {
-                            &self.ch().cndtr
-                        }
-
-                        pub fn par(&mut self) -> &dma1::ch::PAR {
-                            &self.ch().cpar
-                        }
-
-                        pub fn mar(&mut self) -> &dma1::ch::MAR {
-                            &self.ch().cmar
-                        }
 
                         pub fn get_ndtr(&self) -> u32 {
                             // NOTE(unsafe) atomic read with no side effects
-                            self.ch().ndtr.read().bits()
+                            unsafe { &(*$DMAX::ptr())}.$chX.ndtr.read().bits()
                         }
 
                     }
@@ -268,7 +253,7 @@ macro_rules! dma {
 
                             self.channel.ifcr().write(|w| w.$cgifX().set_bit());
 
-                            self.channel.ccr().modify(|_, w| w.en().clear_bit());
+                            self.channel.ch().cr.modify(|_, w| w.en().clear_bit());
 
                             // TODO can we weaken this compiler barrier?
                             // NOTE(compiler_fence) operations on `buffer` should not be reordered
@@ -298,7 +283,7 @@ macro_rules! dma {
                     type Channels = Channels;
 
                     fn split(self, ahb: &mut AHB) -> Channels {
-                        ahb.enr().modify(|_, w| w.$dmaXen().enabled());
+                        ahb.enr().modify(|_, w| w.$dmaXen().set_bit());
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(

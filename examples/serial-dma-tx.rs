@@ -1,25 +1,24 @@
-//! Serial interface DMA RX transfer test
+//! Serial interface DMA TX transfer test
 
 #![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate cortex_m_rt as rt;
-#[macro_use(singleton)]
 extern crate cortex_m;
+extern crate cortex_m_rt as rt;
 extern crate panic_semihosting;
 extern crate stm32f1xx_hal as hal;
 
 use cortex_m::asm;
 use hal::prelude::*;
 use hal::serial::Serial;
-use hal::stm32f103xx;
+use hal::stm32;
 use rt::{entry, exception, ExceptionFrame};
 
 #[entry]
 fn main() -> ! {
-    let p = stm32f103xx::Peripherals::take().unwrap();
+    let p = stm32::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
@@ -52,21 +51,22 @@ fn main() -> ! {
         p.USART1,
         (tx, rx),
         &mut afio.mapr,
-        115_200.bps(),
+        9_600.bps(),
         clocks,
         &mut rcc.apb2,
     );
 
-    let rx = serial.split().1;
-    let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
+    let tx = serial.split().0;
 
-    let t = rx.read_exact(channels.5, buf);
+    let (_, c, tx) = tx.write_all(channels.4, b"The quick brown fox").wait();
 
-    while !t.is_done() {
-        let _slice = t.peek();
+    asm::bkpt();
 
-        asm::bkpt();
-    }
+    let (_, c, tx) = tx.write_all(c, b" jumps").wait();
+
+    asm::bkpt();
+
+    tx.write_all(c, b" over the lazy dog.").wait();
 
     asm::bkpt();
 

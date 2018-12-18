@@ -8,6 +8,6 @@ pub use hal::digital::ToggleableOutputPin as _embedded_hal_digital_ToggleableOut
 pub use hal::prelude::*;
 pub use pwm::PwmExt as _stm32_hal_pwm_PwmExt;
 pub use rcc::RccExt as _stm32_hal_rcc_RccExt;
-//pub use serial::ReadDma as _stm32_hal_serial_ReadDma;
-//pub use serial::WriteDma as _stm32_hal_serial_WriteDma;
+pub use serial::ReadDma as _stm32_hal_serial_ReadDma;
+pub use serial::WriteDma as _stm32_hal_serial_WriteDma;
 pub use time::U32Ext as _stm32_hal_time_U32Ext;
