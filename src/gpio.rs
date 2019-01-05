@@ -46,6 +46,11 @@ pub struct Alternate<MODE> {
     _mode: PhantomData<MODE>,
 }
 
+pub enum State {
+    High,
+    Low,
+}
+
 macro_rules! gpio {
     ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $iopxenr:ident, $iopxrst:ident, $PXx:ident, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $CR:ident),)+
@@ -66,6 +71,7 @@ macro_rules! gpio {
                 PullUp,
                 PushPull,
                 Analog,
+                State,
             };
 
             /// GPIO parts
@@ -182,7 +188,8 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> $PXi<MODE> {
-                    /// Configures the pin to operate as an alternate function push pull output pin
+                    /// Configures the pin to operate as an alternate function push-pull output
+                    /// pin.
                     pub fn into_alternate_push_pull(
                         self,
                         cr: &mut $CR,
@@ -204,6 +211,8 @@ macro_rules! gpio {
                         $PXi { _mode: PhantomData }
                     }
 
+                    /// Configures the pin to operate as an alternate function open-drain output
+                    /// pin.
                     pub fn into_alternate_open_drain(
                         self,
                         cr: &mut $CR,
@@ -299,10 +308,21 @@ macro_rules! gpio {
                         $PXi { _mode: PhantomData }
                     }
 
-                    /// Configures the pin to operate as an open drain output pin
+                    /// Configures the pin to operate as an open-drain output pin.
+                    /// Initial state will be low.
                     pub fn into_open_drain_output(
                         self,
                         cr: &mut $CR,
+                    ) -> $PXi<Output<OpenDrain>> {
+                        self.into_open_drain_output_with_state(cr, State::Low)
+                    }
+
+                    /// Configures the pin to operate as an open-drain output pin.
+                    /// `initial_state` specifies whether the pin should be initially high or low.
+                    pub fn into_open_drain_output_with_state(
+                        self,
+                        cr: &mut $CR,
+                        initial_state: State,
                     ) -> $PXi<Output<OpenDrain>> {
                         let offset = (4 * $i) % 32;
                         // General purpose output open-drain
@@ -311,19 +331,36 @@ macro_rules! gpio {
                         let mode = 0b11;
                         let bits = (cnf << 2) | mode;
 
+                        let mut res = $PXi { _mode: PhantomData };
+
+                        match initial_state {
+                            State::High => res.set_high(),
+                            State::Low  => res.set_low(),
+                        }
+
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
                                 w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
                             });
 
-                        $PXi { _mode: PhantomData }
+                        res
                     }
-
-                    /// Configures the pin to operate as an push pull output pin
+                    /// Configures the pin to operate as an push-pull output pin.
+                    /// Initial state will be low.
                     pub fn into_push_pull_output(
                         self,
                         cr: &mut $CR,
+                    ) -> $PXi<Output<PushPull>> {
+                        self.into_push_pull_output_with_state(cr, State::Low)
+                    }
+
+                    /// Configures the pin to operate as an push-pull output pin.
+                    /// `initial_state` specifies whether the pin should be initially high or low.
+                    pub fn into_push_pull_output_with_state(
+                        self,
+                        cr: &mut $CR,
+                        initial_state: State,
                     ) -> $PXi<Output<PushPull>> {
                         let offset = (4 * $i) % 32;
                         // General purpose output push-pull
@@ -332,13 +369,20 @@ macro_rules! gpio {
                         let mode = 0b11;
                         let bits = (cnf << 2) | mode;
 
+                        let mut res = $PXi { _mode: PhantomData };
+
+                        match initial_state {
+                            State::High => res.set_high(),
+                            State::Low  => res.set_low(),
+                        }
+
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
                                 w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
                             });
 
-                        $PXi { _mode: PhantomData }
+                        res
                     }
 
                     /// Configures the pin to operate as an analog input pin
