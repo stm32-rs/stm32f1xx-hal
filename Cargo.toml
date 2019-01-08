@@ -6,7 +6,7 @@ keywords = ["arm", "cortex-m", "stm32", "hal"]
 license = "MIT OR Apache-2.0"
 name = "stm32f1xx-hal"
 repository = "https://github.com/stm32-rs/stm32f1xx-hal"
-documentation = "https://docs.rs/crate/stm32f1xx-hal"
+documentation = "https://docs.rs/stm32f1xx-hal"
 version = "0.1.1"
 
 [package.metadata.docs.rs]
