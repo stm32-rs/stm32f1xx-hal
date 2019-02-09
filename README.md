@@ -4,6 +4,18 @@
 
 [HAL]: https://crates.io/crates/embedded-hal
 
+## Usage
+
+This crate will eventually contain support for multiple microcontrollers in the
+stm32f1 family. Which specific microcontroller you want to build for has to be
+specified with a feature, for example `stm32f103`.
+
+```
+cargo build --features stm32f103
+```
+
+If no device is specified, the crate does not compile.
+
 ## License
 
 Licensed under either of
