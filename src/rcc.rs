@@ -151,9 +151,10 @@ impl CFGR {
         self
     }
 
-    /// Gives write access to the registers in the backup domain
-    pub fn enable_backup_domain(&mut self, pwr: &mut PWR) -> BackupDomain {
-        // NOTE: Access to apb1enr inside Rcc struct is means we have exclusive access
+    /// Enables write access to the registers in the backup domain
+    pub fn access_backup_domain(&mut self, pwr: &mut PWR) -> BackupDomain {
+        // NOTE: Exclusive access to RCC because this struct is a member of
+        // Rcc
         let apb1_enr = unsafe { &(*RCC::ptr()).apb1enr };
         // Enable the backup interface by setting PWREN and BKPEN
         apb1_enr.modify(|_r, w| {
