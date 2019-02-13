@@ -6,6 +6,8 @@ use stm32::{rcc, RCC, PWR};
 use flash::ACR;
 use time::Hertz;
 
+use backup_domain::BackupDomain;
+
 pub struct BackupDomainEnabledToken {
     _0: ()
 }
@@ -14,7 +16,6 @@ pub struct BackupDomainEnabledToken {
 pub trait RccExt {
     /// Constrains the `RCC` peripheral so it plays nicely with the other abstractions
     fn constrain(self) -> Rcc;
-    fn enable_backup_domain(&mut self, pwr: &mut PWR) -> BackupDomainEnabledToken;
 }
 
 impl RccExt for RCC {
@@ -29,45 +30,9 @@ impl RccExt for RCC {
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
+                backup_domain: None,
             },
         }
-    }
-
-    fn enable_backup_domain(&mut self, pwr: &mut PWR) -> BackupDomainEnabledToken {
-
-        // NOTE: Access to apb1enr before Rcc struct is created means we have exclusive access
-        let apb1_enr = unsafe { &(*RCC::ptr()).apb1enr };
-        // Enable the backup interface by setting PWREN and BKPEN
-        apb1_enr.modify(|_r, w| {
-            w
-                .bkpen().set_bit()
-                .pwren().set_bit()
-        });
-
-        // TODO: Move this into rtc initialisation since PWR is not restricted
-        // Enable access to the backup registers
-        pwr.cr.modify(|_r, w| {
-            w.
-                dbp().set_bit()
-        });
-
-
-        // Configure the perscaler to use the LSE clock as defined in the documentation
-        // in section 7.2.4. This gives a 32.768khz frequency for the RTC
-        self.bdcr.modify(|_, w| {
-            w
-                // Enable external low speed oscilator
-                .lseon().set_bit()
-                // Enable the RTC
-                .rtcen().set_bit()
-                // Set the source of the RTC to LSE
-                .rtcsel().lse()
-        });
-
-        BackupDomainEnabledToken {
-            _0: ()
-        }
-
     }
 }
 
@@ -136,6 +101,7 @@ pub struct CFGR {
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
+    backup_domain: Option<()>,
 }
 
 impl CFGR {
@@ -183,6 +149,31 @@ impl CFGR {
     {
         self.sysclk = Some(freq.into().0);
         self
+    }
+
+    pub fn enable_backup_domain(&mut self, pwr: &mut PWR) -> BackupDomain {
+        // NOTE: Access to apb1enr inside Rcc struct is means we have exclusive access
+        let apb1_enr = unsafe { &(*RCC::ptr()).apb1enr };
+        // Enable the backup interface by setting PWREN and BKPEN
+        apb1_enr.modify(|_r, w| {
+            w
+                .bkpen().set_bit()
+                .pwren().set_bit()
+        });
+
+        // Enable access to the backup registers
+        pwr.cr.modify(|_r, w| {
+            w.
+                dbp().set_bit()
+        });
+
+
+        // Remember that the LSE needs to be initialised in clocks
+        self.backup_domain = Some(());
+
+        BackupDomain {
+            _0: ()
+        }
     }
 
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
@@ -278,6 +269,20 @@ impl CFGR {
         };
 
         let rcc = unsafe { &*RCC::ptr() };
+
+        if self.backup_domain.is_some() {
+            // Configure the perscaler to use the LSE clock as defined in the documentation
+            // in section 7.2.4. This gives a 32.768khz frequency for the RTC
+            rcc.bdcr.modify(|_, w| {
+                w
+                    // Enable external low speed oscilator
+                    .lseon().set_bit()
+                    // Enable the RTC
+                    .rtcen().set_bit()
+                    // Set the source of the RTC to LSE
+                    .rtcsel().lse()
+            });
+        }
 
         if self.hse.is_some() {
             // enable HSE and wait for it to be ready

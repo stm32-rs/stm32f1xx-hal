@@ -12,7 +12,6 @@ extern crate panic_semihosting;
 extern crate stm32f1xx_hal as hal;
 
 use hal::prelude::*;
-use hal::rtc::Rtc;
 use rt::{entry, exception, ExceptionFrame};
 
 use sh::hio;
@@ -23,16 +22,15 @@ use core::fmt::Write;
 fn main() -> ! {
     let mut hstdout = hio::hstdout().unwrap();
 
-    let mut p = hal::stm32::Peripherals::take().unwrap();
+    let p = hal::stm32::Peripherals::take().unwrap();
 
     let mut pwr = p.PWR;
     let mut flash = p.FLASH.constrain();
-    // Enable the clocks in the backup domain
-    let bd_token = p.RCC.enable_backup_domain(&mut pwr);
-    let rcc = p.RCC.constrain();
+    let mut rcc = p.RCC.constrain();
+    let backup_domain = rcc.cfgr.enable_backup_domain(&mut pwr);
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let rtc = Rtc::rtc(p.RTC, &bd_token, clocks);
+    let rtc = backup_domain.rtc(p.RTC, clocks);
 
     loop {
         writeln!(hstdout, "time: {}", rtc.read()).unwrap();
