@@ -19,6 +19,3 @@ impl BackupDomain {
         Rtc::rtc(regs, clocks)
     }
 }
-
-
-
