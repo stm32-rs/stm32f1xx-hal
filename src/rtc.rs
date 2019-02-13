@@ -1,6 +1,6 @@
 use stm32::{RTC};
 
-use rcc::BackupDomainEnabledToken;
+use rcc::{Clocks, BackupDomainEnabledToken};
 
 
 /*
@@ -23,7 +23,7 @@ pub struct Rtc {
 
 
 impl Rtc {
-    pub fn rtc(regs: RTC, _token: &BackupDomainEnabledToken) -> Self {
+    pub fn rtc(regs: RTC, _token: &BackupDomainEnabledToken, _clocks: Clocks) -> Self {
         // Set the prescaler to make it count up once every second
         // The manual on page 490 says that the prescaler value for this should be 7fffh
         regs.prll.write(|w| unsafe{w.bits(0x7fff)});
