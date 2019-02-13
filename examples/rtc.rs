@@ -30,7 +30,7 @@ fn main() -> ! {
     let backup_domain = rcc.cfgr.enable_backup_domain(&mut pwr);
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let rtc = backup_domain.rtc(p.RTC, clocks);
+    let rtc = backup_domain.rtc(p.RTC, &clocks);
 
     loop {
         writeln!(hstdout, "time: {}", rtc.read()).unwrap();

@@ -1,5 +1,7 @@
 use stm32::{RTC};
 
+use crate::rcc::Clocks;
+
 
 /*
     Configuring RTC registers requires the following process:
@@ -15,13 +17,22 @@ use stm32::{RTC};
     both vbat and vdd might have to be connected for the clock to keep counting
 */
 
+/**
+  Interface to the real time clock. This struct can not be instanciated directly,
+  instead, it is created by the `BackupDomain`. This ensures that the rtc registers
+  are writeable and that the clock has been configured correctly.
+*/
 pub struct Rtc {
     regs: RTC
 }
 
 
 impl Rtc {
-    pub(crate) fn rtc(regs: RTC) -> Self {
+    /**
+      Initialises the RTC, this should only be called if access to the backup
+      domain has been enabled
+    */
+    pub(crate) fn rtc(regs: RTC, _clocks: &Clocks) -> Self {
         // Set the prescaler to make it count up once every second
         // The manual on page 490 says that the prescaler value for this should be 7fffh
         regs.prll.write(|w| unsafe{w.bits(0x7fff)});
@@ -32,6 +43,7 @@ impl Rtc {
         }
     }
 
+    /// Starts an alarm which will trigger the RTCALARM interrupt in `time_seconds`
     pub fn set_alarm(&mut self, time_seconds: u32) {
         // Reset counter
         self.perform_write(|s| {
@@ -57,6 +69,7 @@ impl Rtc {
         })
     }
 
+    /// Disables a previously set alarm
     pub fn disable_alarm(&mut self) {
         // Disable alarm interrupt
         self.perform_write(|s| {
@@ -64,41 +77,36 @@ impl Rtc {
         })
     }
 
-    pub fn read(&self) -> u32{
+    /// Reads the current second since the RTC device was initialised
+    pub fn read(&self) -> u32 {
         // Wait for the APB1 interface to be ready
         while self.regs.crl.read().rsf().bit() == false {}
 
         ((self.regs.cnth.read().bits() << 16) as u32) + (self.regs.cntl.read().bits() as u32)
     }
 
-    /**
-      Enables the RTC second interrupt
-    */
+    /// Enables the RTC second interrupt
     pub fn listen_seconds(&mut self) {
         self.perform_write(|s| {
             s.regs.crh.modify(|_, w| w.secie().set_bit())
         })
     }
-    /**
-      Disables the RTC second interrupt
-    */
+
+    /// Disables the RTC second interrupt
     pub fn unlisten_seconds(&mut self) {
         self.perform_write(|s| {
             s.regs.crh.modify(|_, w| w.secie().clear_bit())
         })
     }
-    /**
-      Clears the RTC second interrupt flag
-    */
+
+    /// Clears the RTC second interrupt flag
     pub fn clear_second_flag(&mut self) {
         self.perform_write(|s| {
             s.regs.crl.modify(|_, w| w.secf().clear_bit())
         })
     }
 
-    /**
-      Clears the RTC alarm interrupt flag
-    */
+    /// Clears the RTC alarm interrupt flag
     pub fn clear_alarm_flag(&mut self) {
         self.perform_write(|s| {
             s.regs.crl.modify(|_, w| w.alrf().clear_bit())
@@ -106,8 +114,12 @@ impl Rtc {
     }
 
 
+    /**
+      The RTC registers can not be written to at any time as documented on page
+      485 of the manual. Performing writes using this function ensures that
+      the writes are done correctly.
+    */
     fn perform_write(&mut self, func: impl Fn(&mut Self)) {
-        // This process is documented on page 485 of the stm32f103 manual
         // Wait for the last write operation to be done
         while self.regs.crl.read().rtoff().bit() == false {}
         // Put the clock into config mode
