@@ -1,4 +1,4 @@
-//! Blinks an LED
+//! Outputs the current time in seconds to hstdout using the real time clock
 
 #![deny(unsafe_code)]
 #![deny(warnings)]
