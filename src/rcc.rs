@@ -47,6 +47,34 @@ pub struct Rcc {
     pub cfgr: CFGR,
 }
 
+impl Rcc {
+    /// Enables write access to the registers in the backup domain
+    pub fn backup_domain(&mut self, pwr: &mut PWR) -> BackupDomain {
+        // NOTE: Exclusive access to RCC because this struct is a member of
+        // Rcc
+        // Enable the backup interface by setting PWREN and BKPEN
+        self.apb1.enr().modify(|_r, w| {
+            w
+                .bkpen().set_bit()
+                .pwren().set_bit()
+        });
+
+        // Enable access to the backup registers
+        pwr.cr.modify(|_r, w| {
+            w.
+                dbp().set_bit()
+        });
+
+
+        // Remember that the LSE needs to be initialised in clocks
+        self.cfgr.backup_domain = Some(());
+
+        BackupDomain {
+            _0: ()
+        }
+    }
+}
+
 /// AMBA High-performance Bus (AHB) registers
 pub struct AHB {
     _0: (),
@@ -151,32 +179,6 @@ impl CFGR {
         self
     }
 
-    /// Enables write access to the registers in the backup domain
-    pub fn access_backup_domain(&mut self, pwr: &mut PWR) -> BackupDomain {
-        // NOTE: Exclusive access to RCC because this struct is a member of
-        // Rcc
-        let apb1_enr = unsafe { &(*RCC::ptr()).apb1enr };
-        // Enable the backup interface by setting PWREN and BKPEN
-        apb1_enr.modify(|_r, w| {
-            w
-                .bkpen().set_bit()
-                .pwren().set_bit()
-        });
-
-        // Enable access to the backup registers
-        pwr.cr.modify(|_r, w| {
-            w.
-                dbp().set_bit()
-        });
-
-
-        // Remember that the LSE needs to be initialised in clocks
-        self.backup_domain = Some(());
-
-        BackupDomain {
-            _0: ()
-        }
-    }
 
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
         // TODO ADC clock

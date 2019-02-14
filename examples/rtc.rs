@@ -27,13 +27,13 @@ fn main() -> ! {
     let mut pwr = p.PWR;
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
-    let backup_domain = rcc.cfgr.access_backup_domain(&mut pwr);
+    let backup_domain = rcc.backup_domain(&mut pwr);
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     let rtc = backup_domain.rtc(p.RTC, &clocks);
 
     loop {
-        writeln!(hstdout, "time: {}", rtc.read()).unwrap();
+        writeln!(hstdout, "time: {}", rtc.read_counts()).unwrap();
     }
 }
 
