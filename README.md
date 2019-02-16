@@ -16,6 +16,21 @@ cargo build --features stm32f103
 
 If no device is specified, the crate does not compile.
 
+Alternatively, adding the following to your project's `Cargo.toml` will target
+your chip without needing the `--features` argument:
+
+```
+[features]
+default = ["stm32f100", "rt"]
+rt = ["stm32f1xx-hal/rt"]
+stm32f100 = ["stm32f1xx-hal/stm32f100"]
+```
+
+## Supported Microcontrollers
+
+* STM32F100
+* STM32F103
+
 ## License
 
 Licensed under either of
