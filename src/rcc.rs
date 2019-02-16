@@ -24,6 +24,7 @@ impl RccExt for RCC {
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
+                adcclk: None,
             },
         }
     }
@@ -94,6 +95,7 @@ pub struct CFGR {
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
+    adcclk: Option<u32>
 }
 
 impl CFGR {
@@ -143,9 +145,16 @@ impl CFGR {
         self
     }
 
-    pub fn freeze(self, acr: &mut ACR) -> Clocks {
-        // TODO ADC clock
+    /// Sets the desired frequency for the ADCCLK cloc
+    pub fn adcclk<F>(mut self, freq: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        self.adcclk = Some(freq.into().0);
+        self
+    }
 
+    pub fn freeze(self, acr: &mut ACR) -> Clocks {
         let pllsrcclk = self.hse.unwrap_or(HSI / 2);
 
         let pllmul = self.sysclk.unwrap_or(pllsrcclk) / pllsrcclk;
@@ -235,6 +244,18 @@ impl CFGR {
             _ => (true, false),
         };
 
+        // The ADC clock can not exceed 14 MHz (see the processor manual section 11.1)
+        // Since there is no lower bound, aim for a too high value rather than
+        // it being too low
+        let adc_prescaler = {
+            let desired = pclk2 / self.adcclk.unwrap_or(14_000_000);
+
+            if desired >= 6 { rcc::cfgr::ADCPREW::DIV8 }
+            else if desired >= 4 { rcc::cfgr::ADCPREW::DIV6 }
+            else if desired >= 2 { rcc::cfgr::ADCPREW::DIV4 }
+            else { rcc::cfgr::ADCPREW::DIV2 }
+        };
+
         let rcc = unsafe { &*RCC::ptr() };
 
         if self.hse.is_some() {
@@ -260,8 +281,10 @@ impl CFGR {
             while rcc.cr.read().pllrdy().bit_is_clear() {}
         }
 
+
         // set prescalers and clock source
         rcc.cfgr.modify(|_, w| unsafe {
+            w.adcpre().variant(adc_prescaler);
             w.ppre2()
                 .bits(ppre2_bits)
                 .ppre1()
