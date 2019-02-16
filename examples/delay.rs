@@ -27,7 +27,12 @@ fn main() -> ! {
 
     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
 
+    #[cfg(feature = "stm32f100")]
+    let mut led = gpioc.pc9.into_push_pull_output(&mut gpioc.crh);
+
+    #[cfg(feature = "stm32f103")]
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+
     let mut delay = Delay::new(cp.SYST, clocks);
 
     loop {
