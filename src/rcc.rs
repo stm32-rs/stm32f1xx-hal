@@ -1,7 +1,7 @@
 use core::cmp;
 
 use cast::u32;
-use stm32::{rcc, RCC, PWR};
+use stm32::{rcc, RCC, PWR, BKP};
 
 use flash::ACR;
 use time::Hertz;
@@ -30,8 +30,8 @@ impl RccExt for RCC {
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
-                backup_domain: None,
             },
+            lse: LSE { _0: () },
         }
     }
 }
@@ -45,13 +45,12 @@ pub struct Rcc {
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
     pub cfgr: CFGR,
+    pub lse: LSE,
 }
 
 impl Rcc {
     /// Enables write access to the registers in the backup domain
-    pub fn backup_domain(&mut self, pwr: &mut PWR) -> BackupDomain {
-        // NOTE: Exclusive access to RCC because this struct is a member of
-        // Rcc
+    pub fn backup_domain(&mut self, bkp: BKP, pwr: &mut PWR) -> BackupDomain {
         // Enable the backup interface by setting PWREN and BKPEN
         self.apb1.enr().modify(|_r, w| {
             w
@@ -65,12 +64,8 @@ impl Rcc {
                 dbp().set_bit()
         });
 
-
-        // Remember that the LSE needs to be initialised in clocks
-        self.cfgr.backup_domain = Some(());
-
         BackupDomain {
-            _0: ()
+            regs: bkp
         }
     }
 }
@@ -91,6 +86,7 @@ impl AHB {
 pub struct APB1 {
     _0: (),
 }
+
 
 impl APB1 {
     pub(crate) fn enr(&mut self) -> &rcc::APB1ENR {
@@ -129,7 +125,6 @@ pub struct CFGR {
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
-    backup_domain: Option<()>,
 }
 
 impl CFGR {
@@ -274,20 +269,6 @@ impl CFGR {
 
         let rcc = unsafe { &*RCC::ptr() };
 
-        if self.backup_domain.is_some() {
-            // Configure the perscaler to use the LSE clock as defined in the documentation
-            // in section 7.2.4. This gives a 32.768khz frequency for the RTC
-            rcc.bdcr.modify(|_, w| {
-                w
-                    // Enable external low speed oscilator
-                    .lseon().set_bit()
-                    // Enable the RTC
-                    .rtcen().set_bit()
-                    // Set the source of the RTC to LSE
-                    .rtcsel().lse()
-            });
-        }
-
         if self.hse.is_some() {
             // enable HSE and wait for it to be ready
 
@@ -346,6 +327,32 @@ impl CFGR {
     }
 }
 
+pub struct LSE {
+    _0: ()
+}
+
+impl LSE {
+    /// Start the LSE clock with a frequency of 32.768 kHz
+    pub fn freeze(self, bkp: &BackupDomain) -> Lse {
+        // NOTE: Safe because only the BDCR is written to and it is not
+        // used anywhere else.
+        let rcc = unsafe { &*RCC::ptr() };
+
+        rcc.bdcr.modify(|_, w| {
+            w
+                // Enable external low speed oscilator
+                .lseon().set_bit()
+                // Enable the RTC
+                .rtcen().set_bit()
+                // Set the source of the RTC to LSE
+                .rtcsel().lse()
+        });
+
+        // NOTE: Chosing another frequency requires an external oscilator
+        Lse{freq: Hertz(32768)}
+    }
+}
+
 /// Frozen clock frequencies
 ///
 /// The existence of this value indicates that the clock configuration can no longer be changed
@@ -394,5 +401,18 @@ impl Clocks {
     /// Returns whether the USBCLK clock frequency is valid for the USB peripheral
     pub fn usbclk_valid(&self) -> bool {
         self.usbclk_valid
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Lse {
+    freq: Hertz
+}
+
+
+impl Lse {
+    /// Returns the frequency of the AHB
+    pub fn freq(&self) -> Hertz {
+        self.freq
     }
 }

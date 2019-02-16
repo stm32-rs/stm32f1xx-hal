@@ -1,7 +1,7 @@
 use crate::rtc::Rtc;
 use crate::rcc::Clocks;
 
-use stm32::RTC;
+use stm32::{BKP, RTC};
 
 
 /**
@@ -10,12 +10,8 @@ use stm32::RTC;
   function on `rcc::CFGR`
 */
 pub struct BackupDomain {
-    pub(crate) _0: ()
+    pub(crate) regs: BKP
 }
 
 impl BackupDomain {
-    /// Initialise the RTC
-    pub fn rtc(&self, regs: RTC, clocks: &Clocks) -> Rtc {
-        Rtc::rtc(regs, clocks)
-    }
 }

@@ -1,6 +1,7 @@
 use stm32::{RTC};
 
-use crate::rcc::Clocks;
+use crate::rcc::Lse;
+use crate::backup_domain::BackupDomain;
 
 
 /*
@@ -23,7 +24,8 @@ use crate::rcc::Clocks;
   are writeable and that the clock has been configured correctly.
 */
 pub struct Rtc {
-    regs: RTC
+    regs: RTC,
+    lse: Lse,
 }
 
 
@@ -32,14 +34,15 @@ impl Rtc {
       Initialises the RTC, this should only be called if access to the backup
       domain has been enabled
     */
-    pub(crate) fn rtc(regs: RTC, _clocks: &Clocks) -> Self {
+    pub fn rtc(regs: RTC, lse: Lse, bkp: &BackupDomain) -> Self {
         // Set the prescaler to make it count up once every second
         // The manual on page 490 says that the prescaler value for this should be 7fffh
         let mut result = Rtc {
-            regs
+            regs,
+            lse,
         };
 
-        let freq = 32768;
+        let freq = lse.freq().0;
         let prl = freq - 1;
         assert!(prl < 1 << 20);
         result.perform_write(|s| {
