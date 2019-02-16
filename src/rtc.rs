@@ -63,7 +63,7 @@ impl Rtc {
         });
     }
 
-    /// Starts an alarm which will trigger the RTCALARM interrupt when the counter hits counts
+    /// Sets the time at which an alarm will be triggered
     pub fn set_alarm(&mut self, counts: u32) {
 
         // Set alarm time
@@ -75,15 +75,18 @@ impl Rtc {
         self.perform_write(|s| {
             s.regs.alrl.write(|w| unsafe{w.alrl().bits((counts & 0x0000ffff) as u16)});
         });
+    }
 
+    /// Enables the RTCALARM interrupt
+    pub fn listen_alarm(&mut self) {
         // Enable alarm interrupt
         self.perform_write(|s| {
             s.regs.crh.modify(|_, w| w.alrie().set_bit());
         })
     }
 
-    /// Disables a previously set alarm
-    pub fn disable_alarm(&mut self) {
+    /// Disables the RTCALARM interrupt
+    pub fn unlisten_alarm(&mut self) {
         // Disable alarm interrupt
         self.perform_write(|s| {
             s.regs.crh.modify(|_, w| w.alrie().clear_bit());
