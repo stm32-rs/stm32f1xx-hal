@@ -1,7 +1,7 @@
 use core::cmp;
 
 use cast::u32;
-use stm32::{rcc, RCC, PWR, BKP};
+use stm32::{self, rcc, RCC, PWR};
 
 use flash::ACR;
 use time::Hertz;
@@ -32,6 +32,7 @@ impl RccExt for RCC {
                 sysclk: None,
             },
             lse: LSE { _0: () },
+            bkp: BKP { _0: () },
         }
     }
 }
@@ -46,28 +47,7 @@ pub struct Rcc {
     pub apb2: APB2,
     pub cfgr: CFGR,
     pub lse: LSE,
-}
-
-impl Rcc {
-    /// Enables write access to the registers in the backup domain
-    pub fn backup_domain(&mut self, bkp: BKP, pwr: &mut PWR) -> BackupDomain {
-        // Enable the backup interface by setting PWREN and BKPEN
-        self.apb1.enr().modify(|_r, w| {
-            w
-                .bkpen().set_bit()
-                .pwren().set_bit()
-        });
-
-        // Enable access to the backup registers
-        pwr.cr.modify(|_r, w| {
-            w.
-                dbp().set_bit()
-        });
-
-        BackupDomain {
-            _regs: bkp
-        }
-    }
+    pub bkp: BKP,
 }
 
 /// AMBA High-performance Bus (AHB) registers
@@ -352,6 +332,33 @@ impl LSE {
         Lse{freq: Hertz(32768)}
     }
 }
+
+
+pub struct BKP {
+    _0: ()
+}
+impl BKP {
+    /// Enables write access to the registers in the backup domain
+    pub fn constrain(self, bkp: stm32::BKP, apb1: &mut APB1, pwr: &mut PWR) -> BackupDomain {
+        // Enable the backup interface by setting PWREN and BKPEN
+        apb1.enr().modify(|_r, w| {
+            w
+                .bkpen().set_bit()
+                .pwren().set_bit()
+        });
+
+        // Enable access to the backup registers
+        pwr.cr.modify(|_r, w| {
+            w.
+                dbp().set_bit()
+        });
+
+        BackupDomain {
+            _regs: bkp
+        }
+    }
+}
+
 
 /// Frozen clock frequencies
 ///

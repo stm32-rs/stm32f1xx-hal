@@ -65,7 +65,6 @@ impl Rtc {
 
     /// Sets the time at which an alarm will be triggered
     pub fn set_alarm(&mut self, counts: u32) {
-
         // Set alarm time
         // See section 18.3.5 for explanation
         let alarm_value = counts - 1;

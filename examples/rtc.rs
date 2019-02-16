@@ -29,7 +29,7 @@ fn main() -> ! {
     let mut pwr = p.PWR;
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
-    let backup_domain = rcc.backup_domain(p.BKP, &mut pwr);
+    let backup_domain = rcc.bkp.constrain(p.BKP, &mut rcc.apb1, &mut pwr);
     let _clocks = rcc.cfgr.freeze(&mut flash.acr);
     let lse = rcc.lse.freeze(&backup_domain);
 
