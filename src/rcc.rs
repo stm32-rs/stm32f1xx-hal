@@ -65,7 +65,7 @@ impl Rcc {
         });
 
         BackupDomain {
-            regs: bkp
+            _regs: bkp
         }
     }
 }
@@ -333,7 +333,7 @@ pub struct LSE {
 
 impl LSE {
     /// Start the LSE clock with a frequency of 32.768 kHz
-    pub fn freeze(self, bkp: &BackupDomain) -> Lse {
+    pub fn freeze(self, _bkp: &BackupDomain) -> Lse {
         // NOTE: Safe because only the BDCR is written to and it is not
         // used anywhere else.
         let rcc = unsafe { &*RCC::ptr() };

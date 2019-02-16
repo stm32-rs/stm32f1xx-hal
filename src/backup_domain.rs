@@ -1,7 +1,4 @@
-use crate::rtc::Rtc;
-use crate::rcc::Clocks;
-
-use stm32::{BKP, RTC};
+use stm32::{BKP};
 
 
 /**
@@ -10,7 +7,7 @@ use stm32::{BKP, RTC};
   function on `rcc::CFGR`
 */
 pub struct BackupDomain {
-    pub(crate) regs: BKP
+    pub(crate) _regs: BKP
 }
 
 impl BackupDomain {

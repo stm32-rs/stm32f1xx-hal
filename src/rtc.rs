@@ -25,7 +25,7 @@ use crate::backup_domain::BackupDomain;
 */
 pub struct Rtc {
     regs: RTC,
-    lse: Lse,
+    _lse: Lse,
 }
 
 
@@ -34,12 +34,12 @@ impl Rtc {
       Initialises the RTC, this should only be called if access to the backup
       domain has been enabled
     */
-    pub fn rtc(regs: RTC, lse: Lse, bkp: &BackupDomain) -> Self {
+    pub fn rtc(regs: RTC, lse: Lse, _bkp: &BackupDomain) -> Self {
         // Set the prescaler to make it count up once every second
         // The manual on page 490 says that the prescaler value for this should be 7fffh
         let mut result = Rtc {
             regs,
-            lse,
+            _lse: lse,
         };
 
         let freq = lse.freq().0;
@@ -70,10 +70,10 @@ impl Rtc {
         // See section 18.3.5 for explanation
         let alarm_value = counts - 1;
         self.perform_write(|s| {
-            s.regs.alrh.write(|w| unsafe{w.alrh().bits((counts >> 16) as u16)});
+            s.regs.alrh.write(|w| unsafe{w.alrh().bits((alarm_value >> 16) as u16)});
         });
         self.perform_write(|s| {
-            s.regs.alrl.write(|w| unsafe{w.alrl().bits((counts & 0x0000ffff) as u16)});
+            s.regs.alrl.write(|w| unsafe{w.alrl().bits((alarm_value & 0x0000ffff) as u16)});
         });
     }
 
