@@ -27,16 +27,14 @@ fn main() -> ! {
     let p = hal::stm32::Peripherals::take().unwrap();
 
     let mut pwr = p.PWR;
-    let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
     let backup_domain = rcc.bkp.constrain(p.BKP, &mut rcc.apb1, &mut pwr);
-    let _clocks = rcc.cfgr.freeze(&mut flash.acr);
     let lse = rcc.lse.freeze(&backup_domain);
 
     let rtc = Rtc::rtc(p.RTC, lse, &backup_domain);
 
     loop {
-        writeln!(hstdout, "time: {}", rtc.read_counts()).unwrap();
+        writeln!(hstdout, "time: {}", rtc.read_seconds()).unwrap();
     }
 }
 
