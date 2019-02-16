@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Add basic backup domain support
+- Add support for real time clock
+
 ## [v0.2.0] - 2019-02-10
 
 ### Added
