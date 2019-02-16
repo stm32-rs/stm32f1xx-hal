@@ -64,7 +64,11 @@ impl Rtc {
         });
     }
 
-    /// Sets the time at which an alarm will be triggered
+    /**
+      Sets the time at which an alarm will be triggered
+
+      This also clears the alarm flag if it is set
+    */
     pub fn set_alarm(&mut self, seconds: u32) {
         // Set alarm time
         // See section 18.3.5 for explanation
@@ -134,9 +138,8 @@ impl Rtc {
     /**
       Return `Ok(())` if the alarm flag is set, `Err(nb::WouldBlock)` otherwise.
 
-      Note: Does not clear the alarm flag
+      **Note**: Does not clear the alarm flag
 
-      Usage example: wait 
       ```rust
       use nb::block;
 
