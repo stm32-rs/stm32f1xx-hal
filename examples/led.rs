@@ -20,7 +20,11 @@ fn main() -> ! {
     let mut rcc = p.RCC.constrain();
     let mut gpioc = p.GPIOC.split(&mut rcc.apb2);
 
-    gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+    #[cfg(feature = "stm32f100")]
+    gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();
+
+    #[cfg(feature = "stm32f103")]
+    gpioc.pc13.into_push_pull_output(&mut gpioc.crh).set_high();
 
     loop {}
 }
