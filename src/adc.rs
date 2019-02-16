@@ -1,9 +1,10 @@
+//! Analog to digital converter
+
 use stm32::{ADC1, ADC2, ADC3};
 
 use hal::adc::{OneShot, Channel};
 
 use nb;
-use void::Void;
 
 use crate::gpio::Analog;
 use crate::gpio::gpioa::*;
@@ -32,9 +33,7 @@ macro_rules! hal {
     )+) => {
         $(
             impl Adc<$ADC> {
-                /**
-                  Powers up $ADC and blocks until it's ready
-                */
+                /// Powers up $ADC and blocks until it's ready
                 pub fn $init(adc: $ADC, apb2: &mut APB2) -> Self {
                     // Reset and enable the ADC peripheral
                     apb2.rstr().modify(|_, w| w.$adcxrst().set_bit());
@@ -60,9 +59,7 @@ macro_rules! hal {
                     }
                 }
 
-                /**
-                  Make a single reading of the specified channel
-                */
+                /// Make a single reading of the specified channel
                 fn read_raw(&mut self, channel: u8) -> nb::Result<u16, AdcReadError> {
                     // Prevent starting another read before the previous one is done
                     if let Some(previous_channel) = self.current_channel {

@@ -1,6 +1,7 @@
 //! Makes an analog reading on channel 0 and prints it to itm
 
 #![deny(unsafe_code)]
+#![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -24,7 +25,6 @@ use stm32f1xx_hal::prelude::*;
 use rt::ExceptionFrame;
 use stm32f1xx_hal::adc::{self};
 use embedded_hal::adc::OneShot;
-use cortex_m::asm;
 
 #[entry]
 fn main() -> ! {
