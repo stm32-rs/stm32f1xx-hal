@@ -1,6 +1,41 @@
 //! # Serial Communication
 //! This module contains the functions to utilize the USART (Universal
 //! synchronous asynchronous receiver transmitter (USART)
+//!
+//!
+//! ## Example usage:
+//! ```rust
+//!// prelude: create handles to the peripherals and registers
+//!let p = stm32::Peripherals::take().unwrap();
+//!let cp = cortex_m::Peripherals::take().unwrap();
+//!let mut flash = p.FLASH.constrain();
+//!let mut rcc = p.RCC.constrain();
+//!let clocks = rcc.cfgr.freeze(&mut flash.acr);
+//!let mut afio = p.AFIO.constrain(&mut rcc.apb2);
+//!let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
+//!
+//!// USART1 on Pins A9 and A10
+//!let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
+//!let pin_rx = gpioa.pa10;
+//!// Create an interface struct for USART1 with 9600 Baud
+//!let serial = Serial::usart1(
+//!    p.USART1,
+//!    (pin_tx, pin_rx),
+//!    &mut afio.mapr,
+//!    9_600.bps(),
+//!    clocks,
+//!    &mut rcc.apb2,
+//!);
+//!
+//!// separate into tx and rx channels
+//!let (mut tx, mut rx) = serial.split();
+//!
+//!// Write 'R' to the USART
+//!block!(tx.write(b'R')).ok();
+//!// Receive a byte from the USART and store it in "received"
+//!let received = block!(rx.read()).unwrap();
+//! ```
+
 use core::marker::PhantomData;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
