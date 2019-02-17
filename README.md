@@ -10,11 +10,32 @@ This crate will eventually contain support for multiple microcontrollers in the
 stm32f1 family. Which specific microcontroller you want to build for has to be
 specified with a feature, for example `stm32f103`.
 
+If no microcontroller is specified, the crate will not compile.
+
+### Building an Example
+
+If you are compiling the crate on its own for development or running examples, 
+specify your microcontroller on the command line. For example:
+
 ```
-cargo build --features stm32f103
+cargo build --features stm32f103 --example led
 ```
 
-If no device is specified, the crate does not compile.
+### Using as a Dependency
+
+When using this crate as a dependency in your project, the microcontroller can 
+be specified as part of the `Cargo.toml` definition.
+
+```
+[dependencies.stm32f1xx-hal]
+version = "0.2.0"
+features = ["stm32f100", "rt"]
+```
+
+## Supported Microcontrollers
+
+* STM32F100
+* STM32F103
 
 ## License
 

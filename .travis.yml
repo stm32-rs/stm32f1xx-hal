@@ -5,6 +5,7 @@ rust:
 cache: cargo
 env:
 - MCU=stm32f103
+- MCU=stm32f100
 matrix:
   allow_failures:
     - rust: nightly

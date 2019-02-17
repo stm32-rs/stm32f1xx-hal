@@ -45,6 +45,9 @@ extern crate void;
 
 pub extern crate stm32f1;
 
+#[cfg(feature = "stm32f100")]
+pub use stm32f1::stm32f100 as stm32;
+
 #[cfg(feature = "stm32f103")]
 pub use stm32f1::stm32f103 as stm32;
 
@@ -56,6 +59,7 @@ pub mod flash;
 pub mod gpio;
 pub mod i2c;
 pub mod prelude;
+#[cfg(not(feature = "stm32f100"))]
 pub mod pwm;
 pub mod qei;
 pub mod rcc;
