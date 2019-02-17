@@ -31,9 +31,9 @@
 //!
 //! # Examples
 //!
-//! See the [examples] module.
+//! See the [examples] folder.
 //!
-//! [examples]: examples/index.html
+//! [examples]: https://github.com/stm32-rs/stm32f1xx-hal/tree/master/examples
 
 #![no_std]
 
