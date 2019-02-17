@@ -39,7 +39,7 @@ features = ["stm32f100", "rt"]
 
 ## Documentation
 
-The documentation can be found at [docs.rs](https://docs.rs/stm32f1xx-hal/0.2.0/stm32f1xx_hal/).
+The documentation can be found at [docs.rs](https://docs.rs/stm32f1xx-hal/).
 
 ## License
 
