@@ -37,6 +37,10 @@ features = ["stm32f100", "rt"]
 * STM32F100
 * STM32F103
 
+## Documentation
+
+The documentation can be found at [docs.rs](https://docs.rs/stm32f1xx-hal/0.2.0/stm32f1xx_hal/).
+
 ## License
 
 Licensed under either of
