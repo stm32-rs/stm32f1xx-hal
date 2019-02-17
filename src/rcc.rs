@@ -1,3 +1,5 @@
+//! # Reset & Control Clock
+
 use core::cmp;
 
 use cast::u32;

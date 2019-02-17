@@ -1,3 +1,5 @@
+//! # Timer
+
 use cast::{u16, u32};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;

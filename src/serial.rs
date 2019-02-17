@@ -1,3 +1,6 @@
+//! # Serial Communication
+//! This module contains the functions to utilize the USART (Universal
+//! synchronous asynchronous receiver transmitter (USART)
 use core::marker::PhantomData;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};

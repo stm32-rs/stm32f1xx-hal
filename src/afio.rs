@@ -1,3 +1,4 @@
+//! # Alternate Function I/Os
 use stm32::{afio, AFIO};
 
 use rcc::APB2;
