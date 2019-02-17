@@ -128,6 +128,7 @@ pub struct Tx<USART> {
 
 macro_rules! hal {
     ($(
+        $(#[$meta:meta])*
         $USARTX:ident: (
             $usartX:ident,
             $usartXen:ident,
@@ -139,7 +140,13 @@ macro_rules! hal {
         ),
     )+) => {
         $(
+            $(#[$meta])*
             impl<PINS> Serial<$USARTX, PINS> {
+
+            /// Configures the Serial interface and creates an interface struct.
+            /// `baud_rate` configures the baud rate of the interface. The other parameters are
+            /// handles to the corresponding registers, to make Rust's borrow checker happy.
+            /// (Ownership must be passed to this function)
                 pub fn $usartX(
                     usart: $USARTX,
                     pins: PINS,
@@ -179,6 +186,8 @@ macro_rules! hal {
                     Serial { usart, pins }
                 }
 
+                /// Starts listening by enabling _RX buffer not empty_ interrupt and _TX register
+                /// empty_ interrupt
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
@@ -186,6 +195,8 @@ macro_rules! hal {
                     }
                 }
 
+                /// Stops listening to the USART by disabling the _RX buffer not empty_ interrupt and _TX register
+                /// empty_ interrupt
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
@@ -193,10 +204,13 @@ macro_rules! hal {
                     }
                 }
 
+                /// Returns ownership of the borrowed register handles
                 pub fn release(self) -> ($USARTX, PINS) {
                     (self.usart, self.pins)
                 }
 
+                /// Separates the serial struct into separate channel objects for sending (Tx) and
+                /// receiving (Rx)
                 pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>) {
                     (
                         Tx {
@@ -432,6 +446,9 @@ macro_rules! hal {
 }
 
 hal! {
+    /// # The Trait implementation for USARTX
+    /// Here shown for USART1. This is the same for USART2 and USART3, just
+    /// replace the number accordingly
     USART1: (
         usart1,
         usart1en,
@@ -441,6 +458,7 @@ hal! {
         |remap| remap == 1,
         APB2
     ),
+    #[doc(hidden)]
     USART2: (
         usart2,
         usart2en,
@@ -450,6 +468,7 @@ hal! {
         |remap| remap == 1,
         APB1
     ),
+    #[doc(hidden)]
     USART3: (
         usart3,
         usart3en,
