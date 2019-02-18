@@ -141,6 +141,8 @@ macro_rules! hal {
     )+) => {
         $(
             $(#[$meta])*
+            /// The behaviour of the functions is equal for all three USARTs.
+            /// Except that they are using the corresponding USART hardware and pins.
             impl<PINS> Serial<$USARTX, PINS> {
 
                 /// Configures the Serial interface and creates an interface struct.
@@ -457,7 +459,7 @@ hal! {
         |remap| remap == 1,
         APB2
     ),
-    #[doc(hidden)]
+    /// # USART2 functions
     USART2: (
         usart2,
         usart2en,
@@ -467,7 +469,7 @@ hal! {
         |remap| remap == 1,
         APB1
     ),
-    #[doc(hidden)]
+    /// # USART3 functions
     USART3: (
         usart3,
         usart3en,
