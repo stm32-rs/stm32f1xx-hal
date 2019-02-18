@@ -188,8 +188,9 @@ macro_rules! hal {
                     Serial { usart, pins }
                 }
 
-                /// Starts listening by enabling _RX buffer not empty_ interrupt and _TX register
-                /// empty_ interrupt
+                /// Starts listening to the USART by enabling the _Received data
+                /// ready to be read (RXNE)_ interrupt and _Transmit data
+                /// register empty (TXE)_ interrupt
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
