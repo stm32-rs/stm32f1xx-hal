@@ -334,22 +334,6 @@ pub struct LSE {
     _0: ()
 }
 
-impl LSE {
-    /**
-      Start the LSE clock with a frequency of 32.768 kHz
-
-      Returns an `Lse` which indicates that the Lse is on and its frequency is fixed
-    */
-    pub fn freeze(self, bkp: &mut BackupDomain) -> Lse {
-        // Enable the clock
-        bkp.enable_lse();
-
-        // NOTE: Chosing another frequency requires an external oscilator as explained in section
-        // 8.2.4
-        Lse{freq: Hertz(32768)}
-    }
-}
-
 
 pub struct BKP {
     _0: ()
@@ -430,16 +414,3 @@ impl Clocks {
     }
 }
 
-/// The existense of this struct means that the LSE is enabled and runs at `freq` hertz
-#[derive(Clone, Copy)]
-pub struct Lse {
-    freq: Hertz
-}
-
-
-impl Lse {
-    /// Returns the frequency of the LSE
-    pub fn freq(&self) -> Hertz {
-        self.freq
-    }
-}

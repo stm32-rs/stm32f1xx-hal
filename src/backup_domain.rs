@@ -15,7 +15,8 @@
 
 use stm32::{BKP, rcc, RCC};
 
-use crate::rcc::Lse;
+use crate::rcc::{LSE};
+use time::Hertz;
 
 /**
   The existence of this struct indicates that writing to the the backup
@@ -28,6 +29,7 @@ pub struct BackupDomain {
 impl BackupDomain {
     // Enables the RTC device with the lse as the clock
     pub(crate) fn enable_rtc(&mut self, lse: Lse) {
+        // NOTE: Safe RCC access because we are only accessing bdcr
         let rcc = unsafe { &*RCC::ptr() };
         rcc.bdcr.modify(|_, w| {
             w
@@ -39,8 +41,30 @@ impl BackupDomain {
     }
 
     /// Enables the low speed external oscilator
-    pub(crate) fn enable_lse(&mut self) {
+    pub fn enable_lse(&mut self, _lse: LSE) -> Lse {
+        // NOTE: Safe RCC access because we are only accessing bdcr
         let rcc = unsafe { &*RCC::ptr() };
         rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+
+        // NOTE: Chosing another frequency requires an external oscilator as explained in section
+        // 8.2.4
+        Lse{freq: Hertz(32768)}
+    }
+}
+
+
+/// The existense of this struct means that the LSE is enabled and runs at `freq` hertz
+///
+/// The LSE can be started using `BackupDomain.enable_lse`
+#[derive(Clone, Copy)]
+pub struct Lse {
+    freq: Hertz
+}
+
+
+impl Lse {
+    /// Returns the frequency of the LSE
+    pub fn freq(&self) -> Hertz {
+        self.freq
     }
 }

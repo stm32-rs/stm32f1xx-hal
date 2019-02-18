@@ -14,7 +14,7 @@
 
 use stm32::{RTC};
 
-use crate::rcc::Lse;
+use crate::backup_domain::Lse;
 use crate::backup_domain::BackupDomain;
 
 use nb;
