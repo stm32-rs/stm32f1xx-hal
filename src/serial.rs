@@ -145,10 +145,23 @@ macro_rules! hal {
             /// Except that they are using the corresponding USART hardware and pins.
             impl<PINS> Serial<$USARTX, PINS> {
 
-                /// Configures the Serial interface and creates an interface struct.
-                /// `baud_rate` configures the baud rate of the interface. The other parameters are
-                /// handles to the corresponding registers which must be changed by this function.
-                /// This function takes ownership of these registers.
+                /// Configures the serial interface and creates the interface
+                /// struct.
+                ///
+                /// `Bps` is the baud rate of the interface.
+                ///
+                /// `Clocks` passes information about the current frequencies of
+                /// the clocks.  The existence of the struct ensures that the
+                /// clock settings are fixed.
+                ///
+                /// The `serial` struct takes ownership of the `PINS` and `USARTX`
+                /// device registers.
+                ///
+                /// `MAPR` and `APBX` are register handles which are passed for
+                /// configuration. (`MAPR` is used to map the USART to the
+                /// corresponding pins. `APBX` is used to reset the USART.)
+                /// The `serial` struct does not take ownership of `MAPR` and
+                /// `APBX`.
                 pub fn $usartX(
                     usart: $USARTX,
                     pins: PINS,
