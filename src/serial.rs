@@ -154,14 +154,12 @@ macro_rules! hal {
                 /// the clocks.  The existence of the struct ensures that the
                 /// clock settings are fixed.
                 ///
-                /// The `serial` struct takes ownership of the `PINS` and `USARTX`
-                /// device registers.
+                /// The `serial` struct takes ownership over the `USARTX` device
+                /// registers and the specified `PINS`
                 ///
                 /// `MAPR` and `APBX` are register handles which are passed for
                 /// configuration. (`MAPR` is used to map the USART to the
                 /// corresponding pins. `APBX` is used to reset the USART.)
-                /// The `serial` struct does not take ownership of `MAPR` and
-                /// `APBX`.
                 pub fn $usartX(
                     usart: $USARTX,
                     pins: PINS,
