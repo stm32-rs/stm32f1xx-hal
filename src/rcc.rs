@@ -335,23 +335,17 @@ pub struct LSE {
 }
 
 impl LSE {
-    /// Start the LSE clock with a frequency of 32.768 kHz
-    pub fn freeze(self, _bkp: &BackupDomain) -> Lse {
-        // NOTE: Safe because only the BDCR is written to and it is not
-        // used anywhere else.
-        let rcc = unsafe { &*RCC::ptr() };
+    /**
+      Start the LSE clock with a frequency of 32.768 kHz
 
-        rcc.bdcr.modify(|_, w| {
-            w
-                // Enable external low speed oscilator
-                .lseon().set_bit()
-                // Enable the RTC
-                .rtcen().set_bit()
-                // Set the source of the RTC to LSE
-                .rtcsel().lse()
-        });
+      Returns an `Lse` which indicates that the Lse is on and its frequency is fixed
+    */
+    pub fn freeze(self, bkp: &mut BackupDomain) -> Lse {
+        // Enable the clock
+        bkp.enable_lse();
 
-        // NOTE: Chosing another frequency requires an external oscilator
+        // NOTE: Chosing another frequency requires an external oscilator as explained in section
+        // 8.2.4
         Lse{freq: Hertz(32768)}
     }
 }
@@ -360,6 +354,7 @@ impl LSE {
 pub struct BKP {
     _0: ()
 }
+
 impl BKP {
     /// Enables write access to the registers in the backup domain
     pub fn constrain(self, bkp: stm32::BKP, apb1: &mut APB1, pwr: &mut PWR) -> BackupDomain {
@@ -372,12 +367,13 @@ impl BKP {
 
         // Enable access to the backup registers
         pwr.cr.modify(|_r, w| {
-            w.
-                dbp().set_bit()
+            w
+                .dbp().set_bit()
         });
 
+        // NOTE: Safe because we are only accessing bdcr which is not touched anywhere else
         BackupDomain {
-            _regs: bkp
+            _regs: bkp,
         }
     }
 }
@@ -434,6 +430,7 @@ impl Clocks {
     }
 }
 
+/// The existense of this struct means that the LSE is enabled and runs at `freq` hertz
 #[derive(Clone, Copy)]
 pub struct Lse {
     freq: Hertz
@@ -441,7 +438,7 @@ pub struct Lse {
 
 
 impl Lse {
-    /// Returns the frequency of the AHB
+    /// Returns the frequency of the LSE
     pub fn freq(&self) -> Hertz {
         self.freq
     }

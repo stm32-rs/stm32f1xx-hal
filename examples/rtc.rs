@@ -28,13 +28,13 @@ fn main() -> ! {
 
     let mut pwr = p.PWR;
     let mut rcc = p.RCC.constrain();
-    let backup_domain = rcc.bkp.constrain(p.BKP, &mut rcc.apb1, &mut pwr);
-    let lse = rcc.lse.freeze(&backup_domain);
+    let mut backup_domain = rcc.bkp.constrain(p.BKP, &mut rcc.apb1, &mut pwr);
+    let lse = rcc.lse.freeze(&mut backup_domain);
 
-    let rtc = Rtc::rtc(p.RTC, lse, &backup_domain);
+    let rtc = Rtc::rtc(p.RTC, lse, &mut backup_domain);
 
     loop {
-        writeln!(hstdout, "time: {}", rtc.read_seconds()).unwrap();
+        writeln!(hstdout, "time: {}", rtc.seconds()).unwrap();
     }
 }
 

@@ -35,14 +35,15 @@ impl Rtc {
       Initialises the RTC. The `Lse` and `BackupDomain` structs are created by
       `Rcc.lse.freeze()` and `Rcc.bkp.constrain()` respectively
     */
-    pub fn rtc(regs: RTC, lse: Lse, _bkp: &BackupDomain) -> Self {
-        // Set the prescaler to make it count up once every second
-        // The manual on page 490 says that the prescaler value for this should be 7fffh
+    pub fn rtc(regs: RTC, lse: Lse, bkp: &mut BackupDomain) -> Self {
         let mut result = Rtc {
             regs,
             _lse: lse,
         };
 
+        bkp.enable_rtc(lse);
+
+        // Set the prescaler to make it count up once every second
         let freq = lse.freq().0;
         let prl = freq - 1;
         assert!(prl < 1 << 20);
@@ -75,9 +76,7 @@ impl Rtc {
         let alarm_value = seconds - 1;
         self.perform_write(|s| {
             s.regs.alrh.write(|w| unsafe{w.alrh().bits((alarm_value >> 16) as u16)});
-        });
-        self.perform_write(|s| {
-            s.regs.alrl.write(|w| unsafe{w.alrl().bits((alarm_value & 0x0000ffff) as u16)});
+            s.regs.alrl.write(|w| unsafe{w.alrl().bits(alarm_value as u16)});
         });
 
         self.clear_alarm_flag();
@@ -100,7 +99,7 @@ impl Rtc {
     }
 
     /// Reads the current time
-    pub fn read_seconds(&self) -> u32 {
+    pub fn seconds(&self) -> u32 {
         // Wait for the APB1 interface to be ready
         while self.regs.crl.read().rsf().bit() == false {}
 
@@ -138,8 +137,6 @@ impl Rtc {
     /**
       Return `Ok(())` if the alarm flag is set, `Err(nb::WouldBlock)` otherwise.
 
-      **Note**: Does not clear the alarm flag
-
       ```rust
       use nb::block;
 
@@ -150,6 +147,7 @@ impl Rtc {
     */
     pub fn wait_alarm(&mut self) -> nb::Result<(), Void> {
         if self.regs.crl.read().alrf().bit() == true {
+            self.regs.crl.modify(|_, w| w.alrf().clear_bit());
             Ok(())
         }
         else {
