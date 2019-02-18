@@ -1,6 +1,6 @@
-//! # Serial Communication
+//! # Serial Communication (USART)
 //! This module contains the functions to utilize the USART (Universal
-//! synchronous asynchronous receiver transmitter (USART)
+//! synchronous asynchronous receiver transmitter)
 //!
 //!
 //! ## Example usage:
@@ -13,7 +13,7 @@
 //! let clocks = rcc.cfgr.freeze(&mut flash.acr);
 //! let mut afio = p.AFIO.constrain(&mut rcc.apb2);
 //! let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
-//! 
+//!
 //! // USART1 on Pins A9 and A10
 //! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
 //! let pin_rx = gpioa.pa10;
@@ -26,10 +26,10 @@
 //!     clocks,
 //!     &mut rcc.apb2,
 //! );
-//! 
+//!
 //! // separate into tx and rx channels
 //! let (mut tx, mut rx) = serial.split();
-//! 
+//!
 //! // Write 'R' to the USART
 //! block!(tx.write(b'R')).ok();
 //! // Receive a byte from the USART and store it in "received"
@@ -143,10 +143,10 @@ macro_rules! hal {
             $(#[$meta])*
             impl<PINS> Serial<$USARTX, PINS> {
 
-            /// Configures the Serial interface and creates an interface struct.
-            /// `baud_rate` configures the baud rate of the interface. The other parameters are
-            /// handles to the corresponding registers, to make Rust's borrow checker happy.
-            /// (Ownership must be passed to this function)
+                /// Configures the Serial interface and creates an interface struct.
+                /// `baud_rate` configures the baud rate of the interface. The other parameters are
+                /// handles to the corresponding registers which must be changed by this function.
+                /// This function takes ownership of these registers.
                 pub fn $usartX(
                     usart: $USARTX,
                     pins: PINS,
@@ -195,8 +195,9 @@ macro_rules! hal {
                     }
                 }
 
-                /// Stops listening to the USART by disabling the _RX buffer not empty_ interrupt and _TX register
-                /// empty_ interrupt
+                /// Stops listening to the USART by disabling the _Received data
+                /// ready to be read (RXNE)_ interrupt and _Transmit data
+                /// register empty (TXE)_ interrupt
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
@@ -446,9 +447,7 @@ macro_rules! hal {
 }
 
 hal! {
-    /// # The Trait implementation for USARTX
-    /// Here shown for USART1. This is the same for USART2 and USART3, just
-    /// replace the number accordingly
+    /// # USART1 functions
     USART1: (
         usart1,
         usart1en,
