@@ -8,6 +8,7 @@ use time::Hertz;
 
 use backup_domain::BackupDomain;
 
+
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
     /// Constrains the `RCC` peripheral so it plays nicely with the other abstractions

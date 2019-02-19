@@ -14,11 +14,14 @@
 
 use stm32::{RTC};
 
-use crate::backup_domain::Lse;
 use crate::backup_domain::BackupDomain;
+use crate::rcc::LSE;
 
 use nb;
 use void::Void;
+
+// The LSE runs at at 32 768 hertz unless an external clock is provided
+const LSE_HERTZ: u32 = 32_768;
 
 
 /**
@@ -26,7 +29,6 @@ use void::Void;
 */
 pub struct Rtc {
     regs: RTC,
-    _lse: Lse,
 }
 
 
@@ -35,17 +37,15 @@ impl Rtc {
       Initialises the RTC. The `Lse` and `BackupDomain` structs are created by
       `Rcc.lse.freeze()` and `Rcc.bkp.constrain()` respectively
     */
-    pub fn rtc(regs: RTC, lse: Lse, bkp: &mut BackupDomain) -> Self {
+    pub fn rtc(regs: RTC, lse: LSE, bkp: &mut BackupDomain) -> Self {
         let mut result = Rtc {
             regs,
-            _lse: lse,
         };
 
         bkp.enable_rtc(lse);
 
-        // Set the prescaler to make it count up once every second
-        let freq = lse.freq().0;
-        let prl = freq - 1;
+        // Set the prescaler to make it count up once every second.
+        let prl = LSE_HERTZ - 1;
         assert!(prl < 1 << 20);
         result.perform_write(|s| {
             s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
