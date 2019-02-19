@@ -12,10 +12,9 @@
   See examples/rtc.rs and examples/blinky_rtc.rs for usage examples.
 */
 
-use stm32::{RTC};
+use stm32::{RTC, RCC};
 
 use crate::backup_domain::BackupDomain;
-use crate::rcc::LSE;
 
 use nb;
 use void::Void;
@@ -34,15 +33,15 @@ pub struct Rtc {
 
 impl Rtc {
     /**
-      Initialises the RTC. The `Lse` and `BackupDomain` structs are created by
-      `Rcc.lse` and `Rcc.bkp.constrain()` respectively
+      Initialises the RTC. The `BackupDomain` struct is created by
+      `Rcc.bkp.constrain()`.
     */
-    pub fn rtc(regs: RTC, lse: LSE, bkp: &mut BackupDomain) -> Self {
+    pub fn rtc(regs: RTC, bkp: &mut BackupDomain) -> Self {
         let mut result = Rtc {
             regs,
         };
 
-        bkp.enable_rtc(lse);
+        Rtc::enable_rtc(bkp);
 
         // Set the prescaler to make it count up once every second.
         let prl = LSE_HERTZ - 1;
@@ -53,6 +52,22 @@ impl Rtc {
         });
 
         result
+    }
+
+    /// Enables the RTC device with the lse as the clock
+    fn enable_rtc(_bkp: &mut BackupDomain) {
+        // NOTE: Safe RCC access because we are only accessing bdcr
+        // and we have a &mut on BackupDomain
+        let rcc = unsafe { &*RCC::ptr() };
+        rcc.bdcr.modify(|_, w| {
+            w
+                // start the LSE oscillator
+                .lseon().set_bit()
+                // Enable the RTC
+                .rtcen().set_bit()
+                // Set the source of the RTC to LSE
+                .rtcsel().lse()
+        })
     }
 
     /// Set the current rtc value to the specified amount of seconds

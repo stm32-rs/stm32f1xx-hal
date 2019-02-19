@@ -13,9 +13,7 @@
   Only the RTC functionality is currently implemented.
 */
 
-use stm32::{BKP, rcc, RCC};
-
-use crate::rcc::{LSE};
+use stm32::BKP;
 
 /**
   The existence of this struct indicates that writing to the the backup
@@ -23,24 +21,4 @@ use crate::rcc::{LSE};
 */
 pub struct BackupDomain {
     pub(crate) _regs: BKP,
-}
-
-impl BackupDomain {
-    /**
-      Enables the RTC device with the lse as the clock
-
-      Takes ownership over LSE in order to freeze it
-    */
-    pub(crate) fn enable_rtc(&mut self, lse: LSE) {
-        // NOTE: Safe RCC access because we are only accessing bdcr
-        let rcc = unsafe { &*RCC::ptr() };
-        rcc.bdcr.modify(|_, w| {
-            w
-                .lseon().set_bit()
-                // Enable the RTC
-                .rtcen().set_bit()
-                // Set the source of the RTC to LSE
-                .rtcsel().lse()
-        })
-    }
 }
