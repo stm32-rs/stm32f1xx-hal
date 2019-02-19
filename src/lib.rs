@@ -1,4 +1,4 @@
-//! HAL for the STM32F1 family of microcontrollers
+//! # HAL for the STM32F1 family of microcontrollers
 //!
 //! This is an implementation of the [`embedded-hal`] traits for the STM32F1 family of
 //! microcontrollers.
@@ -31,9 +31,9 @@
 //!
 //! # Examples
 //!
-//! See the [examples] module.
+//! See the [examples] folder.
 //!
-//! [examples]: examples/index.html
+//! [examples]: https://github.com/stm32-rs/stm32f1xx-hal/tree/master/examples
 
 #![no_std]
 

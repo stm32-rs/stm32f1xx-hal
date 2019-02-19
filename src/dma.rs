@@ -1,3 +1,4 @@
+//! # Direct Memory Access
 #![allow(dead_code)]
 
 use core::marker::PhantomData;

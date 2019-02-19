@@ -1,3 +1,5 @@
+//! # Pulse Width Modulation
+
 use core::marker::PhantomData;
 use core::mem;
 

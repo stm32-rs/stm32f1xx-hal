@@ -1,4 +1,4 @@
-//! General Purpose Input / Output
+//! # General Purpose I/Os
 
 // TODO the pins here currently correspond to the LQFP-48 package. There should be Cargo features
 // that let you select different microcontroller packages
