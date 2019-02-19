@@ -35,7 +35,7 @@ pub struct Rtc {
 impl Rtc {
     /**
       Initialises the RTC. The `Lse` and `BackupDomain` structs are created by
-      `Rcc.lse.freeze()` and `Rcc.bkp.constrain()` respectively
+      `Rcc.lse` and `Rcc.bkp.constrain()` respectively
     */
     pub fn rtc(regs: RTC, lse: LSE, bkp: &mut BackupDomain) -> Self {
         let mut result = Rtc {
@@ -59,9 +59,7 @@ impl Rtc {
     pub fn set_seconds(&mut self, seconds: u32) {
         self.perform_write(|s| {
             s.regs.cnth.write(|w| unsafe{w.bits(seconds >> 16)});
-        });
-        self.perform_write(|s| {
-            s.regs.cntl.write(|w| unsafe{w.bits(seconds)});
+            s.regs.cntl.write(|w| unsafe{w.bits(seconds as u16 as u32)});
         });
     }
 
@@ -103,7 +101,7 @@ impl Rtc {
         // Wait for the APB1 interface to be ready
         while self.regs.crl.read().rsf().bit() == false {}
 
-        ((self.regs.cnth.read().bits() << 16) as u32) + (self.regs.cntl.read().bits() as u32)
+        self.regs.cnth.read().bits() << 16 | self.regs.cntl.read().bits()
     }
 
     /// Enables the RTC second interrupt

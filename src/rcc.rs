@@ -352,7 +352,6 @@ impl BKP {
                 .dbp().set_bit()
         });
 
-        // NOTE: Safe because we are only accessing bdcr which is not touched anywhere else
         BackupDomain {
             _regs: bkp,
         }
