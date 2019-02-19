@@ -8,10 +8,6 @@ use time::Hertz;
 
 use backup_domain::BackupDomain;
 
-pub struct BackupDomainEnabledToken {
-    _0: ()
-}
-
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
     /// Constrains the `RCC` peripheral so it plays nicely with the other abstractions
