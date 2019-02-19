@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Add basic backup domain support
+- Add support for real time clock
 - Added patches for using STM32F100 chip (PWM disabled)
 
 ## [v0.2.0] - 2019-02-10

@@ -67,3 +67,5 @@ pub mod serial;
 pub mod spi;
 pub mod time;
 pub mod timer;
+pub mod rtc;
+pub mod backup_domain;

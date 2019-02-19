@@ -3,10 +3,13 @@
 use core::cmp;
 
 use cast::u32;
-use stm32::{rcc, RCC};
+use stm32::{self, rcc, RCC, PWR};
 
 use flash::ACR;
 use time::Hertz;
+
+use backup_domain::BackupDomain;
+
 
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
@@ -27,6 +30,7 @@ impl RccExt for RCC {
                 pclk2: None,
                 sysclk: None,
             },
+            bkp: BKP { _0: () },
         }
     }
 }
@@ -40,6 +44,7 @@ pub struct Rcc {
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
     pub cfgr: CFGR,
+    pub bkp: BKP,
 }
 
 /// AMBA High-performance Bus (AHB) registers
@@ -58,6 +63,7 @@ impl AHB {
 pub struct APB1 {
     _0: (),
 }
+
 
 impl APB1 {
     pub(crate) fn enr(&mut self) -> &rcc::APB1ENR {
@@ -144,6 +150,7 @@ impl CFGR {
         self.sysclk = Some(freq.into().0);
         self
     }
+
 
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
         // TODO ADC clock
@@ -320,6 +327,33 @@ impl CFGR {
     }
 }
 
+pub struct BKP {
+    _0: ()
+}
+
+impl BKP {
+    /// Enables write access to the registers in the backup domain
+    pub fn constrain(self, bkp: stm32::BKP, apb1: &mut APB1, pwr: &mut PWR) -> BackupDomain {
+        // Enable the backup interface by setting PWREN and BKPEN
+        apb1.enr().modify(|_r, w| {
+            w
+                .bkpen().set_bit()
+                .pwren().set_bit()
+        });
+
+        // Enable access to the backup registers
+        pwr.cr.modify(|_r, w| {
+            w
+                .dbp().set_bit()
+        });
+
+        BackupDomain {
+            _regs: bkp,
+        }
+    }
+}
+
+
 /// Frozen clock frequencies
 ///
 /// The existence of this value indicates that the clock configuration can no longer be changed
@@ -370,3 +404,4 @@ impl Clocks {
         self.usbclk_valid
     }
 }
+
