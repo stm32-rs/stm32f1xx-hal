@@ -31,8 +31,8 @@ fn main() -> ! {
     // Set up the RTC
     // Enable writes to the backup domain
     let mut backup_domain = rcc.bkp.constrain(dp.BKP, &mut rcc.apb1, &mut pwr);
-    // Start the LSE which is used as the clock for the RTC
-    let mut rtc = Rtc::rtc(dp.RTC, rcc.lse, &mut backup_domain);
+    // Start the RTC
+    let mut rtc = Rtc::rtc(dp.RTC, &mut backup_domain);
 
     let mut led_on = false;
     loop {

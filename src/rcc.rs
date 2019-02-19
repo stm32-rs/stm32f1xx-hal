@@ -28,7 +28,6 @@ impl RccExt for RCC {
                 pclk2: None,
                 sysclk: None,
             },
-            lse: LSE { _0: () },
             bkp: BKP { _0: () },
         }
     }
@@ -43,7 +42,6 @@ pub struct Rcc {
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
     pub cfgr: CFGR,
-    pub lse: LSE,
     pub bkp: BKP,
 }
 
@@ -327,11 +325,6 @@ impl CFGR {
     }
 }
 
-pub struct LSE {
-    _0: ()
-}
-
-
 pub struct BKP {
     _0: ()
 }
@@ -352,7 +345,6 @@ impl BKP {
                 .dbp().set_bit()
         });
 
-        // NOTE: Safe because we are only accessing bdcr which is not touched anywhere else
         BackupDomain {
             _regs: bkp,
         }

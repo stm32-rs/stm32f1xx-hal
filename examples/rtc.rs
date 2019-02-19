@@ -30,7 +30,7 @@ fn main() -> ! {
     let mut rcc = p.RCC.constrain();
     let mut backup_domain = rcc.bkp.constrain(p.BKP, &mut rcc.apb1, &mut pwr);
 
-    let rtc = Rtc::rtc(p.RTC, rcc.lse, &mut backup_domain);
+    let rtc = Rtc::rtc(p.RTC, &mut backup_domain);
 
     loop {
         writeln!(hstdout, "time: {}", rtc.seconds()).unwrap();
