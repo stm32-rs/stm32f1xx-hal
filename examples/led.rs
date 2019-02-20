@@ -25,7 +25,7 @@ fn main() -> ! {
     gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();
 
     #[cfg(feature = "stm32f103")]
-    gpioc.pc13.into_push_pull_output(&mut gpioc.crh).set_high();
+    gpioc.pc13.into_push_pull_output(&mut gpioc.crh).set_low();
 
     loop {}
 }
