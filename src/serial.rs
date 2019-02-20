@@ -134,6 +134,7 @@ macro_rules! hal {
             $usartXen:ident,
             $usartXrst:ident,
             $usartX_remap:ident,
+            $pclk:ident,
             $bit:ident,
             $closure:expr,
             $APB:ident
@@ -185,7 +186,7 @@ macro_rules! hal {
                     // enable DMA transfers
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
-                    let brr = clocks.pclk2().0 / baud_rate.0;
+                    let brr = clocks.$pclk().0 / baud_rate.0;
                     assert!(brr >= 16, "impossible baud rate");
                     usart.brr.write(|w| unsafe { w.bits(brr) });
 
@@ -467,6 +468,7 @@ hal! {
         usart1en,
         usart1rst,
         usart1_remap,
+        pclk1,
         bit,
         |remap| remap == 1,
         APB2
@@ -477,6 +479,7 @@ hal! {
         usart2en,
         usart2rst,
         usart2_remap,
+        pclk2,
         bit,
         |remap| remap == 1,
         APB1
@@ -487,6 +490,7 @@ hal! {
         usart3en,
         usart3rst,
         usart3_remap,
+        pclk2,
         bits,
         |remap| remap,
         APB1
