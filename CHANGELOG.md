@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add support for real time clock
 - Added patches for using STM32F100 chip (PWM disabled)
 
+### Fixed
+
+- Use correct clock for serial baudrate computation
+
 ## [v0.2.0] - 2019-02-10
 
 ### Added
