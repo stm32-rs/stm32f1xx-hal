@@ -6,7 +6,7 @@
 //! ## Example usage:
 //!  ```rust
 //! // prelude: create handles to the peripherals and registers
-//! let p = stm32::Peripherals::take().unwrap();
+//! let p = crate::pac::Peripherals::take().unwrap();
 //! let cp = cortex_m::Peripherals::take().unwrap();
 //! let mut flash = p.FLASH.constrain();
 //! let mut rcc = p.RCC.constrain();
@@ -41,19 +41,19 @@ use core::ptr;
 use core::sync::atomic::{self, Ordering};
 
 use cast::u16;
-use hal;
+use crate::hal;
 use nb;
-use stm32::{USART1, USART2, USART3};
+use crate::pac::{USART1, USART2, USART3};
 use void::Void;
 
-use afio::MAPR;
-//use dma::{dma1, CircBuffer, Static, Transfer, R, W};
-use dma::{CircBuffer, Static, Transfer, R, W};
-use gpio::gpioa::{PA10, PA2, PA3, PA9};
-use gpio::gpiob::{PB10, PB11, PB6, PB7};
-use gpio::{Alternate, Floating, Input, PushPull};
-use rcc::{Clocks, APB1, APB2};
-use time::Bps;
+use crate::afio::MAPR;
+//use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W};
+use crate::dma::{CircBuffer, Static, Transfer, R, W};
+use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
+use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
+use crate::gpio::{Alternate, Floating, Input, PushPull};
+use crate::rcc::{Clocks, APB1, APB2};
+use crate::time::Bps;
 
 /// Interrupt event
 pub enum Event {
@@ -239,7 +239,7 @@ macro_rules! hal {
                 }
             }
 
-            impl hal::serial::Read<u8> for Rx<$USARTX> {
+            impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
@@ -427,7 +427,7 @@ macro_rules! hal {
             }
             */
 
-            impl hal::serial::Write<u8> for Tx<$USARTX> {
+            impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
                 type Error = Void;
 
                 fn flush(&mut self) -> nb::Result<(), Self::Error> {

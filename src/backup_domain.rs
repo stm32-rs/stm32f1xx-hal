@@ -13,7 +13,7 @@
   Only the RTC functionality is currently implemented.
 */
 
-use stm32::BKP;
+use crate::pac::BKP;
 
 /**
   The existence of this struct indicates that writing to the the backup
