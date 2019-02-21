@@ -5,26 +5,20 @@
 #![no_std]
 #![no_main]
 
-extern crate cortex_m;
-extern crate cortex_m_rt as rt;
-extern crate cortex_m_semihosting as sh;
 extern crate panic_semihosting;
-extern crate stm32f1xx_hal as hal;
 
-use hal::prelude::*;
-use rt::{entry, exception, ExceptionFrame};
+use cortex_m_semihosting::hprintln;
 
-use sh::hio;
-
-use core::fmt::Write;
-
-use hal::rtc::Rtc;
+use stm32f1xx_hal::{
+    prelude::*,
+    pac,
+    rtc::Rtc,
+};
+use cortex_m_rt::entry;
 
 #[entry]
 fn main() -> ! {
-    let mut hstdout = hio::hstdout().unwrap();
-
-    let p = hal::stm32::Peripherals::take().unwrap();
+    let p = pac::Peripherals::take().unwrap();
 
     let mut pwr = p.PWR;
     let mut rcc = p.RCC.constrain();
@@ -33,16 +27,6 @@ fn main() -> ! {
     let rtc = Rtc::rtc(p.RTC, &mut backup_domain);
 
     loop {
-        writeln!(hstdout, "time: {}", rtc.seconds()).unwrap();
+        hprintln!("time: {}", rtc.seconds()).unwrap();
     }
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }
