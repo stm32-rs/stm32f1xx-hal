@@ -154,7 +154,7 @@ macro_rules! dma {
                             }
                         }
 
-                        pub(crate) fn ch(&mut self) -> &dma1::CH {
+                        pub fn ch(&mut self) -> &dma1::CH {
                             unsafe { &(*$DMAX::ptr()).$chX }
                         }
 
