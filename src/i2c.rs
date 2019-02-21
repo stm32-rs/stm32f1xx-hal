@@ -459,13 +459,15 @@ macro_rules! hal {
                     bytes: &[u8],
                     buffer: &mut [u8],
                 ) -> Result<(), Self::Error> {
-                    assert!(buffer.len() > 0);
-
-                    if bytes.len() != 0 {
+                    if !bytes.is_empty() {
                         self.write_without_stop(addr, bytes)?;
                     }
 
-                    self.read(addr, buffer)?;
+                    if !buffer.is_empty() {
+                        self.read(addr, buffer)?;
+                    } else if !bytes.is_empty() {
+                        self.nb.send_stop();
+                    }
 
                     Ok(())
                 }

@@ -1,3 +1,5 @@
+//! # Serial Peripheral Interface
+
 use core::ptr;
 
 use hal;

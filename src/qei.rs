@@ -1,3 +1,4 @@
+//! # Quadrature Encoder Interface
 use core::u16;
 
 use hal::{self, Direction};

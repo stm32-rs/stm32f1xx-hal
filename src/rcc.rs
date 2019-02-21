@@ -1,10 +1,15 @@
+//! # Reset & Control Clock
+
 use core::cmp;
 
 use cast::u32;
-use stm32::{rcc, RCC};
+use stm32::{self, rcc, RCC, PWR};
 
 use flash::ACR;
 use time::Hertz;
+
+use backup_domain::BackupDomain;
+
 
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
@@ -25,6 +30,7 @@ impl RccExt for RCC {
                 pclk2: None,
                 sysclk: None,
             },
+            bkp: BKP { _0: () },
         }
     }
 }
@@ -38,6 +44,7 @@ pub struct Rcc {
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
     pub cfgr: CFGR,
+    pub bkp: BKP,
 }
 
 /// AMBA High-performance Bus (AHB) registers
@@ -56,6 +63,7 @@ impl AHB {
 pub struct APB1 {
     _0: (),
 }
+
 
 impl APB1 {
     pub(crate) fn enr(&mut self) -> &rcc::APB1ENR {
@@ -143,6 +151,7 @@ impl CFGR {
         self
     }
 
+
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
         // TODO ADC clock
 
@@ -214,6 +223,7 @@ impl CFGR {
         assert!(pclk2 <= 72_000_000);
 
         // adjust flash wait states
+        #[cfg(feature = "stm32f103")]
         unsafe {
             acr.acr().write(|w| {
                 w.latency().bits(if sysclk <= 24_000_000 {
@@ -261,6 +271,7 @@ impl CFGR {
         }
 
         // set prescalers and clock source
+        #[cfg(feature = "stm32f103")]
         rcc.cfgr.modify(|_, w| unsafe {
             w.ppre2()
                 .bits(ppre2_bits)
@@ -270,6 +281,27 @@ impl CFGR {
                 .bits(hpre_bits)
                 .usbpre()
                 .bit(usbpre)
+                .sw()
+                .bits(if pllmul_bits.is_some() {
+                    // PLL
+                    0b10
+                } else if self.hse.is_some() {
+                    // HSE
+                    0b1
+                } else {
+                    // HSI
+                    0b0
+                })
+        });
+
+        #[cfg(feature = "stm32f100")]
+        rcc.cfgr.modify(|_, w| unsafe {
+            w.ppre2()
+                .bits(ppre2_bits)
+                .ppre1()
+                .bits(ppre1_bits)
+                .hpre()
+                .bits(hpre_bits)
                 .sw()
                 .bits(if pllmul_bits.is_some() {
                     // PLL
@@ -294,6 +326,33 @@ impl CFGR {
         }
     }
 }
+
+pub struct BKP {
+    _0: ()
+}
+
+impl BKP {
+    /// Enables write access to the registers in the backup domain
+    pub fn constrain(self, bkp: stm32::BKP, apb1: &mut APB1, pwr: &mut PWR) -> BackupDomain {
+        // Enable the backup interface by setting PWREN and BKPEN
+        apb1.enr().modify(|_r, w| {
+            w
+                .bkpen().set_bit()
+                .pwren().set_bit()
+        });
+
+        // Enable access to the backup registers
+        pwr.cr.modify(|_r, w| {
+            w
+                .dbp().set_bit()
+        });
+
+        BackupDomain {
+            _regs: bkp,
+        }
+    }
+}
+
 
 /// Frozen clock frequencies
 ///
@@ -345,3 +404,4 @@ impl Clocks {
         self.usbclk_valid
     }
 }
+

@@ -1,3 +1,41 @@
+//! # Serial Communication (USART)
+//! This module contains the functions to utilize the USART (Universal
+//! synchronous asynchronous receiver transmitter)
+//!
+//!
+//! ## Example usage:
+//!  ```rust
+//! // prelude: create handles to the peripherals and registers
+//! let p = stm32::Peripherals::take().unwrap();
+//! let cp = cortex_m::Peripherals::take().unwrap();
+//! let mut flash = p.FLASH.constrain();
+//! let mut rcc = p.RCC.constrain();
+//! let clocks = rcc.cfgr.freeze(&mut flash.acr);
+//! let mut afio = p.AFIO.constrain(&mut rcc.apb2);
+//! let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
+//!
+//! // USART1 on Pins A9 and A10
+//! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
+//! let pin_rx = gpioa.pa10;
+//! // Create an interface struct for USART1 with 9600 Baud
+//! let serial = Serial::usart1(
+//!     p.USART1,
+//!     (pin_tx, pin_rx),
+//!     &mut afio.mapr,
+//!     9_600.bps(),
+//!     clocks,
+//!     &mut rcc.apb2,
+//! );
+//!
+//! // separate into tx and rx channels
+//! let (mut tx, mut rx) = serial.split();
+//!
+//! // Write 'R' to the USART
+//! block!(tx.write(b'R')).ok();
+//! // Receive a byte from the USART and store it in "received"
+//! let received = block!(rx.read()).unwrap();
+//!  ```
+
 use core::marker::PhantomData;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
@@ -89,18 +127,39 @@ pub struct Tx<USART> {
 
 macro_rules! hal {
     ($(
+        $(#[$meta:meta])*
         $USARTX:ident: (
             $usartX:ident,
             $usartXen:ident,
             $usartXrst:ident,
             $usartX_remap:ident,
+            $pclk:ident,
             $bit:ident,
             $closure:expr,
             $APB:ident
         ),
     )+) => {
         $(
+            $(#[$meta])*
+            /// The behaviour of the functions is equal for all three USARTs.
+            /// Except that they are using the corresponding USART hardware and pins.
             impl<PINS> Serial<$USARTX, PINS> {
+
+                /// Configures the serial interface and creates the interface
+                /// struct.
+                ///
+                /// `Bps` is the baud rate of the interface.
+                ///
+                /// `Clocks` passes information about the current frequencies of
+                /// the clocks.  The existence of the struct ensures that the
+                /// clock settings are fixed.
+                ///
+                /// The `serial` struct takes ownership over the `USARTX` device
+                /// registers and the specified `PINS`
+                ///
+                /// `MAPR` and `APBX` are register handles which are passed for
+                /// configuration. (`MAPR` is used to map the USART to the
+                /// corresponding pins. `APBX` is used to reset the USART.)
                 pub fn $usartX(
                     usart: $USARTX,
                     pins: PINS,
@@ -126,7 +185,7 @@ macro_rules! hal {
                     // enable DMA transfers
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
-                    let brr = clocks.pclk2().0 / baud_rate.0;
+                    let brr = clocks.$pclk().0 / baud_rate.0;
                     assert!(brr >= 16, "impossible baud rate");
                     usart.brr.write(|w| unsafe { w.bits(brr) });
 
@@ -140,6 +199,9 @@ macro_rules! hal {
                     Serial { usart, pins }
                 }
 
+                /// Starts listening to the USART by enabling the _Received data
+                /// ready to be read (RXNE)_ interrupt and _Transmit data
+                /// register empty (TXE)_ interrupt
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
@@ -147,6 +209,9 @@ macro_rules! hal {
                     }
                 }
 
+                /// Stops listening to the USART by disabling the _Received data
+                /// ready to be read (RXNE)_ interrupt and _Transmit data
+                /// register empty (TXE)_ interrupt
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
@@ -154,10 +219,13 @@ macro_rules! hal {
                     }
                 }
 
+                /// Returns ownership of the borrowed register handles
                 pub fn release(self) -> ($USARTX, PINS) {
                     (self.usart, self.pins)
                 }
 
+                /// Separates the serial struct into separate channel objects for sending (Tx) and
+                /// receiving (Rx)
                 pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>) {
                     (
                         Tx {
@@ -389,29 +457,35 @@ macro_rules! hal {
 }
 
 hal! {
+    /// # USART1 functions
     USART1: (
         usart1,
         usart1en,
         usart1rst,
         usart1_remap,
+        pclk1,
         bit,
         |remap| remap == 1,
         APB2
     ),
+    /// # USART2 functions
     USART2: (
         usart2,
         usart2en,
         usart2rst,
         usart2_remap,
+        pclk2,
         bit,
         |remap| remap == 1,
         APB1
     ),
+    /// # USART3 functions
     USART3: (
         usart3,
         usart3en,
         usart3rst,
         usart3_remap,
+        pclk2,
         bits,
         |remap| remap,
         APB1
