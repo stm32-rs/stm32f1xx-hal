@@ -53,7 +53,7 @@ pub struct AHB {
 }
 
 impl AHB {
-    pub(crate) fn enr(&mut self) -> &rcc::AHBENR {
+    pub fn enr(&mut self) -> &rcc::AHBENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahbenr }
     }
