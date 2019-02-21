@@ -66,12 +66,12 @@ pub struct APB1 {
 
 
 impl APB1 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR {
+    pub fn enr(&mut self) -> &rcc::APB1ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb1enr }
     }
 
-    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR {
+    pub fn rstr(&mut self) -> &rcc::APB1RSTR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb1rstr }
     }
@@ -83,12 +83,12 @@ pub struct APB2 {
 }
 
 impl APB2 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB2ENR {
+    pub fn enr(&mut self) -> &rcc::APB2ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb2enr }
     }
 
-    pub(crate) fn rstr(&mut self) -> &rcc::APB2RSTR {
+    pub fn rstr(&mut self) -> &rcc::APB2RSTR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb2rstr }
     }
