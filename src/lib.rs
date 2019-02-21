@@ -51,6 +51,8 @@ pub use stm32f1::stm32f100 as stm32;
 #[cfg(feature = "stm32f103")]
 pub use stm32f1::stm32f103 as stm32;
 
+pub use crate::stm32 as device;
+
 pub mod afio;
 pub mod bb;
 pub mod delay;
