@@ -5,21 +5,20 @@
 #![no_std]
 #![no_main]
 
-extern crate cortex_m;
-extern crate cortex_m_rt as rt;
-extern crate panic_semihosting;
-extern crate stm32f1xx_hal as hal;
-#[macro_use(block)]
-extern crate nb;
+extern crate panic_halt;
 
-use hal::prelude::*;
-use hal::stm32;
-use rt::{entry, exception, ExceptionFrame};
-use hal::rtc::Rtc;
+use stm32f1xx_hal::{
+    prelude::*,
+    pac,
+    rtc::Rtc,
+};
+
+use nb::block;
+use cortex_m_rt::entry;
 
 #[entry]
 fn main() -> ! {
-    let dp = stm32::Peripherals::take().unwrap();
+    let dp = pac::Peripherals::take().unwrap();
 
     let mut pwr = dp.PWR;
     let mut rcc = dp.RCC.constrain();
@@ -50,14 +49,4 @@ fn main() -> ! {
             led_on = true;
         }
     }
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }

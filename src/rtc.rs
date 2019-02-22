@@ -12,7 +12,7 @@
   See examples/rtc.rs and examples/blinky_rtc.rs for usage examples.
 */
 
-use stm32::{RTC, RCC};
+use crate::pac::{RTC, RCC};
 
 use crate::backup_domain::BackupDomain;
 

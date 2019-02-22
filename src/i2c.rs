@@ -1,14 +1,13 @@
 //! Inter-Integrated Circuit (I2C) bus
 
-use afio::MAPR;
-use gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
-use gpio::{Alternate, OpenDrain};
-use hal::blocking::i2c::{Read, Write, WriteRead};
+use crate::afio::MAPR;
+use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
+use crate::gpio::{Alternate, OpenDrain};
+use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
-use rcc::{Clocks, APB1};
-use stm32::DWT;
-use stm32::{I2C1, I2C2};
+use crate::rcc::{Clocks, APB1};
+use crate::pac::{DWT, I2C1, I2C2};
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]

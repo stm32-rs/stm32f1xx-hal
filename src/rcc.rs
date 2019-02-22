@@ -3,12 +3,12 @@
 use core::cmp;
 
 use cast::u32;
-use stm32::{self, rcc, RCC, PWR};
+use crate::pac::{rcc, RCC, PWR};
 
-use flash::ACR;
-use time::Hertz;
+use crate::flash::ACR;
+use crate::time::Hertz;
 
-use backup_domain::BackupDomain;
+use crate::backup_domain::BackupDomain;
 
 
 /// Extension trait that constrains the `RCC` peripheral
@@ -333,7 +333,7 @@ pub struct BKP {
 
 impl BKP {
     /// Enables write access to the registers in the backup domain
-    pub fn constrain(self, bkp: stm32::BKP, apb1: &mut APB1, pwr: &mut PWR) -> BackupDomain {
+    pub fn constrain(self, bkp: crate::pac::BKP, apb1: &mut APB1, pwr: &mut PWR) -> BackupDomain {
         // Enable the backup interface by setting PWREN and BKPEN
         apb1.enr().modify(|_r, w| {
             w

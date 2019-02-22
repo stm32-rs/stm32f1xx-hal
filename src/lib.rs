@@ -37,19 +37,16 @@
 
 #![no_std]
 
-extern crate cast;
-extern crate cortex_m;
-extern crate embedded_hal as hal;
-extern crate nb;
-extern crate void;
-
-pub extern crate stm32f1;
+use embedded_hal as hal;
 
 #[cfg(feature = "stm32f100")]
-pub use stm32f1::stm32f100 as stm32;
+pub use stm32f1::stm32f100 as pac;
 
 #[cfg(feature = "stm32f103")]
-pub use stm32f1::stm32f103 as stm32;
+pub use stm32f1::stm32f103 as pac;
+
+pub use crate::pac as device;
+pub use crate::pac as stm32;
 
 pub mod afio;
 pub mod bb;

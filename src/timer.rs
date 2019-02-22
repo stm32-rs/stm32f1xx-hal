@@ -3,15 +3,15 @@
 use cast::{u16, u32};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
-use hal::timer::{CountDown, Periodic};
+use crate::hal::timer::{CountDown, Periodic};
 use nb;
-use stm32::{TIM1, TIM2, TIM3, TIM4};
+use crate::pac::{TIM1, TIM2, TIM3, TIM4};
 use void::Void;
 
 use core::any::TypeId;
 
-use rcc::{Clocks, APB1, APB2};
-use time::Hertz;
+use crate::rcc::{Clocks, APB1, APB2};
+use crate::time::Hertz;
 
 /// Interrupt events
 pub enum Event {

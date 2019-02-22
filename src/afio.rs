@@ -1,7 +1,7 @@
 //! # Alternate Function I/Os
-use stm32::{afio, AFIO};
+use crate::pac::{afio, AFIO};
 
-use rcc::APB2;
+use crate::rcc::APB2;
 
 pub trait AfioExt {
     fn constrain(self, apb2: &mut APB2) -> Parts;
