@@ -468,7 +468,7 @@ hal! {
         usart1en,
         usart1rst,
         usart1_remap,
-        pclk1,
+        pclk2,
         bit,
         |remap| remap == 1,
         APB2
@@ -479,7 +479,7 @@ hal! {
         usart2en,
         usart2rst,
         usart2_remap,
-        pclk2,
+        pclk1,
         bit,
         |remap| remap == 1,
         APB1
@@ -490,7 +490,7 @@ hal! {
         usart3en,
         usart3rst,
         usart3_remap,
-        pclk2,
+        pclk1,
         bits,
         |remap| remap,
         APB1
