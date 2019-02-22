@@ -3,23 +3,22 @@
 #![no_main]
 #![no_std]
 
-#[macro_use]
-extern crate cortex_m;
-extern crate cortex_m_rt as rt;
-extern crate mfrc522;
 extern crate panic_itm;
-extern crate stm32f1xx_hal as hal;
 
-use hal::prelude::*;
-use hal::spi::Spi;
-use hal::stm32;
+use cortex_m::iprintln;
+
+use stm32f1xx_hal::{
+    prelude::*,
+    pac,
+    spi::Spi,
+};
 use mfrc522::Mfrc522;
-use rt::{entry, exception, ExceptionFrame};
+use cortex_m_rt::entry;
 
 #[entry]
 fn main() -> ! {
     let mut cp = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32::Peripherals::take().unwrap();
+    let dp = pac::Peripherals::take().unwrap();
 
     let _stim = &mut cp.ITM.stim[0];
     let mut rcc = dp.RCC.constrain();
@@ -56,14 +55,4 @@ fn main() -> ! {
             }
         }
     }
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }

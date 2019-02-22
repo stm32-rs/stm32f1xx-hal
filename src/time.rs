@@ -2,7 +2,7 @@
 
 use cortex_m::peripheral::DWT;
 
-use rcc::Clocks;
+use crate::rcc::Clocks;
 
 /// Bits per second
 #[derive(Clone, Copy)]

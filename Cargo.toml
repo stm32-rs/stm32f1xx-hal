@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 name = "stm32f1xx-hal"
 repository = "https://github.com/stm32-rs/stm32f1xx-hal"
 documentation = "https://docs.rs/stm32f1xx-hal"
+edition = "2018"
 version = "0.2.0"
 
 [package.metadata.docs.rs]
@@ -31,6 +32,7 @@ features = ["unproven"]
 version = "0.2.2"
 
 [dev-dependencies]
+panic-halt = "0.2.0"
 panic-semihosting = "0.5.1"
 panic-itm = "0.4.0"
 # cortex-m-rtfm = "0.3.1"

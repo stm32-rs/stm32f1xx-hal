@@ -4,16 +4,16 @@ use core::marker::PhantomData;
 use core::mem;
 
 use cast::{u16, u32};
-use hal;
-use stm32::{TIM2, TIM3, TIM4};
+use crate::hal;
+use crate::pac::{TIM2, TIM3, TIM4};
 
-use afio::MAPR;
-use bb;
-use gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7};
-use gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
-use gpio::{Alternate, PushPull};
-use rcc::{Clocks, APB1};
-use time::Hertz;
+use crate::afio::MAPR;
+use crate::bb;
+use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7};
+use crate::gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
+use crate::gpio::{Alternate, PushPull};
+use crate::rcc::{Clocks, APB1};
+use crate::time::Hertz;
 
 pub trait Pins<TIM> {
     const REMAP: u8;
@@ -93,7 +93,7 @@ impl Pins<TIM4>
 pub trait PwmExt: Sized {
     fn pwm<PINS, T>(
         self,
-        PINS,
+        _: PINS,
         mapr: &mut MAPR,
         frequency: T,
         clocks: Clocks,

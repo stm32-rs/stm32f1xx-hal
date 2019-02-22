@@ -123,7 +123,7 @@ macro_rules! dma {
             pub mod $dmaX {
                 use core::sync::atomic::{self, Ordering};
 
-                use stm32::{$DMAX, dma1};
+                use crate::pac::{$DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
                 use crate::rcc::AHB;
