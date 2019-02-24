@@ -92,11 +92,10 @@ where
     /// In this mode, the provided arr and presc are directly programmed in the register.
     RawValues { arr: u16, presc: u16 },
 }
-
 pub trait PwmInputExt: Sized {
     fn pwm_input<PINS, T>(
         self,
-        PINS,
+        pins: PINS,
         apb: &mut APB1,
         mapr: &mut MAPR,
         dbg: &mut DBG,
