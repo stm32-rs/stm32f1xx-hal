@@ -1,5 +1,5 @@
-//! This modules allows the Timer peripherals to be configured as pwm input.
-//! In this mode, the timer can sample a squared signal to find it's frequency and duty cycle.
+//! This module allows Timer peripherals to be configured as pwm input.
+//! In this mode, the timer sample a squared signal to find it's frequency and duty cycle.
 
 use core::marker::PhantomData;
 use core::mem;
@@ -63,7 +63,7 @@ pub enum Error {
     FrequencyTooLow,
 }
 
-/// The configuration for the timer : what frequency the timer will try to sample
+/// Which frequency the timer will try to sample
 pub enum Configuration<T>
 where
     T: Into<Hertz>,
@@ -73,6 +73,8 @@ where
     /// of resolution.
     ///
     /// The minimum frequency that can be sampled is 20% the provided frequency.
+    ///
+    /// Use this mode if you do not know what to choose.
     Frequency(T),
 
     /// In this mode an algorithm calculates the optimal value for the autoreload register and the
@@ -84,11 +86,10 @@ where
 
     /// In this mode an algorithm calculates the optimal value for the autoreload register and the
     /// prescaler register in order to be able to sample signal with a frequency higher than the
-    /// provided value : there is no margin.
+    /// provided value : there is no margin for lower frequencies.
     RawFrequency(T),
 
-    /// In this mode, the user gives the desired arr and presc value that are then directly
-    /// programmed in the register.
+    /// In this mode, the provided arr and presc are directly programmed in the register.
     RawValues { arr: u16, presc: u16 },
 }
 
@@ -298,12 +299,12 @@ macro_rules! hal {
             }
             else {
                let clk : u32 = clocks.$pclk().0;
-               Ok(Hertz(clk/((presc+1) as u32*(ccr1)as u32)))
+               Ok(Hertz(clk/((presc+1) as u32*(ccr1 + 1)as u32)))
             }
          }
 
 
-         /// Return the duty in the form of a fraction duty_cycle/period)
+         /// Return the duty in the form of a fraction : (duty_cycle/period)
          pub fn read_duty(&self, mode : ReadMode) -> Result<(u16,u16),Error> {
 
             match mode {
