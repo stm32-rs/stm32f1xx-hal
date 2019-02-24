@@ -167,42 +167,14 @@ impl PwmInputExt for TIM4 {
     }
 }
 
-fn get_score(x: u32, y: u32) -> u32 {
-    if x > y {
-        x - y
-    } else {
-        y - x
-    }
-}
-/// F_timer = PCLK / [ (ARR+1) * (PRESC+1) ]
-/// We want maximum resolution, so ARR = u16::MAX;
-/// <=> PRESC = PCLK / [ u16::MAX * F_timer ] -1
+/// Courtesy of @TeXitoi (https://github.com/stm32-rs/stm32f1xx-hal/pull/10#discussion_r259535503)
 fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
-    let mut arr: u32 = (core::u16::MAX - 1) as u32;
-    let mut presc: u32;
-
-    let mut curr_best_presc: u32 = 0;
-    let mut curr_best_arr: u32 = 0;
-    let mut curr_best_distance: u32 = core::u32::MAX;
-
-    for _ in 0..65530 {
-        presc = clock / ((arr + 1) * freq);
-        let computed_freq = clock / ((arr + 1) * (presc + 1));
-        if presc > core::u16::MAX as u32 {
-            break;
-        } else {
-            let score = get_score(computed_freq, freq);
-            if score < curr_best_distance {
-                curr_best_distance = score;
-                curr_best_arr = arr;
-                curr_best_presc = presc;
-            }
-        }
-        arr -= 1;
+    if freq == 0 {
+        return (core::u16::MAX, core::u16::MAX);
     }
-    assert!(curr_best_arr <= core::u16::MAX as u32);
-    assert!(curr_best_presc < core::u16::MAX as u32);
-    (curr_best_arr as u16, curr_best_presc as u16)
+    let presc = clock / freq.saturating_mul(core::u16::MAX as u32 + 1);
+    let arr = clock / freq.saturating_mul(presc + 1);
+    (core::cmp::max(1, arr as u16), presc as u16)
 }
 macro_rules! hal {
    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $pclk:ident, $dbg_timX_stop:ident ),)+) => {
