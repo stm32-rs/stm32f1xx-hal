@@ -17,7 +17,7 @@ features = ["stm32f103", "rt"]
 cortex-m = "0.5.8"
 nb = "0.1.1"
 cortex-m-rt = "0.6.7"
-stm32f1 = {git = "https://github.com/burrbull/stm32f1"}
+stm32f1 = "0.7.0"
 
 [dependencies.void]
 default-features = false
