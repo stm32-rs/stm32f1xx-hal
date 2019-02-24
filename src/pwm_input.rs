@@ -191,7 +191,7 @@ macro_rules! hal {
          PINS: Pins<$TIMX>,
          T : Into<Hertz>
          {
-            use pwm_input::Configuration::*;
+            use crate::pwm_input::Configuration::*;
             apb.enr().modify(|_, w| w.$timXen().set_bit());
             apb.rstr().modify(|_, w| w.$timXrst().set_bit());
             apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
