@@ -14,6 +14,7 @@ use crate::gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
 use crate::gpio::{Alternate, PushPull};
 use crate::rcc::{Clocks, APB1};
 use crate::time::Hertz;
+use crate::timer::PclkSrc;
 
 pub trait Pins<TIM> {
     const REMAP: u8;
@@ -210,8 +211,7 @@ macro_rules! hal {
                     tim.ccmr2_output
                         .modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
                 }
-
-                let clk = clocks.pclk1().0 * if clocks.ppre1() == 1 { 1 } else { 2 };
+                let clk = $TIMX::get_clk(&clocks).0;
                 let freq = freq.0;
                 let ticks = clk / freq;
                 let psc = u16(ticks / (1 << 16)).unwrap();

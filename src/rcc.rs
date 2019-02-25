@@ -384,6 +384,16 @@ impl Clocks {
         self.pclk2
     }
 
+    /// Returns the frequency of the APB1 Timers
+    pub fn pclk1_tim(&self) -> Hertz {
+        Hertz(self.pclk1.0 * if self.ppre1() == 1 { 1 } else { 2 })
+    }
+
+    /// Returns the frequency of the APB2 Timers
+    pub fn pclk2_tim(&self) -> Hertz {
+        Hertz(self.pclk2.0 * if self.ppre2() == 1 { 1 } else { 2 })
+    }
+
     pub(crate) fn ppre1(&self) -> u8 {
         self.ppre1
     }
