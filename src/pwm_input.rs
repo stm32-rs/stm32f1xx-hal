@@ -12,6 +12,7 @@ use crate::gpio::gpiob::{PB3, PB4, PB5, PB6, PB7};
 use crate::gpio::{Alternate, OpenDrain};
 use crate::rcc::{Clocks, APB1};
 use crate::time::Hertz;
+use crate::timer::PclkSrc;
 
 pub trait Pins<TIM> {
     const REMAP: u8;
@@ -177,7 +178,7 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     (core::cmp::max(1, arr as u16), presc as u16)
 }
 macro_rules! hal {
-   ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $pclk:ident, $dbg_timX_stop:ident ),)+) => {
+   ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $dbg_timX_stop:ident ),)+) => {
       $(
          fn $timX<PINS,T>(
             tim: $TIMX,
@@ -233,7 +234,7 @@ macro_rules! hal {
                Frequency(f)  => {
                   let freq = f.into().0;
                   let max_freq = if freq > 5 {freq/5} else {1};
-                  let (arr,presc) = compute_arr_presc(max_freq, clocks.$pclk().0);
+                  let (arr,presc) = compute_arr_presc(max_freq, $TIMX::get_clk(&clocks).0);
                   tim.arr.write(|w| w.arr().bits(arr));
                   tim.psc.write(|w| unsafe {w.psc().bits(presc)});
 
@@ -241,13 +242,13 @@ macro_rules! hal {
                DutyCycle(f) => {
                   let freq = f.into().0;
                   let max_freq = if freq > 2 {freq/2 + freq/4 + freq/8} else {1};
-                  let (arr,presc) = compute_arr_presc(max_freq, clocks.$pclk().0);
+                  let (arr,presc) = compute_arr_presc(max_freq, $TIMX::get_clk(&clocks).0);
                   tim.arr.write(|w| w.arr().bits(arr));
                   tim.psc.write(|w| unsafe {w.psc().bits(presc)});
                },
                RawFrequency(f) => {
                   let freq = f.into().0;
-                  let (arr,presc) = compute_arr_presc(freq, clocks.$pclk().0);
+                  let (arr,presc) = compute_arr_presc(freq, $TIMX::get_clk(&clocks).0);
                   tim.arr.write(|w| w.arr().bits(arr));
                   tim.psc.write(|w| unsafe {w.psc().bits(presc)});
                }
@@ -297,7 +298,7 @@ macro_rules! hal {
                Err(Error::FrequencyTooLow)
             }
             else {
-               let clk : u32 = clocks.$pclk().0;
+               let clk : u32 = $TIMX::get_clk(&clocks).0;
                Ok(Hertz(clk/((presc+1) as u32*(ccr1 + 1)as u32)))
             }
          }
@@ -334,7 +335,7 @@ macro_rules! hal {
 }
 
 hal! {
-   TIM2: (tim2, tim2en, tim2rst, pclk2, dbg_tim2_stop),
-   TIM3: (tim3, tim3en, tim3rst, pclk2, dbg_tim3_stop),
-   TIM4: (tim4, tim4en, tim4rst, pclk2, dbg_tim4_stop),
+   TIM2: (tim2, tim2en, tim2rst, dbg_tim2_stop),
+   TIM3: (tim3, tim3en, tim3rst, dbg_tim3_stop),
+   TIM4: (tim4, tim4en, tim4rst, dbg_tim4_stop),
 }
