@@ -1,17 +1,35 @@
 //! # Timer
 
+use crate::hal::timer::{CountDown, Periodic};
+use crate::pac::{TIM1, TIM2, TIM3, TIM4};
 use cast::{u16, u32};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
-use crate::hal::timer::{CountDown, Periodic};
 use nb;
-use crate::pac::{TIM1, TIM2, TIM3, TIM4};
 use void::Void;
-
-use core::any::TypeId;
 
 use crate::rcc::{Clocks, APB1, APB2};
 use crate::time::Hertz;
+
+/// Associated clocks with timers
+pub trait PclkSrc {
+    fn get_clk(clocks: &Clocks) -> Hertz;
+}
+
+macro_rules! impl_pclk {
+    ($TIMX:ident, $pclkX:ident) => {
+        impl PclkSrc for $TIMX {
+            fn get_clk(clocks: &Clocks) -> Hertz {
+                clocks.$pclkX()
+            }
+        }
+    };
+}
+
+impl_pclk! {TIM1, pclk2_tim}
+impl_pclk! {TIM2, pclk1_tim}
+impl_pclk! {TIM3, pclk1_tim}
+impl_pclk! {TIM4, pclk1_tim}
 
 /// Interrupt events
 pub enum Event {
@@ -109,36 +127,6 @@ macro_rules! hal {
                         Event::Update => self.tim.dier.write(|w| w.uie().clear_bit()),
                     }
                 }
-
-                /// Return the bus clock frequency in hertz.
-                fn get_bus_clock(&self) -> Hertz {
-                    if TypeId::of::<$apbX>() == TypeId::of::<APB1>() {
-                            Hertz(self.clocks.pclk1().0 * self.get_bus_frequency_multiplier())
-                    } else if TypeId::of::<$apbX>() == TypeId::of::<APB2>() {
-                        Hertz(self.clocks.pclk2().0 * self.get_bus_frequency_multiplier())
-                    } else {
-                        unreachable!()
-                    }
-                }
-
-                /// Return the bus frequency multiplier.
-                fn get_bus_frequency_multiplier(&self) -> u32 {
-                    if TypeId::of::<$apbX>() == TypeId::of::<APB1>() {
-                        if self.clocks.ppre1() == 1 {
-                            1
-                        } else {
-                            2
-                        }
-                    } else if TypeId::of::<$apbX>() == TypeId::of::<APB2>() {
-                         if self.clocks.ppre2() == 1 {
-                            1
-                         } else {
-                            2
-                         }
-                    } else {
-                        unreachable!()
-                    }
-                }
             }
 
             impl CountDown for Timer<$TIMX> {
@@ -152,7 +140,7 @@ macro_rules! hal {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
 
                     let frequency = timeout.into().0;
-                    let timer_clock = self.get_bus_clock();
+                    let timer_clock = $TIMX::get_clk(&self.clocks);
                     let ticks = timer_clock.0 / frequency;
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
