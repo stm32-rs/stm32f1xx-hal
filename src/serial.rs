@@ -282,7 +282,7 @@ macro_rules! hal {
                 }
             }
 
-            impl<B> crate::dma::CircReadDma<B> for Rx<$USARTX> where B: AsMut<[u8]> {
+            impl<B> crate::dma::CircReadDma<B, u8> for Rx<$USARTX> where B: AsMut<[u8]> {
                 fn circ_read(self, mut chan: Self::Dma, buffer: &'static mut [B; 2],
                 ) -> CircBuffer<B, Self::Dma>
                 {
@@ -329,7 +329,7 @@ macro_rules! hal {
                 }
             }
 
-            impl<B> crate::dma::ReadDma<B> for Rx<$USARTX> where B: AsMut<[u8]> {
+            impl<B> crate::dma::ReadDma<B, u8> for Rx<$USARTX> where B: AsMut<[u8]> {
                 fn read_exact(self, mut chan: Self::Dma, buffer: &'static mut B,
                 ) -> Transfer<W, &'static mut B, Self::Dma, Self>
                 {
@@ -376,7 +376,7 @@ macro_rules! hal {
                 }
             }
 
-            impl<A, B> crate::dma::WriteDma<A, B> for Tx<$USARTX> where A: AsRef<[u8]>, B: Static<A> {
+            impl<A, B> crate::dma::WriteDma<A, B, u8> for Tx<$USARTX> where A: AsRef<[u8]>, B: Static<A> {
                 fn write_all(self, mut chan: Self::Dma, buffer: B
                 ) -> Transfer<R, B, Self::Dma, Self>
                 {
@@ -493,34 +493,52 @@ hal! {
     ),
 }
 
-use crate::dma::DmaChannel;
+use crate::dma::{DmaChannel, Transmit, Receive};
 
 impl DmaChannel for Rx<USART1> {
     type Dma = dma1::C5;
-    type Word = u8;
 }
 
 impl DmaChannel for Tx<USART1> {
     type Dma = dma1::C4;
-    type Word = u8;
 }
 
 impl DmaChannel for Rx<USART2> {
     type Dma = dma1::C6;
-    type Word = u8;
 }
 
 impl DmaChannel for Tx<USART2> {
     type Dma = dma1::C7;
-    type Word = u8;
 }
 
 impl DmaChannel for Rx<USART3> {
     type Dma = dma1::C3;
-    type Word = u8;
 }
 
 impl DmaChannel for Tx<USART3> {
     type Dma = dma1::C2;
-    type Word = u8;
+}
+
+impl Receive for Rx<USART1> {
+    type TransmittedWord = u8;
+}
+
+impl Receive for Rx<USART2> {
+    type TransmittedWord = u8;
+}
+
+impl Receive for Rx<USART3> {
+    type TransmittedWord = u8;
+}
+
+impl Transmit for Tx<USART1> {
+    type ReceivedWord = u8;
+}
+
+impl Transmit for Tx<USART2> {
+    type ReceivedWord = u8;
+}
+
+impl Transmit for Tx<USART3> {
+    type ReceivedWord = u8;
 }

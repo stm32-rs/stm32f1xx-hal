@@ -369,20 +369,27 @@ dma! {
 
 pub trait DmaChannel {
     type Dma;
-    type Word;
 }
 
-pub trait CircReadDma<B>: DmaChannel
+pub trait Receive {
+    type TransmittedWord;
+}
+
+pub trait Transmit {
+    type ReceivedWord;
+}
+
+pub trait CircReadDma<B, RS>: DmaChannel + Receive
 where
-    B: AsMut<[Self::Word]>,
+    B: AsMut<[RS]>,
     Self: core::marker::Sized,
 {
     fn circ_read(self, chan: Self::Dma, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self::Dma>;
 }
 
-pub trait ReadDma<B>: DmaChannel
+pub trait ReadDma<B, RS>: DmaChannel + Receive
 where
-    B: AsMut<[Self::Word]>,
+    B: AsMut<[RS]>,
     Self: core::marker::Sized,
 {
     fn read_exact(
@@ -392,9 +399,9 @@ where
     ) -> Transfer<W, &'static mut B, Self::Dma, Self>;
 }
 
-pub trait WriteDma<A, B>: DmaChannel
+pub trait WriteDma<A, B, TS>: DmaChannel + Transmit
 where
-    A: AsRef<[Self::Word]>,
+    A: AsRef<[TS]>,
     B: Static<A>,
     Self: core::marker::Sized,
 {
