@@ -59,7 +59,7 @@ fn main() -> ! {
         &mut rcc.apb1,
     );
 
-    let (mut tx, mut rx) = serial.split();
+    let (mut tx, mut rx, release_token) = serial.split();
 
     let sent = b'X';
 
@@ -69,7 +69,19 @@ fn main() -> ! {
 
     assert_eq!(received, sent);
 
+    let mut serial = release_token.release(rx, tx);
+
+    block!(serial.change_baud_rate(19_200.bps(), clocks)).unwrap();
+
+    let (mut tx, mut rx, release_token) = serial.split();
+    let sent = b'Y';
+    block!(tx.write(sent)).ok();
+    let received = block!(rx.read()).unwrap();
+
+    assert_eq!(received, sent);
+
     asm::bkpt();
 
+    release_token.release(rx, tx).release(&mut rcc.apb1);
     loop {}
 }

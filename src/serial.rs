@@ -47,6 +47,7 @@ use crate::pac::{USART1, USART2, USART3};
 use void::Void;
 
 use crate::afio::MAPR;
+use crate::bb;
 //use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W};
 use crate::dma::{CircBuffer, Static, Transfer, R, W};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
@@ -126,6 +127,11 @@ pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
+/// Needed to recover a serial from its Rx and Tx
+pub struct ReleaseToken<USART, PINS> {
+    serial: Serial<USART, PINS>
+}
+
 macro_rules! hal {
     ($(
         $(#[$meta:meta])*
@@ -161,8 +167,10 @@ macro_rules! hal {
                 /// `MAPR` and `APBX` are register handles which are passed for
                 /// configuration. (`MAPR` is used to map the USART to the
                 /// corresponding pins. `APBX` is used to reset the USART.)
+                ///
+                /// The returned object has its Tx activated, but not its Rx.
                 pub fn $usartX(
-                    usart: $USARTX,
+                    mut usart: $USARTX,
                     pins: PINS,
                     mapr: &mut MAPR,
                     baud_rate: Bps,
@@ -186,18 +194,32 @@ macro_rules! hal {
                     // enable DMA transfers
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
-                    let brr = clocks.$pclk().0 / baud_rate.0;
-                    assert!(brr >= 16, "impossible baud rate");
-                    usart.brr.write(|w| unsafe { w.bits(brr) });
+                    Self::set_baud_rate(&mut usart, baud_rate, clocks);
 
                     // UE: enable USART
-                    // RE: enable receiver
                     // TE: enable transceiver
                     usart
                         .cr1
-                        .write(|w| w.ue().set_bit().re().set_bit().te().set_bit());
+                        .write(|w| w.ue().set_bit().te().set_bit());
 
                     Serial { usart, pins }
+                }
+
+                fn set_baud_rate(usart: &mut $USARTX, baud_rate: Bps, clocks: Clocks) {
+                    let brr = clocks.$pclk().0 / baud_rate.0;
+                    assert!(brr >= 16, "impossible baud rate");
+                    usart.brr.write(|w| unsafe { w.bits(brr) });
+                }
+
+                pub fn change_baud_rate(&mut self, baud_rate: Bps, clocks: Clocks
+                ) -> nb::Result<(), Error> {
+                    let sr = unsafe { (*$USARTX::ptr()).sr.read() };
+                    if sr.tc().bit_is_set() {
+                        Self::set_baud_rate(&mut self.usart, baud_rate, clocks);
+                        Ok(())
+                    } else {
+                        Err(nb::Error::WouldBlock)
+                    }
                 }
 
                 /// Starts listening to the USART by enabling the _Received data
@@ -220,14 +242,16 @@ macro_rules! hal {
                     }
                 }
 
-                /// Returns ownership of the borrowed register handles
-                pub fn release(self) -> ($USARTX, PINS) {
+                /// switch off and return ownership of the borrowed register handles
+                pub fn release(self, apb: &mut $APB) -> ($USARTX, PINS) {
+                    apb.enr().modify(|_, w| w.$usartXen().clear_bit());
                     (self.usart, self.pins)
                 }
 
-                /// Separates the serial struct into separate channel objects for sending (Tx) and
-                /// receiving (Rx)
-                pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>) {
+                /// Activates the Rx and separates the serial struct into channel
+                /// objects for sending (Tx), receiving (Rx) and the release token.
+                pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>, ReleaseToken<$USARTX, PINS>) {
+                    bb::set(&(self.usart).cr1, 2/*RE*/);
                     (
                         Tx {
                             _usart: PhantomData,
@@ -235,7 +259,24 @@ macro_rules! hal {
                         Rx {
                             _usart: PhantomData,
                         },
+                        ReleaseToken {
+                            serial: self
+                        },
                     )
+                }
+            }
+
+            impl<PINS: Pins<$USARTX>> ReleaseToken<$USARTX, PINS> {
+                /// waits for all communications to be done, stop the rx, then release Rx and Tx
+                pub fn release(self, _rx: Rx<$USARTX>, _tx: Tx<$USARTX>) -> Serial<$USARTX, PINS>
+                    where Tx<$USARTX>: crate::hal::serial::Write<u8> {
+                    loop {
+                        let sr = unsafe { (*$USARTX::ptr()).sr.read() };
+                        if sr.tc().bit_is_set() {
+                            bb::clear( &(self.serial.usart).cr1, 2/*RE*/);
+                            return self.serial
+                        }
+                    }
                 }
             }
 
