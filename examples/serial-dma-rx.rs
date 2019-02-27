@@ -59,7 +59,7 @@ fn main() -> ! {
     let rx = serial.split().1;
     let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
 
-    let (_buf, _c, _rx) = rx.read_exact(channels.5, buf).wait();
+    let (_buf, _c, _rx) = rx.read_with_dma(channels.5, buf).wait();
 
     asm::bkpt();
 

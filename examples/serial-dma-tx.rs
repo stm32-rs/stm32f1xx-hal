@@ -58,15 +58,15 @@ fn main() -> ! {
 
     let tx = serial.split().0;
 
-    let (_, c, tx) = tx.write_all(channels.4, b"The quick brown fox").wait();
+    let (_, c, tx) = tx.write_with_dma(channels.4, b"The quick brown fox").wait();
 
     asm::bkpt();
 
-    let (_, c, tx) = tx.write_all(c, b" jumps").wait();
+    let (_, c, tx) = tx.write_with_dma(c, b" jumps").wait();
 
     asm::bkpt();
 
-    tx.write_all(c, b" over the lazy dog.").wait();
+    tx.write_with_dma(c, b" over the lazy dog.").wait();
 
     asm::bkpt();
 

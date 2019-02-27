@@ -59,7 +59,7 @@ fn main() -> ! {
     let rx = serial.split().1;
     let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
 
-    let t = rx.read_exact(channels.5, buf);
+    let t = rx.read_with_dma(channels.5, buf);
 
     while !t.is_done() {
         let _slice = t.peek();

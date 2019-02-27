@@ -288,13 +288,14 @@ macro_rules! hal {
                 {
                     {
                         let buffer = buffer[0].as_mut();
-                        chan.ch().mar.write(|w| {
+                        let ch = chan.ch();
+                        ch.mar.write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.ch().ndtr.write(|w| {
+                        ch.ndtr.write(|w| {
                             w.ndt().bits(u16(buffer.len() * 2).unwrap())
                         });
-                        chan.ch().par.write(|w| unsafe {
+                        ch.par.write(|w| unsafe {
                             w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
                         });
 
@@ -303,7 +304,7 @@ macro_rules! hal {
                         // the next statement, which starts the DMA transfer
                         atomic::compiler_fence(Ordering::SeqCst);
 
-                        chan.ch().cr.modify(|_, w| {
+                        ch.cr.modify(|_, w| {
                             w.mem2mem()
                                 .clear_bit()
                                 .pl()
@@ -330,18 +331,19 @@ macro_rules! hal {
             }
 
             impl<B> crate::dma::ReadDma<B, u8> for Rx<$USARTX> where B: AsMut<[u8]> {
-                fn read_exact(self, mut chan: Self::Dma, buffer: &'static mut B,
+                fn read_with_dma(self, mut chan: Self::Dma, buffer: &'static mut B,
                 ) -> Transfer<W, &'static mut B, Self::Dma, Self>
                 {
                     {
                         let buffer = buffer.as_mut();
-                        chan.ch().mar.write(|w| {
+                        let ch = chan.ch();
+                        ch.mar.write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.ch().ndtr.write(|w| {
+                        ch.ndtr.write(|w| {
                             w.ndt().bits(u16(buffer.len()).unwrap())
                         });
-                        chan.ch().par.write(|w| unsafe {
+                        ch.par.write(|w| unsafe {
                             w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
                         });
 
@@ -350,7 +352,7 @@ macro_rules! hal {
                         // the next statement, which starts the DMA transfer
                         atomic::compiler_fence(Ordering::SeqCst);
 
-                        chan.ch().cr.modify(|_, w| {
+                        ch.cr.modify(|_, w| {
                             w.mem2mem()
                                 .clear_bit()
                                 .pl()
@@ -377,18 +379,19 @@ macro_rules! hal {
             }
 
             impl<A, B> crate::dma::WriteDma<A, B, u8> for Tx<$USARTX> where A: AsRef<[u8]>, B: Static<A> {
-                fn write_all(self, mut chan: Self::Dma, buffer: B
+                fn write_with_dma(self, mut chan: Self::Dma, buffer: B
                 ) -> Transfer<R, B, Self::Dma, Self>
                 {
                     {
                         let buffer = buffer.borrow().as_ref();
-                        chan.ch().mar.write(|w| {
+                        let ch = chan.ch();
+                        ch.mar.write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.ch().ndtr.write(|w| {
+                        ch.ndtr.write(|w| {
                             w.ndt().bits(u16(buffer.len()).unwrap())
                         });
-                        chan.ch().par.write(|w| unsafe {
+                        ch.par.write(|w| unsafe {
                             w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
                         });
 
@@ -397,7 +400,7 @@ macro_rules! hal {
                         // the next statement, which starts the DMA transfer
                         atomic::compiler_fence(Ordering::SeqCst);
 
-                        chan.ch().cr.modify(|_, w| {
+                        ch.cr.modify(|_, w| {
                             w.mem2mem()
                                 .clear_bit()
                                 .pl()

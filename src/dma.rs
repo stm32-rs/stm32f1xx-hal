@@ -392,7 +392,7 @@ where
     B: AsMut<[RS]>,
     Self: core::marker::Sized,
 {
-    fn read_exact(
+    fn read_with_dma(
         self,
         chan: Self::Dma,
         buffer: &'static mut B,
@@ -405,5 +405,5 @@ where
     B: Static<A>,
     Self: core::marker::Sized,
 {
-    fn write_all(self, chan: Self::Dma, buffer: B) -> Transfer<R, B, Self::Dma, Self>;
+    fn write_with_dma(self, chan: Self::Dma, buffer: B) -> Transfer<R, B, Self::Dma, Self>;
 }
