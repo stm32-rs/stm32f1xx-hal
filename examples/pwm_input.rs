@@ -7,7 +7,7 @@
 
 extern crate cortex_m;
 extern crate cortex_m_rt as rt;
-extern crate panic_semihosting;
+extern crate panic_abort;
 extern crate stm32f1xx_hal as hal;
 
 use hal::prelude::*;
@@ -47,14 +47,4 @@ fn main() -> ! {
             .unwrap();
         let _duty_cycle = pwm_input.read_duty(ReadMode::Instant).unwrap();
     }
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }
