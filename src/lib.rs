@@ -49,6 +49,7 @@ pub use crate::pac as device;
 pub use crate::pac as stm32;
 
 pub mod afio;
+pub mod backup_domain;
 pub mod bb;
 pub mod delay;
 pub mod dma;
@@ -58,11 +59,11 @@ pub mod i2c;
 pub mod prelude;
 #[cfg(not(feature = "stm32f100"))]
 pub mod pwm;
+pub mod pwm_input;
 pub mod qei;
 pub mod rcc;
+pub mod rtc;
 pub mod serial;
 pub mod spi;
 pub mod time;
 pub mod timer;
-pub mod rtc;
-pub mod backup_domain;
