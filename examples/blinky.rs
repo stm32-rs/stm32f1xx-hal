@@ -5,6 +5,13 @@
 //! Note: Without additional hardware, PC13 should not be used to drive an LED, see page 5.1.2 of
 //! the reference manaual for an explanation. This is not an issue on the blue pill.
 
+//! This example assumes that a LED is connected to PC13 which is where an LED is connected on the
+//! [blue_pill] board. If you have different hardware, you need to change which gpio pin is used.
+//!
+//! Note: PC13 can not source much current and should not be used to drive an LED directly.
+//!
+//! [blue_pill]: http://wiki.stm32duino.com/index.php?title=Blue_Pill
+
 #![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_std]
