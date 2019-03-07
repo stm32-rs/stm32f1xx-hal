@@ -29,12 +29,13 @@ $ rustup target add thumbv7m-none-eabi
 # on another terminal
 $ openocd -f interface/$INTERFACE.cfg -f target/stm32f1x.cfg
 
-# flash and debug the "Hello, world" example
-$ cargo run --features $MICROCONTROLLER --example led
+# flash and debug the "Hello, world" example. Change stm32f103 to match your hardware
+$ cargo run --features stm32f103 --example hello
 ```
 
-`$INTERFACE` should be set based on your debugging hardware. If you are using an stlink V2, use
-`stlink-v2.cfg`. For more information, see the [embeddonomicon].
+`$INTERFACE` should be set based on your debugging hardware. If you are using
+an stlink V2, use `stlink-v2.cfg`. For more information, see the
+[embeddonomicon].
 
 [embeddonomicon]: https://rust-embedded.github.io/book/start/hardware.html
 
@@ -45,7 +46,7 @@ $ cargo run --features $MICROCONTROLLER --example led
 When using this crate as a dependency in your project, the microcontroller can 
 be specified as part of the `Cargo.toml` definition.
 
-```
+```toml
 [dependencies.stm32f1xx-hal]
 version = "0.2.0"
 features = ["stm32f100", "rt"]
@@ -53,7 +54,9 @@ features = ["stm32f100", "rt"]
 
 ## Blinky example
 
-The following example blinks an LED connected to pin PC13. For instructions on how set up a project and run the example, see the [documentation]
+The following example blinks an LED connected to pin PC13. For instructions on
+how set up a project and run the example, see the [documentation]. For more
+examples, see the [examples](examples) directory.
 
 [documentation]: https://docs.rs/stm32f1xx-hal/
 
