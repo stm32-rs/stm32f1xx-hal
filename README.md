@@ -17,8 +17,8 @@ If no microcontroller is specified, the crate will not compile.
 
 ### Supported Microcontrollers
 
-* stm32f100
-* stm32f103
+* `stm32f100`
+* `stm32f103`
 
 
 ### Trying out the examples
