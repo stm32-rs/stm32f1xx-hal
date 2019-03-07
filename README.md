@@ -36,7 +36,7 @@ $ cargo run --features $MICROCONTROLLER --example led
 `$INTERFACE` should be set based on your debugging hardware. If you are using an stlink V2, use
 `stlink-v2.cfg`. For more information, see the [embeddonomicon].
 
-[embedonomicon]: https://rust-embedded.github.io/book/start/hardware.html
+[embeddonomicon]: https://rust-embedded.github.io/book/start/hardware.html
 
 
 
