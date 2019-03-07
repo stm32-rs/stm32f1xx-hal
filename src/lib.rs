@@ -7,21 +7,6 @@
 //!
 //! # Usage
 //!
-//! ## Trying out the examples
-//!
-//! ```bash
-//! $ git clone https://github.com/stm32-rs/stm32f1xx-hal
-//!
-//! # on another terminal
-//! $ openocd -f interface/$INTERFACE.cfg -f target/stm32f1x.cfg
-//!
-//! # flash and debug the "Hello, world" example
-//! # NOTE examples assume 64KB of Flash and 20KB of RAM; you can tweak layout in memory.x
-//! $ cd stm32f1xx-hal
-//! $ rustup target add thumbv7m-none-eabi
-//! $ cargo run --example hello
-//! ```
-//!
 //! ## Building an application (binary crate)
 //!
 //! Follow the [cortex-m-quickstart] instructions, add this crate as a dependency
@@ -48,8 +33,6 @@
 //!
 //!
 //! ```rust
-//! #![deny(unsafe_code)]
-//! #![deny(warnings)]
 //! #![no_std]
 //! #![no_main]
 //! 
@@ -71,8 +54,8 @@
 //!     // Get access to the device specific peripherals from the peripheral access crate
 //!     let dp = pac::Peripherals::take().unwrap();
 //! 
-//!     // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-//!     // HAL structs
+//!     // Take ownership over the raw flash and rcc devices and convert them
+//!     // into the corresponding HAL structs
 //!     let mut flash = dp.FLASH.constrain();
 //!     let mut rcc = dp.RCC.constrain();
 //! 
@@ -83,8 +66,9 @@
 //!     // Acquire the GPIOC peripheral
 //!     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
 //! 
-//!     // Configure gpio C pin 13 as a push-pull output. The `crh` register is passed to the function
-//!     // in order to configure the port. For pins 0-7, crl should be passed instead.
+//!     // Configure gpio C pin 13 as a push-pull output. The `crh` register is
+//!     // passed to the function in order to configure the port. For pins 0-7,
+//!     // crl should be passed instead.
 //!     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 //!     // Configure the syst timer to trigger an update every second
 //!     let mut timer = Timer::syst(cp.SYST, 1.hz(), clocks);
