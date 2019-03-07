@@ -10,20 +10,16 @@
 //! ## Trying out the examples
 //!
 //! ```bash
-//! $ git clone https://github.com/stm32-rs/stm32f1xx-hal
-//!
 //! # on another terminal
 //! $ openocd -f interface/$INTERFACE.cfg -f target/stm32f1x.cfg
 //!
 //! # flash and debug the "Hello, world" example
-//! # NOTE examples assume 64KB of Flash and 20KB of RAM; you can tweak layout in memory.x
-//! $ cd stm32f1xx-hal
 //! $ rustup target add thumbv7m-none-eabi
 //! $ cargo run --example hello
 //! ```
 //!
 //! $INTERFACE should be set based on your debugging hardware. If you are using an stlink V2, use
-//! `stlink-v2.cfg`. For more information, see the [embedonomicon].
+//! `stlink-v2.cfg`. For more information, see the [embeddonomicon].
 //!
 //! [embedonomicon]: https://rust-embedded.github.io/book/start/hardware.html
 //!
