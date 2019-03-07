@@ -22,6 +22,11 @@
 //! $ cargo run --example hello
 //! ```
 //!
+//! $INTERFACE should be set based on your debugging hardware. If you are using an stlink V2, use
+//! `stlink-v2.cfg`. For more information, see the [embedonomicon].
+//!
+//! [embedonomicon]: https://rust-embedded.github.io/book/start/hardware.html
+//!
 //! ## Building an application (binary crate)
 //!
 //! Follow the [cortex-m-quickstart] instructions, add this crate as a dependency
@@ -48,8 +53,6 @@
 //!
 //!
 //! ```rust
-//! #![deny(unsafe_code)]
-//! #![deny(warnings)]
 //! #![no_std]
 //! #![no_main]
 //! 
