@@ -7,22 +7,6 @@
 //!
 //! # Usage
 //!
-//! ## Trying out the examples
-//!
-//! ```bash
-//! # on another terminal
-//! $ openocd -f interface/$INTERFACE.cfg -f target/stm32f1x.cfg
-//!
-//! # flash and debug the "Hello, world" example
-//! $ rustup target add thumbv7m-none-eabi
-//! $ cargo run --example hello
-//! ```
-//!
-//! $INTERFACE should be set based on your debugging hardware. If you are using an stlink V2, use
-//! `stlink-v2.cfg`. For more information, see the [embeddonomicon].
-//!
-//! [embedonomicon]: https://rust-embedded.github.io/book/start/hardware.html
-//!
 //! ## Building an application (binary crate)
 //!
 //! Follow the [cortex-m-quickstart] instructions, add this crate as a dependency

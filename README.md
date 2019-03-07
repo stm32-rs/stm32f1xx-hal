@@ -96,6 +96,24 @@ fn main() -> ! {
 }
 ```
 
+
+## Trying out the examples
+
+```bash
+# on another terminal
+$ openocd -f interface/$INTERFACE.cfg -f target/stm32f1x.cfg
+
+# flash and debug the "Hello, world" example
+$ rustup target add thumbv7m-none-eabi
+$ cargo run --example hello
+```
+
+$INTERFACE should be set based on your debugging hardware. If you are using an stlink V2, use
+`stlink-v2.cfg`. For more information, see the [embeddonomicon].
+
+[embedonomicon]: https://rust-embedded.github.io/book/start/hardware.html
+
+
 ## Documentation
 
 The documentation can be found at [docs.rs](https://docs.rs/stm32f1xx-hal/).
