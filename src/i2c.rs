@@ -428,8 +428,8 @@ macro_rules! hal {
                             self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
                             self.send_addr_and_wait(addr, true)?;
 
-                            let (mut first_bytes, mut last_two_bytes) = buffer.split_at_mut(buffer_len - 3);
-                            for mut byte in first_bytes {
+                            let (first_bytes, last_two_bytes) = buffer.split_at_mut(buffer_len - 3);
+                            for byte in first_bytes {
                                 self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
                                 busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.data_timeout)?;
                                 *byte = self.nb.i2c.dr.read().dr().bits();
