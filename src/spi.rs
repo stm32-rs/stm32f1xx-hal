@@ -2,7 +2,6 @@
 
 use core::ptr;
 
-use crate::hal;
 pub use crate::hal::spi::{Mode, Phase, Polarity};
 use nb;
 use crate::pac::{SPI1, SPI2};
