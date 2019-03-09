@@ -46,6 +46,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.2.1...HEAD
 [v0.2.1]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.1.1...v0.2.0
