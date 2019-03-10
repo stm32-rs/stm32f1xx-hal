@@ -38,10 +38,7 @@
 
 use core::marker::PhantomData;
 use core::ptr;
-use core::sync::atomic::{self, Ordering};
 
-use cast::u16;
-use crate::hal;
 use nb;
 use crate::pac::{USART1, USART2, USART3};
 use void::Void;
@@ -49,7 +46,7 @@ use void::Void;
 use crate::afio::MAPR;
 use crate::bb;
 //use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W};
-use crate::dma::{CircBuffer, Static, Transfer, R, W};
+// use crate::dma::{CircBuffer, Static, Transfer, R, W};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::{Alternate, Floating, Input, PushPull};

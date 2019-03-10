@@ -7,8 +7,9 @@ license = "MIT OR Apache-2.0"
 name = "stm32f1xx-hal"
 repository = "https://github.com/stm32-rs/stm32f1xx-hal"
 documentation = "https://docs.rs/stm32f1xx-hal"
+readme = "README.md"
 edition = "2018"
-version = "0.2.0"
+version = "0.2.1"
 
 [package.metadata.docs.rs]
 features = ["stm32f103", "rt"]

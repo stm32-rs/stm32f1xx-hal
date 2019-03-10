@@ -108,6 +108,7 @@ pub struct R;
 /// Write transfer
 pub struct W;
 
+/*
 macro_rules! dma {
     ($($DMAX:ident: ($dmaX:ident, $dmaXen:ident, $dmaXrst:ident, {
         $($CX:ident: (
@@ -318,7 +319,6 @@ macro_rules! dma {
     }
 }
 
-/*
 dma! {
     DMA1: (dma1, dma1en, dma1rst, {
         C1: (
