@@ -7,7 +7,11 @@ use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 use crate::rcc::{Clocks, APB1};
-use crate::pac::{DWT, I2C1, I2C2};
+use crate::pac::DWT;
+#[cfg(feature = "i2c1")]
+use crate::pac::I2C1;
+#[cfg(feature = "i2c2")]
+use crate::pac::I2C2;
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
@@ -57,14 +61,17 @@ pub trait Pins<I2C> {
     const REMAP: bool;
 }
 
+#[cfg(feature = "i2c1")]
 impl Pins<I2C1> for (PB6<Alternate<OpenDrain>>, PB7<Alternate<OpenDrain>>) {
     const REMAP: bool = false;
 }
 
+#[cfg(feature = "i2c1")]
 impl Pins<I2C1> for (PB8<Alternate<OpenDrain>>, PB9<Alternate<OpenDrain>>) {
     const REMAP: bool = true;
 }
 
+#[cfg(feature = "i2c2")]
 impl Pins<I2C2> for (PB10<Alternate<OpenDrain>>, PB11<Alternate<OpenDrain>>) {
     const REMAP: bool = false;
 }
@@ -85,6 +92,7 @@ pub struct BlockingI2c<I2C, PINS> {
     data_timeout: u32,
 }
 
+#[cfg(feature = "i2c1")]
 impl<PINS> I2c<I2C1, PINS> {
     pub fn i2c1(
         i2c: I2C1,
@@ -102,6 +110,7 @@ impl<PINS> I2c<I2C1, PINS> {
     }
 }
 
+#[cfg(feature = "i2c1")]
 impl<PINS> BlockingI2c<I2C1, PINS> {
     pub fn i2c1(
         i2c: I2C1,
@@ -133,6 +142,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
     }
 }
 
+#[cfg(feature = "i2c2")]
 impl<PINS> I2c<I2C2, PINS> {
     pub fn i2c2(i2c: I2C2, pins: PINS, mode: Mode, clocks: Clocks, apb: &mut APB1) -> Self
     where
@@ -142,6 +152,7 @@ impl<PINS> I2c<I2C2, PINS> {
     }
 }
 
+#[cfg(feature = "i2c2")]
 impl<PINS> BlockingI2c<I2C2, PINS> {
     pub fn i2c2(
         i2c: I2C2,
@@ -475,7 +486,7 @@ macro_rules! hal {
     }
 }
 
-hal! {
-    I2C1: (_i2c1, i2c1en, i2c1rst),
-    I2C2: (_i2c2, i2c2en, i2c2rst),
-}
+#[cfg(feature = "i2c1")]
+hal! { I2C1: (_i2c1, i2c1en, i2c1rst), }
+#[cfg(feature = "i2c2")]
+hal! { I2C2: (_i2c2, i2c2en, i2c2rst), }

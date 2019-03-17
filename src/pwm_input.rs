@@ -4,11 +4,21 @@
 use core::marker::PhantomData;
 use core::mem;
 
-use crate::stm32::{DBG, TIM1, TIM2, TIM3, TIM4};
+use crate::pac::DBG;
+#[cfg(feature = "tim1")]
+use crate::pac::TIM1;
+#[cfg(feature = "tim2")]
+use crate::pac::TIM2;
+#[cfg(feature = "tim3")]
+use crate::pac::TIM3;
+#[cfg(feature = "tim4")]
+use crate::pac::TIM4;
 
 use crate::afio::MAPR;
-use crate::gpio::gpioa::{PA0, PA1, PA15, PA6, PA7, PA8, PA9};
-use crate::gpio::gpiob::{PB3, PB4, PB5, PB6, PB7};
+#[cfg(feature = "gpioa")]
+use crate::gpio::gpioa;
+#[cfg(feature = "gpiob")]
+use crate::gpio::gpiob;
 use crate::gpio::{Alternate, OpenDrain};
 use crate::rcc::{Clocks, APB1};
 use crate::time::Hertz;
@@ -18,27 +28,40 @@ pub trait Pins<TIM> {
     const REMAP: u8;
 }
 
-impl Pins<TIM4> for (PB6<Alternate<OpenDrain>>, PB7<Alternate<OpenDrain>>) {
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "tim4")]
+impl Pins<TIM4> for (gpiob::PB6<Alternate<OpenDrain>>, gpiob::PB7<Alternate<OpenDrain>>) {
     const REMAP: u8 = 0b0;
 }
 
-impl Pins<TIM3> for (PA6<Alternate<OpenDrain>>, PA7<Alternate<OpenDrain>>) {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "tim3")]
+impl Pins<TIM3> for (gpioa::PA6<Alternate<OpenDrain>>, gpioa::PA7<Alternate<OpenDrain>>) {
     const REMAP: u8 = 0b00;
 }
 
-impl Pins<TIM3> for (PB4<Alternate<OpenDrain>>, PB5<Alternate<OpenDrain>>) {
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "tim3")]
+impl Pins<TIM3> for (gpiob::PB4<Alternate<OpenDrain>>, gpiob::PB5<Alternate<OpenDrain>>) {
     const REMAP: u8 = 0b10;
 }
 
-impl Pins<TIM2> for (PA0<Alternate<OpenDrain>>, PA1<Alternate<OpenDrain>>) {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "tim2")]
+impl Pins<TIM2> for (gpioa::PA0<Alternate<OpenDrain>>, gpioa::PA1<Alternate<OpenDrain>>) {
     const REMAP: u8 = 0b00;
 }
 
-impl Pins<TIM2> for (PA15<Alternate<OpenDrain>>, PB3<Alternate<OpenDrain>>) {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "tim2")]
+impl Pins<TIM2> for (gpioa::PA15<Alternate<OpenDrain>>, gpiob::PB3<Alternate<OpenDrain>>) {
     const REMAP: u8 = 0b11;
 }
 
-impl Pins<TIM1> for (PA8<Alternate<OpenDrain>>, PA9<Alternate<OpenDrain>>) {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "tim1")]
+impl Pins<TIM1> for (gpioa::PA8<Alternate<OpenDrain>>, gpioa::PA9<Alternate<OpenDrain>>) {
     const REMAP: u8 = 0b00;
 }
 
@@ -108,6 +131,7 @@ pub trait PwmInputExt: Sized {
         T: Into<Hertz>;
 }
 
+#[cfg(feature = "tim2")]
 impl PwmInputExt for TIM2 {
     fn pwm_input<PINS, T>(
         self,
@@ -128,6 +152,7 @@ impl PwmInputExt for TIM2 {
     }
 }
 
+#[cfg(feature = "tim3")]
 impl PwmInputExt for TIM3 {
     fn pwm_input<PINS, T>(
         self,
@@ -148,6 +173,7 @@ impl PwmInputExt for TIM3 {
     }
 }
 
+#[cfg(feature = "tim4")]
 impl PwmInputExt for TIM4 {
     fn pwm_input<PINS, T>(
         self,
@@ -334,8 +360,9 @@ macro_rules! hal {
    }
 }
 
-hal! {
-   TIM2: (tim2, tim2en, tim2rst, dbg_tim2_stop),
-   TIM3: (tim3, tim3en, tim3rst, dbg_tim3_stop),
-   TIM4: (tim4, tim4en, tim4rst, dbg_tim4_stop),
-}
+#[cfg(feature = "tim2")]
+hal! { TIM2: (tim2, tim2en, tim2rst, dbg_tim2_stop), }
+#[cfg(feature = "tim3")]
+hal! { TIM3: (tim3, tim3en, tim3rst, dbg_tim3_stop), }
+#[cfg(feature = "tim4")]
+hal! { TIM4: (tim4, tim4en, tim4rst, dbg_tim4_stop), }

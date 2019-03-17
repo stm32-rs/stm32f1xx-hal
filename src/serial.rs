@@ -40,14 +40,20 @@ use core::marker::PhantomData;
 use core::ptr;
 
 use nb;
-use crate::pac::{USART1, USART2, USART3};
+#[cfg(feature = "usart1")]
+use crate::pac::USART1;
+#[cfg(feature = "usart2")]
+use crate::pac::USART2;
+#[cfg(feature = "usart3")]
+use crate::pac::USART3;
 use void::Void;
 
 use crate::afio::MAPR;
 //use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W};
-// use crate::dma::{CircBuffer, Static, Transfer, R, W};
-use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
+#[cfg(feature = "gpioa")]
+use crate::gpio::gpioa;
+#[cfg(feature = "gpiob")]
+use crate::gpio::gpiob;
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{Clocks, APB1, APB2};
 use crate::time::Bps;
@@ -79,33 +85,47 @@ pub trait Pins<USART> {
     const REMAP: u8;
 }
 
-impl Pins<USART1> for (PA9<Alternate<PushPull>>, PA10<Input<Floating>>) {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "usart1")]
+impl Pins<USART1> for (gpioa::PA9<Alternate<PushPull>>, gpioa::PA10<Input<Floating>>) {
     const REMAP: u8 = 0;
 }
 
-impl Pins<USART1> for (PB6<Alternate<PushPull>>, PB7<Input<Floating>>) {
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "usart1")]
+impl Pins<USART1> for (gpiob::PB6<Alternate<PushPull>>, gpiob::PB7<Input<Floating>>) {
     const REMAP: u8 = 1;
 }
 
-impl Pins<USART2> for (PA2<Alternate<PushPull>>, PA3<Input<Floating>>) {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "usart2")]
+impl Pins<USART2> for (gpioa::PA2<Alternate<PushPull>>, gpioa::PA3<Input<Floating>>) {
     const REMAP: u8 = 0;
 }
 
-// impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
-//     const REMAP: u8 = 0;
-// }
-
-impl Pins<USART3> for (PB10<Alternate<PushPull>>, PB11<Input<Floating>>) {
+#[cfg(feature = "gpiod")]
+#[cfg(feature = "usart2")]
+impl Pins<USART2> for (gpiod::PD5<Alternate<PushPull>>, gpiod::PD6<Input<Floating>>) {
     const REMAP: u8 = 0;
 }
 
-// impl Pins<USART3> for (PC10<Alternate<PushPull>>, PC11<Input<Floating>>) {
-//     const REMAP: u8 = 1;
-// }
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "usart3")]
+impl Pins<USART3> for (gpiob::PB10<Alternate<PushPull>>, gpiob::PB11<Input<Floating>>) {
+    const REMAP: u8 = 0;
+}
 
-// impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
-//     const REMAP: u8 = 0b11;
-// }
+#[cfg(feature = "gpioc")]
+#[cfg(feature = "usart3")]
+impl Pins<USART3> for (gpioc::PC10<Alternate<PushPull>>, gpioc::PC11<Input<Floating>>) {
+    const REMAP: u8 = 1;
+}
+
+#[cfg(feature = "gpiod")]
+#[cfg(feature = "usart3")]
+impl Pins<USART3> for (gpiod::PD8<Alternate<PushPull>>, gpiod::PD9<Input<Floating>>) {
+    const REMAP: u8 = 0b11;
+}
 
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
@@ -458,6 +478,7 @@ macro_rules! hal {
     }
 }
 
+#[cfg(feature = "usart1")]
 hal! {
     /// # USART1 functions
     USART1: (
@@ -470,6 +491,10 @@ hal! {
         |remap| remap == 1,
         APB2
     ),
+}
+
+#[cfg(feature = "usart2")]
+hal! {
     /// # USART2 functions
     USART2: (
         usart2,
@@ -481,6 +506,10 @@ hal! {
         |remap| remap == 1,
         APB1
     ),
+}
+
+#[cfg(feature = "usart3")]
+hal! {
     /// # USART3 functions
     USART3: (
         usart3,

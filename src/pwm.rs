@@ -5,12 +5,19 @@ use core::mem;
 
 use cast::{u16, u32};
 use crate::hal;
-use crate::pac::{TIM2, TIM3, TIM4};
+#[cfg(feature = "tim2")]
+use crate::pac::TIM2;
+#[cfg(feature = "tim3")]
+use crate::pac::TIM3;
+#[cfg(feature = "tim4")]
+use crate::pac::TIM4;
 
 use crate::afio::MAPR;
 use crate::bb;
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7};
-use crate::gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
+#[cfg(feature = "gpioa")]
+use crate::gpio::gpioa;
+#[cfg(feature = "gpiob")]
+use crate::gpio::gpiob;
 use crate::gpio::{Alternate, PushPull};
 use crate::rcc::{Clocks, APB1};
 use crate::time::Hertz;
@@ -25,12 +32,14 @@ pub trait Pins<TIM> {
     type Channels;
 }
 
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "tim2")]
 impl Pins<TIM2>
     for (
-        PA0<Alternate<PushPull>>,
-        PA1<Alternate<PushPull>>,
-        PA2<Alternate<PushPull>>,
-        PA3<Alternate<PushPull>>,
+        gpioa::PA0<Alternate<PushPull>>,
+        gpioa::PA1<Alternate<PushPull>>,
+        gpioa::PA2<Alternate<PushPull>>,
+        gpioa::PA3<Alternate<PushPull>>,
     )
 {
     const REMAP: u8 = 0b00;
@@ -41,7 +50,9 @@ impl Pins<TIM2>
     type Channels = (Pwm<TIM2, C1>, Pwm<TIM2, C2>, Pwm<TIM2, C3>, Pwm<TIM2, C4>);
 }
 
-impl Pins<TIM2> for PA0<Alternate<PushPull>> {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "tim2")]
+impl Pins<TIM2> for gpioa::PA0<Alternate<PushPull>> {
     const REMAP: u8 = 0b00;
     const C1: bool = true;
     const C2: bool = false;
@@ -50,12 +61,15 @@ impl Pins<TIM2> for PA0<Alternate<PushPull>> {
     type Channels = Pwm<TIM2, C1>;
 }
 
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "tim3")]
 impl Pins<TIM3>
     for (
-        PA6<Alternate<PushPull>>,
-        PA7<Alternate<PushPull>>,
-        PB0<Alternate<PushPull>>,
-        PB1<Alternate<PushPull>>,
+        gpioa::PA6<Alternate<PushPull>>,
+        gpioa::PA7<Alternate<PushPull>>,
+        gpiob::PB0<Alternate<PushPull>>,
+        gpiob::PB1<Alternate<PushPull>>,
     )
 {
     const REMAP: u8 = 0b00;
@@ -66,7 +80,9 @@ impl Pins<TIM3>
     type Channels = (Pwm<TIM3, C1>, Pwm<TIM3, C2>, Pwm<TIM3, C3>, Pwm<TIM3, C4>);
 }
 
-impl Pins<TIM3> for (PB0<Alternate<PushPull>>, PB1<Alternate<PushPull>>) {
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "tim3")]
+impl Pins<TIM3> for (gpiob::PB0<Alternate<PushPull>>, gpiob::PB1<Alternate<PushPull>>) {
     const REMAP: u8 = 0b00;
     const C1: bool = false;
     const C2: bool = false;
@@ -75,12 +91,14 @@ impl Pins<TIM3> for (PB0<Alternate<PushPull>>, PB1<Alternate<PushPull>>) {
     type Channels = (Pwm<TIM3, C3>, Pwm<TIM3, C4>);
 }
 
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "tim4")]
 impl Pins<TIM4>
     for (
-        PB6<Alternate<PushPull>>,
-        PB7<Alternate<PushPull>>,
-        PB8<Alternate<PushPull>>,
-        PB9<Alternate<PushPull>>,
+        gpiob::PB6<Alternate<PushPull>>,
+        gpiob::PB7<Alternate<PushPull>>,
+        gpiob::PB8<Alternate<PushPull>>,
+        gpiob::PB9<Alternate<PushPull>>,
     )
 {
     const REMAP: u8 = 0b0;
@@ -105,6 +123,7 @@ pub trait PwmExt: Sized {
         T: Into<Hertz>;
 }
 
+#[cfg(feature = "tim2")]
 impl PwmExt for TIM2 {
     fn pwm<PINS, T>(
         self,
@@ -125,6 +144,7 @@ impl PwmExt for TIM2 {
     }
 }
 
+#[cfg(feature = "tim3")]
 impl PwmExt for TIM3 {
     fn pwm<PINS, T>(
         self,
@@ -145,6 +165,7 @@ impl PwmExt for TIM3 {
     }
 }
 
+#[cfg(feature = "tim4")]
 impl PwmExt for TIM4 {
     fn pwm<PINS, T>(
         self,
@@ -332,8 +353,9 @@ macro_rules! hal {
     }
 }
 
-hal! {
-    TIM2: (tim2, tim2en, tim2rst),
-    TIM3: (tim3, tim3en, tim3rst),
-    TIM4: (tim4, tim4en, tim4rst),
-}
+#[cfg(feature = "tim2")]
+hal! { TIM2: (tim2, tim2en, tim2rst), }
+#[cfg(feature = "tim3")]
+hal! { TIM3: (tim3, tim3en, tim3rst), }
+#[cfg(feature = "tim4")]
+hal! { TIM4: (tim4, tim4en, tim4rst), }

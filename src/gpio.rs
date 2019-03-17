@@ -492,6 +492,7 @@ macro_rules! gpio {
     }
 }
 
+#[cfg(feature = "gpioa")]
 gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
     PA0: (pa0, 0, Input<Floating>, CRL),
     PA1: (pa1, 1, Input<Floating>, CRL),
@@ -511,6 +512,7 @@ gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
     PA15: (pa15, 15, Input<Floating>, CRH),
 ]);
 
+#[cfg(feature = "gpiob")]
 gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB0: (pb0, 0, Input<Floating>, CRL),
     PB1: (pb1, 1, Input<Floating>, CRL),
@@ -530,6 +532,7 @@ gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB15: (pb15, 15, Input<Floating>, CRH),
 ]);
 
+#[cfg(feature = "gpioc")]
 #[cfg(not(feature = "stm32f100"))]
 gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
     PC13: (pc13, 13, Input<Floating>, CRH),
@@ -537,6 +540,7 @@ gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
     PC15: (pc15, 15, Input<Floating>, CRH),
 ]);
 
+#[cfg(feature = "gpioc")]
 #[cfg(feature = "stm32f100")]
 gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
     PC8: (pc8, 8, Input<Floating>, CRH),

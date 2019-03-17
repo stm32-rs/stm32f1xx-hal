@@ -4,11 +4,16 @@ use core::ptr;
 
 pub use crate::hal::spi::{Mode, Phase, Polarity};
 use nb;
-use crate::pac::{SPI1, SPI2};
+#[cfg(feature = "spi1")]
+use crate::pac::SPI1;
+#[cfg(feature = "spi2")]
+use crate::pac::SPI2;
 
 use crate::afio::MAPR;
-use crate::gpio::gpioa::{PA5, PA6, PA7};
-use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
+#[cfg(feature = "gpioa")]
+use crate::gpio::gpioa;
+#[cfg(feature = "gpiob")]
+use crate::gpio::gpiob;
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{Clocks, APB1, APB2};
 use crate::time::Hertz;
@@ -30,31 +35,37 @@ pub trait Pins<SPI> {
     const REMAP: bool;
 }
 
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "spi1")]
 impl Pins<SPI1>
     for (
-        PA5<Alternate<PushPull>>,
-        PA6<Input<Floating>>,
-        PA7<Alternate<PushPull>>,
+        gpioa::PA5<Alternate<PushPull>>,
+        gpioa::PA6<Input<Floating>>,
+        gpioa::PA7<Alternate<PushPull>>,
     )
 {
     const REMAP: bool = false;
 }
 
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "spi1")]
 impl Pins<SPI1>
     for (
-        PB3<Alternate<PushPull>>,
-        PB4<Input<Floating>>,
-        PB5<Alternate<PushPull>>,
+        gpiob::PB3<Alternate<PushPull>>,
+        gpiob::PB4<Input<Floating>>,
+        gpiob::PB5<Alternate<PushPull>>,
     )
 {
     const REMAP: bool = true;
 }
 
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "spi2")]
 impl Pins<SPI2>
     for (
-        PB13<Alternate<PushPull>>,
-        PB14<Input<Floating>>,
-        PB15<Alternate<PushPull>>,
+        gpiob::PB13<Alternate<PushPull>>,
+        gpiob::PB14<Input<Floating>>,
+        gpiob::PB15<Alternate<PushPull>>,
     )
 {
     const REMAP: bool = false;
@@ -65,6 +76,7 @@ pub struct Spi<SPI, PINS> {
     pins: PINS,
 }
 
+#[cfg(feature = "spi1")]
 impl<PINS> Spi<SPI1, PINS> {
     pub fn spi1<F>(
         spi: SPI1,
@@ -84,6 +96,7 @@ impl<PINS> Spi<SPI1, PINS> {
     }
 }
 
+#[cfg(feature = "spi2")]
 impl<PINS> Spi<SPI2, PINS> {
     pub fn spi2<F>(
         spi: SPI2,
@@ -223,7 +236,7 @@ macro_rules! hal {
     }
 }
 
-hal! {
-    SPI1: (_spi1, spi1en, spi1rst, APB2),
-    SPI2: (_spi2, spi2en, spi2rst, APB1),
-}
+#[cfg(feature = "spi1")]
+hal! { SPI1: (_spi1, spi1en, spi1rst, APB2), }
+#[cfg(feature = "spi2")]
+hal! { SPI2: (_spi2, spi2en, spi2rst, APB1), }

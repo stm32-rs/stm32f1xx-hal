@@ -2,11 +2,18 @@
 use core::u16;
 
 use crate::hal::{self, Direction};
-use crate::pac::{TIM2, TIM3, TIM4};
+#[cfg(feature = "tim2")]
+use crate::pac::TIM2;
+#[cfg(feature = "tim3")]
+use crate::pac::TIM3;
+#[cfg(feature = "tim4")]
+use crate::pac::TIM4;
 
 use crate::afio::MAPR;
-use crate::gpio::gpioa::{PA0, PA1, PA6, PA7};
-use crate::gpio::gpiob::{PB6, PB7};
+#[cfg(feature = "gpioa")]
+use crate::gpio::gpioa;
+#[cfg(feature = "gpiob")]
+use crate::gpio::gpiob;
 use crate::gpio::{Floating, Input};
 use crate::rcc::APB1;
 
@@ -14,15 +21,21 @@ pub trait Pins<TIM> {
     const REMAP: u8;
 }
 
-impl Pins<TIM2> for (PA0<Input<Floating>>, PA1<Input<Floating>>) {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "tim2")]
+impl Pins<TIM2> for (gpioa::PA0<Input<Floating>>, gpioa::PA1<Input<Floating>>) {
     const REMAP: u8 = 0b00;
 }
 
-impl Pins<TIM3> for (PA6<Input<Floating>>, PA7<Input<Floating>>) {
+#[cfg(feature = "gpioa")]
+#[cfg(feature = "tim3")]
+impl Pins<TIM3> for (gpioa::PA6<Input<Floating>>, gpioa::PA7<Input<Floating>>) {
     const REMAP: u8 = 0b00;
 }
 
-impl Pins<TIM4> for (PB6<Input<Floating>>, PB7<Input<Floating>>) {
+#[cfg(feature = "gpiob")]
+#[cfg(feature = "tim4")]
+impl Pins<TIM4> for (gpiob::PB6<Input<Floating>>, gpiob::PB7<Input<Floating>>) {
     const REMAP: u8 = 0b00;
 }
 
@@ -31,6 +44,7 @@ pub struct Qei<TIM, PINS> {
     pins: PINS,
 }
 
+#[cfg(feature = "tim2")]
 impl<PINS> Qei<TIM2, PINS> {
     pub fn tim2(tim: TIM2, pins: PINS, mapr: &mut MAPR, apb: &mut APB1) -> Self
     where
@@ -43,6 +57,7 @@ impl<PINS> Qei<TIM2, PINS> {
     }
 }
 
+#[cfg(feature = "tim3")]
 impl<PINS> Qei<TIM3, PINS> {
     pub fn tim3(tim: TIM3, pins: PINS, mapr: &mut MAPR, apb: &mut APB1) -> Self
     where
@@ -55,6 +70,7 @@ impl<PINS> Qei<TIM3, PINS> {
     }
 }
 
+#[cfg(feature = "tim4")]
 impl<PINS> Qei<TIM4, PINS> {
     pub fn tim4(tim: TIM4, pins: PINS, mapr: &mut MAPR, apb: &mut APB1) -> Self
     where
@@ -127,8 +143,9 @@ macro_rules! hal {
     }
 }
 
-hal! {
-    TIM2: (_tim2, tim2en, tim2rst),
-    TIM3: (_tim3, tim3en, tim3rst),
-    TIM4: (_tim4, tim4en, tim4rst),
-}
+#[cfg(feature = "tim2")]
+hal! { TIM2: (_tim2, tim2en, tim2rst), }
+#[cfg(feature = "tim3")]
+hal! { TIM3: (_tim3, tim3en, tim3rst), }
+#[cfg(feature = "tim4")]
+hal! { TIM4: (_tim4, tim4en, tim4rst), }

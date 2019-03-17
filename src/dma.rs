@@ -319,6 +319,7 @@ macro_rules! dma {
     }
 }
 
+#[cfg(feature = "dma1")]
 dma! {
     DMA1: (dma1, dma1en, dma1rst, {
         C1: (
@@ -378,7 +379,10 @@ dma! {
             chtif7, ctcif7, cgif7
         ),
     }),
+}
 
+#[cfg(feature = "dma2")]
+dma! {
     DMA2: (dma2, dma2en, dma2rst, {
         C1: (
             ccr1, CCR1,

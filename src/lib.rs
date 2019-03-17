@@ -104,22 +104,61 @@ pub use stm32f1::stm32f103 as pac;
 pub use crate::pac as device;
 pub use crate::pac as stm32;
 
+#[cfg(feature = "afio")]
 pub mod afio;
+
+#[cfg(feature = "bkp")]
 pub mod backup_domain;
+
+#[cfg(feature = "bb")]
 pub mod bb;
+
+#[cfg(feature = "delay")]
 pub mod delay;
+
+#[cfg(any(feature = "dma1", feature = "dma2"))]
 pub mod dma;
+
 pub mod flash;
+
+#[cfg(feature = "gpio")]
 pub mod gpio;
+
+#[cfg(feature = "gpiob")]
+#[cfg(any(feature = "i2c1", feature = "i2c2"))]
 pub mod i2c;
+
 pub mod prelude;
-#[cfg(not(feature = "stm32f100"))]
+
+#[cfg(any(feature = "gpioa", feature = "gpiob"))]
+#[cfg(any(feature = "tim2", feature = "tim3", feature = "tim4"))]
+#[cfg(feature = "pwm")]
 pub mod pwm;
+
+#[cfg(any(feature = "gpioa", feature = "gpiob"))]
+#[cfg(any(feature = "tim2", feature = "tim3", feature = "tim4"))]
+#[cfg(feature = "pwm_input")]
 pub mod pwm_input;
+
+#[cfg(any(feature = "gpioa", feature = "gpiob"))]
+#[cfg(any(feature = "tim2", feature = "tim3", feature = "tim4"))]
+#[cfg(feature = "qei")]
 pub mod qei;
+
 pub mod rcc;
+
+#[cfg(feature = "rtc")]
 pub mod rtc;
+
+#[cfg(any(feature = "gpioa", feature = "gpiob", feature = "gpioc", feature = "gpiod"))]
+#[cfg(any(feature = "usart1", feature = "usart2", feature = "usart3"))]
 pub mod serial;
+
+#[cfg(any(feature = "gpioa", feature = "gpiob"))]
+#[cfg(any(feature = "spi1", feature = "spi2", feature = "spi3"))]
 pub mod spi;
+
 pub mod time;
+
+#[cfg(feature = "timer")]
 pub mod timer;
