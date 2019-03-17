@@ -113,7 +113,6 @@ pub mod flash;
 pub mod gpio;
 pub mod i2c;
 pub mod prelude;
-#[cfg(not(feature = "stm32f100"))]
 pub mod pwm;
 pub mod pwm_input;
 pub mod qei;

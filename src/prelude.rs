@@ -6,7 +6,6 @@ pub use crate::gpio::GpioExt as _stm32_hal_gpio_GpioExt;
 pub use crate::hal::digital::StatefulOutputPin as _embedded_hal_digital_StatefulOutputPin;
 pub use crate::hal::digital::ToggleableOutputPin as _embedded_hal_digital_ToggleableOutputPin;
 pub use crate::hal::prelude::*;
-#[cfg(not(feature = "stm32f100"))]
 pub use crate::pwm::PwmExt as _stm32_hal_pwm_PwmExt;
 pub use crate::rcc::RccExt as _stm32_hal_rcc_RccExt;
 //pub use crate::serial::ReadDma as _stm32_hal_serial_ReadDma;
