@@ -7,13 +7,13 @@
 
 extern crate cortex_m;
 extern crate cortex_m_rt as rt;
-extern crate panic_abort;
+extern crate panic_halt;
 extern crate stm32f1xx_hal as hal;
 
 use hal::prelude::*;
 use hal::pwm_input::*;
 use hal::stm32;
-use rt::{entry, exception, ExceptionFrame};
+use rt::entry;
 
 #[entry]
 fn main() -> ! {
