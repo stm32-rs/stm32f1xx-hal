@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Add gpio pins corresponding to LQFP-100 package
 - Implement `core::fmt::Write` for `serial::Tx`
 
 ### Changed
