@@ -42,6 +42,7 @@ use core::ptr;
 use nb;
 use crate::pac::{USART1, USART2, USART3};
 use void::Void;
+use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
 //use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W};
@@ -543,3 +544,15 @@ where
     fn write_all(self, chan: Self::Dma, buffer: B) -> Transfer<R, B, Self::Dma, Self>;
 }
 */
+
+impl<USART> core::fmt::Write for Tx<USART>
+where
+    Tx<USART>: embedded_hal::serial::Write<u8>,
+{
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        s.as_bytes()
+            .iter()
+            .try_for_each(|c| nb::block!(self.write(*c)))
+            .map_err(|_| core::fmt::Error)
+    }
+}
