@@ -489,7 +489,6 @@ macro_rules! gpio {
     }
 }
 
-#[cfg(feature = "gpioa")]
 gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
     PA0: (pa0, 0, Input<Floating>, CRL),
     PA1: (pa1, 1, Input<Floating>, CRL),
@@ -509,7 +508,6 @@ gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
     PA15: (pa15, 15, Input<Floating>, CRH),
 ]);
 
-#[cfg(feature = "gpiob")]
 gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB0: (pb0, 0, Input<Floating>, CRL),
     PB1: (pb1, 1, Input<Floating>, CRL),
@@ -519,6 +517,9 @@ gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB5: (pb5, 5, Input<Floating>, CRL),
     PB6: (pb6, 6, Input<Floating>, CRL),
     PB7: (pb7, 7, Input<Floating>, CRL),
+]);
+#[cfg(feature = "case48")]
+gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB8: (pb8, 8, Input<Floating>, CRH),
     PB9: (pb9, 9, Input<Floating>, CRH),
     PB10: (pb10, 10, Input<Floating>, CRH),
@@ -529,7 +530,7 @@ gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB15: (pb15, 15, Input<Floating>, CRH),
 ]);
 
-#[cfg(feature = "gpioc")]
+#[cfg(feature = "case64")]
 gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
     PC0: (pc0, 0, Input<Floating>, CRL),
     PC1: (pc1, 1, Input<Floating>, CRL),
@@ -544,16 +545,27 @@ gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
     PC10: (pc10, 10, Input<Floating>, CRH),
     PC11: (pc11, 11, Input<Floating>, CRH),
     PC12: (pc12, 12, Input<Floating>, CRH),
+]);
+
+#[cfg(feature = "case48")]
+gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
     PC13: (pc13, 13, Input<Floating>, CRH),
     PC14: (pc14, 14, Input<Floating>, CRH),
     PC15: (pc15, 15, Input<Floating>, CRH),
 ]);
 
-#[cfg(feature = "gpiod")]
 gpio!(GPIOD, gpiod, gpioa, iopden, iopdrst, PDx, [
     PD0: (pd0, 0, Input<Floating>, CRL),
     PD1: (pd1, 1, Input<Floating>, CRL),
+]);
+
+#[cfg(feature = "case64")]
+gpio!(GPIOD, gpiod, gpioa, iopden, iopdrst, PDx, [
     PD2: (pd2, 2, Input<Floating>, CRL),
+]);
+
+#[cfg(feature = "case100")]
+gpio!(GPIOD, gpiod, gpioa, iopden, iopdrst, PDx, [
     PD3: (pd3, 3, Input<Floating>, CRL),
     PD4: (pd4, 4, Input<Floating>, CRL),
     PD5: (pd5, 5, Input<Floating>, CRL),
@@ -569,7 +581,7 @@ gpio!(GPIOD, gpiod, gpioa, iopden, iopdrst, PDx, [
     PD15: (pd15, 15, Input<Floating>, CRH),
 ]);
 
-#[cfg(feature = "gpioe")]
+#[cfg(feature = "case100")]
 gpio!(GPIOE, gpioe, gpioa, iopeen, ioperst, PEx, [
     PE0: (pe0, 0, Input<Floating>, CRL),
     PE1: (pe1, 1, Input<Floating>, CRL),
@@ -587,4 +599,44 @@ gpio!(GPIOE, gpioe, gpioa, iopeen, ioperst, PEx, [
     PE13: (pe13, 13, Input<Floating>, CRH),
     PE14: (pe14, 14, Input<Floating>, CRH),
     PE15: (pe15, 15, Input<Floating>, CRH),
+]);
+
+#[cfg(feature = "case144")]
+gpio!(GPIOF, gpiof, gpioa, iopfen, iopfrst, PFx, [
+    PF0: (pf0, 0, Input<Floating>, CRL),
+    PF1: (pf1, 1, Input<Floating>, CRL),
+    PF2: (pf2, 2, Input<Floating>, CRL),
+    PF3: (pf3, 3, Input<Floating>, CRL),
+    PF4: (pf4, 4, Input<Floating>, CRL),
+    PF5: (pf5, 5, Input<Floating>, CRL),
+    PF6: (pf6, 6, Input<Floating>, CRL),
+    PF7: (pf7, 7, Input<Floating>, CRL),
+    PF8: (pf8, 8, Input<Floating>, CRH),
+    PF9: (pf9, 9, Input<Floating>, CRH),
+    PF10: (pf10, 10, Input<Floating>, CRH),
+    PF11: (pf11, 11, Input<Floating>, CRH),
+    PF12: (pf12, 12, Input<Floating>, CRH),
+    PF13: (pf13, 13, Input<Floating>, CRH),
+    PF14: (pf14, 14, Input<Floating>, CRH),
+    PF15: (pf15, 15, Input<Floating>, CRH),
+]);
+
+#[cfg(feature = "case144")]
+gpio!(GPIOG, gpiog, gpioa, iopgen, iopgrst, PGx, [
+    PG0: (pg0, 0, Input<Floating>, CRL),
+    PG1: (pg1, 1, Input<Floating>, CRL),
+    PG2: (pg2, 2, Input<Floating>, CRL),
+    PG3: (pg3, 3, Input<Floating>, CRL),
+    PG4: (pg4, 4, Input<Floating>, CRL),
+    PG5: (pg5, 5, Input<Floating>, CRL),
+    PG6: (pg6, 6, Input<Floating>, CRL),
+    PG7: (pg7, 7, Input<Floating>, CRL),
+    PG8: (pg8, 8, Input<Floating>, CRH),
+    PG9: (pg9, 9, Input<Floating>, CRH),
+    PG10: (pg10, 10, Input<Floating>, CRH),
+    PG11: (pg11, 11, Input<Floating>, CRH),
+    PG12: (pg12, 12, Input<Floating>, CRH),
+    PG13: (pg13, 13, Input<Floating>, CRH),
+    PG14: (pg14, 14, Input<Floating>, CRH),
+    PG15: (pg15, 15, Input<Floating>, CRH),
 ]);

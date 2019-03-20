@@ -14,6 +14,8 @@ use crate::afio::MAPR;
 use crate::gpio::gpioa;
 #[cfg(feature = "gpiob")]
 use crate::gpio::gpiob;
+#[cfg(feature = "gpioc")]
+use crate::gpio::gpioc;
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{Clocks, APB1, APB2};
 use crate::time::Hertz;
@@ -35,40 +37,65 @@ pub trait Pins<SPI> {
     const REMAP: bool;
 }
 
-#[cfg(feature = "gpioa")]
+//#[cfg(feature = "case36")]
 #[cfg(feature = "spi1")]
 impl Pins<SPI1>
-    for (
-        gpioa::PA5<Alternate<PushPull>>,
-        gpioa::PA6<Input<Floating>>,
-        gpioa::PA7<Alternate<PushPull>>,
+    for ( // NSS: PA4
+        gpioa::PA5<Alternate<PushPull>>, // SCK
+        gpioa::PA6<Input<Floating>>,     // MISO
+        gpioa::PA7<Alternate<PushPull>>, // MOSI
     )
 {
     const REMAP: bool = false;
 }
 
-#[cfg(feature = "gpiob")]
+//#[cfg(feature = "case36")]
 #[cfg(feature = "spi1")]
 impl Pins<SPI1>
-    for (
-        gpiob::PB3<Alternate<PushPull>>,
-        gpiob::PB4<Input<Floating>>,
-        gpiob::PB5<Alternate<PushPull>>,
+    for ( // NSS: PA15
+        gpiob::PB3<Alternate<PushPull>>, // SCK
+        gpiob::PB4<Input<Floating>>,     // MISO
+        gpiob::PB5<Alternate<PushPull>>, // MOSI
     )
 {
     const REMAP: bool = true;
 }
 
-#[cfg(feature = "gpiob")]
+#[cfg(feature = "case48")]
 #[cfg(feature = "spi2")]
 impl Pins<SPI2>
-    for (
-        gpiob::PB13<Alternate<PushPull>>,
-        gpiob::PB14<Input<Floating>>,
-        gpiob::PB15<Alternate<PushPull>>,
+    for ( // NSS: PB12
+        gpiob::PB13<Alternate<PushPull>>, // SCK
+        gpiob::PB14<Input<Floating>>,     // MISO
+        gpiob::PB15<Alternate<PushPull>>, // MOSI
     )
 {
     const REMAP: bool = false;
+}
+
+#[cfg(feature = "case64")]
+#[cfg(feature = "spi3")]
+impl Pins<SPI3>
+    for ( // NSS: PA15
+        gpiob::PB3<Alternate<PushPull>>, // SCK
+        gpiob::PB4<Input<Floating>>,     // MISO
+        gpiob::PB5<Alternate<PushPull>>, // MOSI
+    )
+{
+    const REMAP: bool = false;
+}
+
+//#[cfg(feature = "case64")]
+//#[cfg(feature = "spi3")]
+#[cfg(any(feature = "stm32f105", feature = "stm32f107"))]
+impl Pins<SPI3>
+    for ( // NSS: PA4
+        gpioc::PC10<Alternate<PushPull>>, // SCK
+        gpioc::PC11<Input<Floating>>,     // MISO
+        gpioc::PC12<Alternate<PushPull>>, // MOSI
+    )
+{
+    const REMAP: bool = true;
 }
 
 pub struct Spi<SPI, PINS> {
@@ -111,6 +138,26 @@ impl<PINS> Spi<SPI2, PINS> {
         PINS: Pins<SPI2>,
     {
         Spi::_spi2(spi, pins, mode, freq.into(), clocks, apb)
+    }
+}
+
+#[cfg(feature = "spi3")]
+impl<PINS> Spi<SPI3, PINS> {
+    pub fn spi3<F>(
+        spi: SPI3,
+        pins: PINS,
+        mapr: &mut MAPR,
+        mode: Mode,
+        freq: F,
+        clocks: Clocks,
+        apb: &mut APB1,
+    ) -> Self
+    where
+        F: Into<Hertz>,
+        PINS: Pins<SPI3>,
+    {
+        mapr.mapr().modify(|_, w| w.spi3_remap().bit(PINS::REMAP));
+        Spi::_spi3(spi, pins, mode, freq.into(), clocks, apb)
     }
 }
 
@@ -240,3 +287,5 @@ macro_rules! hal {
 hal! { SPI1: (_spi1, spi1en, spi1rst, APB2), }
 #[cfg(feature = "spi2")]
 hal! { SPI2: (_spi2, spi2en, spi2rst, APB1), }
+#[cfg(feature = "spi3")]
+hal! { SPI3: (_spi3, spi3en, spi3rst, APB1), }

@@ -1,8 +1,9 @@
 //! Inter-Integrated Circuit (I2C) bus
 
 use crate::afio::MAPR;
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::{Alternate, OpenDrain};
+#[cfg(feature = "gpiob")]
+use crate::gpio::gpiob;
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
@@ -62,17 +63,19 @@ pub trait Pins<I2C> {
 }
 
 #[cfg(feature = "i2c1")]
-impl Pins<I2C1> for (PB6<Alternate<OpenDrain>>, PB7<Alternate<OpenDrain>>) {
+impl Pins<I2C1> for (gpiob::PB6<Alternate<OpenDrain>>, gpiob::PB7<Alternate<OpenDrain>>) {
     const REMAP: bool = false;
 }
 
 #[cfg(feature = "i2c1")]
-impl Pins<I2C1> for (PB8<Alternate<OpenDrain>>, PB9<Alternate<OpenDrain>>) {
+#[cfg(feature = "case48")]
+impl Pins<I2C1> for (gpiob::PB8<Alternate<OpenDrain>>, gpiob::PB9<Alternate<OpenDrain>>) {
     const REMAP: bool = true;
 }
 
 #[cfg(feature = "i2c2")]
-impl Pins<I2C2> for (PB10<Alternate<OpenDrain>>, PB11<Alternate<OpenDrain>>) {
+#[cfg(feature = "case48")]
+impl Pins<I2C2> for (gpiob::PB10<Alternate<OpenDrain>>, gpiob::PB11<Alternate<OpenDrain>>) {
     const REMAP: bool = false;
 }
 

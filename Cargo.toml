@@ -105,6 +105,8 @@ gpiob = ["gpio"]
 gpioc = ["gpio"]
 gpiod = ["gpio"]
 gpioe = ["gpio"]
+gpiof = ["gpio"]
+gpiog = ["gpio"]
 dma1  = ["dma"]
 dma2  = ["dma"]
 tim1 = []
@@ -119,6 +121,17 @@ spi2 = ["spi"]
 spi3 = ["spi"]
 i2c1 = ["i2c"]
 i2c2 = ["i2c"]
+
+# PD0-OSC_IN, PD1-OSC_OUT ?
+case36 = ["gpioa", "gpiob", "gpiod"]
+case48 = ["case36", "gpioc"]
+case64 = ["case48"]
+case100 = ["case64", "gpioe"]
+case144 = ["case100", "gpiof", "gpiog"]
+
+#mem16 = ["spi1"]
+#mem32 = ["mem16"]
+#mem64 = ["mem32", "spi2"]
 
 [profile.dev]
 incremental = false

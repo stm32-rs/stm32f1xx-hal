@@ -91,7 +91,7 @@ impl Pins<TIM3> for (gpiob::PB0<Alternate<PushPull>>, gpiob::PB1<Alternate<PushP
     type Channels = (Pwm<TIM3, C3>, Pwm<TIM3, C4>);
 }
 
-#[cfg(feature = "gpiob")]
+#[cfg(feature = "case48")]
 #[cfg(feature = "tim4")]
 impl Pins<TIM4>
     for (
