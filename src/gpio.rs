@@ -1,8 +1,5 @@
 //! # General Purpose I/Os
 
-// TODO the pins here currently correspond to the LQFP-48 package. There should be Cargo features
-// that let you select different microcontroller packages
-
 use core::marker::PhantomData;
 
 use crate::rcc::APB2;
@@ -533,16 +530,61 @@ gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
 ]);
 
 #[cfg(feature = "gpioc")]
-#[cfg(not(feature = "stm32f100"))]
 gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
+    PC0: (pc0, 0, Input<Floating>, CRL),
+    PC1: (pc1, 1, Input<Floating>, CRL),
+    PC2: (pc2, 2, Input<Floating>, CRL),
+    PC3: (pc3, 3, Input<Floating>, CRL),
+    PC4: (pc4, 4, Input<Floating>, CRL),
+    PC5: (pc5, 5, Input<Floating>, CRL),
+    PC6: (pc6, 6, Input<Floating>, CRL),
+    PC7: (pc7, 7, Input<Floating>, CRL),
+    PC8: (pc8, 8, Input<Floating>, CRH),
+    PC9: (pc9, 9, Input<Floating>, CRH),
+    PC10: (pc10, 10, Input<Floating>, CRH),
+    PC11: (pc11, 11, Input<Floating>, CRH),
+    PC12: (pc12, 12, Input<Floating>, CRH),
     PC13: (pc13, 13, Input<Floating>, CRH),
     PC14: (pc14, 14, Input<Floating>, CRH),
     PC15: (pc15, 15, Input<Floating>, CRH),
 ]);
 
-#[cfg(feature = "gpioc")]
-#[cfg(feature = "stm32f100")]
-gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
-    PC8: (pc8, 8, Input<Floating>, CRH),
-    PC9: (pc9, 9, Input<Floating>, CRH),
+#[cfg(feature = "gpiod")]
+gpio!(GPIOD, gpiod, gpioa, iopden, iopdrst, PDx, [
+    PD0: (pd0, 0, Input<Floating>, CRL),
+    PD1: (pd1, 1, Input<Floating>, CRL),
+    PD2: (pd2, 2, Input<Floating>, CRL),
+    PD3: (pd3, 3, Input<Floating>, CRL),
+    PD4: (pd4, 4, Input<Floating>, CRL),
+    PD5: (pd5, 5, Input<Floating>, CRL),
+    PD6: (pd6, 6, Input<Floating>, CRL),
+    PD7: (pd7, 7, Input<Floating>, CRL),
+    PD8: (pd8, 8, Input<Floating>, CRH),
+    PD9: (pd9, 9, Input<Floating>, CRH),
+    PD10: (pd10, 10, Input<Floating>, CRH),
+    PD11: (pd11, 11, Input<Floating>, CRH),
+    PD12: (pd12, 12, Input<Floating>, CRH),
+    PD13: (pd13, 13, Input<Floating>, CRH),
+    PD14: (pd14, 14, Input<Floating>, CRH),
+    PD15: (pd15, 15, Input<Floating>, CRH),
+]);
+
+#[cfg(feature = "gpioe")]
+gpio!(GPIOE, gpioe, gpioa, iopeen, ioperst, PEx, [
+    PE0: (pe0, 0, Input<Floating>, CRL),
+    PE1: (pe1, 1, Input<Floating>, CRL),
+    PE2: (pe2, 2, Input<Floating>, CRL),
+    PE3: (pe3, 3, Input<Floating>, CRL),
+    PE4: (pe4, 4, Input<Floating>, CRL),
+    PE5: (pe5, 5, Input<Floating>, CRL),
+    PE6: (pe6, 6, Input<Floating>, CRL),
+    PE7: (pe7, 7, Input<Floating>, CRL),
+    PE8: (pe8, 8, Input<Floating>, CRH),
+    PE9: (pe9, 9, Input<Floating>, CRH),
+    PE10: (pe10, 10, Input<Floating>, CRH),
+    PE11: (pe11, 11, Input<Floating>, CRH),
+    PE12: (pe12, 12, Input<Floating>, CRH),
+    PE13: (pe13, 13, Input<Floating>, CRH),
+    PE14: (pe14, 14, Input<Floating>, CRH),
+    PE15: (pe15, 15, Input<Floating>, CRH),
 ]);

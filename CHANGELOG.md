@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Add gpio pins corresponding to LQFP-100 package
+- Implement `core::fmt::Write` for `serial::Tx`
+
+### Changed
+
+- enable PWM on stm32f100
+
 ## [v0.2.1] - 2019-03-08
 
 ### Added
@@ -15,7 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add support for real time clock
 - Add patches for using STM32F100 chip (PWM disabled)
 
-### Change
+### Changed
 
 - Improve documentation
 
