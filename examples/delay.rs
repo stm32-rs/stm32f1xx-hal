@@ -29,6 +29,9 @@ fn main() -> ! {
     #[cfg(feature = "stm32f100")]
     let mut led = gpioc.pc9.into_push_pull_output(&mut gpioc.crh);
 
+    #[cfg(feature = "stm32f101")]
+    let mut led = gpioc.pc9.into_push_pull_output(&mut gpioc.crh);
+
     #[cfg(feature = "stm32f103")]
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 

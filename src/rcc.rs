@@ -296,7 +296,10 @@ impl CFGR {
                 })
         });
 
-        #[cfg(feature = "stm32f100")]
+        #[cfg(any(
+                feature = "stm32f100",
+                feature = "stm32f101"
+        ))]
         rcc.cfgr.modify(|_, w| unsafe {
             w.ppre2()
                 .bits(ppre2_bits)
