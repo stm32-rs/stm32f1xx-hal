@@ -8,7 +8,13 @@ use cortex_m::peripheral::SYST;
 use nb;
 use void::Void;
 
-use crate::rcc::{Clocks, APB1, APB2};
+use crate::rcc::{Clocks, APB1};
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+))]
+use crate::rcc::APB2;
+
 use crate::time::Hertz;
 
 /// Associated clocks with timers
@@ -176,8 +182,15 @@ macro_rules! hal {
     }
 }
 
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+))]
 hal! {
     TIM1: (tim1, tim1en, tim1rst, APB2),
+}
+
+hal! {
     TIM2: (tim2, tim2en, tim2rst, APB1),
     TIM3: (tim3, tim3en, tim3rst, APB1),
     TIM4: (tim4, tim4en, tim4rst, APB1),

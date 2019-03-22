@@ -84,6 +84,7 @@ version = "1.0.87"
 doc = []
 rt = ["stm32f1/rt"]
 stm32f100 = ["stm32f1/stm32f100"]
+stm32f101 = ["stm32f1/stm32f101"]
 stm32f103 = ["stm32f1/stm32f103"]
 
 [profile.dev]
