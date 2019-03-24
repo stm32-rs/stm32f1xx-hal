@@ -29,6 +29,7 @@ impl RccExt for RCC {
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
+                adcclk: None,
             },
             bkp: BKP { _0: () },
         }
@@ -104,6 +105,7 @@ pub struct CFGR {
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
+    adcclk: Option<u32>,
 }
 
 impl CFGR {
@@ -153,10 +155,16 @@ impl CFGR {
         self
     }
 
+    /// Sets the desired frequency for the SYSCLK clock
+    pub fn adcclk<F>(mut self, freq: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        self.adcclk = Some(freq.into().0);
+        self
+    }
 
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
-        // TODO ADC clock
-
         let pllsrcclk = self.hse.unwrap_or(HSI / 2);
 
         let pllmul = self.sysclk.unwrap_or(pllsrcclk) / pllsrcclk;
@@ -247,6 +255,21 @@ impl CFGR {
             _ => (true, false),
         };
 
+        let apre_bits = self
+            .adcclk
+            .map(|adcclk| match pclk2 / adcclk {
+                0...2 => 0b00,
+                3...4 => 0b01,
+                5...7 => 0b10,
+                _ => 0b11,
+            })
+            .unwrap_or(0b11);
+
+        let apre = (apre_bits + 1) << 1;
+        let adcclk = pclk2 / u32(apre);
+
+        assert!(adcclk <= 14_000_000);
+
         let rcc = unsafe { &*RCC::ptr() };
 
         if self.hse.is_some() {
@@ -275,6 +298,7 @@ impl CFGR {
         // set prescalers and clock source
         #[cfg(feature = "stm32f103")]
         rcc.cfgr.modify(|_, w| unsafe {
+            w.adcpre().bits(apre_bits);
             w.ppre2()
                 .bits(ppre2_bits)
                 .ppre1()
@@ -301,6 +325,7 @@ impl CFGR {
                 feature = "stm32f101"
         ))]
         rcc.cfgr.modify(|_, w| unsafe {
+            w.adcpre().bits(apre_bits);
             w.ppre2()
                 .bits(ppre2_bits)
                 .ppre1()
@@ -327,6 +352,7 @@ impl CFGR {
             ppre1,
             ppre2,
             sysclk: Hertz(sysclk),
+            adcclk: Hertz(adcclk),
             usbclk_valid,
         }
     }
@@ -370,6 +396,7 @@ pub struct Clocks {
     ppre1: u8,
     ppre2: u8,
     sysclk: Hertz,
+    adcclk: Hertz,
     usbclk_valid: bool,
 }
 
@@ -412,6 +439,11 @@ impl Clocks {
     /// Returns the system (core) frequency
     pub fn sysclk(&self) -> Hertz {
         self.sysclk
+    }
+
+    /// Returns the adc clock frequency
+    pub fn adcclk(&self) -> Hertz {
+        self.adcclk
     }
 
     /// Returns whether the USBCLK clock frequency is valid for the USB peripheral
