@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Implement ADC example
 - Implement ADC embedded_hal traits
 - Implement ADC clock configuration
 - Add feature for using STM32F101 chip
