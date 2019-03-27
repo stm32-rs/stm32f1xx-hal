@@ -133,6 +133,22 @@ macro_rules! hal {
                         Event::Update => self.tim.dier.write(|w| w.uie().clear_bit()),
                     }
                 }
+
+                /// Stops the timer
+                pub fn stop(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                }
+
+                /// Clears Update Interrupt Flag
+                pub fn clear_uif(&mut self) {
+                    self.tim.sr.modify(|_, w| w.uif().clear_bit());
+                }
+
+                /// Releases the TIM Peripheral
+                pub fn release(self) -> ($TIMX, Clocks) {
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                    (self.tim, self.clocks)
+                }
             }
 
             impl CountDown for Timer<$TIMX> {
