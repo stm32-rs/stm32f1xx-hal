@@ -72,6 +72,17 @@ impl Timer<SYST> {
             Event::Update => self.tim.disable_interrupt(),
         }
     }
+
+    /// Stops the timer
+    pub fn stop(&mut self) {
+        self.tim.disable_counter();
+    }
+
+    /// Releases the SYST and clocks
+    pub fn release(mut self) -> (SYST, Clocks) {
+        self.tim.disable_counter();
+        (self.tim, self.clocks)
+    }
 }
 
 impl CountDown for Timer<SYST> {
@@ -144,7 +155,7 @@ macro_rules! hal {
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
                 }
 
-                /// Releases the TIM Peripheral
+                /// Releases the TIM Peripheral and clocks
                 pub fn release(self) -> ($TIMX, Clocks) {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
                     (self.tim, self.clocks)
