@@ -151,7 +151,7 @@ macro_rules! hal {
                 }
 
                 /// Clears Update Interrupt Flag
-                pub fn clear_uif(&mut self) {
+                pub fn clear_update_interrupt_flag(&mut self) {
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
                 }
 
@@ -188,7 +188,7 @@ macro_rules! hal {
                     // The above line raises an update event which will indicate
                     // that the timer is already finished. Since this is not the case,
                     // it should be cleared
-                    self.tim.sr.modify(|_, w| w.uif().clear_bit());
+                    self.clear_update_interrupt_flag();
 
                     // start counter
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
@@ -198,7 +198,7 @@ macro_rules! hal {
                     if self.tim.sr.read().uif().bit_is_clear() {
                         Err(nb::Error::WouldBlock)
                     } else {
-                        self.tim.sr.modify(|_, w| w.uif().clear_bit());
+                        self.clear_update_interrupt_flag();
                         Ok(())
                     }
                 }
