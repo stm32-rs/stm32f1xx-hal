@@ -1,4 +1,47 @@
-//! # Pulse Width Modulation
+/*!
+  # Pulse width modulation
+
+  The general purpose timers (`TIM2`, `TIM3`, and `TIM4`) can be used to output
+  pulse width modulated signals on some pins. The timers support up to 4 simultaneous
+  pwm outputs in separate `Channels`
+
+  ## Usage
+
+  Start by setting all the pins for the timer you want to use to alternate
+  push pull pins. The `Pins` trait shows the mapping between timers, output pins
+  and channels.
+
+  ```rust
+  let gpioa = ..; // Set up and split GPIOA
+  let pins = (
+      gpioa.pa0.into_alternate_push_pull(),
+      gpioa.pa1.into_alternate_push_pull(),
+      gpioa.pa2.into_alternate_push_pull(),
+      gpioa.pa3.into_alternate_push_pull(),
+  );
+  ```
+
+  Then call the `pwm` function on the corresponding timer
+
+  ```
+    let device: pac::Peripherals = ..;
+
+    // Put the timer in PWM mode using the specified pins
+    // with a frequency of 100 hz.
+    let (c0, c1, c2, c3) = device.TIM2.pwm(
+        pins,
+        &mut afio.mapr,
+        100.hz()
+        clocks,
+        &mut rcc.apb
+    );
+
+    // Set the duty cycle of channel 0 to 50%
+    c0.set_duty(c0.get_max_duty() / 2);
+    // PWM outputs are disabled by default
+    c0.enable()
+  ```
+*/
 
 use core::marker::PhantomData;
 use core::mem;
