@@ -79,9 +79,9 @@ impl Timer<SYST> {
     }
 
     /// Releases the SYST and clocks
-    pub fn release(mut self) -> (SYST, Clocks) {
+    pub fn release(mut self) -> SYST {
         self.tim.disable_counter();
-        (self.tim, self.clocks)
+        self.tim
     }
 }
 
@@ -156,9 +156,9 @@ macro_rules! hal {
                 }
 
                 /// Releases the TIM Peripheral and clocks
-                pub fn release(self) -> ($TIMX, Clocks) {
+                pub fn release(self) -> $TIMX {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
-                    (self.tim, self.clocks)
+                    self.tim
                 }
             }
 
