@@ -107,6 +107,7 @@ pub use stm32f1::stm32f103 as pac;
 pub use crate::pac as device;
 pub use crate::pac as stm32;
 
+pub mod adc;
 pub mod afio;
 pub mod backup_domain;
 pub mod bb;

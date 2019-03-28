@@ -3,6 +3,7 @@ pub use crate::dma::DmaChannel as _stm32_hal_dma_DmaChannel;
 pub use crate::dma::DmaExt as _stm32_hal_dma_DmaExt;
 pub use crate::flash::FlashExt as _stm32_hal_flash_FlashExt;
 pub use crate::gpio::GpioExt as _stm32_hal_gpio_GpioExt;
+pub use crate::hal::adc::OneShot as _embedded_hal_adc_OneShot;
 pub use crate::hal::digital::StatefulOutputPin as _embedded_hal_digital_StatefulOutputPin;
 pub use crate::hal::digital::ToggleableOutputPin as _embedded_hal_digital_ToggleableOutputPin;
 pub use crate::hal::prelude::*;
