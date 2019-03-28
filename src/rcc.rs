@@ -155,7 +155,7 @@ impl CFGR {
         self
     }
 
-    /// Sets the desired frequency for the SYSCLK clock
+    /// Sets the desired frequency for the ADCCLK clock
     pub fn adcclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
