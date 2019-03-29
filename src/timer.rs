@@ -72,6 +72,17 @@ impl Timer<SYST> {
             Event::Update => self.tim.disable_interrupt(),
         }
     }
+
+    /// Stops the timer
+    pub fn stop(&mut self) {
+        self.tim.disable_counter();
+    }
+
+    /// Releases the SYST
+    pub fn release(mut self) -> SYST {
+        self.stop();
+        self.tim
+    }
 }
 
 impl CountDown for Timer<SYST> {
@@ -133,6 +144,22 @@ macro_rules! hal {
                         Event::Update => self.tim.dier.write(|w| w.uie().clear_bit()),
                     }
                 }
+
+                /// Stops the timer
+                pub fn stop(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                }
+
+                /// Clears Update Interrupt Flag
+                pub fn clear_update_interrupt_flag(&mut self) {
+                    self.tim.sr.modify(|_, w| w.uif().clear_bit());
+                }
+
+                /// Releases the TIM Peripheral
+                pub fn release(mut self) -> $TIMX {
+                    self.stop();
+                    self.tim
+                }
             }
 
             impl CountDown for Timer<$TIMX> {
@@ -143,7 +170,7 @@ macro_rules! hal {
                     T: Into<Hertz>,
                 {
                     // pause
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                    self.stop();
 
                     let frequency = timeout.into().0;
                     let timer_clock = $TIMX::get_clk(&self.clocks);
@@ -161,7 +188,7 @@ macro_rules! hal {
                     // The above line raises an update event which will indicate
                     // that the timer is already finished. Since this is not the case,
                     // it should be cleared
-                    self.tim.sr.modify(|_, w| w.uif().clear_bit());
+                    self.clear_update_interrupt_flag();
 
                     // start counter
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
@@ -171,7 +198,7 @@ macro_rules! hal {
                     if self.tim.sr.read().uif().bit_is_clear() {
                         Err(nb::Error::WouldBlock)
                     } else {
-                        self.tim.sr.modify(|_, w| w.uif().clear_bit());
+                        self.clear_update_interrupt_flag();
                         Ok(())
                     }
                 }
