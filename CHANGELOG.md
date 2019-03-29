@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add feature for using STM32F101 chip
 - Add gpio pins corresponding to LQFP-100 package
 - Implement `core::fmt::Write` for `serial::Tx`
-- Add methods `stop`, `release` and `clear_uif` to `Timer` (`clear_uif` only on `Timer<TIMX>`)
+- Add methods `stop`, `release` and `clear_update_interrupt_flag` to `Timer` (`clear_update_interrupt_flag` does not apply to `Timer<SYST>`)
+- Add timer interrupt example using RTFM
 
 ### Changed
 

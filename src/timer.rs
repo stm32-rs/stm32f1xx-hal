@@ -80,7 +80,7 @@ impl Timer<SYST> {
 
     /// Releases the SYST
     pub fn release(mut self) -> SYST {
-        self.tim.disable_counter();
+        self.stop();
         self.tim
     }
 }
@@ -170,7 +170,7 @@ macro_rules! hal {
                     T: Into<Hertz>,
                 {
                     // pause
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                    self.stop();
 
                     let frequency = timeout.into().0;
                     let timer_clock = $TIMX::get_clk(&self.clocks);
