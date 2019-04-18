@@ -9,7 +9,7 @@ use crate::stm32::{DBG, TIM1, TIM2, TIM3, TIM4};
 use crate::afio::MAPR;
 use crate::gpio::gpioa::{PA0, PA1, PA15, PA6, PA7, PA8, PA9};
 use crate::gpio::gpiob::{PB3, PB4, PB5, PB6, PB7};
-use crate::gpio::{Alternate, OpenDrain};
+use crate::gpio::{Floating, Input};
 use crate::rcc::{Clocks, APB1};
 use crate::time::Hertz;
 use crate::timer::PclkSrc;
@@ -18,27 +18,27 @@ pub trait Pins<TIM> {
     const REMAP: u8;
 }
 
-impl Pins<TIM4> for (PB6<Alternate<OpenDrain>>, PB7<Alternate<OpenDrain>>) {
+impl Pins<TIM4> for (PB6<Input<Floating>>, PB7<Input<Floating>>) {
     const REMAP: u8 = 0b0;
 }
 
-impl Pins<TIM3> for (PA6<Alternate<OpenDrain>>, PA7<Alternate<OpenDrain>>) {
+impl Pins<TIM3> for (PA6<Input<Floating>>, PA7<Input<Floating>>) {
     const REMAP: u8 = 0b00;
 }
 
-impl Pins<TIM3> for (PB4<Alternate<OpenDrain>>, PB5<Alternate<OpenDrain>>) {
+impl Pins<TIM3> for (PB4<Input<Floating>>, PB5<Input<Floating>>) {
     const REMAP: u8 = 0b10;
 }
 
-impl Pins<TIM2> for (PA0<Alternate<OpenDrain>>, PA1<Alternate<OpenDrain>>) {
+impl Pins<TIM2> for (PA0<Input<Floating>>, PA1<Input<Floating>>) {
     const REMAP: u8 = 0b00;
 }
 
-impl Pins<TIM2> for (PA15<Alternate<OpenDrain>>, PB3<Alternate<OpenDrain>>) {
+impl Pins<TIM2> for (PA15<Input<Floating>>, PB3<Input<Floating>>) {
     const REMAP: u8 = 0b11;
 }
 
-impl Pins<TIM1> for (PA8<Alternate<OpenDrain>>, PA9<Alternate<OpenDrain>>) {
+impl Pins<TIM1> for (PA8<Input<Floating>>, PA9<Input<Floating>>) {
     const REMAP: u8 = 0b00;
 }
 
