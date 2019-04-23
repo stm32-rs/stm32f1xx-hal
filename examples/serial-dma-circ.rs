@@ -1,25 +1,25 @@
-//! Serial interface DMA RX transfer test
+//! Serial interface circular DMA RX transfer test
 
 #![deny(unsafe_code)]
 #![deny(warnings)]
-#![no_main]
 #![no_std]
+#![no_main]
 
-extern crate cortex_m_rt as rt;
-#[macro_use(singleton)]
-extern crate cortex_m;
-extern crate panic_semihosting;
-extern crate stm32f1xx_hal as hal;
+extern crate panic_halt;
 
-use cortex_m::asm;
-use hal::prelude::*;
-use hal::serial::Serial;
-use hal::stm32f103xx;
-use rt::{entry, exception, ExceptionFrame};
+use cortex_m::{asm, singleton};
+
+use stm32f1xx_hal::{
+    prelude::*,
+    pac,
+    serial::Serial,
+    dma::Half,
+};
+use cortex_m_rt::entry;
 
 #[entry]
 fn main() -> ! {
-    let p = stm32f103xx::Peripherals::take().unwrap();
+    let p = pac::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
@@ -57,22 +57,20 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    let rx = serial.split().1;
-    let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
+    let rx = serial.split().1.with_dma(channels.5);
+    let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
 
-    let (_buf, _c, _rx) = rx.read_exact(channels.5, buf).wait();
+    let mut circ_buffer = rx.circ_read(buf);
+
+    while circ_buffer.readable_half().unwrap() != Half::First {}
+
+    let _first_half = circ_buffer.peek(|half, _| *half).unwrap();
+
+    while circ_buffer.readable_half().unwrap() != Half::Second {}
+
+    let _second_half = circ_buffer.peek(|half, _| *half).unwrap();
 
     asm::bkpt();
 
     loop {}
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }
