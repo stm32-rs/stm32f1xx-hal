@@ -1,7 +1,6 @@
 //! Testing PWM output
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 

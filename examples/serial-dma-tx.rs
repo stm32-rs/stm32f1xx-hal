@@ -1,7 +1,6 @@
 //! Serial interface DMA TX transfer test
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 

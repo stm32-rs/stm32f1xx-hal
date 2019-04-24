@@ -1,7 +1,6 @@
 //! Serial interface circular DMA RX transfer test
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_std]
 #![no_main]
 

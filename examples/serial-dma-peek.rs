@@ -1,7 +1,6 @@
 //! Serial interface DMA RX transfer test
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 

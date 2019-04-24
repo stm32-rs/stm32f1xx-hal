@@ -1,7 +1,6 @@
 //! Prints "Hello, world" on the OpenOCD console
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 

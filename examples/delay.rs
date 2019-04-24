@@ -1,7 +1,6 @@
 //! "Blinky" using delays instead of a timer
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 

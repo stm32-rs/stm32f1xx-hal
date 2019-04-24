@@ -22,8 +22,7 @@ required-features = ["rt"]
 cortex-m = ">=0.5.8,<0.7"
 nb = "0.1.1"
 cortex-m-rt = "0.6.8"
-#stm32f1 = "0.7.0"
-stm32f1 = {path = "/home/burrbull/stm32-rs/stm32f1"}
+stm32f1 = "0.7.0"
 
 [dependencies.void]
 default-features = false

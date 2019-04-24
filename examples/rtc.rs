@@ -1,7 +1,6 @@
 //! Outputs the current time in seconds to hstdout using the real time clock
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_std]
 #![no_main]
 

@@ -7,7 +7,6 @@
 //! This is not an issue on the blue pill.
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_std]
 #![no_main]
 
