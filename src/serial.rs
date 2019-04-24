@@ -40,7 +40,6 @@ use core::marker::PhantomData;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
 
-use cast::u16;
 use nb;
 use crate::pac::{USART1, USART2, USART3};
 use void::Void;
@@ -418,43 +417,23 @@ macro_rules! serialdma {
                 {
                     {
                         let buffer = buffer[0].as_mut();
-                        let ch = self.channel.ch();
-                        ch.mar.write(|w| {
-                            w.ma().bits(buffer.as_ptr() as usize as u32)
-                        });
-                        ch.ndtr.write(|w| {
-                            w.ndt().bits(u16(buffer.len() * 2).unwrap())
-                        });
-                        ch.par.write(|w| unsafe {
-                            w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
-                        });
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+                        self.channel.set_transfer_length(buffer.len() * 2);
 
-                        // TODO can we weaken this compiler barrier?
-                        // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                        // the next statement, which starts the DMA transfer
-                        atomic::compiler_fence(Ordering::SeqCst);
+                        atomic::compiler_fence(Ordering::Release);
 
-                        ch.cr.modify(|_, w| {
-                            w.mem2mem()
-                                .clear_bit()
-                                .pl()
-                                .medium()
-                                .msize()
-                                .bit8()
-                                .psize()
-                                .bit8()
-                                .minc()
-                                .set_bit()
-                                .pinc()
-                                .clear_bit()
-                                .circ()
-                                .set_bit()
-                                .dir()
-                                .clear_bit()
-                                .en()
-                                .set_bit()
+                        self.channel.ch().cr.modify(|_, w| { w
+                            .mem2mem() .clear_bit()
+                            .pl()      .medium()
+                            .msize()   .bit8()
+                            .psize()   .bit8()
+                            .circ()    .set_bit()
+                            .dir()     .clear_bit()
                         });
                     }
+
+                    self.start();
 
                     let RxDma {_payload, channel} = self;
 
@@ -468,43 +447,20 @@ macro_rules! serialdma {
                 {
                     {
                         let buffer = buffer.as_mut();
-                        let ch = self.channel.ch();
-                        ch.mar.write(|w| {
-                            w.ma().bits(buffer.as_ptr() as usize as u32)
-                        });
-                        ch.ndtr.write(|w| {
-                            w.ndt().bits(u16(buffer.len()).unwrap())
-                        });
-                        ch.par.write(|w| unsafe {
-                            w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
-                        });
-
-                        // TODO can we weaken this compiler barrier?
-                        // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                        // the next statement, which starts the DMA transfer
-                        atomic::compiler_fence(Ordering::SeqCst);
-
-                        ch.cr.modify(|_, w| {
-                            w.mem2mem()
-                                .clear_bit()
-                                .pl()
-                                .medium()
-                                .msize()
-                                .bit8()
-                                .psize()
-                                .bit8()
-                                .minc()
-                                .set_bit()
-                                .pinc()
-                                .clear_bit()
-                                .circ()
-                                .clear_bit()
-                                .dir()
-                                .clear_bit()
-                                .en()
-                                .set_bit()
-                        });
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+                        self.channel.set_transfer_length(buffer.len());
                     }
+                    atomic::compiler_fence(Ordering::Release);
+                    self.channel.ch().cr.modify(|_, w| { w
+                        .mem2mem() .clear_bit()
+                        .pl()      .medium()
+                        .msize()   .bit8()
+                        .psize()   .bit8()
+                        .circ()    .clear_bit()
+                        .dir()     .clear_bit()
+                    });
+                    self.start();
 
                     Transfer::w(buffer, self)
                 }
@@ -516,43 +472,24 @@ macro_rules! serialdma {
                 {
                     {
                         let buffer = buffer.borrow().as_ref();
-                        let ch = self.channel.ch();
-                        ch.mar.write(|w| {
-                            w.ma().bits(buffer.as_ptr() as usize as u32)
-                        });
-                        ch.ndtr.write(|w| {
-                            w.ndt().bits(u16(buffer.len()).unwrap())
-                        });
-                        ch.par.write(|w| unsafe {
-                            w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
-                        });
 
-                        // TODO can we weaken this compiler barrier?
-                        // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                        // the next statement, which starts the DMA transfer
-                        atomic::compiler_fence(Ordering::SeqCst);
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
 
-                        ch.cr.modify(|_, w| {
-                            w.mem2mem()
-                                .clear_bit()
-                                .pl()
-                                .medium()
-                                .msize()
-                                .bit8()
-                                .psize()
-                                .bit8()
-                                .minc()
-                                .set_bit()
-                                .pinc()
-                                .clear_bit()
-                                .circ()
-                                .clear_bit()
-                                .dir()
-                                .set_bit()
-                                .en()
-                                .set_bit()
-                        });
+                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+                        self.channel.set_transfer_length(buffer.len());
                     }
+
+                    atomic::compiler_fence(Ordering::Release);
+
+                    self.channel.ch().cr.modify(|_, w| { w
+                        .mem2mem() .clear_bit()
+                        .pl()      .medium()
+                        .msize()   .bit8()
+                        .psize()   .bit8()
+                        .circ()    .clear_bit()
+                        .dir()     .set_bit()
+                    });
+                    self.start();
 
                     Transfer::r(buffer, self)
                 }
