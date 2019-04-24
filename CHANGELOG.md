@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Now requires stm32f1 v0.7
+- Restore and improve Serial DMA-based TX, RX and circular implementation
 - Implement ADC example
 - Implement ADC embedded_hal traits
 - Implement ADC clock configuration
