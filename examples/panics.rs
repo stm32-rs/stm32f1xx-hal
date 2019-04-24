@@ -5,9 +5,9 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_semihosting;
-//extern crate panic_itm;
-extern crate stm32f1xx_hal;
+use panic_semihosting as _;
+//use panic_itm as _;
+use stm32f1xx_hal as _;
 use cortex_m_semihosting::hprintln;
 
 use cortex_m_rt::{entry, exception, ExceptionFrame};

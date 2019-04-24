@@ -4,7 +4,7 @@
 use core::marker::PhantomData;
 use core::mem;
 
-use crate::stm32::{DBG, TIM1, TIM2, TIM3, TIM4};
+use crate::stm32::{DBGMCU as DBG, TIM1, TIM2, TIM3, TIM4};
 
 use crate::afio::MAPR;
 use crate::gpio::gpioa::{PA0, PA1, PA15, PA6, PA7, PA8, PA9};

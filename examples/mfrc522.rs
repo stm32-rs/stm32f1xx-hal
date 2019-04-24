@@ -3,7 +3,7 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_itm;
+use panic_itm as _;
 
 use cortex_m::iprintln;
 

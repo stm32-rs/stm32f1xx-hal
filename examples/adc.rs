@@ -1,26 +1,23 @@
 #![deny(unsafe_code)]
+#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-#[macro_use]
-extern crate cortex_m_rt as rt;
-extern crate cortex_m;
-extern crate cortex_m_semihosting;
-extern crate embedded_hal;
-extern crate panic_semihosting;
-extern crate stm32f1xx_hal;
+use panic_semihosting as _;
 
-use core::fmt::Write;
-use cortex_m_semihosting::hio;
-use stm32f1xx_hal::prelude::*;
+use stm32f1xx_hal::{
+    prelude::*,
+    pac,
+    adc,
+};
+use cortex_m_rt::{entry,exception,ExceptionFrame};
 
-use rt::ExceptionFrame;
-use stm32f1xx_hal::adc;
+use cortex_m_semihosting::hprintln;
 
 #[entry]
 fn main() -> ! {
     // Aquire peripherals
-    let p = stm32f1xx_hal::stm32::Peripherals::take().unwrap();
+    let p = pac::Peripherals::take().unwrap();
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
 
@@ -30,9 +27,7 @@ fn main() -> ! {
     // practical needs. User specified value is be approximated using supported
     // prescaler values 2/4/6/8.
     let clocks = rcc.cfgr.adcclk(2.mhz()).freeze(&mut flash.acr);
-    hio::hstdout()
-        .map(|mut hio| writeln!(hio, "adc freq: {}", clocks.adcclk().0).unwrap())
-        .unwrap();
+    hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
 
     // Setup ADC
     let mut adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2);
@@ -51,16 +46,12 @@ fn main() -> ! {
 
     loop {
         let data: u16 = adc1.read(&mut ch0).unwrap();
-        hio::hstdout()
-            .map(|mut hio| writeln!(hio, "adc1: {}", data).unwrap())
-            .unwrap();
+        hprintln!("adc1: {}", data).unwrap();
 
         #[cfg(feature = "stm32f103")]
         {
             let data1: u16 = adc2.read(&mut ch1).unwrap();
-            hio::hstdout()
-                .map(|mut hio| writeln!(hio, "adc2: {}", data1).unwrap())
-                .unwrap();
+            hprintln!("adc2: {}", data1).unwrap();
         }
     }
 }

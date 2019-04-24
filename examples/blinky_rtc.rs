@@ -11,7 +11,7 @@
 #![no_std]
 #![no_main]
 
-extern crate panic_halt;
+use panic_halt as _;
 
 use stm32f1xx_hal::{
     prelude::*,

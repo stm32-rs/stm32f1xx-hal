@@ -5,7 +5,7 @@
 #![no_std]
 #![no_main]
 
-extern crate panic_halt;
+use panic_halt as _;
 
 use cortex_m::{asm, singleton};
 

@@ -14,8 +14,7 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_halt;
-extern crate cortex_m_rt as rt;
+use panic_halt as _;
 
 use stm32f1xx_hal::{
     prelude::*,
