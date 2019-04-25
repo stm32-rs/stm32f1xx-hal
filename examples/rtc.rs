@@ -1,11 +1,10 @@
 //! Outputs the current time in seconds to hstdout using the real time clock
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_std]
 #![no_main]
 
-extern crate panic_semihosting;
+use panic_semihosting as _;
 
 use cortex_m_semihosting::hprintln;
 

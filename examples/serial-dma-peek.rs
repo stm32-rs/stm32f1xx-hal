@@ -1,25 +1,23 @@
 //! Serial interface DMA RX transfer test
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate cortex_m_rt as rt;
-#[macro_use(singleton)]
-extern crate cortex_m;
-extern crate panic_semihosting;
-extern crate stm32f1xx_hal as hal;
+use panic_halt as _;
 
-use cortex_m::asm;
-use hal::prelude::*;
-use hal::serial::Serial;
-use hal::stm32f103xx;
-use rt::{entry, exception, ExceptionFrame};
+use cortex_m::{asm, singleton};
+
+use stm32f1xx_hal::{
+    prelude::*,
+    pac,
+    serial::Serial,
+};
+use cortex_m_rt::entry;
 
 #[entry]
 fn main() -> ! {
-    let p = stm32f103xx::Peripherals::take().unwrap();
+    let p = pac::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
@@ -52,27 +50,23 @@ fn main() -> ! {
         p.USART1,
         (tx, rx),
         &mut afio.mapr,
-        9_600.bps(),
+        115_200.bps(),
         clocks,
         &mut rcc.apb2,
     );
 
-    let rx = serial.split().1;
+    let rx = serial.split().1.with_dma(channels.5);
     let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
 
-    let (_buf, _c, _rx) = rx.read_exact(channels.5, buf).wait();
+    let t = rx.read(buf);
+
+    while !t.is_done() {
+        let _slice = t.peek();
+
+        asm::bkpt();
+    }
 
     asm::bkpt();
 
     loop {}
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }

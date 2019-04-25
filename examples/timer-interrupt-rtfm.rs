@@ -9,7 +9,7 @@
 #![no_main]
 
 // you can put a breakpoint on `rust_begin_unwind` to catch panics
-extern crate panic_halt;
+use panic_halt as _;
 
 use cortex_m::asm::wfi;
 use rtfm::app;

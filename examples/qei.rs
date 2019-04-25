@@ -1,11 +1,10 @@
 //! Testing the Quadrature Encoder Interface
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate panic_semihosting;
+use panic_semihosting as _;
 
 use cortex_m_semihosting::hprintln;
 

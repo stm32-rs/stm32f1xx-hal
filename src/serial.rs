@@ -38,15 +38,14 @@
 
 use core::marker::PhantomData;
 use core::ptr;
+use core::sync::atomic::{self, Ordering};
 
 use nb;
 use crate::pac::{USART1, USART2, USART3};
 use void::Void;
-use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
-//use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W};
-// use crate::dma::{CircBuffer, Static, Transfer, R, W};
+use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W, RxDma, TxDma};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
@@ -282,149 +281,6 @@ macro_rules! hal {
                 }
             }
 
-            /*
-            impl<B> ReadDma<B> for Rx<$USARTX> where B: AsMut<[u8]> {
-                fn circ_read(self, mut chan: Self::Dma, buffer: &'static mut [B; 2],
-                ) -> CircBuffer<B, Self::Dma>
-                {
-                    {
-                        let buffer = buffer[0].as_mut();
-                        chan.cmar().write(|w| {
-                            w.ma().bits(buffer.as_ptr() as usize as u32)
-                        });
-                        chan.cndtr().write(|w| {
-                            w.ndt().bits(u16(buffer.len() * 2).unwrap())
-                        });
-                        chan.cpar().write(|w| unsafe {
-                            w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
-                        });
-
-                        // TODO can we weaken this compiler barrier?
-                        // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                        // the next statement, which starts the DMA transfer
-                        atomic::compiler_fence(Ordering::SeqCst);
-
-                        chan.ccr().modify(|_, w| {
-                            w.mem2mem()
-                                .clear_bit()
-                                .pl()
-                                .medium()
-                                .msize()
-                                .bit8()
-                                .psize()
-                                .bit8()
-                                .minc()
-                                .set_bit()
-                                .pinc()
-                                .clear_bit()
-                                .circ()
-                                .set_bit()
-                                .dir()
-                                .clear_bit()
-                                .en()
-                                .set_bit()
-                        });
-                    }
-
-                    CircBuffer::new(buffer, chan)
-                }
-
-                fn read_exact(self, mut chan: Self::Dma, buffer: &'static mut B,
-                ) -> Transfer<W, &'static mut B, Self::Dma, Self>
-                {
-                    {
-                        let buffer = buffer.as_mut();
-                        chan.cmar().write(|w| {
-                            w.ma().bits(buffer.as_ptr() as usize as u32)
-                        });
-                        chan.cndtr().write(|w| {
-                            w.ndt().bits(u16(buffer.len()).unwrap())
-                        });
-                        chan.cpar().write(|w| unsafe {
-                            w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
-                        });
-
-                        // TODO can we weaken this compiler barrier?
-                        // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                        // the next statement, which starts the DMA transfer
-                        atomic::compiler_fence(Ordering::SeqCst);
-
-                        chan.ccr().modify(|_, w| {
-                            w.mem2mem()
-                                .clear_bit()
-                                .pl()
-                                .medium()
-                                .msize()
-                                .bit8()
-                                .psize()
-                                .bit8()
-                                .minc()
-                                .set_bit()
-                                .pinc()
-                                .clear_bit()
-                                .circ()
-                                .clear_bit()
-                                .dir()
-                                .clear_bit()
-                                .en()
-                                .set_bit()
-                        });
-                    }
-
-                    Transfer::w(buffer, chan, self)
-                }
-            }
-            */
-
-            /*
-            impl<A, B> WriteDma<A, B> for Tx<$USARTX> where A: AsRef<[u8]>, B: Static<A> {
-                fn write_all(self, mut chan: Self::Dma, buffer: B
-                ) -> Transfer<R, B, Self::Dma, Self>
-                {
-                    {
-                        let buffer = buffer.borrow().as_ref();
-                        chan.cmar().write(|w| {
-                            w.ma().bits(buffer.as_ptr() as usize as u32)
-                        });
-                        chan.cndtr().write(|w| {
-                            w.ndt().bits(u16(buffer.len()).unwrap())
-                        });
-                        chan.cpar().write(|w| unsafe {
-                            w.pa().bits(&(*$USARTX::ptr()).dr as *const _ as usize as u32)
-                        });
-
-                        // TODO can we weaken this compiler barrier?
-                        // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                        // the next statement, which starts the DMA transfer
-                        atomic::compiler_fence(Ordering::SeqCst);
-
-                        chan.ccr().modify(|_, w| {
-                            w.mem2mem()
-                                .clear_bit()
-                                .pl()
-                                .medium()
-                                .msize()
-                                .bit8()
-                                .psize()
-                                .bit8()
-                                .minc()
-                                .set_bit()
-                                .pinc()
-                                .clear_bit()
-                                .circ()
-                                .clear_bit()
-                                .dir()
-                                .set_bit()
-                                .en()
-                                .set_bit()
-                        });
-                    }
-
-                    Transfer::r(buffer, chan, self)
-                }
-            }
-            */
-
             impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
                 type Error = Void;
 
@@ -495,64 +351,164 @@ hal! {
     ),
 }
 
-/*
-use dma::DmaChannel;
+use crate::dma::{Transmit, Receive};
 
-impl DmaChannel for Rx<USART1> {
-    type Dma = dma1::C5;
-}
+macro_rules! serialdma {
+    ($(
+        $USARTX:ident: (
+            $dmarxch:ty,
+            $dmatxch:ty,
+        ),
+    )+) => {
+        $(
+            impl Receive for RxDma<$USARTX, $dmarxch> {
+                type RxChannel = $dmarxch;
+                type TransmittedWord = u8;
+            }
 
-impl DmaChannel for Tx<USART1> {
-    type Dma = dma1::C4;
-}
+            impl Transmit for TxDma<$USARTX, $dmatxch> {
+                type TxChannel = $dmatxch;
+                type ReceivedWord = u8;
+            }
 
-impl DmaChannel for Rx<USART2> {
-    type Dma = dma1::C6;
-}
+            impl Rx<$USARTX> {
+                pub fn with_dma(self, channel: $dmarxch) -> RxDma<$USARTX, $dmarxch> {
+                    RxDma {
+                        _payload: PhantomData,
+                        channel,
+                    }
+                }
+            }
 
-impl DmaChannel for Tx<USART2> {
-    type Dma = dma1::C7;
-}
+            impl Tx<$USARTX> {
+                pub fn with_dma(self, channel: $dmatxch) -> TxDma<$USARTX, $dmatxch> {
+                    TxDma {
+                        _payload: PhantomData,
+                        channel,
+                    }
+                }
+            }
 
-impl DmaChannel for Rx<USART3> {
-    type Dma = dma1::C3;
-}
+            impl RxDma<$USARTX, $dmarxch> {
+                pub fn split(mut self) -> (Rx<$USARTX>, $dmarxch) {
+                    self.stop();
+                    let RxDma {_payload, channel} = self;
+                    (
+                        Rx { _usart: PhantomData },
+                        channel
+                    )
+                }
+            }
 
-impl DmaChannel for Tx<USART3> {
-    type Dma = dma1::C2;
-}
+            impl TxDma<$USARTX, $dmatxch> {
+                pub fn split(mut self) -> (Tx<$USARTX>, $dmatxch) {
+                    self.stop();
+                    let TxDma {_payload, channel} = self;
+                    (
+                        Tx { _usart: PhantomData },
+                        channel,
+                    )
+                }
+            }
 
-pub trait ReadDma<B>: DmaChannel
-where
-    B: AsMut<[u8]>,
-    Self: core::marker::Sized,
-{
-    fn circ_read(self, chan: Self::Dma, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self::Dma>;
-    fn read_exact(
-        self,
-        chan: Self::Dma,
-        buffer: &'static mut B,
-    ) -> Transfer<W, &'static mut B, Self::Dma, Self>;
-}
+            impl<B> crate::dma::CircReadDma<B, u8> for RxDma<$USARTX, $dmarxch> where B: AsMut<[u8]> {
+                fn circ_read(mut self, buffer: &'static mut [B; 2],
+                ) -> CircBuffer<B, $dmarxch>
+                {
+                    {
+                        let buffer = buffer[0].as_mut();
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+                        self.channel.set_transfer_length(buffer.len() * 2);
 
-pub trait WriteDma<A, B>: DmaChannel
-where
-    A: AsRef<[u8]>,
-    B: Static<A>,
-    Self: core::marker::Sized,
-{
-    fn write_all(self, chan: Self::Dma, buffer: B) -> Transfer<R, B, Self::Dma, Self>;
-}
-*/
+                        atomic::compiler_fence(Ordering::Release);
 
-impl<USART> core::fmt::Write for Tx<USART>
-where
-    Tx<USART>: embedded_hal::serial::Write<u8>,
-{
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        s.as_bytes()
-            .iter()
-            .try_for_each(|c| nb::block!(self.write(*c)))
-            .map_err(|_| core::fmt::Error)
+                        self.channel.ch().cr.modify(|_, w| { w
+                            .mem2mem() .clear_bit()
+                            .pl()      .medium()
+                            .msize()   .bit8()
+                            .psize()   .bit8()
+                            .circ()    .set_bit()
+                            .dir()     .clear_bit()
+                        });
+                    }
+
+                    self.start();
+
+                    let RxDma {_payload, channel} = self;
+
+                    CircBuffer::new(buffer, channel)
+                }
+            }
+
+            impl<B> crate::dma::ReadDma<B, u8> for RxDma<$USARTX, $dmarxch> where B: AsMut<[u8]> {
+                fn read(mut self, buffer: &'static mut B,
+                ) -> Transfer<W, &'static mut B, Self>
+                {
+                    {
+                        let buffer = buffer.as_mut();
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+                        self.channel.set_transfer_length(buffer.len());
+                    }
+                    atomic::compiler_fence(Ordering::Release);
+                    self.channel.ch().cr.modify(|_, w| { w
+                        .mem2mem() .clear_bit()
+                        .pl()      .medium()
+                        .msize()   .bit8()
+                        .psize()   .bit8()
+                        .circ()    .clear_bit()
+                        .dir()     .clear_bit()
+                    });
+                    self.start();
+
+                    Transfer::w(buffer, self)
+                }
+            }
+
+            impl<A, B> crate::dma::WriteDma<A, B, u8> for TxDma<$USARTX, $dmatxch> where A: AsRef<[u8]>, B: Static<A> {
+                fn write(mut self, buffer: B
+                ) -> Transfer<R, B, Self>
+                {
+                    {
+                        let buffer = buffer.borrow().as_ref();
+
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+
+                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+                        self.channel.set_transfer_length(buffer.len());
+                    }
+
+                    atomic::compiler_fence(Ordering::Release);
+
+                    self.channel.ch().cr.modify(|_, w| { w
+                        .mem2mem() .clear_bit()
+                        .pl()      .medium()
+                        .msize()   .bit8()
+                        .psize()   .bit8()
+                        .circ()    .clear_bit()
+                        .dir()     .set_bit()
+                    });
+                    self.start();
+
+                    Transfer::r(buffer, self)
+                }
+            }
+        )+
     }
+}
+
+serialdma! {
+    USART1: (
+        dma1::C5,
+        dma1::C4,
+    ),
+    USART2: (
+        dma1::C6,
+        dma1::C7,
+    ),
+    USART3: (
+        dma1::C3,
+        dma1::C2,
+    ),
 }

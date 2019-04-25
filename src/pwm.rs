@@ -288,10 +288,7 @@ macro_rules! hal {
                 }
 
                 fn get_duty(&self) -> u16 {
-                    #[cfg(feature = "stm32f103")]
                     unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() }
-                    #[cfg(not(feature = "stm32f103"))]
-                    unsafe { (*$TIMX::ptr()).ccr1.read().ccr1().bits() }
                 }
 
                 fn get_max_duty(&self) -> u16 {
@@ -299,10 +296,7 @@ macro_rules! hal {
                 }
 
                 fn set_duty(&mut self, duty: u16) {
-                    #[cfg(feature = "stm32f103")]
                     unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) }
-                    #[cfg(not(feature = "stm32f103"))]
-                    unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr1().bits(duty)) }
                 }
             }
 
@@ -318,10 +312,7 @@ macro_rules! hal {
                 }
 
                 fn get_duty(&self) -> u16 {
-                    #[cfg(feature = "stm32f103")]
                     unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() }
-                    #[cfg(not(feature = "stm32f103"))]
-                    unsafe { (*$TIMX::ptr()).ccr2.read().ccr2().bits() }
                 }
 
                 fn get_max_duty(&self) -> u16 {
@@ -329,10 +320,7 @@ macro_rules! hal {
                 }
 
                 fn set_duty(&mut self, duty: u16) {
-                    #[cfg(feature = "stm32f103")]
                     unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) }
-                    #[cfg(not(feature = "stm32f103"))]
-                    unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr2().bits(duty)) }
                 }
             }
 
@@ -348,10 +336,7 @@ macro_rules! hal {
                 }
 
                 fn get_duty(&self) -> u16 {
-                    #[cfg(feature = "stm32f103")]
                     unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() }
-                    #[cfg(not(feature = "stm32f103"))]
-                    unsafe { (*$TIMX::ptr()).ccr3.read().ccr3().bits() }
                 }
 
                 fn get_max_duty(&self) -> u16 {
@@ -359,10 +344,7 @@ macro_rules! hal {
                 }
 
                 fn set_duty(&mut self, duty: u16) {
-                    #[cfg(feature = "stm32f103")]
                     unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) }
-                    #[cfg(not(feature = "stm32f103"))]
-                    unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr3().bits(duty)) }
                 }
             }
 
@@ -378,10 +360,7 @@ macro_rules! hal {
                 }
 
                 fn get_duty(&self) -> u16 {
-                    #[cfg(feature = "stm32f103")]
                     unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() }
-                    #[cfg(not(feature = "stm32f103"))]
-                    unsafe { (*$TIMX::ptr()).ccr4.read().ccr4().bits() }
                 }
 
                 fn get_max_duty(&self) -> u16 {
@@ -389,10 +368,7 @@ macro_rules! hal {
                 }
 
                 fn set_duty(&mut self, duty: u16) {
-                    #[cfg(feature = "stm32f103")]
                     unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) }
-                    #[cfg(not(feature = "stm32f103"))]
-                    unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr4().bits(duty)) }
                 }
             }
         )+
