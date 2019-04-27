@@ -27,8 +27,8 @@ fn main() -> ! {
 
     let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
 
-    let pb4 = gpiob.pb4.into_alternate_open_drain(&mut gpiob.crl);
-    let pb5 = gpiob.pb5.into_alternate_open_drain(&mut gpiob.crl);
+    let pb4 = gpiob.pb4;
+    let pb5 = gpiob.pb5;
 
     let pwm_input = p.TIM3.pwm_input(
         (pb4, pb5),
