@@ -85,11 +85,12 @@ version = "1.0.87"
 #rev = "6f12b77c1ffeae167989fe06e0d8b15978bd6d18"
 
 [features]
+device-selected = []
 doc = []
 rt = ["stm32f1/rt"]
-stm32f100 = ["stm32f1/stm32f100"]
-stm32f101 = ["stm32f1/stm32f101"]
-stm32f103 = ["stm32f1/stm32f103"]
+stm32f100 = ["stm32f1/stm32f100", "device-selected"]
+stm32f101 = ["stm32f1/stm32f101", "device-selected"]
+stm32f103 = ["stm32f1/stm32f103", "device-selected"]
 
 [profile.dev]
 incremental = false
