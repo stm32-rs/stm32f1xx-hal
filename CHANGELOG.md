@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - enable PWM on stm32f100
+- Fix pin input mode for pwm_input
 
 ## [v0.2.1] - 2019-03-08
 
