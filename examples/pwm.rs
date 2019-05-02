@@ -1,11 +1,10 @@
 //! Testing PWM output
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate panic_halt;
+use panic_halt as _;
 
 use cortex_m::asm;
 use stm32f1xx_hal::{

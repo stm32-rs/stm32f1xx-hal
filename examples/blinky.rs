@@ -6,11 +6,10 @@
 //! the reference manaual for an explanation. This is not an issue on the blue pill.
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_std]
 #![no_main]
 
-extern crate panic_halt;
+use panic_halt as _;
 
 use nb::block;
 

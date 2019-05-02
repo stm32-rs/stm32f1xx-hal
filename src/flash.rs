@@ -27,6 +27,7 @@ pub struct ACR {
     _0: (),
 }
 
+#[allow(dead_code)]
 impl ACR {
     pub(crate) fn acr(&mut self) -> &flash::ACR {
         // NOTE(unsafe) this proxy grants exclusive access to this register

@@ -1,11 +1,10 @@
 //! Disables the JTAG ports to give access to pb3, pb4 and PA15
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate panic_halt;
+use panic_halt as _;
 
 use stm32f1xx_hal::{
     prelude::*,

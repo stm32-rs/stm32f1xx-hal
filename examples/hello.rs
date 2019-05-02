@@ -1,13 +1,12 @@
 //! Prints "Hello, world" on the OpenOCD console
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate panic_semihosting;
+use panic_semihosting as _;
 
-extern crate stm32f1xx_hal;
+use stm32f1xx_hal as _;
 use cortex_m_semihosting::hprintln;
 
 use cortex_m_rt::entry;

@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.0] - 2019-04-27
+
 ### Added
 
+- Added device-selected meta feature flag
+- Restore and improve Serial DMA-based TX, RX and circular implementation
 - Implement ADC example
 - Implement ADC embedded_hal traits
 - Implement ADC clock configuration
@@ -17,10 +21,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Implement `core::fmt::Write` for `serial::Tx`
 - Add methods `stop`, `release` and `clear_update_interrupt_flag` to `Timer` (`clear_update_interrupt_flag` does not apply to `Timer<SYST>`)
 - Add timer interrupt example using RTFM
+- Implement IndependentWatchdog for the IWDG peripheral
 
 ### Changed
 
+- Now requires stm32f1 v0.7 (breaking change)
 - enable PWM on stm32f100
+- Fix gpio misconfiguration when using a timer in pwm input mode. Now the gpio has to be configured in floating input mode.
 
 ## [v0.2.1] - 2019-03-08
 
@@ -61,6 +68,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.2.1...v0.3.0
 [v0.2.1]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.1.1...v0.2.0

@@ -140,7 +140,7 @@ macro_rules! hal {
                     // dff: 8 bit frames
                     // bidimode: 2-line unidirectional
                     // spe: enable the SPI bus
-                    spi.cr1.write(|w| unsafe {
+                    spi.cr1.write(|w|
                         w.cpha()
                             .bit(mode.phase == Phase::CaptureOnSecondTransition)
                             .cpol()
@@ -163,7 +163,7 @@ macro_rules! hal {
                             .clear_bit()
                             .spe()
                             .set_bit()
-                    });
+                    );
 
                     Spi { spi, pins }
                 }

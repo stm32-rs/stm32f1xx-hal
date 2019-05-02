@@ -65,36 +65,33 @@ pub trait DmaExt {
     fn split(self, ahb: &mut AHB) -> Self::Channels;
 }
 
-pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
+pub struct Transfer<MODE, BUFFER, PAYLOAD> {
     _mode: PhantomData<MODE>,
     buffer: BUFFER,
-    channel: CHANNEL,
     payload: PAYLOAD,
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD> {
-    pub(crate) fn r(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
+impl<BUFFER, PAYLOAD> Transfer<R, BUFFER, PAYLOAD> {
+    pub(crate) fn r(buffer: BUFFER, payload: PAYLOAD) -> Self {
         Transfer {
             _mode: PhantomData,
             buffer,
-            channel,
             payload,
         }
     }
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> Transfer<W, BUFFER, CHANNEL, PAYLOAD> {
-    pub(crate) fn w(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
+impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, PAYLOAD> {
+    pub(crate) fn w(buffer: BUFFER, payload: PAYLOAD) -> Self {
         Transfer {
             _mode: PhantomData,
             buffer,
-            channel,
             payload,
         }
     }
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> ops::Deref for Transfer<R, BUFFER, CHANNEL, PAYLOAD> {
+impl<BUFFER, PAYLOAD> ops::Deref for Transfer<R, BUFFER, PAYLOAD> {
     type Target = BUFFER;
 
     fn deref(&self) -> &BUFFER {
@@ -108,18 +105,10 @@ pub struct R;
 /// Write transfer
 pub struct W;
 
-/*
 macro_rules! dma {
     ($($DMAX:ident: ($dmaX:ident, $dmaXen:ident, $dmaXrst:ident, {
         $($CX:ident: (
-            $ccrX:ident,
-            $CCRX:ident,
-            $cndtrX:ident,
-            $CNDTRX:ident,
-            $cparX:ident,
-            $CPARX:ident,
-            $cmarX:ident,
-            $CMARX:ident,
+            $chX:ident,
             $htifX:ident,
             $tcifX:ident,
             $chtifX:ident,
@@ -130,23 +119,66 @@ macro_rules! dma {
         $(
             pub mod $dmaX {
                 use core::sync::atomic::{self, Ordering};
+                use core::ptr;
 
                 use crate::pac::{$DMAX, dma1};
 
-                use dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
-                use rcc::AHB;
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma};
+                use crate::rcc::AHB;
 
                 pub struct Channels((), $(pub $CX),+);
 
                 $(
+                    /// A singleton that represents a single DMAx channel (channel X in this case)
+                    ///
+                    /// This singleton has exclusive access to the registers of the DMAx channel X
                     pub struct $CX { _0: () }
+
+                    impl $CX {
+                        /// Associated peripheral `address`
+                        ///
+                        /// `inc` indicates whether the address will be incremented after every byte transfer
+                        pub fn set_peripheral_address(&mut self, address: u32, inc: bool) {
+                            self.ch().par.write(|w| w.pa().bits(address) );
+                            self.ch().cr.modify(|_, w| w.pinc().bit(inc) );
+                        }
+
+                        /// `address` where from/to data will be read/write
+                        ///
+                        /// `inc` indicates whether the address will be incremented after every byte transfer
+                        pub fn set_memory_address(&mut self, address: u32, inc: bool) {
+                            self.ch().mar.write(|w| w.ma().bits(address) );
+                            self.ch().cr.modify(|_, w| w.minc().bit(inc) );
+                        }
+
+                        /// Number of bytes to transfer
+                        pub fn set_transfer_length(&mut self, len: usize) {
+                            self.ch().ndtr.write(|w| w.ndt().bits(cast::u16(len).unwrap()));
+                        }
+
+                        /// Starts the DMA transfer
+                        pub fn start(&mut self) {
+                            self.ch().cr.modify(|_, w| w.en().set_bit() );
+                        }
+
+                        /// Stops the DMA transfer
+                        pub fn stop(&mut self) {
+                            self.ifcr().write(|w| w.$cgifX().set_bit());
+                            self.ch().cr.modify(|_, w| w.en().clear_bit() );
+                        }
+
+                        /// Returns `true` if there's a transfer in progress
+                        fn in_progress(&self) -> bool {
+                            self.isr().$tcifX().bit_is_clear()
+                        }
+                    }
 
                     impl $CX {
                         pub fn listen(&mut self, event: Event) {
                             match event {
-                                Event::HalfTransfer => self.ccr().modify(|_, w| w.htie().set_bit()),
+                                Event::HalfTransfer => self.ch().cr.modify(|_, w| w.htie().set_bit()),
                                 Event::TransferComplete => {
-                                    self.ccr().modify(|_, w| w.tcie().set_bit())
+                                    self.ch().cr.modify(|_, w| w.tcie().set_bit())
                                 }
                             }
                         }
@@ -154,44 +186,31 @@ macro_rules! dma {
                         pub fn unlisten(&mut self, event: Event) {
                             match event {
                                 Event::HalfTransfer => {
-                                    self.ccr().modify(|_, w| w.htie().clear_bit())
+                                    self.ch().cr.modify(|_, w| w.htie().clear_bit())
                                 },
                                 Event::TransferComplete => {
-                                    self.ccr().modify(|_, w| w.tcie().clear_bit())
+                                    self.ch().cr.modify(|_, w| w.tcie().clear_bit())
                                 }
                             }
                         }
 
-                        pub(crate) fn isr(&self) -> dma1::isr::R {
+                        pub fn ch(&mut self) -> &dma1::CH {
+                            unsafe { &(*$DMAX::ptr()).$chX }
+                        }
+
+                        pub fn isr(&self) -> dma1::isr::R {
                             // NOTE(unsafe) atomic read with no side effects
                             unsafe { (*$DMAX::ptr()).isr.read() }
                         }
 
-                        pub(crate) fn ifcr(&self) -> &dma1::IFCR {
+                        pub fn ifcr(&self) -> &dma1::IFCR {
                             unsafe { &(*$DMAX::ptr()).ifcr }
                         }
 
-                        pub(crate) fn ccr(&mut self) -> &dma1::$CCRX {
-                            unsafe { &(*$DMAX::ptr()).$ccrX }
-                        }
-
-                        pub(crate) fn cndtr(&mut self) -> &dma1::$CNDTRX {
-                            unsafe { &(*$DMAX::ptr()).$cndtrX }
-                        }
-
-                        pub(crate) fn cpar(&mut self) -> &dma1::$CPARX {
-                            unsafe { &(*$DMAX::ptr()).$cparX }
-                        }
-
-                        pub(crate) fn cmar(&mut self) -> &dma1::$CMARX {
-                            unsafe { &(*$DMAX::ptr()).$cmarX }
-                        }
-
-                        pub(crate) fn get_cndtr(&self) -> u32 {
+                        pub fn get_ndtr(&self) -> u32 {
                             // NOTE(unsafe) atomic read with no side effects
-                            unsafe { (*$DMAX::ptr()).$cndtrX.read().bits() }
+                            unsafe { &(*$DMAX::ptr())}.$chX.ndtr.read().bits()
                         }
-
                     }
 
                     impl<B> CircBuffer<B, $CX> {
@@ -260,37 +279,58 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, $CX, PAYLOAD> {
+                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>> {
                         pub fn is_done(&self) -> bool {
-                            self.channel.isr().$tcifX().bit_is_set()
+                            !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, $CX, PAYLOAD) {
-                            // XXX should we check for transfer errors here?
-                            // The manual says "A DMA transfer error can be generated by reading
-                            // from or writing to a reserved address space". I think it's impossible
-                            // to get to that state with our type safe API and *safe* Rust.
+                        pub fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
-                            self.channel.ifcr().write(|w| w.$cgifX().set_bit());
+                            atomic::compiler_fence(Ordering::Acquire);
 
-                            self.channel.ccr().modify(|_, w| w.en().clear_bit());
+                            self.payload.stop();
 
-                            // TODO can we weaken this compiler barrier?
-                            // NOTE(compiler_fence) operations on `buffer` should not be reordered
-                            // before the previous statement, which marks the DMA transfer as done
-                            atomic::compiler_fence(Ordering::SeqCst);
+                            // we need a read here to make the Acquire fence effective
+                            // we do *not* need this if `dma.stop` does a RMW operation
+                            unsafe { ptr::read_volatile(&0); }
 
-                            (self.buffer, self.channel, self.payload)
+                            // we need a fence here for the same reason we need one in `Transfer.wait`
+                            atomic::compiler_fence(Ordering::Acquire);
+
+                            (self.buffer, self.payload)
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, $CX, PAYLOAD> {
+                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>> {
+                        pub fn is_done(&self) -> bool {
+                            !self.payload.channel.in_progress()
+                        }
+
+                        pub fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
+                            while !self.is_done() {}
+
+                            atomic::compiler_fence(Ordering::Acquire);
+
+                            self.payload.stop();
+
+                            // we need a read here to make the Acquire fence effective
+                            // we do *not* need this if `dma.stop` does a RMW operation
+                            unsafe { ptr::read_volatile(&0); }
+
+                            // we need a fence here for the same reason we need one in `Transfer.wait`
+                            atomic::compiler_fence(Ordering::Acquire);
+
+                            (self.buffer, self.payload)
+                        }
+                    }
+
+                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, RxDma<PAYLOAD, $CX>> {
                         pub fn peek<T>(&self) -> &[T]
                         where
                             BUFFER: AsRef<[T]>,
                         {
-                            let pending = self.channel.get_cndtr() as usize;
+                            let pending = self.payload.channel.get_ndtr() as usize;
 
                             let slice = self.buffer.as_ref();
                             let capacity = slice.len();
@@ -298,6 +338,25 @@ macro_rules! dma {
                             &slice[..(capacity - pending)]
                         }
                     }
+
+                    impl<PAYLOAD> RxDma<PAYLOAD, $CX> {
+                        pub fn start(&mut self) {
+                            self.channel.start()
+                        }
+                        pub fn stop(&mut self) {
+                            self.channel.stop()
+                        }
+                    }
+
+                    impl<PAYLOAD> TxDma<PAYLOAD, $CX> {
+                        pub fn start(&mut self) {
+                            self.channel.start()
+                        }
+                        pub fn stop(&mut self) {
+                            self.channel.stop()
+                        }
+                    }
+
                 )+
 
                 impl DmaExt for $DMAX {
@@ -308,7 +367,7 @@ macro_rules! dma {
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(
-                            self.$ccrX.reset();
+                            self.$chX.cr.reset();
                         )+
 
                         Channels((), $($CX { _0: () }),+)
@@ -322,58 +381,37 @@ macro_rules! dma {
 dma! {
     DMA1: (dma1, dma1en, dma1rst, {
         C1: (
-            ccr1, CCR1,
-            cndtr1, CNDTR1,
-            cpar1, CPAR1,
-            cmar1, CMAR1,
+            ch1,
             htif1, tcif1,
             chtif1, ctcif1, cgif1
         ),
         C2: (
-            ccr2, CCR2,
-            cndtr2, CNDTR2,
-            cpar2, CPAR2,
-            cmar2, CMAR2,
+            ch2,
             htif2, tcif2,
             chtif2, ctcif2, cgif2
         ),
         C3: (
-            ccr3, CCR3,
-            cndtr3, CNDTR3,
-            cpar3, CPAR3,
-            cmar3, CMAR3,
+            ch3,
             htif3, tcif3,
             chtif3, ctcif3, cgif3
         ),
         C4: (
-            ccr4, CCR4,
-            cndtr4, CNDTR4,
-            cpar4, CPAR4,
-            cmar4, CMAR4,
+            ch4,
             htif4, tcif4,
             chtif4, ctcif4, cgif4
         ),
         C5: (
-            ccr5, CCR5,
-            cndtr5, CNDTR5,
-            cpar5, CPAR5,
-            cmar5, CMAR5,
+            ch5,
             htif5, tcif5,
             chtif5, ctcif5, cgif5
         ),
         C6: (
-            ccr6, CCR6,
-            cndtr6, CNDTR6,
-            cpar6, CPAR6,
-            cmar6, CMAR6,
+            ch6,
             htif6, tcif6,
             chtif6, ctcif6, cgif6
         ),
         C7: (
-            ccr7, CCR7,
-            cndtr7, CNDTR7,
-            cpar7, CPAR7,
-            cmar7, CMAR7,
+            ch7,
             htif7, tcif7,
             chtif7, ctcif7, cgif7
         ),
@@ -381,49 +419,86 @@ dma! {
 
     DMA2: (dma2, dma2en, dma2rst, {
         C1: (
-            ccr1, CCR1,
-            cndtr1, CNDTR1,
-            cpar1, CPAR1,
-            cmar1, CMAR1,
+            ch1,
             htif1, tcif1,
             chtif1, ctcif1, cgif1
         ),
         C2: (
-            ccr2, CCR2,
-            cndtr2, CNDTR2,
-            cpar2, CPAR2,
-            cmar2, CMAR2,
+            ch2,
             htif2, tcif2,
             chtif2, ctcif2, cgif2
         ),
         C3: (
-            ccr3, CCR3,
-            cndtr3, CNDTR3,
-            cpar3, CPAR3,
-            cmar3, CMAR3,
+            ch3,
             htif3, tcif3,
             chtif3, ctcif3, cgif3
         ),
         C4: (
-            ccr4, CCR4,
-            cndtr4, CNDTR4,
-            cpar4, CPAR4,
-            cmar4, CMAR4,
+            ch4,
             htif4, tcif4,
             chtif4, ctcif4, cgif4
         ),
         C5: (
-            ccr5, CCR5,
-            cndtr5, CNDTR5,
-            cpar5, CPAR5,
-            cmar5, CMAR5,
+            ch5,
             htif5, tcif5,
             chtif5, ctcif5, cgif5
         ),
     }),
 }
-*/
 
-pub trait DmaChannel {
-    type Dma;
+/// DMA Receiver
+pub struct RxDma<PAYLOAD, RXCH> {
+    pub(crate) _payload: PhantomData<PAYLOAD>,
+    pub(crate) channel: RXCH,
+}
+
+/// DMA Transmitter
+pub struct TxDma<PAYLOAD, TXCH> {
+    pub(crate) _payload: PhantomData<PAYLOAD>,
+    pub(crate) channel: TXCH,
+}
+
+/// DMA Receiver/Transmitter
+pub struct RxTxDma<PAYLOAD, RXCH, TXCH> {
+    pub(crate) _payload: PhantomData<PAYLOAD>,
+    pub(crate) rxchannel: RXCH,
+    pub(crate) txchannel: TXCH,
+}
+
+pub trait Receive {
+    type RxChannel;
+    type TransmittedWord;
+}
+
+pub trait Transmit {
+    type TxChannel;
+    type ReceivedWord;
+}
+
+pub trait CircReadDma<B, RS>: Receive
+where
+    B: AsMut<[RS]>,
+    Self: core::marker::Sized,
+{
+    fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self::RxChannel>;
+}
+
+pub trait ReadDma<B, RS>: Receive
+where
+    B: AsMut<[RS]>,
+    Self: core::marker::Sized,
+{
+    fn read(
+        self,
+        buffer: &'static mut B,
+    ) -> Transfer<W, &'static mut B, Self>;
+}
+
+pub trait WriteDma<A, B, TS>: Transmit
+where
+    A: AsRef<[TS]>,
+    B: Static<A>,
+    Self: core::marker::Sized,
+{
+    fn write(self, buffer: B) -> Transfer<R, B, Self>;
 }
