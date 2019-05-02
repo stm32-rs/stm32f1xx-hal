@@ -12,3 +12,4 @@ pub use crate::rcc::RccExt as _stm32_hal_rcc_RccExt;
 //pub use crate::serial::ReadDma as _stm32_hal_serial_ReadDma;
 //pub use crate::serial::WriteDma as _stm32_hal_serial_WriteDma;
 pub use crate::time::U32Ext as _stm32_hal_time_U32Ext;
+pub use cortex_m;
