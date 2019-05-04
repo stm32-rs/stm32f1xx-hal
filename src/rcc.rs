@@ -80,6 +80,23 @@ impl APB1 {
     }
 }
 
+
+impl APB1 {
+    /// Set power interface clock (PWREN) bit in RCC_APB1ENR
+    pub fn set_pwren(&mut self) {
+        self.enr().modify(|_r, w| {
+            w.pwren().set_bit()
+        })
+    }
+
+    /// Clear power interface clock (PWREN) bit in RCC_APB1ENR
+    pub fn clear_pwren(&mut self) {
+        self.enr().modify(|_r, w| {
+            w.pwren().clear_bit()
+        })
+    }
+}
+
 /// Advanced Peripheral Bus 2 (APB2) registers
 pub struct APB2 {
     _0: (),
