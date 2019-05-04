@@ -11,7 +11,7 @@ use cortex_m::asm;
 use stm32f1xx_hal::{
     prelude::*,
     pac,
-    serial::Serial,
+    serial::{Config, Serial},
 };
 use cortex_m_rt::entry;
 
@@ -50,7 +50,7 @@ fn main() -> ! {
         p.USART1,
         (tx, rx),
         &mut afio.mapr,
-        9_600.bps(),
+        Config::default().baudrate(9600.bps()),
         clocks,
         &mut rcc.apb2,
     );

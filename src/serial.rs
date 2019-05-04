@@ -50,7 +50,7 @@ use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{Clocks, APB1, APB2};
-use crate::time::Bps;
+use crate::time::{U32Ext, Bps};
 
 /// Interrupt event
 pub enum Event {
@@ -107,6 +107,67 @@ impl Pins<USART3> for (PB10<Alternate<PushPull>>, PB11<Input<Floating>>) {
 //     const REMAP: u8 = 0b11;
 // }
 
+pub enum Parity {
+    ParityNone,
+    ParityEven,
+    ParityOdd,
+}
+
+pub enum StopBits {
+    #[doc = "1 stop bit"]
+    STOP1,
+    #[doc = "0.5 stop bits"]
+    STOP0P5,
+    #[doc = "2 stop bits"]
+    STOP2,
+    #[doc = "1.5 stop bits"]
+    STOP1P5,
+}
+
+pub struct Config {
+    pub baudrate: Bps,
+    pub parity: Parity,
+    pub stopbits: StopBits,
+}
+
+impl Config {
+    pub fn baudrate(mut self, baudrate: Bps) -> Self {
+        self.baudrate = baudrate;
+        self
+    }
+
+    pub fn parity_none(mut self) -> Self {
+        self.parity = Parity::ParityNone;
+        self
+    }
+
+    pub fn parity_even(mut self) -> Self {
+        self.parity = Parity::ParityEven;
+        self
+    }
+
+    pub fn parity_odd(mut self) -> Self {
+        self.parity = Parity::ParityOdd;
+        self
+    }
+
+    pub fn stopbits(mut self, stopbits: StopBits) -> Self {
+        self.stopbits = stopbits;
+        self
+    }
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        let baudrate = 19_200_u32.bps();
+        Config {
+            baudrate,
+            parity: Parity::ParityNone,
+            stopbits: StopBits::STOP1,
+        }
+    }
+}
+
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
     usart: USART,
@@ -162,7 +223,7 @@ macro_rules! hal {
                     usart: $USARTX,
                     pins: PINS,
                     mapr: &mut MAPR,
-                    baud_rate: Bps,
+                    config: Config,
                     clocks: Clocks,
                     apb: &mut $APB,
                 ) -> Self
@@ -183,16 +244,45 @@ macro_rules! hal {
                     // enable DMA transfers
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
-                    let brr = clocks.$pclk().0 / baud_rate.0;
+                    // Configure baud rate
+                    let brr = clocks.$pclk().0 / config.baudrate.0;
                     assert!(brr >= 16, "impossible baud rate");
                     usart.brr.write(|w| unsafe { w.bits(brr) });
+
+                    // Configure parity and word length
+                    // Unlike most uart devices, the "word length" of this usart device refers to
+                    // the size of the data plus the parity bit. I.e. "word length"=8, parity=even
+                    // results in 7 bits of data. Therefore, in order to get 8 bits and one parity
+                    // bit, we need to set the "word" length to 9 when using parity bits.
+                    let (word_length, parity_control_enable, parity) = match config.parity {
+                        Parity::ParityNone => (false, false, false),
+                        Parity::ParityEven => (true, true, false),
+                        Parity::ParityOdd => (true, true, true),
+                    };
+                    usart.cr1.modify(|_r, w| {
+                        w
+                            .m().bit(word_length)
+                            .ps().bit(parity)
+                            .pce().bit(parity_control_enable)
+                    });
+
+                    // Configure stop bits
+                    let stop_bits = match config.stopbits {
+                        StopBits::STOP1 => 0b00,
+                        StopBits::STOP0P5 => 0b01,
+                        StopBits::STOP2 => 0b10,
+                        StopBits::STOP1P5 => 0b11,
+                    };
+                    usart.cr2.modify(|_r, w| {
+                        w.stop().bits(stop_bits)
+                    });
 
                     // UE: enable USART
                     // RE: enable receiver
                     // TE: enable transceiver
                     usart
                         .cr1
-                        .write(|w| w.ue().set_bit().re().set_bit().te().set_bit());
+                        .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
                     Serial { usart, pins }
                 }
