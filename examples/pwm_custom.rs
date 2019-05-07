@@ -1,4 +1,4 @@
-//! Testing PWM output
+//! Testing PWM output for custom pin combinations
 
 #![deny(unsafe_code)]
 #![no_main]
@@ -18,8 +18,19 @@ use stm32f1xx_hal::{
 
 use cortex_m_rt::entry;
 
-struct MyChannels(PB4<Alternate<PushPull>>, PB5<Alternate<PushPull>>);
+// Using PB5 channel for TIM3 PWM output 
+// struct MyChannels(PB5<Alternate<PushPull>>);
+// impl Pins<TIM3>  for MyChannels {
+//     const REMAP: u8 = 0b10;
+//     const C1: bool = false;
+//     const C2: bool = true;
+//     const C3: bool = false;
+//     const C4: bool = false;
+//     type Channels = Pwm<TIM3, C2>;
+// }
 
+// Using PB4 and PB5 channels for TIM3 PWM output
+struct MyChannels(PB4<Alternate<PushPull>>, PB5<Alternate<PushPull>>);
 impl Pins<TIM3> for MyChannels {
     const REMAP: u8 = 0b10;
     const C1: bool = true;

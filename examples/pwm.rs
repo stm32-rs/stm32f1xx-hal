@@ -1,4 +1,4 @@
-//! Testing PWM output
+//! Testing PWM output for pre-defined pin combination: all pins for default mapping
 
 #![deny(unsafe_code)]
 #![no_main]

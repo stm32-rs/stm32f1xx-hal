@@ -2,14 +2,14 @@
   # Pulse width modulation
 
   The general purpose timers (`TIM2`, `TIM3`, and `TIM4`) can be used to output
-  pulse width modulated signals on some pins. The timers support up to 4 simultaneous
-  pwm outputs in separate `Channels`
+  pulse width modulated signals on some pins. The timers support up to 4
+  simultaneous pwm outputs in separate `Channels`
 
   ## Usage for pre-defined channel combinations
 
-  Start by setting all the pins for the timer you want to use to alternate
-  push pull pins. The `Pins` trait shows the mapping between timers, output pins
-  and channels.
+  Crate defines only basic channel combinations for default AFIO remappings,
+  where all the channels are enabled. Start by setting all the pins for the
+  timer you want to use to alternate push pull pins:
 
   ```rust
   let gpioa = ..; // Set up and split GPIOA
@@ -21,7 +21,7 @@
   );
   ```
 
-  Then call the `pwm` function on the corresponding timer
+  Then call the `pwm` function on the corresponding timer:
 
   ```
     let device: pac::Peripherals = ..;
@@ -44,12 +44,47 @@
 
   ## Usage for custom channel combinations
 
-  Note that crate itself defines only basic channel combinations for default AFIO remapppings,
+  Note that crate itself defines only basic channel combinations for default AFIO remappings,
   where all the channels are enabled. Meanwhile it is possible to configure PWM for any custom
-  selection of channels. For this purpose the 'Pins' trait should be implemented for the chosen
-  combination of channels and AFIO remappings. However minor additional efforts are needed since
-  it is not possible to implement a foreign trait for a foreign  type. The trick is to use
-  the newtype pattern. Here is an example:
+  selection of channels. The `Pins` trait shows the mapping between timers, output pins and
+  channels. So this trait needs to be implemented for the custom combination of channels and
+  AFIO remappings. However minor additional efforts are needed since it is not possible to
+  implement a foreign trait for a foreign type. The trick is to use the newtype pattern.
+
+  The first example selects PB5 channel for TIM3 PWM output:
+
+  ```
+  struct MyChannels(PB5<Alternate<PushPull>>);
+
+  impl Pins<TIM3>  for MyChannels {
+    const REMAP: u8 = 0b10; // use TIM3 AFIO remapping for PB4, PB5, PB0, PB1 pins
+    const C1: bool = false;
+    const C2: bool = true;  // use channel C2
+    const C3: bool = false;
+    const C4: bool = false;
+    type Channels = Pwm<TIM3, C2>;
+  }
+  ```
+
+  The second example selects PC8 and PC9 channels for TIM3 PWM output:
+
+  ```
+  struct MyChannels(PB5<Alternate<PushPull>>);
+
+  impl Pins<TIM3>  for MyChannels {
+    const REMAP: u8 = 0b11; // use TIM3 AFIO remapping for PC6, PC7, PC8, PC9 pins
+    const C1: bool = false;
+    const C2: bool = false;
+    const C3: bool = true;  // use channel C3
+    const C4: bool = true;  // use channel C4
+    type Channels = (Pwm<TIM3, C3>, Pwm<TIM3, C4>);
+  }
+  ```
+
+  REMAP value and channel pins should specified according to the stm32f1xx specification,
+  namely according to the chapter about AFIO and timer alternate function remappings.
+
+  Finally, here is a complete example for two channels:
 
   ```
   use stm32f1xx_hal::stm32::TIM3;
@@ -61,7 +96,7 @@
 
   impl Pins<TIM3> for MyChannels
   {
-    const REMAP: u8 = 0b10; // use TIM3 AFIO remapping for PB4, PB5, PB0, PB1 pins
+    const REMAP: u8 = 0b10;
     const C1: bool = true;
     const C2: bool = true;
     const C3: bool = false;
