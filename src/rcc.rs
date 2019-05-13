@@ -88,13 +88,6 @@ impl APB1 {
             w.pwren().set_bit()
         })
     }
-
-    /// Clear power interface clock (PWREN) bit in RCC_APB1ENR
-    pub fn clear_pwren(&mut self) {
-        self.enr().modify(|_r, w| {
-            w.pwren().clear_bit()
-        })
-    }
 }
 
 /// Advanced Peripheral Bus 2 (APB2) registers
