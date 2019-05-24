@@ -7,7 +7,7 @@
 
   ## Usage for pre-defined channel combinations
 
-  Crate defines only basic channel combinations for default AFIO remappings,
+  This crate only defines basic channel combinations for default AFIO remappings,
   where all the channels are enabled. Start by setting all the pins for the
   timer you want to use to alternate push pull pins:
 
@@ -81,8 +81,8 @@
   }
   ```
 
-  REMAP value and channel pins should specified according to the stm32f1xx specification,
-  namely according to the chapter about AFIO and timer alternate function remappings.
+  REMAP value and channel pins should be specified according to the stm32f1xx specification,
+  e.g. the section 9.3.7 "Timer alternate function remapping" in RM0008 Rev 20.
 
   Finally, here is a complete example for two channels:
 
