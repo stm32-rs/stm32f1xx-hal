@@ -2,14 +2,14 @@
   # Pulse width modulation
 
   The general purpose timers (`TIM2`, `TIM3`, and `TIM4`) can be used to output
-  pulse width modulated signals on some pins. The timers support up to 4 simultaneous
-  pwm outputs in separate `Channels`
+  pulse width modulated signals on some pins. The timers support up to 4
+  simultaneous pwm outputs in separate `Channels`
 
-  ## Usage
+  ## Usage for pre-defined channel combinations
 
-  Start by setting all the pins for the timer you want to use to alternate
-  push pull pins. The `Pins` trait shows the mapping between timers, output pins
-  and channels.
+  This crate only defines basic channel combinations for default AFIO remappings,
+  where all the channels are enabled. Start by setting all the pins for the
+  timer you want to use to alternate push pull pins:
 
   ```rust
   let gpioa = ..; // Set up and split GPIOA
@@ -21,7 +21,7 @@
   );
   ```
 
-  Then call the `pwm` function on the corresponding timer
+  Then call the `pwm` function on the corresponding timer:
 
   ```
     let device: pac::Peripherals = ..;
@@ -31,15 +31,103 @@
     let (c0, c1, c2, c3) = device.TIM2.pwm(
         pins,
         &mut afio.mapr,
-        100.hz()
+        100.hz(),
         clocks,
-        &mut rcc.apb
+        &mut rcc.apb1
     );
 
     // Set the duty cycle of channel 0 to 50%
     c0.set_duty(c0.get_max_duty() / 2);
     // PWM outputs are disabled by default
     c0.enable()
+  ```
+
+  ## Usage for custom channel combinations
+
+  Note that crate itself defines only basic channel combinations for default AFIO remappings,
+  where all the channels are enabled. Meanwhile it is possible to configure PWM for any custom
+  selection of channels. The `Pins` trait shows the mapping between timers, output pins and
+  channels. So this trait needs to be implemented for the custom combination of channels and
+  AFIO remappings. However minor additional efforts are needed since it is not possible to
+  implement a foreign trait for a foreign type. The trick is to use the newtype pattern.
+
+  The first example selects PB5 channel for TIM3 PWM output:
+
+  ```
+  struct MyChannels(PB5<Alternate<PushPull>>);
+
+  impl Pins<TIM3>  for MyChannels {
+    const REMAP: u8 = 0b10; // use TIM3 AFIO remapping for PB4, PB5, PB0, PB1 pins
+    const C1: bool = false;
+    const C2: bool = true;  // use channel C2
+    const C3: bool = false;
+    const C4: bool = false;
+    type Channels = Pwm<TIM3, C2>;
+  }
+  ```
+
+  The second example selects PC8 and PC9 channels for TIM3 PWM output:
+
+  ```
+  struct MyChannels(PB5<Alternate<PushPull>>);
+
+  impl Pins<TIM3>  for MyChannels {
+    const REMAP: u8 = 0b11; // use TIM3 AFIO remapping for PC6, PC7, PC8, PC9 pins
+    const C1: bool = false;
+    const C2: bool = false;
+    const C3: bool = true;  // use channel C3
+    const C4: bool = true;  // use channel C4
+    type Channels = (Pwm<TIM3, C3>, Pwm<TIM3, C4>);
+  }
+  ```
+
+  REMAP value and channel pins should be specified according to the stm32f1xx specification,
+  e.g. the section 9.3.7 "Timer alternate function remapping" in RM0008 Rev 20.
+
+  Finally, here is a complete example for two channels:
+
+  ```
+  use stm32f1xx_hal::stm32::TIM3;
+  use stm32f1xx_hal::gpio::gpiob::{PB4, PB5};
+  use stm32f1xx_hal::gpio::{Alternate, PushPull};
+  use stm32f1xx_hal::pwm::{Pins, Pwm, C1, C2, C3, C4};
+
+  struct MyChannels(PB4<Alternate<PushPull>>,  PB5<Alternate<PushPull>>);
+
+  impl Pins<TIM3> for MyChannels
+  {
+    const REMAP: u8 = 0b10;
+    const C1: bool = true;
+    const C2: bool = true;
+    const C3: bool = false;
+    const C4: bool = false;
+    type Channels = (Pwm<TIM3, C1>, Pwm<TIM3, C2>)
+  }
+
+  ...
+
+  let gpiob = ..; // Set up and split GPIOB
+
+  let p1 = gpiob.pb4.into_alternate_push_pull(&mut gpiob.crl);
+  let p2 = gpiob.pb5.into_alternate_push_pull(&mut gpiob.crl);
+
+  ...
+
+  let device: pac::Peripherals = ..;
+
+  let (c1, c2) = device.TIM3.pwm(
+      MyChannels(p1, p2),
+      &mut afio.mapr,
+      100.hz(),
+      clocks,
+      &mut rcc.apb1
+  );
+
+  // Set the duty cycle of channel 0 to 50%
+  c1.set_duty(c1.get_max_duty() / 2);
+  // PWM outputs are disabled by default
+  c1.enable()
+
   ```
 */
 
@@ -84,15 +172,6 @@ impl Pins<TIM2>
     type Channels = (Pwm<TIM2, C1>, Pwm<TIM2, C2>, Pwm<TIM2, C3>, Pwm<TIM2, C4>);
 }
 
-impl Pins<TIM2> for PA0<Alternate<PushPull>> {
-    const REMAP: u8 = 0b00;
-    const C1: bool = true;
-    const C2: bool = false;
-    const C3: bool = false;
-    const C4: bool = false;
-    type Channels = Pwm<TIM2, C1>;
-}
-
 impl Pins<TIM3>
     for (
         PA6<Alternate<PushPull>>,
@@ -107,15 +186,6 @@ impl Pins<TIM3>
     const C3: bool = true;
     const C4: bool = true;
     type Channels = (Pwm<TIM3, C1>, Pwm<TIM3, C2>, Pwm<TIM3, C3>, Pwm<TIM3, C4>);
-}
-
-impl Pins<TIM3> for (PB0<Alternate<PushPull>>, PB1<Alternate<PushPull>>) {
-    const REMAP: u8 = 0b00;
-    const C1: bool = false;
-    const C2: bool = false;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM3, C3>, Pwm<TIM3, C4>);
 }
 
 impl Pins<TIM4>
