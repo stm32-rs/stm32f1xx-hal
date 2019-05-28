@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- *Breaking change* Add additional configuration options to USART.
+    - Baud rate now has to be set using configuration struct
 - Now requires stm32f1 v0.7 (breaking change)
 - enable PWM on stm32f100
 - Fix gpio misconfiguration when using a timer in pwm input mode. Now the gpio has to be configured in floating input mode.
@@ -47,6 +49,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 
 - Use correct clock for serial baudrate computation
+
+
+
 
 ## [v0.2.0] - 2019-02-10
 

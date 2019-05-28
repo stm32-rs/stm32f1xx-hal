@@ -15,7 +15,8 @@ use nb::block;
 use stm32f1xx_hal::{
     prelude::*,
     pac,
-    serial::{Config, Serial},
+    serial::{self, Serial},
+    timer::Timer,
 };
 use cortex_m_rt::entry;
 
@@ -63,7 +64,10 @@ fn main() -> ! {
         p.USART3,
         (tx, rx),
         &mut afio.mapr,
-        Config::default().baudrate(9600.bps()),
+        serial::Config::default()
+            .baudrate(9600.bps())
+            .stopbits(serial::StopBits::STOP2)
+            .parity_odd(),
         clocks,
         &mut rcc.apb1,
     );
@@ -71,19 +75,10 @@ fn main() -> ! {
     // Split the serial struct into a receiving and a transmitting part
     let (mut tx, mut rx) = serial.split();
 
-    let sent = b'X';
-
-    // Write `X` and wait until the write is successful
+    let sent = b'U';
+    block!(tx.write(sent)).ok();
     block!(tx.write(sent)).ok();
 
-    // Read the byte that was just sent. Blocks until the read is complete
-    let received = block!(rx.read()).unwrap();
-
-    // Since we have connected tx and rx, the byte we sent should be the one we received
-    assert_eq!(received, sent);
-
-    // Trigger a breakpoint to allow us to inspect the values
-    asm::bkpt();
 
     loop {}
 }
