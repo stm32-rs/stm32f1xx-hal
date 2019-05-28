@@ -75,13 +75,8 @@ fn main() -> ! {
     // Split the serial struct into a receiving and a transmitting part
     let (mut tx, mut rx) = serial.split();
 
-    let mut timer = Timer::tim2(p.TIM2, 1000.hz(), clocks, &mut rcc.apb1);
-
     let sent = b'U';
     block!(tx.write(sent)).ok();
-    // block!(timer.wait());
-    // timer.start(1000.hz());
-    // block!(timer.wait());
     block!(tx.write(sent)).ok();
 
 

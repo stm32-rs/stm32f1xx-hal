@@ -159,7 +159,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Config {
-        let baudrate = 19_200_u32.bps();
+        let baudrate = 115_200_u32.bps();
         Config {
             baudrate,
             parity: Parity::ParityNone,
