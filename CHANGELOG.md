@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Remove all PWM channel configurations except 'all the channels for default remapping' configuratons
 - Update PWM documentation: clarify custom selection of channels
 - Add PWM example for custom selection of channels
+- Add ADC1 reading functions for channels 16 (temperature) and 17 (internal reference voltage)
 
 ### Changed
 
