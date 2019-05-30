@@ -9,6 +9,7 @@ use crate::gpio::gpioa::{PA0, PA1, PA6, PA7};
 use crate::gpio::gpiob::{PB6, PB7};
 use crate::gpio::{Floating, Input};
 use crate::rcc::APB1;
+use crate::timer::CcmrIO;
 
 pub trait Pins<TIM> {
     const REMAP: u8;
@@ -78,8 +79,8 @@ macro_rules! hal {
                     apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                     // Configure TxC1 and TxC2 as captures
-                    tim.ccmr1_output
-                        .write(|w| unsafe { w.bits({ (0b01 << 0) | (0b01 << 8) }) });
+                    tim.ccmr1_output.input()
+                        .write(|w| w.cc1s().ti1().cc2s().ti2());
 
                     // enable and configure to capture on rising edge
                     tim.ccer.write(|w| {

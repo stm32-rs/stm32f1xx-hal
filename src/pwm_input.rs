@@ -12,7 +12,7 @@ use crate::gpio::gpiob::{PB3, PB4, PB5, PB6, PB7};
 use crate::gpio::{Floating, Input};
 use crate::rcc::{Clocks, APB1};
 use crate::time::Hertz;
-use crate::timer::PclkSrc;
+use crate::timer::{PclkSrc,CcmrIO};
 
 pub trait Pins<TIM> {
     const REMAP: u8;
@@ -211,13 +211,7 @@ macro_rules! hal {
 
             // Define the direction of the channel (input/output)
             // and the used input
-            // 01: CC1 channel is configured as input, IC1 is mapped on TI1.
-            // 10: CC1 channel is configured as input, IC1 is mapped on TI2.
-            tim.ccmr1_output.modify( |_,w| unsafe {w.cc1s().bits(0b01)});
-
-            // 01: CC2 channel is configured as input, IC2 is mapped on TI2
-            // 10: CC2 channel is configured as input, IC2 is mapped on TI1
-            tim.ccmr1_output.modify( |_,w| unsafe {w.cc2s().bits(0b10)});
+            tim.ccmr1_output.input().modify( |_,w| w.cc1s().ti1().cc2s().ti1());
 
             tim.dier.write(|w| w.cc1ie().set_bit());
 

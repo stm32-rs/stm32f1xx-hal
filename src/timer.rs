@@ -222,3 +222,40 @@ hal! {
     TIM3: (tim3, tim3en, tim3rst, APB1),
     TIM4: (tim4, tim4en, tim4rst, APB1),
 }
+
+pub trait CcmrIO {
+    type Input;
+    fn input(&self) -> &Self::Input;
+}
+
+
+macro_rules! ccmr {
+    ($($timX:ident: {
+        $($OUTX:ident: $INX:ident,)+
+    },)+) => {
+        $(
+            $(
+                impl CcmrIO for crate::pac::$timX::$OUTX {
+                    type Input = crate::pac::$timX::$INX;
+                    fn input(&self) -> &Self::Input {
+                        unsafe {
+                            &*((self as *const Self) as *const Self::Input)
+                        }
+                    }
+                }
+            )+
+        )+
+    }
+}
+
+
+ccmr! {
+    tim1: {
+        CCMR1_OUTPUT: CCMR1_INPUT,
+        CCMR2_OUTPUT: CCMR2_INPUT,
+    },
+    tim2: {
+        CCMR1_OUTPUT: CCMR1_INPUT,
+        CCMR2_OUTPUT: CCMR2_INPUT,
+    },
+}

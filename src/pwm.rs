@@ -307,22 +307,22 @@ macro_rules! hal {
 
                 if PINS::C1 {
                     tim.ccmr1_output
-                        .modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                        .modify(|_, w| w.oc1pe().set_bit().oc1m().pwm_mode1());
                 }
 
                 if PINS::C2 {
                     tim.ccmr1_output
-                        .modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
+                        .modify(|_, w| w.oc2pe().set_bit().oc2m().pwm_mode1());
                 }
 
                 if PINS::C3 {
                     tim.ccmr2_output
-                        .modify(|_, w| unsafe { w.oc3pe().set_bit().oc3m().bits(6) });
+                        .modify(|_, w| w.oc3pe().set_bit().oc3m().pwm_mode1());
                 }
 
                 if PINS::C4 {
                     tim.ccmr2_output
-                        .modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
+                        .modify(|_, w| w.oc4pe().set_bit().oc4m().pwm_mode1());
                 }
                 let clk = $TIMX::get_clk(&clocks).0;
                 let freq = freq.0;
