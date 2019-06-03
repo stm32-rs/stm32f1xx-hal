@@ -441,28 +441,40 @@ hal! {
     ),
 }
 
+pub type Rx1 = Rx<USART1>;
+pub type Tx1 = Tx<USART1>;
+pub type Rx2 = Rx<USART2>;
+pub type Tx2 = Tx<USART2>;
+pub type Rx3 = Rx<USART3>;
+pub type Tx3 = Tx<USART3>;
+
 use crate::dma::{Transmit, Receive};
 
 macro_rules! serialdma {
     ($(
         $USARTX:ident: (
+            $rxdma:ident,
+            $txdma:ident,
             $dmarxch:ty,
             $dmatxch:ty,
         ),
     )+) => {
         $(
-            impl Receive for RxDma<$USARTX, $dmarxch> {
+            pub type $rxdma = RxDma<$USARTX, $dmarxch>;
+            pub type $txdma = TxDma<$USARTX, $dmatxch>;
+
+            impl Receive for $rxdma {
                 type RxChannel = $dmarxch;
                 type TransmittedWord = u8;
             }
 
-            impl Transmit for TxDma<$USARTX, $dmatxch> {
+            impl Transmit for $txdma {
                 type TxChannel = $dmatxch;
                 type ReceivedWord = u8;
             }
 
             impl Rx<$USARTX> {
-                pub fn with_dma(self, channel: $dmarxch) -> RxDma<$USARTX, $dmarxch> {
+                pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
                     RxDma {
                         _payload: PhantomData,
                         channel,
@@ -471,7 +483,7 @@ macro_rules! serialdma {
             }
 
             impl Tx<$USARTX> {
-                pub fn with_dma(self, channel: $dmatxch) -> TxDma<$USARTX, $dmatxch> {
+                pub fn with_dma(self, channel: $dmatxch) -> $txdma {
                     TxDma {
                         _payload: PhantomData,
                         channel,
@@ -479,7 +491,7 @@ macro_rules! serialdma {
                 }
             }
 
-            impl RxDma<$USARTX, $dmarxch> {
+            impl $rxdma {
                 pub fn split(mut self) -> (Rx<$USARTX>, $dmarxch) {
                     self.stop();
                     let RxDma {_payload, channel} = self;
@@ -490,7 +502,7 @@ macro_rules! serialdma {
                 }
             }
 
-            impl TxDma<$USARTX, $dmatxch> {
+            impl $txdma {
                 pub fn split(mut self) -> (Tx<$USARTX>, $dmatxch) {
                     self.stop();
                     let TxDma {_payload, channel} = self;
@@ -501,7 +513,7 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<B> crate::dma::CircReadDma<B, u8> for RxDma<$USARTX, $dmarxch> where B: AsMut<[u8]> {
+            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma where B: AsMut<[u8]> {
                 fn circ_read(mut self, buffer: &'static mut [B; 2],
                 ) -> CircBuffer<B, $dmarxch>
                 {
@@ -531,7 +543,7 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<B> crate::dma::ReadDma<B, u8> for RxDma<$USARTX, $dmarxch> where B: AsMut<[u8]> {
+            impl<B> crate::dma::ReadDma<B, u8> for $rxdma where B: AsMut<[u8]> {
                 fn read(mut self, buffer: &'static mut B,
                 ) -> Transfer<W, &'static mut B, Self>
                 {
@@ -556,7 +568,7 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<A, B> crate::dma::WriteDma<A, B, u8> for TxDma<$USARTX, $dmatxch> where A: AsRef<[u8]>, B: Static<A> {
+            impl<A, B> crate::dma::WriteDma<A, B, u8> for $txdma where A: AsRef<[u8]>, B: Static<A> {
                 fn write(mut self, buffer: B
                 ) -> Transfer<R, B, Self>
                 {
@@ -590,14 +602,20 @@ macro_rules! serialdma {
 
 serialdma! {
     USART1: (
+        RxDma1,
+        TxDma1,
         dma1::C5,
         dma1::C4,
     ),
     USART2: (
+        RxDma2,
+        TxDma2,
         dma1::C6,
         dma1::C7,
     ),
     USART3: (
+        RxDma3,
+        TxDma3,
         dma1::C3,
         dma1::C2,
     ),

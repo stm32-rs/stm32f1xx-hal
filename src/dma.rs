@@ -168,7 +168,7 @@ macro_rules! dma {
                         }
 
                         /// Returns `true` if there's a transfer in progress
-                        fn in_progress(&self) -> bool {
+                        pub fn in_progress(&self) -> bool {
                             self.isr().$tcifX().bit_is_clear()
                         }
                     }
@@ -449,20 +449,20 @@ dma! {
 /// DMA Receiver
 pub struct RxDma<PAYLOAD, RXCH> {
     pub(crate) _payload: PhantomData<PAYLOAD>,
-    pub(crate) channel: RXCH,
+    pub channel: RXCH,
 }
 
 /// DMA Transmitter
 pub struct TxDma<PAYLOAD, TXCH> {
     pub(crate) _payload: PhantomData<PAYLOAD>,
-    pub(crate) channel: TXCH,
+    pub channel: TXCH,
 }
 
 /// DMA Receiver/Transmitter
 pub struct RxTxDma<PAYLOAD, RXCH, TXCH> {
     pub(crate) _payload: PhantomData<PAYLOAD>,
-    pub(crate) rxchannel: RXCH,
-    pub(crate) txchannel: TXCH,
+    pub rxchannel: RXCH,
+    pub txchannel: TXCH,
 }
 
 pub trait Receive {
