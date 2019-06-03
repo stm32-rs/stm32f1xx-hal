@@ -23,7 +23,7 @@
 //! features = ["stm32f103", "rt"]
 //! ```
 //!
-//! [cortex-m-quickstart]: https://docs.rs/cortex-m-quickstart/0.3.1
+//! [cortex-m-quickstart]: https://rust-embedded.github.io/cortex-m-quickstart/cortex_m_quickstart/
 //!
 //! ## Usage example
 //!
