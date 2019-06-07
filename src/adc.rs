@@ -5,6 +5,7 @@ use embedded_hal::adc::{Channel, OneShot};
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
 use crate::rcc::APB2;
+use crate::time::Hertz;
 
 use crate::stm32::ADC1;
 #[cfg(any(
@@ -17,6 +18,7 @@ pub struct Adc<ADC> {
     rb: ADC,
     sample_time: AdcSampleTime,
     align: AdcAlign,
+    clk: Hertz
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -171,11 +173,12 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $init(adc: $ADC, apb2: &mut APB2) -> Self {
+                pub fn $init(adc: $ADC, apb2: &mut APB2, clk: Hertz) -> Self {
                     let mut s = Self {
                         rb: adc,
                         sample_time: AdcSampleTime::default(),
                         align: AdcAlign::default(),
+                        clk: clk,
                     };
                     s.enable_clock(apb2);
                     s.power_down();
@@ -421,9 +424,28 @@ impl Adc<ADC1> {
         const AVG_SLOPE: i32 = 43;
         const V_25: i32 = 1430;
 
+        let prev_cfg = self.save_cfg();
+
+        // recommended ADC sampling for temperature sensor is 17.1 usec,
+        // so use the following approximate settings
+        // to support all ADC frequencies
+        let sample_time = match self.clk.0 {
+            0 ... 1_200_000 => AdcSampleTime::T_1,
+            1_200_001 ... 1_500_000 => AdcSampleTime::T_7,
+            1_500_001 ... 2_400_000 => AdcSampleTime::T_13,
+            2_400_001 ... 3_100_000 => AdcSampleTime::T_28,
+            3_100_001 ... 4_000_000 => AdcSampleTime::T_41,
+            4_000_001 ... 5_000_000 => AdcSampleTime::T_55,
+            5_000_001 ... 10_000_000 => AdcSampleTime::T_71,
+            _ => AdcSampleTime::T_239,
+        };
+
+        self.set_sample_time(sample_time);
         let val_temp: i32 = self.read_aux(16u8).into();
-        let val_vref: i32 = self.read_vref().into();
+        let val_vref: i32 = self.read_aux(17u8).into();
         let v_sense = val_temp * 1200 / val_vref;
+
+        self.restore_cfg(prev_cfg);
 
         (V_25 - v_sense) * 10 / AVG_SLOPE + 25
     }
