@@ -9,7 +9,7 @@ use stm32f1xx_hal::{
     pac,
     adc,
 };
-use cortex_m_rt::{entry,exception,ExceptionFrame};
+use cortex_m_rt::entry;
 
 use cortex_m_semihosting::hprintln;
 
@@ -53,14 +53,4 @@ fn main() -> ! {
             hprintln!("adc2: {}", data1).unwrap();
         }
     }
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }
