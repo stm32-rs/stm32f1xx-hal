@@ -20,18 +20,7 @@ fn main() -> ! {
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
 
-    // Several examples of HSE, PCLK1, ADC clocks
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(8.mhz()).pclk1(2.mhz()).adcclk(1.mhz()).freeze(&mut flash.acr);
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(16.mhz()).pclk1(4.mhz()).adcclk(2.mhz()).freeze(&mut flash.acr);
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(24.mhz()).pclk1(9.mhz()).adcclk(3.mhz()).freeze(&mut flash.acr);
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(24.mhz()).pclk1(12.mhz()).adcclk(4.mhz()).freeze(&mut flash.acr);
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(24.mhz()).pclk1(12.mhz()).adcclk(6.mhz()).freeze(&mut flash.acr);
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(36.mhz()).pclk1(12.mhz()).adcclk(6.mhz()).freeze(&mut flash.acr);
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(32.mhz()).pclk1(16.mhz()).adcclk(8.mhz()).freeze(&mut flash.acr);
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(40.mhz()).pclk1(20.mhz()).adcclk(10.mhz()).freeze(&mut flash.acr);
-    //let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(48.mhz()).pclk1(24.mhz()).adcclk(12.mhz()).freeze(&mut flash.acr);
     let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(56.mhz()).pclk1(28.mhz()).adcclk(14.mhz()).freeze(&mut flash.acr);
-
     hprintln!("sysclk freq: {}", clocks.sysclk().0).unwrap();
     hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
 
