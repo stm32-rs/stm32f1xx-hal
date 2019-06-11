@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
 - Added type aliases `Tx1` for `Tx<USART1>`, `RxDma1` for `RxDma<USART1, dma1::C5>`, etc.
+- Add ADC1 reading functions for channels 16 (temperature) and 17 (internal reference voltage)
+- Update existing ADC example according to ADC API changes
+- Add new ADC example to read ambient temperature using ADC1 CH16
+
+
+### Breaking changes
+
+- ADC now requires the clock configuration for intialisation
+
+### Changed
 
 ## [v0.3.0] - 2019-04-27
 
@@ -27,9 +39,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Remove all PWM channel configurations except 'all the channels for default remapping' configuratons
 - Update PWM documentation: clarify custom selection of channels
 - Add PWM example for custom selection of channels
-- Add ADC1 reading functions for channels 16 (temperature) and 17 (internal reference voltage)
-- Update existing ADC example according to ADC API changes
-- Add new ADC example to read ambient temperature using ADC1 CH16
 
 ### Changed
 
