@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add ADC1 reading functions for channels 16 (temperature) and 17 (internal reference voltage)
 - Update existing ADC example according to ADC API changes
 - Add new ADC example to read ambient temperature using ADC1 CH16
+- Add `listen` and `unlisten` to `serial::Tx` and `serial::Rx`.
 
 
 ### Breaking changes

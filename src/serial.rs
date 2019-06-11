@@ -326,6 +326,26 @@ macro_rules! hal {
                 }
             }
 
+            impl Tx<$USARTX> {
+                pub fn listen(&mut self) {
+                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
+                }
+
+                pub fn unlisten(&mut self) {
+                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().clear_bit()) };
+                }
+            }
+
+            impl Rx<$USARTX> {
+                pub fn listen(&mut self) {
+                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
+                }
+
+                pub fn unlisten(&mut self) {
+                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
+                }
+            }
+
             impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
                 type Error = Error;
 
