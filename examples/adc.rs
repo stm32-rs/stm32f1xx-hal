@@ -9,7 +9,7 @@ use stm32f1xx_hal::{
     pac,
     adc,
 };
-use cortex_m_rt::{entry,exception,ExceptionFrame};
+use cortex_m_rt::entry;
 
 use cortex_m_semihosting::hprintln;
 
@@ -29,10 +29,10 @@ fn main() -> ! {
     hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
 
     // Setup ADC
-    let mut adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2);
+    let mut adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks.adcclk());
 
     #[cfg(feature = "stm32f103")]
-    let mut adc2 = adc::Adc::adc2(p.ADC2, &mut rcc.apb2);
+    let mut adc2 = adc::Adc::adc2(p.ADC2, &mut rcc.apb2, clocks.adcclk());
 
     // Setup GPIOB
     let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
@@ -53,14 +53,4 @@ fn main() -> ! {
             hprintln!("adc2: {}", data1).unwrap();
         }
     }
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }

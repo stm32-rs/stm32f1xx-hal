@@ -5,6 +5,7 @@ use embedded_hal::adc::{Channel, OneShot};
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
 use crate::rcc::APB2;
+use crate::time::Hertz;
 
 use crate::stm32::ADC1;
 #[cfg(any(
@@ -17,6 +18,7 @@ pub struct Adc<ADC> {
     rb: ADC,
     sample_time: AdcSampleTime,
     align: AdcAlign,
+    clk: Hertz
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -171,11 +173,12 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $init(adc: $ADC, apb2: &mut APB2) -> Self {
+                pub fn $init(adc: $ADC, apb2: &mut APB2, clk: Hertz) -> Self {
                     let mut s = Self {
                         rb: adc,
                         sample_time: AdcSampleTime::default(),
                         align: AdcAlign::default(),
+                        clk: clk,
                     };
                     s.enable_clock(apb2);
                     s.power_down();
@@ -332,7 +335,14 @@ macro_rules! adc_hal {
                             .rb
                             .smpr1
                             .modify(|_, w| unsafe { w.smp15().bits(self.sample_time.into()) }),
-
+                        16 => self
+                            .rb
+                            .smpr1
+                            .modify(|_, w| unsafe { w.smp16().bits(self.sample_time.into()) }),
+                        17 => self
+                            .rb
+                            .smpr1
+                            .modify(|_, w| unsafe { w.smp17().bits(self.sample_time.into()) }),
                         _ => unreachable!(),
                     }
 
@@ -371,6 +381,85 @@ macro_rules! adc_hal {
                 }
 
         )+
+    }
+}
+
+impl Adc<ADC1> {
+    fn read_aux(&mut self, chan: u8) -> u16 {
+        let tsv_off = if self.rb.cr2.read().tsvrefe().bit_is_clear() {
+            self.rb.cr2.modify(|_, w| w.tsvrefe().set_bit());
+            true
+        } else {
+            false
+        };
+
+        self.power_up();
+        let val = self.convert(chan);
+        self.power_down();
+
+        if tsv_off {
+            self.rb.cr2.modify(|_, w| w.tsvrefe().clear_bit());
+        }
+
+        val
+    }
+
+    /// Temperature sensor is connected to channel 16 on ADC1. This sensor can be used
+    /// to measure ambient temperature of the device. However note that the returned
+    /// value is not an absolute temperature value.
+    ///
+    /// In particular, according to section 11.10 from Reference Manual RM0008 Rev 20:
+    /// "The temperature sensor output voltage changes linearly with temperature. The offset
+    /// of this line varies from chip to chip due to process variation (up to 45 °C from one
+    /// chip to another). The internal temperature sensor is more suited to applications
+    /// that detect temperature variations instead of absolute temperatures. If accurate
+    /// temperature readings are needed, an external temperature sensor part should be used."
+    ///
+    /// Formula to calculate temperature value is also taken from the section 11.10.
+    pub fn read_temp(&mut self) -> i32 {
+        /// According to section 5.3.18 "Temperature sensor characteristics"
+        /// from STM32F1xx datasheets, TS constants values are as follows:
+        ///   AVG_SLOPE - average slope
+        ///   V_25 - temperature sensor ADC voltage at 25°C
+        const AVG_SLOPE: i32 = 43;
+        const V_25: i32 = 1430;
+
+        let prev_cfg = self.save_cfg();
+
+        // recommended ADC sampling for temperature sensor is 17.1 usec,
+        // so use the following approximate settings
+        // to support all ADC frequencies
+        let sample_time = match self.clk.0 {
+            0 ... 1_200_000 => AdcSampleTime::T_1,
+            1_200_001 ... 1_500_000 => AdcSampleTime::T_7,
+            1_500_001 ... 2_400_000 => AdcSampleTime::T_13,
+            2_400_001 ... 3_100_000 => AdcSampleTime::T_28,
+            3_100_001 ... 4_000_000 => AdcSampleTime::T_41,
+            4_000_001 ... 5_000_000 => AdcSampleTime::T_55,
+            5_000_001 ... 10_000_000 => AdcSampleTime::T_71,
+            _ => AdcSampleTime::T_239,
+        };
+
+        self.set_sample_time(sample_time);
+        let val_temp: i32 = self.read_aux(16u8).into();
+        let val_vref: i32 = self.read_aux(17u8).into();
+        let v_sense = val_temp * 1200 / val_vref;
+
+        self.restore_cfg(prev_cfg);
+
+        (V_25 - v_sense) * 10 / AVG_SLOPE + 25
+    }
+
+    /// Internal reference voltage Vrefint is connected to channel 17 on ADC1.
+    /// According to section 5.3.4 "Embedded reference voltage" from STM32F1xx
+    /// datasheets, typical value of this reference voltage is 1200 mV.
+    ///
+    /// This value is useful when ADC readings need to be converted into voltages.
+    /// For instance, reading from any ADC channel can be converted into voltage (mV)
+    /// using the following formula:
+    ///     v_chan = adc.read(chan) * 1200 / adc.read_vref()
+    pub fn read_vref(&mut self) -> u16 {
+        self.read_aux(17u8)
     }
 }
 
