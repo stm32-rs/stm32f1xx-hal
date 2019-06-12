@@ -24,20 +24,20 @@ pub enum Half {
     Second,
 }
 
-pub struct CircBuffer<BUFFER, CHANNEL>
+pub struct CircBuffer<BUFFER, PAYLOAD>
 where
     BUFFER: 'static,
 {
     buffer: &'static mut [BUFFER; 2],
-    channel: CHANNEL,
+    payload: PAYLOAD,
     readable_half: Half,
 }
 
-impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
-    pub(crate) fn new(buf: &'static mut [BUFFER; 2], chan: CHANNEL) -> Self {
+impl<BUFFER, PAYLOAD> CircBuffer<BUFFER, PAYLOAD> {
+    pub(crate) fn new(buf: &'static mut [BUFFER; 2], payload: PAYLOAD) -> Self {
         CircBuffer {
             buffer: buf,
-            channel: chan,
+            payload,
             readable_half: Half::Second,
         }
     }
@@ -63,6 +63,11 @@ pub trait DmaExt {
     type Channels;
 
     fn split(self, ahb: &mut AHB) -> Self::Channels;
+}
+
+pub trait TransferPayload {
+    fn start(&mut self);
+    fn stop(&mut self);
 }
 
 pub struct Transfer<MODE, BUFFER, PAYLOAD> {
@@ -123,7 +128,7 @@ macro_rules! dma {
 
                 use crate::pac::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma};
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
                 use crate::rcc::AHB;
 
                 pub struct Channels((), $(pub $CX),+);
@@ -213,7 +218,10 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<B> CircBuffer<B, $CX> {
+                    impl<B, PAYLOAD> CircBuffer<B, RxDma<PAYLOAD, $CX>>
+                    where
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
                         /// Peeks into the readable half of the buffer
                         pub fn peek<R, F>(&mut self, f: F) -> Result<R, Error>
                             where
@@ -230,7 +238,7 @@ macro_rules! dma {
                             let ret = f(buf, half_being_read);
 
 
-                            let isr = self.channel.isr();
+                            let isr = self.payload.channel.isr();
                             let first_half_is_done = isr.$htifX().bit_is_set();
                             let second_half_is_done = isr.$tcifX().bit_is_set();
 
@@ -244,7 +252,7 @@ macro_rules! dma {
 
                         /// Returns the `Half` of the buffer that can be read
                         pub fn readable_half(&mut self) -> Result<Half, Error> {
-                            let isr = self.channel.isr();
+                            let isr = self.payload.channel.isr();
                             let first_half_is_done = isr.$htifX().bit_is_set();
                             let second_half_is_done = isr.$tcifX().bit_is_set();
 
@@ -257,7 +265,7 @@ macro_rules! dma {
                             Ok(match last_read_half {
                                 Half::First => {
                                     if second_half_is_done {
-                                        self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                                        self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
 
                                         self.readable_half = Half::Second;
                                         Half::Second
@@ -267,7 +275,7 @@ macro_rules! dma {
                                 }
                                 Half::Second => {
                                     if first_half_is_done {
-                                        self.channel.ifcr().write(|w| w.$chtifX().set_bit());
+                                        self.payload.channel.ifcr().write(|w| w.$chtifX().set_bit());
 
                                         self.readable_half = Half::First;
                                         Half::First
@@ -277,9 +285,31 @@ macro_rules! dma {
                                 }
                             })
                         }
+
+                        /// Pauses the transfer
+                        pub fn pause(&mut self) {
+                            self.payload.stop();
+                        }
+
+                        /// Resumes the transfer
+                        pub fn resume(&mut self) {
+                            self.payload.start();
+                        }
+
+                        /// Stops the transfer and returns the underlying buffer and RxDma
+                        pub fn stop(mut self) -> (&'static mut [B; 2], RxDma<PAYLOAD, $CX>) {
+                            self.payload.stop();
+                            self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            self.payload.channel.ifcr().write(|w| w.$chtifX().set_bit());
+
+                            (self.buffer, self.payload)
+                        }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>> {
+                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
+                    where
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
                         pub fn is_done(&self) -> bool {
                             !self.payload.channel.in_progress()
                         }
@@ -302,7 +332,10 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>> {
+                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>> 
+                    where
+                        TxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
                         pub fn is_done(&self) -> bool {
                             !self.payload.channel.in_progress()
                         }
@@ -325,7 +358,10 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, RxDma<PAYLOAD, $CX>> {
+                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, RxDma<PAYLOAD, $CX>> 
+                    where
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
                         pub fn peek<T>(&self) -> &[T]
                         where
                             BUFFER: AsRef<[T]>,
@@ -338,25 +374,6 @@ macro_rules! dma {
                             &slice[..(capacity - pending)]
                         }
                     }
-
-                    impl<PAYLOAD> RxDma<PAYLOAD, $CX> {
-                        pub fn start(&mut self) {
-                            self.channel.start()
-                        }
-                        pub fn stop(&mut self) {
-                            self.channel.stop()
-                        }
-                    }
-
-                    impl<PAYLOAD> TxDma<PAYLOAD, $CX> {
-                        pub fn start(&mut self) {
-                            self.channel.start()
-                        }
-                        pub fn stop(&mut self) {
-                            self.channel.stop()
-                        }
-                    }
-
                 )+
 
                 impl DmaExt for $DMAX {
@@ -448,19 +465,19 @@ dma! {
 
 /// DMA Receiver
 pub struct RxDma<PAYLOAD, RXCH> {
-    pub(crate) _payload: PhantomData<PAYLOAD>,
+    pub(crate) payload: PAYLOAD,
     pub channel: RXCH,
 }
 
 /// DMA Transmitter
 pub struct TxDma<PAYLOAD, TXCH> {
-    pub(crate) _payload: PhantomData<PAYLOAD>,
+    pub(crate) payload: PAYLOAD,
     pub channel: TXCH,
 }
 
 /// DMA Receiver/Transmitter
 pub struct RxTxDma<PAYLOAD, RXCH, TXCH> {
-    pub(crate) _payload: PhantomData<PAYLOAD>,
+    pub(crate) payload: PAYLOAD,
     pub rxchannel: RXCH,
     pub txchannel: TXCH,
 }
@@ -480,7 +497,7 @@ where
     B: AsMut<[RS]>,
     Self: core::marker::Sized,
 {
-    fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self::RxChannel>;
+    fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self>;
 }
 
 pub trait ReadDma<B, RS>: Receive

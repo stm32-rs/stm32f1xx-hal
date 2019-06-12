@@ -6,6 +6,8 @@ use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
 use crate::rcc::APB2;
 use crate::time::Hertz;
+use crate::dma::{Receive, TransferPayload, dma1::C1, CircBuffer, Transfer, W, RxDma};
+use core::sync::atomic::{self, Ordering};
 
 use crate::stm32::ADC1;
 #[cfg(any(
@@ -489,4 +491,119 @@ adc_hal! {
         adc2en,
         adc2rst
     ),
+}
+
+pub struct AdcPayload<PIN: Channel<ADC1>> {
+    adc: Adc<ADC1>,
+    pin: PIN,
+}
+
+pub type AdcDma<PIN> = RxDma<AdcPayload<PIN>, C1>;
+
+impl<PIN> Receive for AdcDma<PIN> where PIN: Channel<ADC1> {
+    type RxChannel = C1;
+    type TransmittedWord = u16;
+}
+
+impl<PIN> TransferPayload for AdcDma<PIN> where PIN: Channel<ADC1> {
+    fn start(&mut self) {
+        self.channel.start();
+        self.payload.adc.rb.cr2.modify(|_, w| w.cont().set_bit());
+        self.payload.adc.rb.cr2.modify(|_, w| w.adon().set_bit());
+    }
+    fn stop(&mut self) {
+        self.channel.stop();
+        self.payload.adc.rb.cr2.modify(|_, w| w.cont().clear_bit());
+    }
+}
+
+impl Adc<ADC1> {
+    pub fn with_dma<PIN>(mut self, pin: PIN, dma_ch: C1) -> AdcDma<PIN>
+    where
+        PIN: Channel<ADC1, ID = u8>,
+    {
+        self.rb.cr1.modify(|_, w| w.discen().clear_bit());
+        self.rb.cr2.modify(|_, w| w.align().bit(self.align.into()));
+        self.set_chan_smps(PIN::channel());
+        self.rb.sqr3.modify(|_, w| unsafe { w.sq1().bits(PIN::channel()) });
+        self.rb.cr2.modify(|_, w| w.dma().set_bit());
+
+        let payload = AdcPayload {
+            adc: self,
+            pin,
+        };
+        RxDma {
+            payload,
+            channel: dma_ch,
+        }
+    }
+}
+
+impl<PIN> AdcDma<PIN> where PIN: Channel<ADC1> {
+    pub fn split(mut self) -> (Adc<ADC1>, PIN, C1) {
+        self.stop();
+
+        let AdcDma {payload, channel} = self;
+        payload.adc.rb.cr2.modify(|_, w| w.dma().clear_bit());
+        payload.adc.rb.cr1.modify(|_, w| w.discen().set_bit());
+
+        (payload.adc, payload.pin, channel)
+    }
+}
+
+impl<B, PIN> crate::dma::CircReadDma<B, u16> for AdcDma<PIN> 
+where 
+    B: AsMut<[u16]>,
+    PIN: Channel<ADC1>,
+{
+    fn circ_read(mut self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
+        {
+            let buffer = buffer[0].as_mut();
+            self.channel.set_peripheral_address(unsafe{ &(*ADC1::ptr()).dr as *const _ as u32 }, false);
+            self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+            self.channel.set_transfer_length(buffer.len() * 2);
+
+            atomic::compiler_fence(Ordering::Release);
+
+            self.channel.ch().cr.modify(|_, w| { w
+                .mem2mem() .clear_bit()
+                .pl()      .medium()
+                .msize()   .bit16()
+                .psize()   .bit16()
+                .circ()    .set_bit()
+                .dir()     .clear_bit()
+            });
+        }
+
+        self.start();
+
+        CircBuffer::new(buffer, self)
+    }
+}
+
+impl<B, PIN> crate::dma::ReadDma<B, u16> for AdcDma<PIN>
+where 
+    B: AsMut<[u16]>,
+    PIN: Channel<ADC1>,
+{
+    fn read(mut self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self> {
+        {
+            let buffer = buffer.as_mut();
+            self.channel.set_peripheral_address(unsafe{ &(*ADC1::ptr()).dr as *const _ as u32 }, false);
+            self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+            self.channel.set_transfer_length(buffer.len());
+        }
+        atomic::compiler_fence(Ordering::Release);
+        self.channel.ch().cr.modify(|_, w| { w
+            .mem2mem() .clear_bit()
+            .pl()      .medium()
+            .msize()   .bit16()
+            .psize()   .bit16()
+            .circ()    .clear_bit()
+            .dir()     .clear_bit()
+        });
+        self.start();
+
+        Transfer::w(buffer, self)
+    }
 }
