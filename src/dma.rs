@@ -286,21 +286,9 @@ macro_rules! dma {
                             })
                         }
 
-                        /// Pauses the transfer
-                        pub fn pause(&mut self) {
-                            self.payload.stop();
-                        }
-
-                        /// Resumes the transfer
-                        pub fn resume(&mut self) {
-                            self.payload.start();
-                        }
-
                         /// Stops the transfer and returns the underlying buffer and RxDma
                         pub fn stop(mut self) -> (&'static mut [B; 2], RxDma<PAYLOAD, $CX>) {
                             self.payload.stop();
-                            self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
-                            self.payload.channel.ifcr().write(|w| w.$chtifX().set_bit());
 
                             (self.buffer, self.payload)
                         }
@@ -332,7 +320,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>> 
+                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
                     where
                         TxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -358,7 +346,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, RxDma<PAYLOAD, $CX>> 
+                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {

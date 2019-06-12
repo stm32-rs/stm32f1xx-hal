@@ -258,7 +258,7 @@ impl CFGR {
 
         // the USB clock is only valid if an external crystal is used, the PLL is enabled, and the
         // PLL output frequency is a supported one.
-        // usbpre == true: divide clock by 1.5, otherwise no division
+        // usbpre == false: divide clock by 1.5, otherwise no division
         let (usbpre, usbclk_valid) = match (self.hse, pllmul_bits, sysclk) {
             (Some(_), Some(_), 72_000_000) => (false, true),
             (Some(_), Some(_), 48_000_000) => (true, true),

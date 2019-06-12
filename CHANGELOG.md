@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Added DMA support for ADC1.
 - Added type aliases `Tx1` for `Tx<USART1>`, `RxDma1` for `RxDma<USART1, dma1::C5>`, etc.
 - Add ADC1 reading functions for channels 16 (temperature) and 17 (internal reference voltage)
 - Update existing ADC example according to ADC API changes

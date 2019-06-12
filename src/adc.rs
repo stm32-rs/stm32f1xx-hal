@@ -551,8 +551,8 @@ impl<PIN> AdcDma<PIN> where PIN: Channel<ADC1> {
     }
 }
 
-impl<B, PIN> crate::dma::CircReadDma<B, u16> for AdcDma<PIN> 
-where 
+impl<B, PIN> crate::dma::CircReadDma<B, u16> for AdcDma<PIN>
+where
     B: AsMut<[u16]>,
     PIN: Channel<ADC1>,
 {
@@ -582,7 +582,7 @@ where
 }
 
 impl<B, PIN> crate::dma::ReadDma<B, u16> for AdcDma<PIN>
-where 
+where
     B: AsMut<[u16]>,
     PIN: Channel<ADC1>,
 {

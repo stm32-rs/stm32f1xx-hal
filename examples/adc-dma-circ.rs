@@ -27,12 +27,12 @@ fn main() -> ! {
     // clock is configurable. So its frequency may be tweaked to meet certain
     // practical needs. User specified value is be approximated using supported
     // prescaler values 2/4/6/8.
-    let _clocks = rcc.cfgr.adcclk(2.mhz()).freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.adcclk(2.mhz()).freeze(&mut flash.acr);
 
     let dma_ch1 = p.DMA1.split(&mut rcc.ahb).1;
 
     // Setup ADC
-    let adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2);
+    let adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks.adcclk());
 
     // Setup GPIOA
     let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
