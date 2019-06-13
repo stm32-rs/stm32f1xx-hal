@@ -31,7 +31,7 @@ fn main() -> ! {
     let dma_ch1 = p.DMA1.split(&mut rcc.ahb).1;
 
     // Setup ADC
-    let adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks.adcclk());
+    let adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks);
 
     // Setup GPIOA
     let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
@@ -42,9 +42,15 @@ fn main() -> ! {
     let adc_dma = adc1.with_dma(adc_ch0, dma_ch1);
     let buf = singleton!(: [u16; 8] = [0; 8]).unwrap();
 
+    // The read method consumes the buf and self, starts the adc and dma transfer and returns a
+    // RxDma struct. The wait method consumes the RxDma struct, waits for the whole transfer to be
+    // completed and then returns the updated buf and underlying adc_dma struct. For non blocking,
+    // one can call the is_done method of RxDma and only call wait after that method returns true.
     let (_buf, adc_dma) = adc_dma.read(buf).wait();
     asm::bkpt();
     
+    // Consumes the AdcDma struct, restores adc configuration to previous state and returns the
+    // Adc struct in normal mode.
     let (_adc1, _adc_ch0, _dma_ch1) = adc_dma.split();
     asm::bkpt();
 

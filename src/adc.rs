@@ -4,10 +4,10 @@ use embedded_hal::adc::{Channel, OneShot};
 
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
-use crate::rcc::APB2;
-use crate::time::Hertz;
+use crate::rcc::{APB2, Clocks};
 use crate::dma::{Receive, TransferPayload, dma1::C1, CircBuffer, Transfer, W, RxDma};
 use core::sync::atomic::{self, Ordering};
+use cortex_m::asm::delay;
 
 use crate::stm32::ADC1;
 #[cfg(any(
@@ -20,7 +20,7 @@ pub struct Adc<ADC> {
     rb: ADC,
     sample_time: AdcSampleTime,
     align: AdcAlign,
-    clk: Hertz
+    clocks: Clocks
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -175,18 +175,29 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $init(adc: $ADC, apb2: &mut APB2, clk: Hertz) -> Self {
+                pub fn $init(adc: $ADC, apb2: &mut APB2, clocks: Clocks) -> Self {
                     let mut s = Self {
                         rb: adc,
                         sample_time: AdcSampleTime::default(),
                         align: AdcAlign::default(),
-                        clk: clk,
+                        clocks,
                     };
                     s.enable_clock(apb2);
                     s.power_down();
                     s.reset(apb2);
                     s.setup_oneshot();
                     s.power_up();
+
+                    // The manual states that we need to wait two ADC clocks cycles after power-up
+                    // before starting calibration, we already delayed in the power-up process, but
+                    // if the adc clock is too low that was not enough.
+                    if s.clocks.adcclk().0 < 2_500_000 {
+                        let two_adc_cycles = s.clocks.sysclk().0 / s.clocks.adcclk().0 *2;
+                        let already_delayed = s.clocks.sysclk().0 / 800_000;
+                        if two_adc_cycles > already_delayed {
+                            delay(two_adc_cycles - already_delayed);
+                        }
+                    }
                     s.calibrate();
                     s
                 }
@@ -234,6 +245,12 @@ macro_rules! adc_hal {
 
                 fn power_up(&mut self) {
                     self.rb.cr2.modify(|_, w| w.adon().set_bit());
+
+                    // The reference manual says that a stabilization time is needed after power_up,
+                    // this time can be found in the datasheets.
+                    // Here we are delaying for approximately 1us, considering 1.25 instructions per
+                    // cycle. Do we support a chip which needs more than 1us ?
+                    delay(self.clocks.sysclk().0 / 800_000);
                 }
 
                 fn power_down(&mut self) {
@@ -247,6 +264,10 @@ macro_rules! adc_hal {
 
                 fn enable_clock(&mut self, apb2: &mut APB2) {
                     apb2.enr().modify(|_, w| w.$adcxen().set_bit());
+                }
+
+                fn disable_clock(&mut self, apb2: &mut APB2) {
+                    apb2.enr().modify(|_, w| w.$adcxen().clear_bit());
                 }
 
                 fn calibrate(&mut self) {
@@ -365,6 +386,13 @@ macro_rules! adc_hal {
                     let res = self.rb.dr.read().data().bits();
                     res
                 }
+
+                /// Powers down the ADC, disables the ADC clock and releases the ADC Peripheral
+                pub fn release(mut self, apb2: &mut APB2) -> $ADC {
+                    self.power_down();
+                    self.disable_clock(apb2);
+                    self.rb
+                }
             }
 
             impl<WORD, PIN> OneShot<$ADC, WORD, PIN> for Adc<$ADC>
@@ -375,9 +403,7 @@ macro_rules! adc_hal {
                     type Error = ();
 
                     fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                        self.power_up();
                         let res = self.convert(PIN::channel());
-                        self.power_down();
                         Ok(res.into())
                     }
                 }
@@ -390,14 +416,18 @@ impl Adc<ADC1> {
     fn read_aux(&mut self, chan: u8) -> u16 {
         let tsv_off = if self.rb.cr2.read().tsvrefe().bit_is_clear() {
             self.rb.cr2.modify(|_, w| w.tsvrefe().set_bit());
+
+            // The reference manual says that a stabilization time is needed after the powering the
+            // sensor, this time can be found in the datasheets.
+            // Here we are delaying for approximately 10us, considering 1.25 instructions per
+            // cycle. Do we support a chip which needs more than 10us ?
+            delay(self.clocks.sysclk().0 / 80_000);
             true
         } else {
             false
         };
 
-        self.power_up();
         let val = self.convert(chan);
-        self.power_down();
 
         if tsv_off {
             self.rb.cr2.modify(|_, w| w.tsvrefe().clear_bit());
@@ -431,14 +461,14 @@ impl Adc<ADC1> {
         // recommended ADC sampling for temperature sensor is 17.1 usec,
         // so use the following approximate settings
         // to support all ADC frequencies
-        let sample_time = match self.clk.0 {
+        let sample_time = match self.clocks.adcclk().0 {
             0 ... 1_200_000 => AdcSampleTime::T_1,
             1_200_001 ... 1_500_000 => AdcSampleTime::T_7,
             1_500_001 ... 2_400_000 => AdcSampleTime::T_13,
             2_400_001 ... 3_100_000 => AdcSampleTime::T_28,
             3_100_001 ... 4_000_000 => AdcSampleTime::T_41,
             4_000_001 ... 5_000_000 => AdcSampleTime::T_55,
-            5_000_001 ... 10_000_000 => AdcSampleTime::T_71,
+            5_000_001 ... 14_000_000 => AdcSampleTime::T_71,
             _ => AdcSampleTime::T_239,
         };
 
