@@ -25,7 +25,7 @@ fn main() -> ! {
     hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
 
     // Setup ADC
-    let mut adc = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks.adcclk());
+    let mut adc = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks);
 
     // Read temperature sensor
     loop {
