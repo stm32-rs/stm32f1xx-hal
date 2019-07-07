@@ -480,30 +480,27 @@ pub trait Transmit {
     type ReceivedWord;
 }
 
-pub trait CircReadDma<B, RS>: Receive
+pub trait CircReadDma<'a, B, RS>: Receive
 where
     B: AsMut<[RS]>,
     Self: core::marker::Sized,
 {
-    fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self>;
+    fn circ_read(&'a mut self, buffer: &'static mut [B; 2]) -> CircBuffer<B, &'a mut Self>;
 }
 
-pub trait ReadDma<B, RS>: Receive
+pub trait ReadDma<'a, B, RS>: Receive
 where
     B: AsMut<[RS]>,
     Self: core::marker::Sized,
 {
-    fn read(
-        self,
-        buffer: &'static mut B,
-    ) -> Transfer<W, &'static mut B, Self>;
+    fn read(&'a mut self, buffer: &'static mut B) -> Transfer<W, &'static mut B, &'a mut Self>;
 }
 
-pub trait WriteDma<A, B, TS>: Transmit
+pub trait WriteDma<'a, A, B, TS>: Transmit
 where
     A: AsRef<[TS]>,
     B: Static<A>,
     Self: core::marker::Sized,
 {
-    fn write(self, buffer: B) -> Transfer<R, B, Self>;
+    fn write(&'a mut self, buffer: B) -> Transfer<R, B, &'a mut Self>;
 }

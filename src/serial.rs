@@ -551,9 +551,9 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma where B: AsMut<[u8]> {
-                fn circ_read(mut self, buffer: &'static mut [B; 2],
-                ) -> CircBuffer<B, Self>
+            impl<'a, B> crate::dma::CircReadDma<'a, B, u8> for $rxdma where B: AsMut<[u8]> {
+                fn circ_read(&'a mut self, buffer: &'static mut [B; 2],
+                ) -> CircBuffer<B, &'a mut Self>
                 {
                     {
                         let buffer = buffer[0].as_mut();
@@ -579,9 +579,9 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<B> crate::dma::ReadDma<B, u8> for $rxdma where B: AsMut<[u8]> {
-                fn read(mut self, buffer: &'static mut B,
-                ) -> Transfer<W, &'static mut B, Self>
+            impl<'a, B> crate::dma::ReadDma<'a, B, u8> for $rxdma where B: AsMut<[u8]> {
+                fn read(&'a mut self, buffer: &'static mut B,
+                ) -> Transfer<W, &'static mut B, &mut Self>
                 {
                     {
                         let buffer = buffer.as_mut();
@@ -604,9 +604,9 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<A, B> crate::dma::WriteDma<A, B, u8> for $txdma where A: AsRef<[u8]>, B: Static<A> {
-                fn write(mut self, buffer: B
-                ) -> Transfer<R, B, Self>
+            impl<'a, A, B> crate::dma::WriteDma<'a, A, B, u8> for $txdma where A: AsRef<[u8]>, B: Static<A> {
+                fn write(&'a mut self, buffer: B
+                ) -> Transfer<R, B, &mut Self>
                 {
                     {
                         let buffer = buffer.borrow().as_ref();
