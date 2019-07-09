@@ -13,10 +13,14 @@ pub trait GpioExt {
     fn split(self, apb2: &mut APB2) -> Self::Parts;
 }
 
+/// Marker trait for active states.
+pub trait Active {}
+
 /// Input mode (type state)
 pub struct Input<MODE> {
     _mode: PhantomData<MODE>,
 }
+impl<MODE> Active for Input<MODE> {}
 
 /// Used by the debugger (type state)
 pub struct Debugger;
@@ -31,6 +35,7 @@ pub struct PullUp;
 pub struct Output<MODE> {
     _mode: PhantomData<MODE>,
 }
+impl<MODE> Active for Output<MODE> {}
 
 /// Push pull output (type state)
 pub struct PushPull;
@@ -39,11 +44,13 @@ pub struct OpenDrain;
 
 /// Analog mode (type state)
 pub struct Analog;
+impl Active for Analog {}
 
 /// Alternate function
 pub struct Alternate<MODE> {
     _mode: PhantomData<MODE>,
 }
+impl<MODE> Active for Alternate<MODE> {}
 
 pub enum State {
     High,
@@ -71,6 +78,7 @@ macro_rules! gpio {
                 PushPull,
                 Analog,
                 State,
+                Active,
             };
 
             /// GPIO parts
@@ -186,7 +194,7 @@ macro_rules! gpio {
                     _mode: PhantomData<MODE>,
                 }
 
-                impl<MODE> $PXi<MODE> {
+                impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Configures the pin to operate as an alternate function push-pull output
                     /// pin.
                     pub fn into_alternate_push_pull(
@@ -404,7 +412,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> $PXi<MODE> {
+                impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Erases the pin number from the type
                     ///
                     /// This is useful when you want to collect the pins into an array where you

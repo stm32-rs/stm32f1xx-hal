@@ -50,11 +50,12 @@ fn main() -> ! {
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     let mut afio = p.AFIO.constrain(&mut rcc.apb2);
-
+    let gpioa = p.GPIOA.split(&mut rcc.apb2);
     let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
+    let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
 
     // TIM3
-    let p0 = gpiob.pb4.into_alternate_push_pull(&mut gpiob.crl);
+    let p0 = pb4.into_alternate_push_pull(&mut gpiob.crl);
     let p1 = gpiob.pb5.into_alternate_push_pull(&mut gpiob.crl);
 
     let mut pwm = p.TIM3.pwm(
