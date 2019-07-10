@@ -69,7 +69,7 @@
   The second example selects PC8 and PC9 channels for TIM3 PWM output:
 
   ```
-  struct MyChannels(PB5<Alternate<PushPull>>);
+  struct MyChannels(PC8<Alternate<PushPull>>, PC9<Alternate<PushPull>>);
 
   impl Pins<TIM3>  for MyChannels {
     const REMAP: u8 = 0b11; // use TIM3 AFIO remapping for PC6, PC7, PC8, PC9 pins
@@ -115,7 +115,7 @@
 
   let device: pac::Peripherals = ..;
 
-  let (c1, c2) = device.TIM3.pwm(
+  let (mut c1, mut c2) = device.TIM3.pwm(
       MyChannels(p1, p2),
       &mut afio.mapr,
       100.hz(),
@@ -123,10 +123,13 @@
       &mut rcc.apb1
   );
 
-  // Set the duty cycle of channel 0 to 50%
+  // Set the duty cycle of channels C1 and C2 to 50% and 25% respectively
   c1.set_duty(c1.get_max_duty() / 2);
+  c2.set_duty(c2.get_max_duty() / 4);
+
   // PWM outputs are disabled by default
   c1.enable()
+  c2.enable()
 
   ```
 */
