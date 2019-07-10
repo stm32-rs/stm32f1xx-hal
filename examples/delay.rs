@@ -12,6 +12,7 @@ use stm32f1xx_hal::{
     delay::Delay,
 };
 use cortex_m_rt::entry;
+use embedded_hal::digital::v2::OutputPin;
 
 #[entry]
 fn main() -> ! {
@@ -37,9 +38,9 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, clocks);
 
     loop {
-        led.set_high();
+        led.set_high().unwrap();
         delay.delay_ms(1_000_u16);
-        led.set_low();
+        led.set_low().unwrap();
         delay.delay_ms(1_000_u16);
     }
 }

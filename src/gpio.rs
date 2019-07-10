@@ -1,4 +1,18 @@
 //! # General Purpose I/Os
+//!
+//! # Interfacing with v1 traits
+//!
+//! `embedded-hal` has two versions of the digital traits, `v2` which is used
+//! by this crate and `v1` which is deprecated but still used by a lot of drivers.
+//! If you want to use such a driver with this crate, you need to convert the digital pins to the `v1` type.
+//!
+//! This is done using `embedded-hal::digital::v1_compat::OldOutputPin`. For example:
+//!
+//! ```rust
+//! let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
+//! let mut mfrc522 = Mfrc522::new(spi, OldOutputPin::from(nss)).unwrap();
+//! ```
+//!
 
 use core::marker::PhantomData;
 
@@ -63,9 +77,10 @@ macro_rules! gpio {
     ]) => {
         /// GPIO
         pub mod $gpiox {
+            use void::Void;
             use core::marker::PhantomData;
 
-            use crate::hal::digital::{InputPin, OutputPin, StatefulOutputPin, toggleable};
+            use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, toggleable};
             use crate::pac::{$gpioy, $GPIOX};
 
             use crate::rcc::APB2;
@@ -143,49 +158,52 @@ macro_rules! gpio {
             }
 
             impl<MODE> OutputPin for $PXx<Output<MODE>> {
-                fn set_high(&mut self) {
+                type Error = Void;
+                fn set_high(&mut self) -> Result<(), Self::Error> {
                     // NOTE(unsafe) atomic write to a stateless register
-                    unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << self.i)) }
+                    Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << self.i)) })
                 }
 
-                fn set_low(&mut self) {
+                fn set_low(&mut self) -> Result<(), Self::Error> {
                     // NOTE(unsafe) atomic write to a stateless register
-                    unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + self.i))) }
+                    Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + self.i))) })
                 }
             }
 
             impl<MODE> InputPin for $PXx<Input<MODE>> {
-                fn is_high(&self) -> bool {
-                    !self.is_low()
+                type Error = Void;
+                fn is_high(&self) -> Result<bool, Self::Error> {
+                    self.is_low().map(|b| !b)
                 }
 
-                fn is_low(&self) -> bool {
+                fn is_low(&self) -> Result<bool, Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 }
+                    Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 })
                 }
             }
 
             impl <MODE> StatefulOutputPin for $PXx<Output<MODE>> {
-                fn is_set_high(&self) -> bool {
-                    !self.is_set_low()
+                fn is_set_high(&self) -> Result<bool, Self::Error> {
+                    self.is_set_low().map(|b| !b)
                 }
 
-                fn is_set_low(&self) -> bool {
+                fn is_set_low(&self) -> Result<bool, Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << self.i) == 0 }
+                    Ok(unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << self.i) == 0 })
                 }
             }
 
             impl <MODE> toggleable::Default for $PXx<Output<MODE>> {}
 
             impl InputPin for $PXx<Output<OpenDrain>> {
-                fn is_high(&self) -> bool {
-                    !self.is_low()
+                type Error = Void;
+                fn is_high(&self) -> Result<bool, Self::Error> {
+                    self.is_low().map(|b| !b)
                 }
 
-                fn is_low(&self) -> bool {
+                fn is_low(&self) -> Result<bool, Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 }
+                    Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 })
                 }
             }
 
@@ -354,7 +372,7 @@ macro_rules! gpio {
                         match initial_state {
                             State::High => res.set_high(),
                             State::Low  => res.set_low(),
-                        }
+                        }.unwrap();
 
                         cr
                             .cr()
@@ -392,7 +410,7 @@ macro_rules! gpio {
                         match initial_state {
                             State::High => res.set_high(),
                             State::Low  => res.set_low(),
-                        }
+                        }.unwrap();
 
                         cr
                             .cr()
@@ -437,72 +455,76 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> OutputPin for $PXi<Output<MODE>> {
-                    fn set_high(&mut self) {
+                    type Error = Void;
+                    fn set_high(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
-                        unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i)) }
+                        Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i)) })
                     }
 
-                    fn set_low(&mut self) {
+                    fn set_low(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
-                        unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + $i))) }
+                        Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + $i))) })
                     }
                 }
 
                 impl<MODE> StatefulOutputPin for $PXi<Output<MODE>> {
-                    fn is_set_high(&self) -> bool {
-                        !self.is_set_low()
+                    fn is_set_high(&self) -> Result<bool, Self::Error> {
+                        self.is_set_low().map(|b| !b)
                     }
 
-                    fn is_set_low(&self) -> bool {
+                    fn is_set_low(&self) -> Result<bool, Self::Error> {
                         // NOTE(unsafe) atomic read with no side effects
-                        unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << $i) == 0 }
+                        Ok(unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << $i) == 0 })
                     }
                 }
 
                 impl<MODE> toggleable::Default for $PXi<Output<MODE>> {}
 
                 impl<MODE> OutputPin for $PXi<Alternate<MODE>> {
-                    fn set_high(&mut self) {
+                    type Error = Void;
+                    fn set_high(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
-                        unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i)) }
+                        Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i)) })
                     }
 
-                    fn set_low(&mut self) {
+                    fn set_low(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
-                        unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + $i))) }
+                        Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + $i))) })
                     }
                 }
 
                 impl<MODE> StatefulOutputPin for $PXi<Alternate<MODE>> {
-                    fn is_set_high(&self) -> bool {
-                        !self.is_set_low()
+                    fn is_set_high(&self) -> Result<bool, Self::Error> {
+                        self.is_set_low().map(|b| !b)
                     }
 
-                    fn is_set_low(&self) -> bool {
+                    fn is_set_low(&self) -> Result<bool, Self::Error> {
                         // NOTE(unsafe) atomic read with no side effects
-                        unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << $i) == 0 }
+                        Ok(unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << $i) == 0 })
                     }
                 }
 
                 impl<MODE> InputPin for $PXi<Input<MODE>> {
-                    fn is_high(&self) -> bool {
-                        !self.is_low()
+                    type Error = Void;
+                    fn is_high(&self) -> Result<bool, Self::Error> {
+                        self.is_low().map(|b| !b)
                     }
 
-                    fn is_low(&self) -> bool {
+                    fn is_low(&self) -> Result<bool, Self::Error> {
                         // NOTE(unsafe) atomic read with no side effects
-                        unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << $i) == 0 }
+                        Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << $i) == 0 })
                     }
                 }
 
                 impl InputPin for $PXi<Output<OpenDrain>> {
-                    fn is_high(&self) -> bool {
-                        !self.is_low()
+                    type Error = Void;
+                    fn is_high(&self) -> Result<bool, Self::Error> {
+                        self.is_low().map(|b| !b)
                     }
 
-                    fn is_low(&self) -> bool {
+                    fn is_low(&self) -> Result<bool, Self::Error> {
                         // NOTE(unsafe) atomic read with no side effects
-                        unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << $i) == 0 }
+                        Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << $i) == 0 })
                     }
                 }
             )+
