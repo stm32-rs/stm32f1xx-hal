@@ -13,11 +13,17 @@ pub trait GpioExt {
     fn split(self, apb2: &mut APB2) -> Self::Parts;
 }
 
+/// Marker trait for active states.
+pub trait Active {}
+
 /// Input mode (type state)
 pub struct Input<MODE> {
     _mode: PhantomData<MODE>,
 }
+impl<MODE> Active for Input<MODE> {}
 
+/// Used by the debugger (type state)
+pub struct Debugger;
 /// Floating input (type state)
 pub struct Floating;
 /// Pulled down input (type state)
@@ -29,6 +35,7 @@ pub struct PullUp;
 pub struct Output<MODE> {
     _mode: PhantomData<MODE>,
 }
+impl<MODE> Active for Output<MODE> {}
 
 /// Push pull output (type state)
 pub struct PushPull;
@@ -37,11 +44,13 @@ pub struct OpenDrain;
 
 /// Analog mode (type state)
 pub struct Analog;
+impl Active for Analog {}
 
 /// Alternate function
 pub struct Alternate<MODE> {
     _mode: PhantomData<MODE>,
 }
+impl<MODE> Active for Alternate<MODE> {}
 
 pub enum State {
     High,
@@ -69,6 +78,8 @@ macro_rules! gpio {
                 PushPull,
                 Analog,
                 State,
+                Active,
+                Debugger,
             };
 
             /// GPIO parts
@@ -184,7 +195,16 @@ macro_rules! gpio {
                     _mode: PhantomData<MODE>,
                 }
 
-                impl<MODE> $PXi<MODE> {
+                impl $PXi<Debugger> {
+                    /// Put the pin in an active state. The caller
+                    /// must enforce that the pin is really in this
+                    /// state in the hardware.
+                    pub(crate) unsafe fn activate(self) -> $PXi<Input<Floating>> {
+                        $PXi { _mode: PhantomData }
+                    }
+                }
+
+                impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Configures the pin to operate as an alternate function push-pull output
                     /// pin.
                     pub fn into_alternate_push_pull(
@@ -402,7 +422,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> $PXi<MODE> {
+                impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Erases the pin number from the type
                     ///
                     /// This is useful when you want to collect the pins into an array where you
@@ -503,17 +523,17 @@ gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
     PA10: (pa10, 10, Input<Floating>, CRH),
     PA11: (pa11, 11, Input<Floating>, CRH),
     PA12: (pa12, 12, Input<Floating>, CRH),
-    PA13: (pa13, 13, Input<Floating>, CRH),
-    PA14: (pa14, 14, Input<Floating>, CRH),
-    PA15: (pa15, 15, Input<Floating>, CRH),
+    PA13: (pa13, 13, Debugger, CRH),
+    PA14: (pa14, 14, Debugger, CRH),
+    PA15: (pa15, 15, Debugger, CRH),
 ]);
 
 gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB0: (pb0, 0, Input<Floating>, CRL),
     PB1: (pb1, 1, Input<Floating>, CRL),
     PB2: (pb2, 2, Input<Floating>, CRL),
-    PB3: (pb3, 3, Input<Floating>, CRL),
-    PB4: (pb4, 4, Input<Floating>, CRL),
+    PB3: (pb3, 3, Debugger, CRL),
+    PB4: (pb4, 4, Debugger, CRL),
     PB5: (pb5, 5, Input<Floating>, CRL),
     PB6: (pb6, 6, Input<Floating>, CRL),
     PB7: (pb7, 7, Input<Floating>, CRL),

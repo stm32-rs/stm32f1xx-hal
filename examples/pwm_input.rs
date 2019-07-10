@@ -25,9 +25,10 @@ fn main() -> ! {
     let mut afio = p.AFIO.constrain(&mut rcc.apb2);
     let mut dbg = p.DBGMCU;
 
-    let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
+    let gpioa = p.GPIOA.split(&mut rcc.apb2);
+    let gpiob = p.GPIOB.split(&mut rcc.apb2);
 
-    let pb4 = gpiob.pb4;
+    let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
     let pb5 = gpiob.pb5;
 
     let pwm_input = p.TIM3.pwm_input(

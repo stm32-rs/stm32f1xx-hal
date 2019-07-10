@@ -3,6 +3,14 @@ use crate::pac::{afio, AFIO};
 
 use crate::rcc::APB2;
 
+use crate::gpio::{
+    Debugger,
+    Input,
+    Floating,
+    gpioa::PA15,
+    gpiob::{PB3, PB4},
+};
+
 pub trait AfioExt {
     fn constrain(self, apb2: &mut APB2) -> Parts;
 }
@@ -54,10 +62,22 @@ impl MAPR {
         unsafe { &(*AFIO::ptr()).mapr }
     }
 
-    /// Disables the JTAG to free up pb3, pb4 and pa15 for normal use
-    pub fn disable_jtag(&mut self) {
+    /// Disables the JTAG to free up pa15, pb3 and pb4 for normal use
+    pub fn disable_jtag(
+        &mut self,
+        pa15: PA15<Debugger>,
+        pb3: PB3<Debugger>,
+        pb4: PB4<Debugger>
+    ) -> (
+        PA15<Input<Floating>>,
+        PB3<Input<Floating>>,
+        PB4<Input<Floating>>,
+    ) {
         self.mapr()
-            .modify(|_, w| unsafe { w.swj_cfg().bits(0b010) })
+            .modify(|_, w| unsafe { w.swj_cfg().bits(0b010) });
+
+        // NOTE(unsafe) The pins are now in the good state.
+        unsafe { (pa15.activate(), pb3.activate(), pb4.activate()) }
     }
 }
 
