@@ -65,9 +65,9 @@ impl MAPR {
     /// Disables the JTAG to free up pa15, pb3 and pb4 for normal use
     pub fn disable_jtag(
         &mut self,
-        _pa15: PA15<Debugger>,
-        _pb3: PB3<Debugger>,
-        _pb4: PB4<Debugger>
+        pa15: PA15<Debugger>,
+        pb3: PB3<Debugger>,
+        pb4: PB4<Debugger>
     ) -> (
         PA15<Input<Floating>>,
         PB3<Input<Floating>>,
@@ -76,8 +76,8 @@ impl MAPR {
         self.mapr()
             .modify(|_, w| unsafe { w.swj_cfg().bits(0b010) });
 
-        // NOTE(unsafe) zero sized type, and recreated in its initial state
-        unsafe { core::mem::MaybeUninit::uninit().assume_init() }
+        // NOTE(unsafe) The pins are now in the good state.
+        unsafe { (pa15.activate(), pb3.activate(), pb4.activate()) }
     }
 }
 

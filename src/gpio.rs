@@ -79,6 +79,7 @@ macro_rules! gpio {
                 Analog,
                 State,
                 Active,
+                Debugger,
             };
 
             /// GPIO parts
@@ -192,6 +193,15 @@ macro_rules! gpio {
                 /// Pin
                 pub struct $PXi<MODE> {
                     _mode: PhantomData<MODE>,
+                }
+
+                impl $PXi<Debugger> {
+                    /// Put the pin in an active state. The caller
+                    /// must enforce that the pin is really in this
+                    /// state in the hardware.
+                    pub(crate) unsafe fn activate(self) -> $PXi<Input<Floating>> {
+                        $PXi { _mode: PhantomData }
+                    }
                 }
 
                 impl<MODE> $PXi<MODE> where MODE: Active {
@@ -513,17 +523,17 @@ gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
     PA10: (pa10, 10, Input<Floating>, CRH),
     PA11: (pa11, 11, Input<Floating>, CRH),
     PA12: (pa12, 12, Input<Floating>, CRH),
-    PA13: (pa13, 13, super::Debugger, CRH),
-    PA14: (pa14, 14, super::Debugger, CRH),
-    PA15: (pa15, 15, super::Debugger, CRH),
+    PA13: (pa13, 13, Debugger, CRH),
+    PA14: (pa14, 14, Debugger, CRH),
+    PA15: (pa15, 15, Debugger, CRH),
 ]);
 
 gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB0: (pb0, 0, Input<Floating>, CRL),
     PB1: (pb1, 1, Input<Floating>, CRL),
     PB2: (pb2, 2, Input<Floating>, CRL),
-    PB3: (pb3, 3, super::Debugger, CRL),
-    PB4: (pb4, 4, super::Debugger, CRL),
+    PB3: (pb3, 3, Debugger, CRL),
+    PB4: (pb4, 4, Debugger, CRL),
     PB5: (pb5, 5, Input<Floating>, CRL),
     PB6: (pb6, 6, Input<Floating>, CRL),
     PB7: (pb7, 7, Input<Floating>, CRL),
