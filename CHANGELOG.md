@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Update existing ADC example according to ADC API changes
 - Add new ADC example to read ambient temperature using ADC1 CH16
 - Add `listen` and `unlisten` to `serial::Tx` and `serial::Rx`.
-
+- Add methods `read_data_register` and `write_data_register` to
+  `backup_domain::BackupDomain`, which allow read and write access to the Backup
+  Data Register.
 
 ### Breaking changes
 
