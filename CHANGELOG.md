@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Fix hclk miscalculation
+
 ## [v0.3.0] - 2019-04-27
 
 ### Added

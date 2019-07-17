@@ -204,7 +204,11 @@ impl CFGR {
             })
             .unwrap_or(0b0111);
 
-        let hclk = sysclk / (1 << (hpre_bits - 0b0111));
+        let hclk = if hpre_bits >= 0b1100 {
+            sysclk / (1 << (hpre_bits - 0b0110))
+        } else {
+            sysclk / (1 << (hpre_bits - 0b0111))
+        };
 
         assert!(hclk <= 72_000_000);
 
