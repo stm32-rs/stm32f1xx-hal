@@ -177,11 +177,11 @@ macro_rules! hal {
                     let ticks = timer_clock.0 / frequency;
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
-                    self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
+                    self.tim.psc.write(|w| w.psc().bits(psc) );
 
                     let arr = u16(ticks / u32(psc + 1)).unwrap();
 
-                    self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
+                    self.tim.arr.write(|w| w.arr().bits(arr) );
 
                     // Trigger an update event to load the prescaler value to the clock
                     self.tim.egr.write(|w| w.ug().set_bit());

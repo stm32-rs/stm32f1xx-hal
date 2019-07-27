@@ -194,12 +194,12 @@ impl CFGR {
                 0 => unreachable!(),
                 1 => 0b0111,
                 2 => 0b1000,
-                3...5 => 0b1001,
-                6...11 => 0b1010,
-                12...39 => 0b1011,
-                40...95 => 0b1100,
-                96...191 => 0b1101,
-                192...383 => 0b1110,
+                3..=5 => 0b1001,
+                6..=11 => 0b1010,
+                12..=39 => 0b1011,
+                40..=95 => 0b1100,
+                96..=191 => 0b1101,
+                192..=383 => 0b1110,
                 _ => 0b1111,
             })
             .unwrap_or(0b0111);
@@ -218,8 +218,8 @@ impl CFGR {
                 0 => unreachable!(),
                 1 => 0b011,
                 2 => 0b100,
-                3...5 => 0b101,
-                6...11 => 0b110,
+                3..=5 => 0b101,
+                6..=11 => 0b110,
                 _ => 0b111,
             })
             .unwrap_or(0b011);
@@ -235,8 +235,8 @@ impl CFGR {
                 0 => unreachable!(),
                 1 => 0b011,
                 2 => 0b100,
-                3...5 => 0b101,
-                6...11 => 0b110,
+                3..=5 => 0b101,
+                6..=11 => 0b110,
                 _ => 0b111,
             })
             .unwrap_or(0b011);
@@ -272,9 +272,9 @@ impl CFGR {
         let apre_bits = self
             .adcclk
             .map(|adcclk| match pclk2 / adcclk {
-                0...2 => 0b00,
-                3...4 => 0b01,
-                5...7 => 0b10,
+                0..=2 => 0b00,
+                3..=4 => 0b01,
+                5..=7 => 0b10,
                 _ => 0b11,
             })
             .unwrap_or(0b11);
@@ -297,12 +297,12 @@ impl CFGR {
         if let Some(pllmul_bits) = pllmul_bits {
             // enable PLL and wait for it to be ready
 
-            rcc.cfgr.modify(|_, w| unsafe {
+            rcc.cfgr.modify(|_, w|
                 w.pllmul()
                     .bits(pllmul_bits)
                     .pllsrc()
                     .bit(if self.hse.is_some() { true } else { false })
-            });
+            );
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
 
