@@ -92,6 +92,13 @@ stm32f100 = ["stm32f1/stm32f100", "device-selected"]
 stm32f101 = ["stm32f1/stm32f101", "device-selected"]
 stm32f103 = ["stm32f1/stm32f103", "device-selected"]
 
+# Devices with 64 or 128 Kb ROM
+medium = []
+# Devices with 256 or 512 Kb ROM
+high = ["medium"]
+# Devices with 768 Kb ROM or more
+xl = ["high"]
+
 [profile.dev]
 incremental = false
 codegen-units = 1
