@@ -25,9 +25,7 @@ pub struct BackupDomain {
 
 macro_rules! write_drx {
     ($self:ident, $drx:ident, $idx:expr, $new:expr) => {
-        unsafe {
-            $self._regs.$drx[$idx].write(|w| w.d().bits($new));
-        }
+        $self._regs.$drx[$idx].write(|w| w.d().bits($new));
     };
 }
 
