@@ -212,18 +212,18 @@ macro_rules! gpio {
                         self,
                         cr: &mut $CR,
                     ) -> $PXi<Alternate<PushPull>> {
-                        let offset = (4 * $i) % 32;
+                        const OFFSET: u32 = (4 * $i) % 32;
                         // Alternate function output push pull
-                        let cnf = 0b10;
+                        const CNF: u32 = 0b10;
                         // Output mode, max speed 50 MHz
-                        let mode = 0b11;
-                        let bits = (cnf << 2) | mode;
+                        const MODE: u32 = 0b11;
+                        const BITS: u32 = (CNF << 2) | MODE;
 
                         // input mode
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
+                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
                         $PXi { _mode: PhantomData }
@@ -235,18 +235,18 @@ macro_rules! gpio {
                         self,
                         cr: &mut $CR,
                     ) -> $PXi<Alternate<OpenDrain>> {
-                        let offset = (4 * $i) % 32;
+                        const OFFSET: u32 = (4 * $i) % 32;
                         // Alternate function output open drain
-                        let cnf = 0b11;
+                        const CNF: u32 = 0b11;
                         // Output mode, max speed 50 MHz
-                        let mode = 0b11;
-                        let bits = (cnf << 2) | mode;
+                        const MODE: u32 = 0b11;
+                        const BITS: u32 = (CNF << 2) | MODE;
 
                         // input mode
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
+                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
                         $PXi { _mode: PhantomData }
@@ -257,18 +257,18 @@ macro_rules! gpio {
                         self,
                         cr: &mut $CR,
                     ) -> $PXi<Input<Floating>> {
-                        let offset = (4 * $i) % 32;
+                        const OFFSET: u32 = (4 * $i) % 32;
                         // Floating input
-                        let cnf = 0b01;
+                        const CNF: u32 = 0b01;
                         // Input mode
-                        let mode = 0b00;
-                        let bits = (cnf << 2) | mode;
+                        const MODE: u32 = 0b00;
+                        const BITS: u32 = (CNF << 2) | MODE;
 
                         // input mode
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
+                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
                         $PXi { _mode: PhantomData }
@@ -279,12 +279,12 @@ macro_rules! gpio {
                         self,
                         cr: &mut $CR,
                     ) -> $PXi<Input<PullDown>> {
-                        let offset = (4 * $i) % 32;
+                        const OFFSET: u32 = (4 * $i) % 32;
                         // Pull up/down input
-                        let cnf = 0b10;
+                        const CNF: u32 = 0b10;
                         // Input mode
-                        let mode = 0b00;
-                        let bits = (cnf << 2) | mode;
+                        const MODE: u32 = 0b00;
+                        const BITS: u32 = (CNF << 2) | MODE;
 
                         //pull down:
                         // NOTE(unsafe) atomic write to a stateless register
@@ -294,7 +294,7 @@ macro_rules! gpio {
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
+                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
                         $PXi { _mode: PhantomData }
@@ -305,12 +305,12 @@ macro_rules! gpio {
                         self,
                         cr: &mut $CR,
                     ) -> $PXi<Input<PullUp>> {
-                        let offset = (4 * $i) % 32;
+                        const OFFSET: u32 = (4 * $i) % 32;
                         // Pull up/down input
-                        let cnf = 0b10;
+                        const CNF: u32 = 0b10;
                         // Input mode
-                        let mode = 0b00;
-                        let bits = (cnf << 2) | mode;
+                        const MODE: u32 = 0b00;
+                        const BITS: u32 = (CNF << 2) | MODE;
 
                         //pull up:
                         // NOTE(unsafe) atomic write to a stateless register
@@ -320,7 +320,7 @@ macro_rules! gpio {
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
+                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
                         $PXi { _mode: PhantomData }
@@ -342,12 +342,12 @@ macro_rules! gpio {
                         cr: &mut $CR,
                         initial_state: State,
                     ) -> $PXi<Output<OpenDrain>> {
-                        let offset = (4 * $i) % 32;
+                        const OFFSET: u32 = (4 * $i) % 32;
                         // General purpose output open-drain
-                        let cnf = 0b01;
+                        const CNF: u32 = 0b01;
                         // Open-Drain Output mode, max speed 50 MHz
-                        let mode = 0b11;
-                        let bits = (cnf << 2) | mode;
+                        const MODE: u32 = 0b11;
+                        const BITS: u32 = (CNF << 2) | MODE;
 
                         let mut res = $PXi { _mode: PhantomData };
 
@@ -359,7 +359,7 @@ macro_rules! gpio {
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
+                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
                         res
@@ -380,12 +380,12 @@ macro_rules! gpio {
                         cr: &mut $CR,
                         initial_state: State,
                     ) -> $PXi<Output<PushPull>> {
-                        let offset = (4 * $i) % 32;
+                        const OFFSET: u32 = (4 * $i) % 32;
                         // General purpose output push-pull
-                        let cnf = 0b00;
+                        const CNF: u32 = 0b00;
                         // Output mode, max speed 50 MHz
-                        let mode = 0b11;
-                        let bits = (cnf << 2) | mode;
+                        const MODE: u32 = 0b11;
+                        const BITS: u32 = (CNF << 2) | MODE;
 
                         let mut res = $PXi { _mode: PhantomData };
 
@@ -397,7 +397,7 @@ macro_rules! gpio {
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
+                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
                         res
@@ -405,18 +405,18 @@ macro_rules! gpio {
 
                     /// Configures the pin to operate as an analog input pin
                     pub fn into_analog(self, cr: &mut $CR) -> $PXi<Analog> {
-                        let offset = (4 * $i) % 32;
+                        const OFFSET: u32 = (4 * $i) % 32;
                         // Analog input
-                        let cnf = 0b00;
+                        const CNF: u32 = 0b00;
                         // Input mode
-                        let mode = 0b00;
-                        let bits = (cnf << 2) | mode;
+                        const MODE: u32 = 0b00;
+                        const BITS: u32 = (CNF << 2) | MODE;
 
                         // analog mode
                         cr
                             .cr()
                             .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << offset)) | (bits << offset))
+                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
                         $PXi { _mode: PhantomData }
