@@ -462,13 +462,13 @@ impl Adc<ADC1> {
         // so use the following approximate settings
         // to support all ADC frequencies
         let sample_time = match self.clocks.adcclk().0 {
-            0 ... 1_200_000 => AdcSampleTime::T_1,
-            1_200_001 ... 1_500_000 => AdcSampleTime::T_7,
-            1_500_001 ... 2_400_000 => AdcSampleTime::T_13,
-            2_400_001 ... 3_100_000 => AdcSampleTime::T_28,
-            3_100_001 ... 4_000_000 => AdcSampleTime::T_41,
-            4_000_001 ... 5_000_000 => AdcSampleTime::T_55,
-            5_000_001 ... 14_000_000 => AdcSampleTime::T_71,
+            0 ..= 1_200_000 => AdcSampleTime::T_1,
+            1_200_001 ..= 1_500_000 => AdcSampleTime::T_7,
+            1_500_001 ..= 2_400_000 => AdcSampleTime::T_13,
+            2_400_001 ..= 3_100_000 => AdcSampleTime::T_28,
+            3_100_001 ..= 4_000_000 => AdcSampleTime::T_41,
+            4_000_001 ..= 5_000_000 => AdcSampleTime::T_55,
+            5_000_001 ..= 14_000_000 => AdcSampleTime::T_71,
             _ => AdcSampleTime::T_239,
         };
 
@@ -598,8 +598,8 @@ where
             self.channel.ch().cr.modify(|_, w| { w
                 .mem2mem() .clear_bit()
                 .pl()      .medium()
-                .msize()   .bit16()
-                .psize()   .bit16()
+                .msize()   .bits16()
+                .psize()   .bits16()
                 .circ()    .set_bit()
                 .dir()     .clear_bit()
             });
@@ -627,8 +627,8 @@ where
         self.channel.ch().cr.modify(|_, w| { w
             .mem2mem() .clear_bit()
             .pl()      .medium()
-            .msize()   .bit16()
-            .psize()   .bit16()
+            .msize()   .bits16()
+            .psize()   .bits16()
             .circ()    .clear_bit()
             .dir()     .clear_bit()
         });

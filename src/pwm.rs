@@ -309,33 +309,33 @@ macro_rules! hal {
                 apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                 if PINS::C1 {
-                    tim.ccmr1_output
-                        .modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                    tim.ccmr1_output()
+                        .modify(|_, w| w.oc1pe().set_bit().oc1m().pwm_mode1() );
                 }
 
                 if PINS::C2 {
-                    tim.ccmr1_output
-                        .modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
+                    tim.ccmr1_output()
+                        .modify(|_, w| w.oc2pe().set_bit().oc2m().pwm_mode1() );
                 }
 
                 if PINS::C3 {
-                    tim.ccmr2_output
-                        .modify(|_, w| unsafe { w.oc3pe().set_bit().oc3m().bits(6) });
+                    tim.ccmr2_output()
+                        .modify(|_, w| w.oc3pe().set_bit().oc3m().pwm_mode1() );
                 }
 
                 if PINS::C4 {
-                    tim.ccmr2_output
-                        .modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
+                    tim.ccmr2_output()
+                        .modify(|_, w| w.oc4pe().set_bit().oc4m().pwm_mode1() );
                 }
                 let clk = $TIMX::get_clk(&clocks).0;
                 let freq = freq.0;
                 let ticks = clk / freq;
                 let psc = u16(ticks / (1 << 16)).unwrap();
-                tim.psc.write(|w| unsafe { w.psc().bits(psc) });
+                tim.psc.write(|w| w.psc().bits(psc) );
                 let arr = u16(ticks / u32(psc + 1)).unwrap();
-                tim.arr.write(|w| { w.arr().bits(arr) });
+                tim.arr.write(|w| w.arr().bits(arr));
 
-                tim.cr1.write(|w| unsafe {
+                tim.cr1.write(|w|
                     w.cms()
                         .bits(0b00)
                         .dir()
@@ -344,7 +344,7 @@ macro_rules! hal {
                         .clear_bit()
                         .cen()
                         .set_bit()
-                });
+                );
 
                 unsafe { mem::uninitialized() }
             }

@@ -211,13 +211,7 @@ macro_rules! hal {
 
             // Define the direction of the channel (input/output)
             // and the used input
-            // 01: CC1 channel is configured as input, IC1 is mapped on TI1.
-            // 10: CC1 channel is configured as input, IC1 is mapped on TI2.
-            tim.ccmr1_output.modify( |_,w| unsafe {w.cc1s().bits(0b01)});
-
-            // 01: CC2 channel is configured as input, IC2 is mapped on TI2
-            // 10: CC2 channel is configured as input, IC2 is mapped on TI1
-            tim.ccmr1_output.modify( |_,w| unsafe {w.cc2s().bits(0b10)});
+            tim.ccmr1_input().modify( |_,w| w.cc1s().ti1().cc2s().ti1());
 
             tim.dier.write(|w| w.cc1ie().set_bit());
 
@@ -236,7 +230,7 @@ macro_rules! hal {
                   let max_freq = if freq > 5 {freq/5} else {1};
                   let (arr,presc) = compute_arr_presc(max_freq, $TIMX::get_clk(&clocks).0);
                   tim.arr.write(|w| w.arr().bits(arr));
-                  tim.psc.write(|w| unsafe {w.psc().bits(presc)});
+                  tim.psc.write(|w| w.psc().bits(presc) );
 
                },
                DutyCycle(f) => {
@@ -244,17 +238,17 @@ macro_rules! hal {
                   let max_freq = if freq > 2 {freq/2 + freq/4 + freq/8} else {1};
                   let (arr,presc) = compute_arr_presc(max_freq, $TIMX::get_clk(&clocks).0);
                   tim.arr.write(|w| w.arr().bits(arr));
-                  tim.psc.write(|w| unsafe {w.psc().bits(presc)});
+                  tim.psc.write(|w| w.psc().bits(presc) );
                },
                RawFrequency(f) => {
                   let freq = f.into().0;
                   let (arr,presc) = compute_arr_presc(freq, $TIMX::get_clk(&clocks).0);
                   tim.arr.write(|w| w.arr().bits(arr));
-                  tim.psc.write(|w| unsafe {w.psc().bits(presc)});
+                  tim.psc.write(|w| w.psc().bits(presc) );
                }
                RawValues{arr, presc} => {
                   tim.arr.write(|w| w.arr().bits(arr));
-                  tim.psc.write(|w| unsafe {w.psc().bits(presc)});
+                  tim.psc.write(|w| w.psc().bits(presc) );
 
                }
             }

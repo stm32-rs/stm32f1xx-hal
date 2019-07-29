@@ -199,6 +199,7 @@ macro_rules! gpio {
                     /// Put the pin in an active state. The caller
                     /// must enforce that the pin is really in this
                     /// state in the hardware.
+                    #[allow(dead_code)]
                     pub(crate) unsafe fn activate(self) -> $PXi<Input<Floating>> {
                         $PXi { _mode: PhantomData }
                     }

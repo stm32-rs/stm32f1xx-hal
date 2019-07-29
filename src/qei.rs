@@ -78,8 +78,7 @@ macro_rules! hal {
                     apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                     // Configure TxC1 and TxC2 as captures
-                    tim.ccmr1_output
-                        .write(|w| unsafe { w.bits({ (0b01 << 0) | (0b01 << 8) }) });
+                    tim.ccmr1_input().write(|w| w.cc1s().ti1().cc2s().ti2());
 
                     // enable and configure to capture on rising edge
                     tim.ccer.write(|w| {

@@ -566,8 +566,8 @@ macro_rules! serialdma {
                         self.channel.ch().cr.modify(|_, w| { w
                             .mem2mem() .clear_bit()
                             .pl()      .medium()
-                            .msize()   .bit8()
-                            .psize()   .bit8()
+                            .msize()   .bits8()
+                            .psize()   .bits8()
                             .circ()    .set_bit()
                             .dir()     .clear_bit()
                         });
@@ -593,8 +593,8 @@ macro_rules! serialdma {
                     self.channel.ch().cr.modify(|_, w| { w
                         .mem2mem() .clear_bit()
                         .pl()      .medium()
-                        .msize()   .bit8()
-                        .psize()   .bit8()
+                        .msize()   .bits8()
+                        .psize()   .bits8()
                         .circ()    .clear_bit()
                         .dir()     .clear_bit()
                     });
@@ -622,8 +622,8 @@ macro_rules! serialdma {
                     self.channel.ch().cr.modify(|_, w| { w
                         .mem2mem() .clear_bit()
                         .pl()      .medium()
-                        .msize()   .bit8()
-                        .psize()   .bit8()
+                        .msize()   .bits8()
+                        .psize()   .bits8()
                         .circ()    .clear_bit()
                         .dir()     .set_bit()
                     });
