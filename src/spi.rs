@@ -2,8 +2,9 @@
 
 use core::ptr;
 
-pub use crate::hal::spi::{Mode, Phase, Polarity};
 use nb;
+
+pub use crate::hal::spi::{Mode, Phase, Polarity};
 use crate::pac::{SPI1, SPI2};
 
 use crate::afio::MAPR;
@@ -12,6 +13,12 @@ use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{RccBus, Clocks, Enable, Reset};
 use crate::time::Hertz;
+use crate::dma::dma1::{C3, C5};
+use crate::dma::{Transmit, TxDma, Transfer, R, Static, TransferPayload};
+
+use core::sync::atomic::{self, Ordering};
+
+use as_slice::AsSlice;
 
 /// SPI error
 #[derive(Debug)]
@@ -226,3 +233,70 @@ hal! {
     SPI1: (_spi1),
     SPI2: (_spi2),
 }
+
+// DMA
+
+pub struct SpiPayload<SPI, PINS> {
+    spi: Spi<SPI, PINS>
+}
+
+pub type SpiTxDma<SPI, PINS, CHANNEL> = TxDma<SpiPayload<SPI, PINS>, CHANNEL>;
+
+macro_rules! spi_dma {
+    ($SPIi:ident, $TCi:ident) => {
+        impl<PINS> Transmit for SpiTxDma<$SPIi, PINS, $TCi> {
+            type TxChannel = $TCi;
+            type ReceivedWord = u8;
+        }
+
+        impl<PINS> Spi<$SPIi, PINS> {
+            pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, PINS, $TCi> {
+                let payload = SpiPayload{
+                    spi: self
+                };
+                SpiTxDma {payload, channel}
+            }
+        }
+
+        impl<PINS> TransferPayload for SpiTxDma<$SPIi, PINS, $TCi> {
+            fn start(&mut self) {
+                self.payload.spi.spi.cr2.modify(|_, w| w.txdmaen().set_bit());
+                self.channel.start();
+            }
+            fn stop(&mut self) {
+                self.payload.spi.spi.cr2.modify(|_, w| w.txdmaen().clear_bit());
+                self.channel.stop();
+            }
+        }
+
+        impl<A, B, PIN> crate::dma::WriteDma<A, B, u8> for SpiTxDma<$SPIi, PIN, $TCi>
+        where
+            A: AsSlice<Element=u8>,
+            B: Static<A>
+        {
+            fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
+                {
+                    let buffer = buffer.borrow().as_slice();
+                    self.channel.set_peripheral_address(unsafe{ &(*$SPIi::ptr()).dr as *const _ as u32 }, false);
+                    self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+                    self.channel.set_transfer_length(buffer.len());
+                }
+                atomic::compiler_fence(Ordering::Release);
+                self.channel.ch().cr.modify(|_, w| { w
+                    .mem2mem() .clear_bit()
+                    .pl()      .medium()
+                    .msize()   .bits8()
+                    .psize()   .bits8()
+                    .circ()    .clear_bit()
+                    .dir()     .set_bit()
+                });
+                self.start();
+
+                Transfer::r(buffer, self)
+            }
+        }
+    }
+}
+
+spi_dma!(SPI1, C3);
+spi_dma!(SPI2, C5);

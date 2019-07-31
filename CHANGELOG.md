@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - RCC `Bus` trait + private `Enable` and `Reset` traits
 - Added `micros_since` and `reset` methods to timer
 - Added `select_frequency` method to RTC
+- Unidirectional DMA support for SPI (TX only)
 
 ### Breaking changes
 
