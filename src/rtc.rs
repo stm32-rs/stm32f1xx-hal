@@ -88,8 +88,8 @@ impl Rtc {
         // See section 18.3.5 for explanation
         let alarm_value = seconds - 1;
         self.perform_write(|s| {
-            s.regs.alrh.write(|w| unsafe{w.alrh().bits((alarm_value >> 16) as u16)});
-            s.regs.alrl.write(|w| unsafe{w.alrl().bits(alarm_value as u16)});
+            s.regs.alrh.write(|w| w.alrh().bits((alarm_value >> 16) as u16));
+            s.regs.alrl.write(|w| w.alrl().bits(alarm_value as u16));
         });
 
         self.clear_alarm_flag();

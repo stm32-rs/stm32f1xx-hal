@@ -283,12 +283,12 @@ macro_rules! adc_hal {
                 fn setup_oneshot(&mut self) {
                     self.rb.cr2.modify(|_, w| w.cont().clear_bit());
                     self.rb.cr2.modify(|_, w| w.exttrig().set_bit());
-                    self.rb.cr2.modify(|_, w| unsafe { w.extsel().bits(0b111) });
+                    self.rb.cr2.modify(|_, w| w.extsel().bits(0b111));
 
                     self.rb.cr1.modify(|_, w| w.scan().clear_bit());
                     self.rb.cr1.modify(|_, w| w.discen().set_bit());
 
-                    self.rb.sqr1.modify(|_, w| unsafe { w.l().bits(0b0) });
+                    self.rb.sqr1.modify(|_, w| w.l().bits(0b0));
                 }
 
                 fn set_chan_smps(&mut self, chan: u8) {
@@ -296,76 +296,76 @@ macro_rules! adc_hal {
                         0 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp0().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp0().bits(self.sample_time.into()) ),
                         1 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp1().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp1().bits(self.sample_time.into()) ),
                         2 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp2().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp2().bits(self.sample_time.into()) ),
                         3 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp3().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp3().bits(self.sample_time.into()) ),
                         4 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp4().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp4().bits(self.sample_time.into()) ),
                         5 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp5().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp5().bits(self.sample_time.into()) ),
                         6 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp6().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp6().bits(self.sample_time.into()) ),
                         7 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp7().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp7().bits(self.sample_time.into()) ),
                         8 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp8().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp8().bits(self.sample_time.into()) ),
                         9 => self
                             .rb
                             .smpr2
-                            .modify(|_, w| unsafe { w.smp9().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp9().bits(self.sample_time.into()) ),
 
                         10 => self
                             .rb
                             .smpr1
-                            .modify(|_, w| unsafe { w.smp10().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp10().bits(self.sample_time.into()) ),
                         11 => self
                             .rb
                             .smpr1
-                            .modify(|_, w| unsafe { w.smp11().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp11().bits(self.sample_time.into()) ),
                         12 => self
                             .rb
                             .smpr1
-                            .modify(|_, w| unsafe { w.smp12().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp12().bits(self.sample_time.into()) ),
                         13 => self
                             .rb
                             .smpr1
-                            .modify(|_, w| unsafe { w.smp13().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp13().bits(self.sample_time.into()) ),
                         14 => self
                             .rb
                             .smpr1
-                            .modify(|_, w| unsafe { w.smp14().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp14().bits(self.sample_time.into()) ),
                         15 => self
                             .rb
                             .smpr1
-                            .modify(|_, w| unsafe { w.smp15().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp15().bits(self.sample_time.into()) ),
                         16 => self
                             .rb
                             .smpr1
-                            .modify(|_, w| unsafe { w.smp16().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp16().bits(self.sample_time.into()) ),
                         17 => self
                             .rb
                             .smpr1
-                            .modify(|_, w| unsafe { w.smp17().bits(self.sample_time.into()) }),
+                            .modify(|_, w| w.smp17().bits(self.sample_time.into()) ),
                         _ => unreachable!(),
                     }
 
