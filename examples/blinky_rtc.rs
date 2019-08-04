@@ -20,6 +20,7 @@ use stm32f1xx_hal::{
 
 use nb::block;
 use cortex_m_rt::entry;
+use embedded_hal::digital::v2::OutputPin;
 
 #[entry]
 fn main() -> ! {
@@ -46,11 +47,11 @@ fn main() -> ! {
         rtc.set_alarm(5);
         block!(rtc.wait_alarm()).unwrap();
         if led_on {
-            led.set_low();
+            led.set_low().unwrap();
             led_on = false;
         }
         else {
-            led.set_high();
+            led.set_high().unwrap();
             led_on = true;
         }
     }

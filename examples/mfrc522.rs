@@ -13,6 +13,7 @@ use stm32f1xx_hal::{
 };
 use mfrc522::Mfrc522;
 use cortex_m_rt::entry;
+use embedded_hal::digital::{v1_compat::OldOutputPin, v2::OutputPin};
 
 #[entry]
 fn main() -> ! {
@@ -42,10 +43,10 @@ fn main() -> ! {
     );
 
     let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
-    let mut mfrc522 = Mfrc522::new(spi, nss).unwrap();
+    let mut mfrc522 = Mfrc522::new(spi, OldOutputPin::from(nss)).unwrap();
 
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    led.set_high();
+    led.set_high().unwrap();
 
     loop {
         if let Ok(atqa) = mfrc522.reqa() {

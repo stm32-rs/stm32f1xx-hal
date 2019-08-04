@@ -8,8 +8,6 @@
 
 use panic_halt as _;
 
-use cortex_m::asm;
-
 use nb::block;
 
 use stm32f1xx_hal::{
@@ -73,7 +71,7 @@ fn main() -> ! {
     );
 
     // Split the serial struct into a receiving and a transmitting part
-    let (mut tx, mut rx) = serial.split();
+    let (mut tx, _rx) = serial.split();
 
     let sent = b'U';
     block!(tx.write(sent)).ok();

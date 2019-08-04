@@ -20,6 +20,7 @@ use stm32f1xx_hal::{
     pac,
 };
 use cortex_m_rt::entry;
+use embedded_hal::digital::v2::OutputPin;
 
 #[entry]
 fn main() -> ! {
@@ -29,13 +30,13 @@ fn main() -> ! {
     let mut gpioc = p.GPIOC.split(&mut rcc.apb2);
 
     #[cfg(feature = "stm32f100")]
-    gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();
+    gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high().unwrap();
 
     #[cfg(feature = "stm32f101")]
-    gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();
+    gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high().unwrap();
 
     #[cfg(feature = "stm32f103")]
-    gpioc.pc13.into_push_pull_output(&mut gpioc.crh).set_low();
+    gpioc.pc13.into_push_pull_output(&mut gpioc.crh).set_low().unwrap();
 
     loop {}
 }
