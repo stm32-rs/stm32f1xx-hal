@@ -47,11 +47,11 @@ fn main() -> ! {
         rtc.set_alarm(5);
         block!(rtc.wait_alarm()).unwrap();
         if led_on {
-            led.set_low();
+            led.set_low().unwrap();
             led_on = false;
         }
         else {
-            led.set_high();
+            led.set_high().unwrap();
             led_on = true;
         }
     }
