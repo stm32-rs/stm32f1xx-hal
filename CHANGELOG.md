@@ -38,12 +38,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Replace gpio traits with digital::v2
 - Bump `stm32f1` dependency (`0.8.0`)
-- ADC now requires the clock configuration for intialisation
+- ADC now requires the clock configuration for initialisation
 - `disable_jtag` now transforms PA15, PB3 and PB4 to forbid their use without desactivating JTAG
 
 ### Changed
 
 - Fix hclk miscalculation
+- Starting the timer does not generate interrupt requests anymore
 
 ## [v0.3.0] - 2019-04-27
 

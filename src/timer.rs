@@ -173,6 +173,21 @@ macro_rules! hal {
                 pub fn release(self) -> $TIMX {
                     self.stop().release()
                 }
+
+                /// Returns the current counter value
+                pub fn count(&self) -> u16 {
+                    self.tim.cnt.read().cnt().bits()
+                }
+
+                /// Resets the counter and generates an update event
+                pub fn reset(&mut self) {
+                    // Sets the URS bit to prevent an interrupt from being triggered by
+                    // the UG bit.
+                    self.tim.cr1.modify(|_, w| w.urs().set_bit());
+
+                    self.tim.egr.write(|w| w.ug().set_bit());
+                    self.tim.cr1.modify(|_, w| w.urs().clear_bit());
+                }
             }
 
             impl CountDown for CountDownTimer<$TIMX> {
@@ -197,11 +212,7 @@ macro_rules! hal {
                     self.tim.arr.write(|w| w.arr().bits(arr) );
 
                     // Trigger an update event to load the prescaler value to the clock
-                    self.tim.egr.write(|w| w.ug().set_bit());
-                    // The above line raises an update event which will indicate
-                    // that the timer is already finished. Since this is not the case,
-                    // it should be cleared
-                    self.clear_update_interrupt_flag();
+                    self.reset();
 
                     // start counter
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
