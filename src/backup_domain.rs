@@ -49,6 +49,7 @@ impl BackupDomain {
     /// DRx registers: 0 is DR11, up to 31 for DR42. Providing a number above 31
     /// will panic.
     /// NOTE: not available on medium- and low-density devices!
+    #[cfg(feature = "high")]
     pub fn read_data_register_high(&self, register: usize) -> u16 {
         read_drx!(self, bkp_dr, register)
     }
@@ -66,6 +67,7 @@ impl BackupDomain {
     /// DRx registers: 0 is DR11, up to 31 for DR42. Providing a number above 31
     /// will panic.
     /// NOTE: not available on medium- and low-density devices!
+    #[cfg(feature = "high")]
     pub fn write_data_register_high(&self, register: usize, data: u16) {
         write_drx!(self, bkp_dr, register, data)
     }
