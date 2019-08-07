@@ -2,7 +2,7 @@
 
 use crate::hal::timer::{CountDown, Periodic};
 use crate::pac::{DBGMCU as DBG, TIM1, TIM2, TIM3, TIM4};
-use cast::{u16, u32};
+use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use nb;
@@ -58,6 +58,26 @@ impl CountDownTimer<SYST> {
         match event {
             Event::Update => self.tim.disable_interrupt(),
         }
+    }
+
+    /// Resets the timer
+    pub fn reset(&mut self) {
+        // According to the Cortex-M3 Generic User Guide, the interrupt request is only generated
+        // when the counter goes from 1 to 0, so writing zero should not trigger an interrupt
+        self.tim.clear_current();
+    }
+
+    /// Returns the number of microseconds since the last update event.
+    /// *NOTE:* This method is not a very good candidate to keep track of time, because
+    /// it is very easy to lose an update event.
+    pub fn micros_since(&self) -> u32 {
+        let reload_value = SYST::get_reload();
+        let timer_clock = u64(self.clocks.sysclk().0);
+        let ticks = u64(reload_value - SYST::get_current());
+
+        // It is safe to make this cast since the maximum ticks is (2^24 - 1) and the minimum sysclk
+        // is 4Mhz, which gives a maximum period of ~4.2 seconds which is < (2^32 - 1) microsenconds
+        u32(1_000_000 * ticks / timer_clock).unwrap()
     }
 
     /// Stops the timer
@@ -174,15 +194,27 @@ macro_rules! hal {
                     self.stop().release()
                 }
 
-                /// Returns the current counter value
-                pub fn count(&self) -> u16 {
-                    self.tim.cnt.read().cnt().bits()
+                /// Returns the number of microseconds since the last update event.
+                /// *NOTE:* This method is not a very good candidate to keep track of time, because
+                /// it is very easy to lose an update event.
+                pub fn micros_since(&self) -> u32 {
+                    let timer_clock = $TIMX::get_clk(&self.clocks).0;
+                    let psc = u32(self.tim.psc.read().psc().bits());
+                    
+                    // freq_divider is always bigger than 0, since (psc + 1) is always less than
+                    // timer_clock
+                    let freq_divider = u64(timer_clock / (psc + 1));
+                    let cnt = u64(self.tim.cnt.read().cnt().bits());
+                    
+                    // It is safe to make this cast, because the maximum timer period in this HAL is
+                    // 1s (1Hz), then 1 second < (2^32 - 1) microseconds
+                    u32(1_000_000 * cnt / freq_divider).unwrap()
                 }
 
                 /// Resets the counter and generates an update event
                 pub fn reset(&mut self) {
                     // Sets the URS bit to prevent an interrupt from being triggered by
-                    // the UG bit.
+                    // the UG bit
                     self.tim.cr1.modify(|_, w| w.urs().set_bit());
 
                     self.tim.egr.write(|w| w.ug().set_bit());
