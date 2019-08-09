@@ -9,7 +9,7 @@ repository = "https://github.com/stm32-rs/stm32f1xx-hal"
 documentation = "https://docs.rs/stm32f1xx-hal"
 readme = "README.md"
 edition = "2018"
-version = "0.3.0"
+version = "0.4.0"
 
 [package.metadata.docs.rs]
 features = ["stm32f103", "rt"]
