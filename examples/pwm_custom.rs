@@ -10,10 +10,10 @@ use cortex_m::asm;
 use stm32f1xx_hal::{
     gpio::gpiob::{PB4, PB5},
     gpio::{Alternate, PushPull},
-    pac,
+    pac::{self,TIM3},
     prelude::*,
     pwm::{Pins, Pwm, C1, C2},
-    stm32::TIM3,
+    timer::Timer,
 };
 
 use cortex_m_rt::entry;
@@ -58,13 +58,12 @@ fn main() -> ! {
     let p0 = pb4.into_alternate_push_pull(&mut gpiob.crl);
     let p1 = gpiob.pb5.into_alternate_push_pull(&mut gpiob.crl);
 
-    let mut pwm = p.TIM3.pwm(
-        MyChannels(p0, p1),
-        &mut afio.mapr,
-        1.khz(),
-        clocks,
-        &mut rcc.apb1,
-    );
+    let mut pwm = Timer::tim3(p.TIM3, &clocks, &mut rcc.apb1)
+        .pwm(
+            MyChannels(p0, p1),
+            &mut afio.mapr,
+            1.khz(),
+        );
 
     let max = pwm.0.get_max_duty();
 

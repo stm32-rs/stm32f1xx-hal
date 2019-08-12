@@ -10,6 +10,7 @@ use cortex_m::asm;
 use stm32f1xx_hal::{
     prelude::*,
     pac,
+    timer::Timer,
 };
 use cortex_m_rt::entry;
 
@@ -45,15 +46,8 @@ fn main() -> ! {
     let c3 = gpiob.pb8.into_alternate_push_pull(&mut gpiob.crh);
     let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
-    let mut pwm = p
-        .TIM4
-        .pwm(
-            (c1, c2, c3, c4),
-            &mut afio.mapr,
-            1.khz(),
-            clocks,
-            &mut rcc.apb1,
-        )
+    let mut pwm = Timer::tim4(p.TIM4, &clocks, &mut rcc.apb1)
+        .pwm((c1, c2, c3, c4), &mut afio.mapr, 1.khz())
         .3;
 
     let max = pwm.get_max_duty();

@@ -17,7 +17,7 @@ use rtfm::app;
 use stm32f1xx_hal::{
     prelude::*,
     pac,
-    timer::{ Timer, Event },
+    timer::{ Timer, CountDownTimer, Event },
     gpio::{ gpioc::PC13, State, Output, PushPull },
 };
 use embedded_hal::digital::v2::OutputPin;
@@ -26,7 +26,7 @@ use embedded_hal::digital::v2::OutputPin;
 const APP: () = {
 
     static mut LED: PC13<Output<PushPull>> = ();
-    static mut TIMER_HANDLER: Timer<pac::TIM1> = ();
+    static mut TIMER_HANDLER: CountDownTimer<pac::TIM1> = ();
     static mut LED_STATE: bool = false;
     
     #[init]
@@ -48,7 +48,8 @@ const APP: () = {
         // function in order to configure the port. For pins 0-7, crl should be passed instead
         let led = gpioc.pc13.into_push_pull_output_with_state(&mut gpioc.crh, State::High);
         // Configure the syst timer to trigger an update every second and enables interrupt
-        let mut timer = Timer::tim1(device.TIM1, 1.hz(), clocks, &mut rcc.apb2);
+        let mut timer = Timer::tim1(device.TIM1, &clocks, &mut rcc.apb2)
+            .start_count_down(1.hz());
         timer.listen(Event::Update);
 
         // Init the static resources to use them later through RTFM
