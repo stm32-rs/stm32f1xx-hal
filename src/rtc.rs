@@ -15,6 +15,7 @@
 use crate::pac::{RTC, RCC};
 
 use crate::backup_domain::BackupDomain;
+use crate::time::Hertz;
 
 use nb;
 use void::Void;
@@ -70,7 +71,23 @@ impl Rtc {
         })
     }
 
-    /// Set the current rtc value to the specified amount of seconds
+    /// Selects the frequency of the counter
+    /// NOTE: Maximum frequency of 16384 Hz using the internal LSE
+    pub fn select_frequency(&mut self, timeout: impl Into<Hertz>) {
+        let frequency = timeout.into().0;
+
+        // The manual says that the zero value for the prescaler is not recommended, thus the
+        // minimum division factor is 2 (prescaler + 1)
+        assert!(frequency <= LSE_HERTZ / 2);
+
+        let prescaler = LSE_HERTZ / frequency - 1;
+        self.perform_write( |s| {
+            s.regs.prlh.write(|w| unsafe { w.bits(prescaler >> 16) });
+            s.regs.prll.write(|w| unsafe { w.bits(prescaler as u16 as u32) });
+        });
+    }
+
+    /// Set the current rtc counter value to the specified amount
     pub fn set_seconds(&mut self, seconds: u32) {
         self.perform_write(|s| {
             s.regs.cnth.write(|w| unsafe{w.bits(seconds >> 16)});
@@ -111,7 +128,7 @@ impl Rtc {
         })
     }
 
-    /// Reads the current time
+    /// Reads the current counter
     pub fn seconds(&self) -> u32 {
         // Wait for the APB1 interface to be ready
         while self.regs.crl.read().rsf().bit() == false {}

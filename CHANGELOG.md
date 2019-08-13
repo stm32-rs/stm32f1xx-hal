@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - DMA traits now require AsSlice instead of AsRef
+- Add `micros_since` and `reset` methods to timer
+- Add `select_frequency` method to rtc
+
+### Changed
+
+- Starting the timer does not generate interrupt requests anymore
 
 ## [v0.4.0] - 2019-08-09
 
@@ -44,7 +50,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - Fix hclk miscalculation
-- Starting the timer does not generate interrupt requests anymore
 
 ## [v0.3.0] - 2019-04-27
 
