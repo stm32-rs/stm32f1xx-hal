@@ -20,6 +20,7 @@ use stm32f1xx_hal::{
     timer::{ Timer, Event },
     gpio::{ gpioc::PC13, State, Output, PushPull },
 };
+use embedded_hal::digital::v2::OutputPin;
 
 #[app(device = stm32f1xx_hal::pac)]
 const APP: () = {
@@ -77,10 +78,10 @@ const APP: () = {
 
         if *resources.LED_STATE {
             // Uses resourcers managed by rtfm to turn led off (on bluepill)
-            resources.LED.set_high();
+            resources.LED.set_high().unwrap();
             *resources.LED_STATE = false;
         } else {
-            resources.LED.set_low();
+            resources.LED.set_low().unwrap();
             *resources.LED_STATE = true;
         }
         *COUNT += 1;
