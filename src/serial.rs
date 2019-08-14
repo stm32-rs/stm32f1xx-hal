@@ -551,12 +551,12 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma where B: AsMut<[u8]> {
+            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma where B: as_slice::AsMutSlice<Element=u8> {
                 fn circ_read(mut self, buffer: &'static mut [B; 2],
                 ) -> CircBuffer<B, Self>
                 {
                     {
-                        let buffer = buffer[0].as_mut();
+                        let buffer = buffer[0].as_mut_slice();
                         self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
                         self.channel.set_memory_address(buffer.as_ptr() as u32, true);
                         self.channel.set_transfer_length(buffer.len() * 2);
@@ -579,12 +579,12 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<B> crate::dma::ReadDma<B, u8> for $rxdma where B: AsMut<[u8]> {
+            impl<B> crate::dma::ReadDma<B, u8> for $rxdma where B: as_slice::AsMutSlice<Element=u8> {
                 fn read(mut self, buffer: &'static mut B,
                 ) -> Transfer<W, &'static mut B, Self>
                 {
                     {
-                        let buffer = buffer.as_mut();
+                        let buffer = buffer.as_mut_slice();
                         self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
                         self.channel.set_memory_address(buffer.as_ptr() as u32, true);
                         self.channel.set_transfer_length(buffer.len());
@@ -604,12 +604,12 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<A, B> crate::dma::WriteDma<A, B, u8> for $txdma where A: AsRef<[u8]>, B: Static<A> {
+            impl<A, B> crate::dma::WriteDma<A, B, u8> for $txdma where A: as_slice::AsSlice<Element=u8>, B: Static<A> {
                 fn write(mut self, buffer: B
                 ) -> Transfer<R, B, Self>
                 {
                     {
-                        let buffer = buffer.borrow().as_ref();
+                        let buffer = buffer.borrow().as_slice();
 
                         self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
 

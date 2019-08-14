@@ -482,7 +482,7 @@ pub trait Transmit {
 
 pub trait CircReadDma<B, RS>: Receive
 where
-    B: AsMut<[RS]>,
+    B: as_slice::AsMutSlice<Element=RS>,
     Self: core::marker::Sized,
 {
     fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self>;
@@ -490,7 +490,7 @@ where
 
 pub trait ReadDma<B, RS>: Receive
 where
-    B: AsMut<[RS]>,
+    B: as_slice::AsMutSlice<Element=RS>,
     Self: core::marker::Sized,
 {
     fn read(
@@ -501,7 +501,7 @@ where
 
 pub trait WriteDma<A, B, TS>: Transmit
 where
-    A: AsRef<[TS]>,
+    A: as_slice::AsSlice<Element=TS>,
     B: Static<A>,
     Self: core::marker::Sized,
 {

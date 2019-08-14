@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Change timer/pwm init API
 
+### Changed
+
+- DMA traits now require AsSlice instead of AsRef
+
 ## [v0.4.0] - 2019-08-09
 
 ### Added

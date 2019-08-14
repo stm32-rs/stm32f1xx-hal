@@ -583,12 +583,12 @@ impl<PIN> AdcDma<PIN> where PIN: Channel<ADC1> {
 
 impl<B, PIN> crate::dma::CircReadDma<B, u16> for AdcDma<PIN>
 where
-    B: AsMut<[u16]>,
+    B: as_slice::AsMutSlice<Element=u16>,
     PIN: Channel<ADC1>,
 {
     fn circ_read(mut self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
         {
-            let buffer = buffer[0].as_mut();
+            let buffer = buffer[0].as_mut_slice();
             self.channel.set_peripheral_address(unsafe{ &(*ADC1::ptr()).dr as *const _ as u32 }, false);
             self.channel.set_memory_address(buffer.as_ptr() as u32, true);
             self.channel.set_transfer_length(buffer.len() * 2);
@@ -613,12 +613,12 @@ where
 
 impl<B, PIN> crate::dma::ReadDma<B, u16> for AdcDma<PIN>
 where
-    B: AsMut<[u16]>,
+    B: as_slice::AsMutSlice<Element=u16>,
     PIN: Channel<ADC1>,
 {
     fn read(mut self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self> {
         {
-            let buffer = buffer.as_mut();
+            let buffer = buffer.as_mut_slice();
             self.channel.set_peripheral_address(unsafe{ &(*ADC1::ptr()).dr as *const _ as u32 }, false);
             self.channel.set_memory_address(buffer.as_ptr() as u32, true);
             self.channel.set_transfer_length(buffer.len());
