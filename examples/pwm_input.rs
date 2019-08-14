@@ -10,6 +10,7 @@ use stm32f1xx_hal::{
     prelude::*,
     pac,
     pwm_input::*,
+    timer::Timer,
 };
 use cortex_m_rt::entry;
 
@@ -31,14 +32,13 @@ fn main() -> ! {
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
     let pb5 = gpiob.pb5;
 
-    let pwm_input = p.TIM3.pwm_input(
-        (pb4, pb5),
-        &mut rcc.apb1,
-        &mut afio.mapr,
-        &mut dbg,
-        &clocks,
-        Configuration::Frequency(10.khz()),
-    );
+    let mut pwm_input = Timer::tim3(p.TIM3, &clocks, &mut rcc.apb1)
+        .pwm_input(
+            (pb4, pb5),
+            &mut afio.mapr,
+            &mut dbg,
+            Configuration::Frequency(10.khz()),
+        );
 
     loop {
         let _freq = pwm_input

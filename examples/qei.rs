@@ -12,7 +12,7 @@ use stm32f1xx_hal::{
     prelude::*,
     pac,
     delay::Delay,
-    qei::Qei,
+    timer::Timer,
 };
 use cortex_m_rt::entry;
 
@@ -43,7 +43,8 @@ fn main() -> ! {
     let c1 = gpiob.pb6;
     let c2 = gpiob.pb7;
 
-    let qei = Qei::tim4(dp.TIM4, (c1, c2), &mut afio.mapr, &mut rcc.apb1);
+    let qei = Timer::tim4(dp.TIM4, &clocks, &mut rcc.apb1)
+        .qei((c1, c2), &mut afio.mapr);
     let mut delay = Delay::new(cp.SYST, clocks);
 
     loop {

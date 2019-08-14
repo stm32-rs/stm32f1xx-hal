@@ -1,7 +1,7 @@
 //! # Timer
 
 use crate::hal::timer::{CountDown, Periodic};
-use crate::pac::{TIM1, TIM2, TIM3, TIM4};
+use crate::pac::{DBGMCU as DBG, TIM1, TIM2, TIM3, TIM4};
 use cast::{u16, u32};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
@@ -17,26 +17,6 @@ use crate::rcc::APB2;
 
 use crate::time::Hertz;
 
-/// Associated clocks with timers
-pub trait PclkSrc {
-    fn get_clk(clocks: &Clocks) -> Hertz;
-}
-
-macro_rules! impl_pclk {
-    ($TIMX:ident, $pclkX:ident) => {
-        impl PclkSrc for $TIMX {
-            fn get_clk(clocks: &Clocks) -> Hertz {
-                clocks.$pclkX()
-            }
-        }
-    };
-}
-
-impl_pclk! {TIM1, pclk2_tim}
-impl_pclk! {TIM2, pclk1_tim}
-impl_pclk! {TIM3, pclk1_tim}
-impl_pclk! {TIM4, pclk1_tim}
-
 /// Interrupt events
 pub enum Event {
     /// Timer timed out / count down ended
@@ -44,21 +24,34 @@ pub enum Event {
 }
 
 pub struct Timer<TIM> {
-    tim: TIM,
-    clocks: Clocks,
+    pub(crate) tim: TIM,
+    pub(crate) clk: Hertz,
 }
 
+pub struct CountDownTimer<TIM> {
+    tim: TIM,
+    clk: Hertz,
+}
+
+
 impl Timer<SYST> {
-    pub fn syst<T>(mut syst: SYST, timeout: T, clocks: Clocks) -> Self
+    pub fn syst(mut syst: SYST, clocks: &Clocks) -> Self {
+        syst.set_clock_source(SystClkSource::Core);
+        Self { tim: syst, clk: clocks.sysclk() }
+    }
+
+    pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<SYST>
     where
         T: Into<Hertz>,
     {
-        syst.set_clock_source(SystClkSource::Core);
-        let mut timer = Timer { tim: syst, clocks };
+        let Self { tim, clk } = self;
+        let mut timer = CountDownTimer { tim, clk };
         timer.start(timeout);
         timer
     }
+}
 
+impl CountDownTimer<SYST> {
     /// Starts listening for an `event`
     pub fn listen(&mut self, event: Event) {
         match event {
@@ -85,14 +78,14 @@ impl Timer<SYST> {
     }
 }
 
-impl CountDown for Timer<SYST> {
+impl CountDown for CountDownTimer<SYST> {
     type Time = Hertz;
 
     fn start<T>(&mut self, timeout: T)
     where
         T: Into<Hertz>,
     {
-        let rvr = self.clocks.sysclk().0 / timeout.into().0 - 1;
+        let rvr = self.clk.0 / timeout.into().0 - 1;
 
         assert!(rvr < (1 << 24));
 
@@ -110,27 +103,53 @@ impl CountDown for Timer<SYST> {
     }
 }
 
-impl Periodic for Timer<SYST> {}
+impl Periodic for CountDownTimer<SYST> {}
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apbX:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $pclkX:ident, $timXen:ident, $timXrst:ident, $apbX:ident, $dbg_timX_stop:ident),)+) => {
         $(
             impl Timer<$TIMX> {
-                pub fn $timX<T>(tim: $TIMX, timeout: T, clocks: Clocks, apb1: &mut $apbX) -> Self
+                /// Initialize timer
+                pub fn $timX(tim: $TIMX, clocks: &Clocks, apb: &mut $apbX) -> Self {
+                    // enable and reset peripheral to a clean slate state
+                    apb.enr().modify(|_, w| w.$timXen().set_bit());
+                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+
+                    Self { tim, clk: clocks.$pclkX() }
+                }
+
+                /// Starts timer in count down mode at a given frequency
+                pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<$TIMX>
                 where
                     T: Into<Hertz>,
                 {
-                    // enable and reset peripheral to a clean slate state
-                    apb1.enr().modify(|_, w| w.$timXen().set_bit());
-                    apb1.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    apb1.rstr().modify(|_, w| w.$timXrst().clear_bit());
-
-                    let mut timer = Timer { clocks, tim };
+                    let Self { tim, clk } = self;
+                    let mut timer = CountDownTimer { tim, clk };
                     timer.start(timeout);
-
                     timer
                 }
 
+                /// Resets timer peripheral
+                #[inline(always)]
+                pub fn clocking_reset(&mut self, apb: &mut $apbX) {
+                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                }
+
+                /// Stopping timer in debug mode can cause troubles when sampling the signal
+                #[inline(always)]
+                pub fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
+                    dbg.cr.write(|w| w.$dbg_timX_stop().bit(state));
+                }
+
+                /// Releases the TIM Peripheral
+                pub fn release(self) -> $TIMX {
+                    self.tim
+                }
+            }
+
+            impl CountDownTimer<$TIMX> {
                 /// Starts listening for an `event`
                 pub fn listen(&mut self, event: Event) {
                     match event {
@@ -146,8 +165,11 @@ macro_rules! hal {
                 }
 
                 /// Stops the timer
-                pub fn stop(&mut self) {
+                pub fn stop(mut self) -> Timer<$TIMX> {
+                    self.unlisten(Event::Update);
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                    let Self { tim, clk } = self;
+                    Timer { tim, clk }
                 }
 
                 /// Clears Update Interrupt Flag
@@ -156,13 +178,12 @@ macro_rules! hal {
                 }
 
                 /// Releases the TIM Peripheral
-                pub fn release(mut self) -> $TIMX {
-                    self.stop();
-                    self.tim
+                pub fn release(self) -> $TIMX {
+                    self.stop().release()
                 }
             }
 
-            impl CountDown for Timer<$TIMX> {
+            impl CountDown for CountDownTimer<$TIMX> {
                 type Time = Hertz;
 
                 fn start<T>(&mut self, timeout: T)
@@ -170,10 +191,10 @@ macro_rules! hal {
                     T: Into<Hertz>,
                 {
                     // pause
-                    self.stop();
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
 
                     let frequency = timeout.into().0;
-                    let timer_clock = $TIMX::get_clk(&self.clocks);
+                    let timer_clock = self.clk;
                     let ticks = timer_clock.0 / frequency;
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
@@ -204,7 +225,7 @@ macro_rules! hal {
                 }
             }
 
-            impl Periodic for Timer<$TIMX> {}
+            impl Periodic for CountDownTimer<$TIMX> {}
         )+
     }
 }
@@ -214,11 +235,11 @@ macro_rules! hal {
     feature = "stm32f103",
 ))]
 hal! {
-    TIM1: (tim1, tim1en, tim1rst, APB2),
+    TIM1: (tim1, pclk2_tim, tim1en, tim1rst, APB2, dbg_tim1_stop),
 }
 
 hal! {
-    TIM2: (tim2, tim2en, tim2rst, APB1),
-    TIM3: (tim3, tim3en, tim3rst, APB1),
-    TIM4: (tim4, tim4en, tim4rst, APB1),
+    TIM2: (tim2, pclk1_tim, tim2en, tim2rst, APB1, dbg_tim2_stop),
+    TIM3: (tim3, pclk1_tim, tim3en, tim3rst, APB1, dbg_tim3_stop),
+    TIM4: (tim4, pclk1_tim, tim4en, tim4rst, APB1, dbg_tim4_stop),
 }

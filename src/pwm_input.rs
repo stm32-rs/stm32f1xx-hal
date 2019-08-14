@@ -10,9 +10,9 @@ use crate::afio::MAPR;
 use crate::gpio::gpioa::{PA0, PA1, PA15, PA6, PA7, PA8, PA9};
 use crate::gpio::gpiob::{PB3, PB4, PB5, PB6, PB7};
 use crate::gpio::{Floating, Input};
-use crate::rcc::{Clocks, APB1};
+use crate::rcc::Clocks;
 use crate::time::Hertz;
-use crate::timer::PclkSrc;
+use crate::timer::Timer;
 
 pub trait Pins<TIM> {
     const REMAP: u8;
@@ -93,78 +93,64 @@ where
     /// In this mode, the provided arr and presc are directly programmed in the register.
     RawValues { arr: u16, presc: u16 },
 }
-pub trait PwmInputExt: Sized {
-    fn pwm_input<PINS, T>(
-        self,
-        pins: PINS,
-        apb: &mut APB1,
-        mapr: &mut MAPR,
-        dbg: &mut DBG,
-        clocks: &Clocks,
-        mode: Configuration<T>,
-    ) -> PwmInput<Self, PINS>
-    where
-        PINS: Pins<Self>,
-        T: Into<Hertz>;
-}
 
-impl PwmInputExt for TIM2 {
-    fn pwm_input<PINS, T>(
-        self,
+impl Timer<TIM2> {
+    pub fn pwm_input<PINS, T>(
+        mut self,
         pins: PINS,
-        apb: &mut APB1,
         mapr: &mut MAPR,
         dbg: &mut DBG,
-        clocks: &Clocks,
         mode: Configuration<T>,
-    ) -> PwmInput<Self, PINS>
+    ) -> PwmInput<TIM2, PINS>
     where
-        PINS: Pins<Self>,
+        PINS: Pins<TIM2>,
         T: Into<Hertz>,
     {
         mapr.mapr()
             .modify(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
-        tim2(self, pins, clocks, apb, mode, dbg)
+        self.stop_in_debug(dbg, false);
+        let Self { tim, clk } = self;
+        tim2(tim, pins, clk, mode)
     }
 }
 
-impl PwmInputExt for TIM3 {
-    fn pwm_input<PINS, T>(
-        self,
+impl Timer<TIM3> {
+    pub fn pwm_input<PINS, T>(
+        mut self,
         pins: PINS,
-        apb: &mut APB1,
         mapr: &mut MAPR,
         dbg: &mut DBG,
-        clocks: &Clocks,
         mode: Configuration<T>,
-    ) -> PwmInput<Self, PINS>
+    ) -> PwmInput<TIM3, PINS>
     where
-        PINS: Pins<Self>,
+        PINS: Pins<TIM3>,
         T: Into<Hertz>,
     {
         mapr.mapr()
             .modify(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
-        tim3(self, pins, clocks, apb, mode, dbg)
+        self.stop_in_debug(dbg, false);
+        let Self { tim, clk } = self;
+        tim3(tim, pins, clk, mode)
     }
 }
 
-impl PwmInputExt for TIM4 {
-    fn pwm_input<PINS, T>(
-        self,
+impl Timer<TIM4> {
+    pub fn pwm_input<PINS, T>(
+        mut self,
         pins: PINS,
-        apb: &mut APB1,
         mapr: &mut MAPR,
         dbg: &mut DBG,
-        clocks: &Clocks,
         mode: Configuration<T>,
-    ) -> PwmInput<Self, PINS>
+    ) -> PwmInput<TIM4, PINS>
     where
-        PINS: Pins<Self>,
+        PINS: Pins<TIM4>,
         T: Into<Hertz>,
     {
         mapr.mapr()
             .modify(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
-        tim4(self, pins, clocks, apb, mode, dbg)
+        self.stop_in_debug(dbg, false);
+        let Self { tim, clk } = self;
+        tim4(tim, pins, clk, mode)
     }
 }
 
@@ -178,31 +164,19 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     (core::cmp::max(1, arr as u16), presc as u16)
 }
 macro_rules! hal {
-   ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $dbg_timX_stop:ident ),)+) => {
+   ($($TIMX:ident: ($timX:ident, $pclkX:ident ),)+) => {
       $(
          fn $timX<PINS,T>(
             tim: $TIMX,
             _pins: PINS,
-            clocks: &Clocks,
-            apb: &mut APB1,
+            clk: Hertz,
             mode : Configuration<T>,
-            dbg : &mut DBG
             ) -> PwmInput<$TIMX,PINS>
          where
          PINS: Pins<$TIMX>,
          T : Into<Hertz>
          {
             use crate::pwm_input::Configuration::*;
-            apb.enr().modify(|_, w| w.$timXen().set_bit());
-            apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-            apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
-
-            // Do not stop the timer in debug mode, because it cause troubles when sampling the
-            // signal.
-            // Removing this line will break your code if you have breakpoints
-            dbg.cr.write(|w| w.$dbg_timX_stop().clear_bit());
-
-
             // Disable capture on both channels during setting
             // (for Channel X bit is CCXE)
             tim.ccer.modify(|_,w| w.cc1e().clear_bit().cc2e().clear_bit()
@@ -228,7 +202,7 @@ macro_rules! hal {
                Frequency(f)  => {
                   let freq = f.into().0;
                   let max_freq = if freq > 5 {freq/5} else {1};
-                  let (arr,presc) = compute_arr_presc(max_freq, $TIMX::get_clk(&clocks).0);
+                  let (arr,presc) = compute_arr_presc(max_freq, clk.0);
                   tim.arr.write(|w| w.arr().bits(arr));
                   tim.psc.write(|w| w.psc().bits(presc) );
 
@@ -236,13 +210,13 @@ macro_rules! hal {
                DutyCycle(f) => {
                   let freq = f.into().0;
                   let max_freq = if freq > 2 {freq/2 + freq/4 + freq/8} else {1};
-                  let (arr,presc) = compute_arr_presc(max_freq, $TIMX::get_clk(&clocks).0);
+                  let (arr,presc) = compute_arr_presc(max_freq, clk.0);
                   tim.arr.write(|w| w.arr().bits(arr));
                   tim.psc.write(|w| w.psc().bits(presc) );
                },
                RawFrequency(f) => {
                   let freq = f.into().0;
-                  let (arr,presc) = compute_arr_presc(freq, $TIMX::get_clk(&clocks).0);
+                  let (arr,presc) = compute_arr_presc(freq, clk.0);
                   tim.arr.write(|w| w.arr().bits(arr));
                   tim.psc.write(|w| w.psc().bits(presc) );
                }
@@ -292,7 +266,7 @@ macro_rules! hal {
                Err(Error::FrequencyTooLow)
             }
             else {
-               let clk : u32 = $TIMX::get_clk(&clocks).0;
+               let clk : u32 = clocks.$pclkX().0;
                Ok(Hertz(clk/((presc+1) as u32*(ccr1 + 1)as u32)))
             }
          }
@@ -329,7 +303,7 @@ macro_rules! hal {
 }
 
 hal! {
-   TIM2: (tim2, tim2en, tim2rst, dbg_tim2_stop),
-   TIM3: (tim3, tim3en, tim3rst, dbg_tim3_stop),
-   TIM4: (tim4, tim4en, tim4rst, dbg_tim4_stop),
+   TIM2: (tim2, pclk1_tim),
+   TIM3: (tim3, pclk1_tim),
+   TIM4: (tim4, pclk1_tim),
 }

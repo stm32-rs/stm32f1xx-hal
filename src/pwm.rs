@@ -28,13 +28,8 @@
 
     // Put the timer in PWM mode using the specified pins
     // with a frequency of 100 hz.
-    let (c0, c1, c2, c3) = device.TIM2.pwm(
-        pins,
-        &mut afio.mapr,
-        100.hz(),
-        clocks,
-        &mut rcc.apb1
-    );
+    let (c0, c1, c2, c3) = Timer::tim2(device.TIM2, &clocks, &mut rcc.apb1)
+        .pwm(pins, &mut afio.mapr, 100.hz());
 
     // Set the duty cycle of channel 0 to 50%
     c0.set_duty(c0.get_max_duty() / 2);
@@ -146,9 +141,8 @@ use crate::bb;
 use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7};
 use crate::gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
 use crate::gpio::{Alternate, PushPull};
-use crate::rcc::{Clocks, APB1};
 use crate::time::Hertz;
-use crate::timer::PclkSrc;
+use crate::timer::Timer;
 
 pub trait Pins<TIM> {
     const REMAP: u8;
@@ -207,77 +201,60 @@ impl Pins<TIM4>
     type Channels = (Pwm<TIM4, C1>, Pwm<TIM4, C2>, Pwm<TIM4, C3>, Pwm<TIM4, C4>);
 }
 
-pub trait PwmExt: Sized {
-    fn pwm<PINS, T>(
-        self,
-        _: PINS,
-        mapr: &mut MAPR,
-        frequency: T,
-        clocks: Clocks,
-        apb: &mut APB1,
-    ) -> PINS::Channels
-    where
-        PINS: Pins<Self>,
-        T: Into<Hertz>;
-}
-
-impl PwmExt for TIM2 {
-    fn pwm<PINS, T>(
+impl Timer<TIM2> {
+    pub fn pwm<PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-        clocks: Clocks,
-        apb: &mut APB1,
     ) -> PINS::Channels
     where
-        PINS: Pins<Self>,
+        PINS: Pins<TIM2>,
         T: Into<Hertz>,
     {
         mapr.mapr()
             .modify(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
 
-        tim2(self, _pins, freq.into(), clocks, apb)
+        let Self { tim, clk } = self;
+        tim2(tim, _pins, freq.into(), clk)
     }
 }
 
-impl PwmExt for TIM3 {
-    fn pwm<PINS, T>(
+impl Timer<TIM3> {
+    pub fn pwm<PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-        clocks: Clocks,
-        apb: &mut APB1,
     ) -> PINS::Channels
     where
-        PINS: Pins<Self>,
+        PINS: Pins<TIM3>,
         T: Into<Hertz>,
     {
         mapr.mapr()
             .modify(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
 
-        tim3(self, _pins, freq.into(), clocks, apb)
+        let Self { tim, clk } = self;
+        tim3(tim, _pins, freq.into(), clk)
     }
 }
 
-impl PwmExt for TIM4 {
-    fn pwm<PINS, T>(
+impl Timer<TIM4> {
+    pub fn pwm<PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-        clocks: Clocks,
-        apb: &mut APB1,
     ) -> PINS::Channels
     where
-        PINS: Pins<Self>,
+        PINS: Pins<TIM4>,
         T: Into<Hertz>,
     {
         mapr.mapr()
             .modify(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
 
-        tim4(self, _pins, freq.into(), clocks, apb)
+        let Self { tim, clk } = self;
+        tim4(tim, _pins, freq.into(), clk)
     }
 }
 
@@ -292,22 +269,17 @@ pub struct C3;
 pub struct C4;
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident),)+) => {
         $(
             fn $timX<PINS>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
-                clocks: Clocks,
-                apb: &mut APB1,
+                clk: Hertz,
             ) -> PINS::Channels
             where
                 PINS: Pins<$TIMX>,
             {
-                apb.enr().modify(|_, w| w.$timXen().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
-
                 if PINS::C1 {
                     tim.ccmr1_output()
                         .modify(|_, w| w.oc1pe().set_bit().oc1m().pwm_mode1() );
@@ -327,9 +299,7 @@ macro_rules! hal {
                     tim.ccmr2_output()
                         .modify(|_, w| w.oc4pe().set_bit().oc4m().pwm_mode1() );
                 }
-                let clk = $TIMX::get_clk(&clocks).0;
-                let freq = freq.0;
-                let ticks = clk / freq;
+                let ticks = clk.0 / freq.0;
                 let psc = u16(ticks / (1 << 16)).unwrap();
                 tim.psc.write(|w| w.psc().bits(psc) );
                 let arr = u16(ticks / u32(psc + 1)).unwrap();
@@ -449,7 +419,7 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM2: (tim2, tim2en, tim2rst),
-    TIM3: (tim3, tim3en, tim3rst),
-    TIM4: (tim4, tim4en, tim4rst),
+    TIM2: (tim2),
+    TIM3: (tim3),
+    TIM4: (tim4),
 }
