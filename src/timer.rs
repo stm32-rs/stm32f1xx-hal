@@ -27,7 +27,6 @@ pub struct CountDownTimer<TIM> {
     clk: Hertz,
 }
 
-
 impl Timer<SYST> {
     pub fn syst(mut syst: SYST, clocks: &Clocks) -> Self {
         syst.set_clock_source(SystClkSource::Core);
@@ -125,7 +124,7 @@ impl CountDown for CountDownTimer<SYST> {
 impl Periodic for CountDownTimer<SYST> {}
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $pclkX:ident, $dbg_timX_stop:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $timbase:ident, $pclkX:ident, $dbg_timX_stop:ident),)+) => {
         $(
             impl Timer<$TIMX> {
                 /// Initialize timer
@@ -144,6 +143,17 @@ macro_rules! hal {
                 {
                     let Self { tim, clk } = self;
                     let mut timer = CountDownTimer { tim, clk };
+                    timer.start(timeout);
+                    timer
+                }
+
+                pub fn start_master<T>(self, timeout: T, mode: crate::pac::$timbase::cr2::MMS_A) -> CountDownTimer<$TIMX>
+                where
+                    T: Into<Hertz>,
+                {
+                    let Self { tim, clk } = self;
+                    let mut timer = CountDownTimer { tim, clk };
+                    timer.tim.cr2.modify(|_,w| w.mms().variant(mode));
                     timer.start(timeout);
                     timer
                 }
@@ -236,15 +246,8 @@ macro_rules! hal {
                     // pause
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
 
-                    let frequency = timeout.into().0;
-                    let timer_clock = self.clk;
-                    let ticks = timer_clock.0 / frequency;
-                    let psc = u16((ticks - 1) / (1 << 16)).unwrap();
-
+                    let (psc, arr) = compute_arr_presc(timeout.into().0, self.clk.0);
                     self.tim.psc.write(|w| w.psc().bits(psc) );
-
-                    let arr = u16(ticks / u32(psc + 1)).unwrap();
-
                     self.tim.arr.write(|w| w.arr().bits(arr) );
 
                     // Trigger an update event to load the prescaler value to the clock
@@ -269,16 +272,24 @@ macro_rules! hal {
     }
 }
 
+#[inline(always)]
+fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
+    let ticks = clock / freq;
+    let psc = u16((ticks - 1) / (1 << 16)).unwrap();
+    let arr = u16(ticks / u32(psc + 1)).unwrap();
+    (psc, arr)
+}
+
 #[cfg(any(
     feature = "stm32f100",
     feature = "stm32f103",
 ))]
 hal! {
-    TIM1: (tim1, pclk2_tim, dbg_tim1_stop),
+    TIM1: (tim1, tim1, pclk2_tim, dbg_tim1_stop),
 }
 
 hal! {
-    TIM2: (tim2, pclk1_tim, dbg_tim2_stop),
-    TIM3: (tim3, pclk1_tim, dbg_tim3_stop),
-    TIM4: (tim4, pclk1_tim, dbg_tim4_stop),
+    TIM2: (tim2, tim2, pclk1_tim, dbg_tim2_stop),
+    TIM3: (tim3, tim2, pclk1_tim, dbg_tim3_stop),
+    TIM4: (tim4, tim2, pclk1_tim, dbg_tim4_stop),
 }
