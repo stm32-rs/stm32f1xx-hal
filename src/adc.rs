@@ -4,7 +4,7 @@ use embedded_hal::adc::{Channel, OneShot};
 
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
-use crate::rcc::{APB2, Clocks};
+use crate::rcc::{APB2, Clocks, Enable, Reset};
 use crate::dma::{Receive, TransferPayload, dma1::C1, CircBuffer, Transfer, W, RxDma};
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
@@ -162,11 +162,7 @@ pub struct StoredConfig(AdcSampleTime, AdcAlign);
 
 macro_rules! adc_hal {
     ($(
-        $ADC:ident: (
-            $init:ident,
-            $adcxen:ident,
-            $adcxrst:ident
-        ),
+        $ADC:ident: ($init:ident),
     )+) => {
         $(
 
@@ -258,16 +254,15 @@ macro_rules! adc_hal {
                 }
 
                 fn reset(&mut self, apb2: &mut APB2) {
-                    apb2.rstr().modify(|_, w| w.$adcxrst().set_bit());
-                    apb2.rstr().modify(|_, w| w.$adcxrst().clear_bit());
+                    $ADC::reset(apb2);
                 }
 
                 fn enable_clock(&mut self, apb2: &mut APB2) {
-                    apb2.enr().modify(|_, w| w.$adcxen().set_bit());
+                    $ADC::enable(apb2);
                 }
 
                 fn disable_clock(&mut self, apb2: &mut APB2) {
-                    apb2.enr().modify(|_, w| w.$adcxen().clear_bit());
+                    $ADC::disable(apb2);
                 }
 
                 fn calibrate(&mut self) {
@@ -500,27 +495,15 @@ impl Adc<ADC1> {
     feature = "stm32f101",
 ))]
 adc_hal! {
-    ADC1: (
-        adc1,
-        adc1en,
-        adc1rst
-    ),
+    ADC1: (adc1),
 }
 
 #[cfg(any(
     feature = "stm32f103",
 ))]
 adc_hal! {
-    ADC1: (
-        adc1,
-        adc1en,
-        adc1rst
-    ),
-    ADC2: (
-        adc2,
-        adc2en,
-        adc2rst
-    ),
+    ADC1: (adc1),
+    ADC2: (adc2),
 }
 
 pub struct AdcPayload<PIN: Channel<ADC1>> {

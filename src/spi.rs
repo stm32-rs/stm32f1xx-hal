@@ -10,7 +10,7 @@ use crate::afio::MAPR;
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{Clocks, APB1, APB2};
+use crate::rcc::{RccBus, Clocks, Enable, Reset};
 use crate::time::Hertz;
 
 /// SPI error
@@ -73,7 +73,7 @@ impl<PINS> Spi<SPI1, PINS> {
         mode: Mode,
         freq: F,
         clocks: Clocks,
-        apb: &mut APB2,
+        apb: &mut <SPI1 as RccBus>::Bus,
     ) -> Self
     where
         F: Into<Hertz>,
@@ -91,7 +91,7 @@ impl<PINS> Spi<SPI2, PINS> {
         mode: Mode,
         freq: F,
         clocks: Clocks,
-        apb: &mut APB1,
+        apb: &mut <SPI2 as RccBus>::Bus,
     ) -> Self
     where
         F: Into<Hertz>,
@@ -102,7 +102,7 @@ impl<PINS> Spi<SPI2, PINS> {
 }
 
 macro_rules! hal {
-    ($($SPIX:ident: ($spiX:ident, $spiXen:ident, $spiXrst:ident, $APB:ident),)+) => {
+    ($($SPIX:ident: ($spiX:ident),)+) => {
         $(
             impl<PINS> Spi<$SPIX, PINS> {
                 fn $spiX(
@@ -111,12 +111,11 @@ macro_rules! hal {
                     mode: Mode,
                     freq: Hertz,
                     clocks: Clocks,
-                    apb: &mut $APB,
+                    apb: &mut <$SPIX as RccBus>::Bus,
                 ) -> Self {
                     // enable or reset $SPIX
-                    apb.enr().modify(|_, w| w.$spiXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$spiXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$spiXrst().clear_bit());
+                    $SPIX::enable(apb);
+                    $SPIX::reset(apb);
 
                     // disable SS output
                     spi.cr2.write(|w| w.ssoe().clear_bit());
@@ -224,6 +223,6 @@ macro_rules! hal {
 }
 
 hal! {
-    SPI1: (_spi1, spi1en, spi1rst, APB2),
-    SPI2: (_spi2, spi2en, spi2rst, APB1),
+    SPI1: (_spi1),
+    SPI2: (_spi2),
 }

@@ -72,7 +72,7 @@ pub enum State {
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $iopxenr:ident, $iopxrst:ident, $PXx:ident, [
+    ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $PXx:ident, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $CR:ident),)+
     ]) => {
         /// GPIO
@@ -83,7 +83,7 @@ macro_rules! gpio {
             use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, toggleable};
             use crate::pac::{$gpioy, $GPIOX};
 
-            use crate::rcc::APB2;
+            use crate::rcc::{APB2, Enable, Reset};
             use super::{
                 Alternate, Floating, GpioExt, Input,
                 OpenDrain,
@@ -112,10 +112,9 @@ macro_rules! gpio {
             impl GpioExt for $GPIOX {
                 type Parts = Parts;
 
-                fn split(self, apb2: &mut APB2) -> Parts {
-                    apb2.enr().modify(|_, w| w.$iopxenr().set_bit());
-                    apb2.rstr().modify(|_, w| w.$iopxrst().set_bit());
-                    apb2.rstr().modify(|_, w| w.$iopxrst().clear_bit());
+                fn split(self, apb: &mut APB2) -> Parts {
+                    $GPIOX::enable(apb);
+                    $GPIOX::reset(apb);
 
                     Parts {
                         crl: CRL { _0: () },
@@ -532,7 +531,7 @@ macro_rules! gpio {
     }
 }
 
-gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
+gpio!(GPIOA, gpioa, gpioa, PAx, [
     PA0: (pa0, 0, Input<Floating>, CRL),
     PA1: (pa1, 1, Input<Floating>, CRL),
     PA2: (pa2, 2, Input<Floating>, CRL),
@@ -551,7 +550,7 @@ gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
     PA15: (pa15, 15, Debugger, CRH),
 ]);
 
-gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
+gpio!(GPIOB, gpiob, gpioa, PBx, [
     PB0: (pb0, 0, Input<Floating>, CRL),
     PB1: (pb1, 1, Input<Floating>, CRL),
     PB2: (pb2, 2, Input<Floating>, CRL),
@@ -570,7 +569,7 @@ gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
     PB15: (pb15, 15, Input<Floating>, CRH),
 ]);
 
-gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
+gpio!(GPIOC, gpioc, gpioa, PCx, [
     PC0: (pc0, 0, Input<Floating>, CRL),
     PC1: (pc1, 1, Input<Floating>, CRL),
     PC2: (pc2, 2, Input<Floating>, CRL),
@@ -589,7 +588,7 @@ gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
     PC15: (pc15, 15, Input<Floating>, CRH),
 ]);
 
-gpio!(GPIOD, gpiod, gpioa, iopden, iopdrst, PDx, [
+gpio!(GPIOD, gpiod, gpioa, PDx, [
     PD0: (pd0, 0, Input<Floating>, CRL),
     PD1: (pd1, 1, Input<Floating>, CRL),
     PD2: (pd2, 2, Input<Floating>, CRL),
@@ -608,7 +607,7 @@ gpio!(GPIOD, gpiod, gpioa, iopden, iopdrst, PDx, [
     PD15: (pd15, 15, Input<Floating>, CRH),
 ]);
 
-gpio!(GPIOE, gpioe, gpioa, iopeen, ioperst, PEx, [
+gpio!(GPIOE, gpioe, gpioa, PEx, [
     PE0: (pe0, 0, Input<Floating>, CRL),
     PE1: (pe1, 1, Input<Floating>, CRL),
     PE2: (pe2, 2, Input<Floating>, CRL),

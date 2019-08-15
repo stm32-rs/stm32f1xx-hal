@@ -1,7 +1,7 @@
 //! # Alternate Function I/Os
 use crate::pac::{afio, AFIO};
 
-use crate::rcc::APB2;
+use crate::rcc::{APB2, Enable, Reset};
 
 use crate::gpio::{
     Debugger,
@@ -17,9 +17,8 @@ pub trait AfioExt {
 
 impl AfioExt for AFIO {
     fn constrain(self, apb2: &mut APB2) -> Parts {
-        apb2.enr().modify(|_, w| w.afioen().set_bit());
-        apb2.rstr().modify(|_, w| w.afiorst().set_bit());
-        apb2.rstr().modify(|_, w| w.afiorst().clear_bit());
+        AFIO::enable(apb2);
+        AFIO::reset(apb2);
 
         Parts {
             evcr: EVCR { _0: () },

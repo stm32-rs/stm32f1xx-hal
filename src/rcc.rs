@@ -466,3 +466,115 @@ impl Clocks {
     }
 }
 
+/// Bus associated to peripheral
+pub trait RccBus {
+    /// Bus type;
+    type Bus;
+}
+
+/// Enable/disable peripheral
+pub(crate) trait Enable: RccBus {
+    fn enable(apb: &mut Self::Bus);
+    fn disable(apb: &mut Self::Bus);
+}
+
+/// Reset peripheral
+pub(crate) trait Reset: RccBus {
+    fn reset(apb: &mut Self::Bus);
+}
+
+macro_rules! bus {
+    ($($PER:ident => ($apbX:ty, $peren:ident, $perrst:ident),)+) => {
+        $(
+            impl RccBus for crate::pac::$PER {
+                type Bus = $apbX;
+            }
+            impl Enable for crate::pac::$PER {
+                #[inline(always)]
+                fn enable(apb: &mut Self::Bus) {
+                    apb.enr().modify(|_, w| w.$peren().set_bit());
+                }
+                #[inline(always)]
+                fn disable(apb: &mut Self::Bus) {
+                    apb.enr().modify(|_, w| w.$peren().clear_bit());
+                }
+            }
+            impl Reset for crate::pac::$PER {
+                #[inline(always)]
+                fn reset(apb: &mut Self::Bus) {
+                    apb.rstr().modify(|_, w| w.$perrst().set_bit());
+                    apb.rstr().modify(|_, w| w.$perrst().clear_bit());
+                }
+            }
+        )+
+    }
+}
+
+macro_rules! ahb_bus {
+    ($($PER:ident => ($peren:ident),)+) => {
+        $(
+            impl RccBus for crate::pac::$PER {
+                type Bus = AHB;
+            }
+            impl Enable for crate::pac::$PER {
+                #[inline(always)]
+                fn enable(apb: &mut Self::Bus) {
+                    apb.enr().modify(|_, w| w.$peren().set_bit());
+                }
+                #[inline(always)]
+                fn disable(apb: &mut Self::Bus) {
+                    apb.enr().modify(|_, w| w.$peren().clear_bit());
+                }
+            }
+        )+
+    }
+}
+
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+))]
+bus! {
+    TIM1 => (APB2, tim1en, tim1rst),
+}
+#[cfg(feature = "stm32f103")]
+bus! {
+    ADC2 => (APB2, adc2en, adc2rst),
+    CAN1 => (APB1, canen, canrst),
+}
+bus! {
+    ADC1 => (APB2, adc1en, adc1rst),
+    AFIO => (APB2, afioen, afiorst),
+    GPIOA => (APB2, iopaen, ioparst),
+    GPIOB => (APB2, iopben, iopbrst),
+    GPIOC => (APB2, iopcen, iopcrst),
+    GPIOD => (APB2, iopden, iopdrst),
+    GPIOE => (APB2, iopeen, ioperst),
+    I2C1 => (APB1, i2c1en, i2c1rst),
+    I2C2 => (APB1, i2c2en, i2c2rst),
+    SPI1 => (APB2, spi1en, spi1rst),
+    SPI2 => (APB1, spi2en, spi2rst),
+    TIM2 => (APB1, tim2en, tim2rst),
+    TIM3 => (APB1, tim3en, tim3rst),
+    TIM4 => (APB1, tim4en, tim4rst),
+    USART1 => (APB2, usart1en, usart1rst),
+    USART2 => (APB1, usart2en, usart2rst),
+    USART3 => (APB1, usart3en, usart3rst),
+    WWDG => (APB1, wwdgen, wwdgrst),
+}
+#[cfg(feature = "high")]
+bus! {
+    TIM6 => (APB1, tim6en, tim6rst),
+    TIM7 => (APB1, tim7en, tim7rst),
+}
+
+ahb_bus! {
+    CRC => (crcen),
+    DMA1 => (dma1en),
+    DMA2 => (dma2en),
+}
+
+#[cfg(feature = "high")]
+ahb_bus! {
+    FSMC => (fsmcen),
+}

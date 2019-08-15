@@ -7,13 +7,7 @@ use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use nb;
 use void::Void;
-
-use crate::rcc::{Clocks, APB1};
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-))]
-use crate::rcc::APB2;
+use crate::rcc::{RccBus, Clocks, Enable, Reset};
 
 use crate::time::Hertz;
 
@@ -106,15 +100,14 @@ impl CountDown for CountDownTimer<SYST> {
 impl Periodic for CountDownTimer<SYST> {}
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $pclkX:ident, $timXen:ident, $timXrst:ident, $apbX:ident, $dbg_timX_stop:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $pclkX:ident, $dbg_timX_stop:ident),)+) => {
         $(
             impl Timer<$TIMX> {
                 /// Initialize timer
-                pub fn $timX(tim: $TIMX, clocks: &Clocks, apb: &mut $apbX) -> Self {
+                pub fn $timX(tim: $TIMX, clocks: &Clocks, apb: &mut <$TIMX as RccBus>::Bus) -> Self {
                     // enable and reset peripheral to a clean slate state
-                    apb.enr().modify(|_, w| w.$timXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    $TIMX::enable(apb);
+                    $TIMX::reset(apb);
 
                     Self { tim, clk: clocks.$pclkX() }
                 }
@@ -132,9 +125,8 @@ macro_rules! hal {
 
                 /// Resets timer peripheral
                 #[inline(always)]
-                pub fn clocking_reset(&mut self, apb: &mut $apbX) {
-                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                pub fn clocking_reset(&mut self, apb: &mut <$TIMX as RccBus>::Bus) {
+                    $TIMX::reset(apb);
                 }
 
                 /// Stopping timer in debug mode can cause troubles when sampling the signal
@@ -235,11 +227,11 @@ macro_rules! hal {
     feature = "stm32f103",
 ))]
 hal! {
-    TIM1: (tim1, pclk2_tim, tim1en, tim1rst, APB2, dbg_tim1_stop),
+    TIM1: (tim1, pclk2_tim, dbg_tim1_stop),
 }
 
 hal! {
-    TIM2: (tim2, pclk1_tim, tim2en, tim2rst, APB1, dbg_tim2_stop),
-    TIM3: (tim3, pclk1_tim, tim3en, tim3rst, APB1, dbg_tim3_stop),
-    TIM4: (tim4, pclk1_tim, tim4en, tim4rst, APB1, dbg_tim4_stop),
+    TIM2: (tim2, pclk1_tim, dbg_tim2_stop),
+    TIM3: (tim3, pclk1_tim, dbg_tim3_stop),
+    TIM4: (tim4, pclk1_tim, dbg_tim4_stop),
 }
