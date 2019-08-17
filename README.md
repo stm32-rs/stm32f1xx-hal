@@ -110,14 +110,15 @@ fn main() -> ! {
     // in order to configure the port. For pins 0-7, crl should be passed instead.
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
     // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, 1.hz(), clocks);
+    let mut timer = Timer::syst(cp.SYST, clocks)
+        .start_count_down(1.hz());
 
     // Wait for the timer to trigger an update and change the state of the LED
     loop {
         block!(timer.wait()).unwrap();
-        led.set_high();
+        led.set_high().unwrap();
         block!(timer.wait()).unwrap();
-        led.set_low();
+        led.set_low().unwrap();
     }
 }
 ```

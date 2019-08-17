@@ -42,7 +42,7 @@ use core::sync::atomic::{self, Ordering};
 
 use nb;
 use crate::pac::{USART1, USART2, USART3};
-use void::Void;
+use core::convert::Infallible;
 use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
@@ -388,7 +388,7 @@ macro_rules! hal {
             }
 
             impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
-                type Error = Void;
+                type Error = Infallible;
 
                 fn flush(&mut self) -> nb::Result<(), Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects
