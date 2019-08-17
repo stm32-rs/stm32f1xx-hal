@@ -111,7 +111,7 @@ pub struct R;
 pub struct W;
 
 macro_rules! dma {
-    ($($DMAX:ident: ($dmaX:ident, $dmaXen:ident, $dmaXrst:ident, {
+    ($($DMAX:ident: ($dmaX:ident, {
         $($CX:ident: (
             $chX:ident,
             $htifX:ident,
@@ -129,7 +129,7 @@ macro_rules! dma {
                 use crate::pac::{$DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
-                use crate::rcc::AHB;
+                use crate::rcc::{AHB, Enable};
 
                 pub struct Channels((), $(pub $CX),+);
 
@@ -368,7 +368,7 @@ macro_rules! dma {
                     type Channels = Channels;
 
                     fn split(self, ahb: &mut AHB) -> Channels {
-                        ahb.enr().modify(|_, w| w.$dmaXen().set_bit());
+                        $DMAX::enable(ahb);
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(
@@ -384,7 +384,7 @@ macro_rules! dma {
 }
 
 dma! {
-    DMA1: (dma1, dma1en, dma1rst, {
+    DMA1: (dma1, {
         C1: (
             ch1,
             htif1, tcif1,
@@ -422,7 +422,7 @@ dma! {
         ),
     }),
 
-    DMA2: (dma2, dma2en, dma2rst, {
+    DMA2: (dma2, {
         C1: (
             ch1,
             htif1, tcif1,

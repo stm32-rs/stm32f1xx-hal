@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- RCC `Bus` trait + private `Enable` and `Reset` traits
+
 ### Breaking changes
 
 - Change timer/pwm init API

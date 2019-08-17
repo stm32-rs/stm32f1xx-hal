@@ -6,7 +6,7 @@ use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
-use crate::rcc::{Clocks, APB1};
+use crate::rcc::{Clocks, APB1, Enable, Reset};
 use crate::pac::{DWT, I2C1, I2C2};
 
 /// I2C error
@@ -235,7 +235,7 @@ macro_rules! busy_wait_cycles {
 }
 
 macro_rules! hal {
-    ($($I2CX:ident: ($i2cX:ident, $i2cXen:ident, $i2cXrst:ident),)+) => {
+    ($($I2CX:ident: ($i2cX:ident),)+) => {
         $(
             impl<PINS> I2c<$I2CX, PINS> {
                 /// Configures the I2C peripheral to work in master mode
@@ -246,9 +246,8 @@ macro_rules! hal {
                     clocks: Clocks,
                     apb: &mut APB1,
                 ) -> Self {
-                    apb.enr().modify(|_, w| w.$i2cXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$i2cXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$i2cXrst().clear_bit());
+                    $I2CX::enable(apb);
+                    $I2CX::reset(apb);
 
                     let pclk1 = clocks.pclk1().0;
 
@@ -476,6 +475,6 @@ macro_rules! hal {
 }
 
 hal! {
-    I2C1: (_i2c1, i2c1en, i2c1rst),
-    I2C2: (_i2c2, i2c2en, i2c2rst),
+    I2C1: (_i2c1),
+    I2C2: (_i2c2),
 }

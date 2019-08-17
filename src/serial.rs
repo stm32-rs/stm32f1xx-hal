@@ -49,7 +49,7 @@ use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W, RxDma, TxDma};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{Clocks, APB1, APB2};
+use crate::rcc::{RccBus, Clocks, Enable, Reset};
 use crate::time::{U32Ext, Bps};
 
 /// Interrupt event
@@ -189,13 +189,10 @@ macro_rules! hal {
         $(#[$meta:meta])*
         $USARTX:ident: (
             $usartX:ident,
-            $usartXen:ident,
-            $usartXrst:ident,
             $usartX_remap:ident,
             $pclk:ident,
             $bit:ident,
             $closure:expr,
-            $APB:ident
         ),
     )+) => {
         $(
@@ -225,15 +222,14 @@ macro_rules! hal {
                     mapr: &mut MAPR,
                     config: Config,
                     clocks: Clocks,
-                    apb: &mut $APB,
+                    apb: &mut <$USARTX as RccBus>::Bus,
                 ) -> Self
                 where
                     PINS: Pins<$USARTX>,
                 {
                     // enable and reset $USARTX
-                    apb.enr().modify(|_, w| w.$usartXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
+                    $USARTX::enable(apb);
+                    $USARTX::reset(apb);
 
                     #[allow(unused_unsafe)]
                     mapr.mapr()
@@ -429,35 +425,26 @@ hal! {
     /// # USART1 functions
     USART1: (
         usart1,
-        usart1en,
-        usart1rst,
         usart1_remap,
         pclk2,
         bit,
         |remap| remap == 1,
-        APB2
     ),
     /// # USART2 functions
     USART2: (
         usart2,
-        usart2en,
-        usart2rst,
         usart2_remap,
         pclk1,
         bit,
         |remap| remap == 1,
-        APB1
     ),
     /// # USART3 functions
     USART3: (
         usart3,
-        usart3en,
-        usart3rst,
         usart3_remap,
         pclk1,
         bits,
         |remap| remap,
-        APB1
     ),
 }
 
