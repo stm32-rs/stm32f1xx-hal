@@ -22,7 +22,7 @@
 //!     p.USART1,
 //!     (pin_tx, pin_rx),
 //!     &mut afio.mapr,
-//!     9_600.bps(),
+//!     Config::default().baudrate(9_600.bps()),
 //!     clocks,
 //!     &mut rcc.apb2,
 //! );
