@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Breaking changes
 
 - Change timer/pwm init API
+- Remove `set_low` and `set_high` for pins in Alternate output mode
 
 ### Changed
 

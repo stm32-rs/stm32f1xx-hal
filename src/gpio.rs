@@ -479,30 +479,6 @@ macro_rules! gpio {
 
                 impl<MODE> toggleable::Default for $PXi<Output<MODE>> {}
 
-                impl<MODE> OutputPin for $PXi<Alternate<MODE>> {
-                    type Error = Void;
-                    fn set_high(&mut self) -> Result<(), Self::Error> {
-                        // NOTE(unsafe) atomic write to a stateless register
-                        Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i)) })
-                    }
-
-                    fn set_low(&mut self) -> Result<(), Self::Error> {
-                        // NOTE(unsafe) atomic write to a stateless register
-                        Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + $i))) })
-                    }
-                }
-
-                impl<MODE> StatefulOutputPin for $PXi<Alternate<MODE>> {
-                    fn is_set_high(&self) -> Result<bool, Self::Error> {
-                        self.is_set_low().map(|b| !b)
-                    }
-
-                    fn is_set_low(&self) -> Result<bool, Self::Error> {
-                        // NOTE(unsafe) atomic read with no side effects
-                        Ok(unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << $i) == 0 })
-                    }
-                }
-
                 impl<MODE> InputPin for $PXi<Input<MODE>> {
                     type Error = Void;
                     fn is_high(&self) -> Result<bool, Self::Error> {
