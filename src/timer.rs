@@ -72,7 +72,7 @@ impl CountDownTimer<SYST> {
     /// it is very easy to lose an update event.
     pub fn micros_since(&self) -> u32 {
         let reload_value = SYST::get_reload();
-        let timer_clock = u64(self.clocks.sysclk().0);
+        let timer_clock = u64(self.clk.0);
         let ticks = u64(reload_value - SYST::get_current());
 
         // It is safe to make this cast since the maximum ticks is (2^24 - 1) and the minimum sysclk
@@ -198,7 +198,7 @@ macro_rules! hal {
                 /// *NOTE:* This method is not a very good candidate to keep track of time, because
                 /// it is very easy to lose an update event.
                 pub fn micros_since(&self) -> u32 {
-                    let timer_clock = $TIMX::get_clk(&self.clocks).0;
+                    let timer_clock = self.clk.0;
                     let psc = u32(self.tim.psc.read().psc().bits());
                     
                     // freq_divider is always bigger than 0, since (psc + 1) is always less than

@@ -31,7 +31,6 @@ pub struct Rtc {
     regs: RTC,
 }
 
-
 impl Rtc {
     /**
       Initialises the RTC. The `BackupDomain` struct is created by
@@ -88,7 +87,7 @@ impl Rtc {
     }
 
     /// Set the current rtc counter value to the specified amount
-    pub fn set_seconds(&mut self, seconds: u32) {
+    pub fn set_time(&mut self, seconds: u32) {
         self.perform_write(|s| {
             s.regs.cnth.write(|w| unsafe{w.bits(seconds >> 16)});
             s.regs.cntl.write(|w| unsafe{w.bits(seconds as u16 as u32)});
@@ -129,7 +128,7 @@ impl Rtc {
     }
 
     /// Reads the current counter
-    pub fn seconds(&self) -> u32 {
+    pub fn current_time(&self) -> u32 {
         // Wait for the APB1 interface to be ready
         while self.regs.crl.read().rsf().bit() == false {}
 
