@@ -16,16 +16,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Change timer/pwm init API
 - Remove `set_low` and `set_high` for pins in Alternate output mode
 - Renames `set_seconds` and `seconds` methods on RTC to `set_time` and `current_time`, respectively
+- Starting the timer does not generate interrupt requests anymore
 
 ### Changed
 
 - DMA traits now require AsSlice instead of AsRef
 - Add `micros_since` and `reset` methods to timer
 - Add `select_frequency` method to RTC
-
-### Changed
-
-- Starting the timer does not generate interrupt requests anymore
 
 ## [v0.4.0] - 2019-08-09
 

@@ -14,7 +14,6 @@ use stm32f1xx_hal::{
     prelude::*,
     pac,
     serial::{self, Serial},
-    timer::Timer,
 };
 use cortex_m_rt::entry;
 

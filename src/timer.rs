@@ -43,6 +43,10 @@ impl Timer<SYST> {
         timer.start(timeout);
         timer
     }
+
+    pub fn release(self) -> SYST {
+        self.tim
+    }
 }
 
 impl CountDownTimer<SYST> {
@@ -81,14 +85,15 @@ impl CountDownTimer<SYST> {
     }
 
     /// Stops the timer
-    pub fn stop(&mut self) {
+    pub fn stop(mut self) -> Timer<SYST> {
         self.tim.disable_counter();
+        let Self {tim, clk} = self;
+        Timer {tim, clk}
     }
 
     /// Releases the SYST
-    pub fn release(mut self) -> SYST {
-        self.stop();
-        self.tim
+    pub fn release(self) -> SYST {
+        self.stop().release()
     }
 }
 
@@ -177,8 +182,7 @@ macro_rules! hal {
                 }
 
                 /// Stops the timer
-                pub fn stop(mut self) -> Timer<$TIMX> {
-                    self.unlisten(Event::Update);
+                pub fn stop(self) -> Timer<$TIMX> {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
                     let Self { tim, clk } = self;
                     Timer { tim, clk }
