@@ -70,7 +70,7 @@ impl Rtc {
         })
     }
 
-    /// Selects the frequency of the counter
+    /// Selects the frequency of the RTC Timer
     /// NOTE: Maximum frequency of 16384 Hz using the internal LSE
     pub fn select_frequency(&mut self, timeout: impl Into<Hertz>) {
         let frequency = timeout.into().0;
@@ -86,11 +86,11 @@ impl Rtc {
         });
     }
 
-    /// Set the current rtc counter value to the specified amount
-    pub fn set_time(&mut self, seconds: u32) {
+    /// Set the current RTC counter value to the specified amount
+    pub fn set_time(&mut self, counter_value: u32) {
         self.perform_write(|s| {
-            s.regs.cnth.write(|w| unsafe{w.bits(seconds >> 16)});
-            s.regs.cntl.write(|w| unsafe{w.bits(seconds as u16 as u32)});
+            s.regs.cnth.write(|w| unsafe{w.bits(counter_value >> 16)});
+            s.regs.cntl.write(|w| unsafe{w.bits(counter_value as u16 as u32)});
         });
     }
 
@@ -99,10 +99,10 @@ impl Rtc {
 
       This also clears the alarm flag if it is set
     */
-    pub fn set_alarm(&mut self, seconds: u32) {
+    pub fn set_alarm(&mut self, counter_value: u32) {
         // Set alarm time
         // See section 18.3.5 for explanation
-        let alarm_value = seconds - 1;
+        let alarm_value = counter_value - 1;
         self.perform_write(|s| {
             s.regs.alrh.write(|w| unsafe{w.alrh().bits((alarm_value >> 16) as u16)});
             s.regs.alrl.write(|w| unsafe{w.alrl().bits(alarm_value as u16)});

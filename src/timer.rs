@@ -64,7 +64,7 @@ impl CountDownTimer<SYST> {
         }
     }
 
-    /// Resets the timer
+    /// Resets the counter
     pub fn reset(&mut self) {
         // According to the Cortex-M3 Generic User Guide, the interrupt request is only generated
         // when the counter goes from 1 to 0, so writing zero should not trigger an interrupt
@@ -215,7 +215,7 @@ macro_rules! hal {
                     u32(1_000_000 * cnt / freq_divider).unwrap()
                 }
 
-                /// Resets the counter and generates an update event
+                /// Resets the counter
                 pub fn reset(&mut self) {
                     // Sets the URS bit to prevent an interrupt from being triggered by
                     // the UG bit

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - RCC `Bus` trait + private `Enable` and `Reset` traits
+- Added `micros_since` and `reset` methods to timer
+- Added `select_frequency` method to RTC
 
 ### Breaking changes
 
@@ -21,8 +23,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - DMA traits now require AsSlice instead of AsRef
-- Add `micros_since` and `reset` methods to timer
-- Add `select_frequency` method to RTC
 
 ## [v0.4.0] - 2019-08-09
 
