@@ -212,8 +212,7 @@ impl Timer<TIM2> {
         PINS: Pins<TIM2>,
         T: Into<Hertz>,
     {
-        mapr.mapr()
-            .modify(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
 
         let Self { tim, clk } = self;
         tim2(tim, _pins, freq.into(), clk)
@@ -231,8 +230,7 @@ impl Timer<TIM3> {
         PINS: Pins<TIM3>,
         T: Into<Hertz>,
     {
-        mapr.mapr()
-            .modify(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
 
         let Self { tim, clk } = self;
         tim3(tim, _pins, freq.into(), clk)
@@ -250,8 +248,7 @@ impl Timer<TIM4> {
         PINS: Pins<TIM4>,
         T: Into<Hertz>,
     {
-        mapr.mapr()
-            .modify(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
+        mapr.modify_mapr(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
 
         let Self { tim, clk } = self;
         tim4(tim, _pins, freq.into(), clk)

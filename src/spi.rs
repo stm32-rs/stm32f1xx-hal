@@ -79,7 +79,7 @@ impl<PINS> Spi<SPI1, PINS> {
         F: Into<Hertz>,
         PINS: Pins<SPI1>,
     {
-        mapr.mapr().modify(|_, w| w.spi1_remap().bit(PINS::REMAP));
+        mapr.modify_mapr(|_, w| w.spi1_remap().bit(PINS::REMAP));
         Spi::_spi1(spi, pins, mode, freq.into(), clocks, apb)
     }
 }

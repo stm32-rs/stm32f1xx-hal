@@ -97,7 +97,7 @@ impl<PINS> I2c<I2C1, PINS> {
     where
         PINS: Pins<I2C1>,
     {
-        mapr.mapr().modify(|_, w| w.i2c1_remap().bit(PINS::REMAP));
+        mapr.modify_mapr(|_, w| w.i2c1_remap().bit(PINS::REMAP));
         I2c::_i2c1(i2c, pins, mode, clocks, apb)
     }
 }
@@ -118,7 +118,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
     where
         PINS: Pins<I2C1>,
     {
-        mapr.mapr().modify(|_, w| w.i2c1_remap().bit(PINS::REMAP));
+        mapr.modify_mapr(|_, w| w.i2c1_remap().bit(PINS::REMAP));
         BlockingI2c::_i2c1(
             i2c,
             pins,
