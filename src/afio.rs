@@ -22,7 +22,7 @@ impl AfioExt for AFIO {
 
         Parts {
             evcr: EVCR { _0: () },
-            mapr: MAPR { _0: () },
+            mapr: MAPR { _0: (), jtag_enabled: true },
             exticr1: EXTICR1 { _0: () },
             exticr2: EXTICR2 { _0: () },
             exticr3: EXTICR3 { _0: () },
@@ -54,11 +54,19 @@ impl EVCR {
 
 pub struct MAPR {
     _0: (),
+    jtag_enabled: bool,
 }
 
 impl MAPR {
-    pub fn mapr(&mut self) -> &afio::MAPR {
+    fn mapr(&mut self) -> &afio::MAPR {
         unsafe { &(*AFIO::ptr()).mapr }
+    }
+
+    pub fn modify_mapr<F>(&mut self, mod_fn: F)
+        where F: for<'w> FnOnce(&afio::mapr::R, &'w mut afio::mapr::W) -> &'w mut afio::mapr::W
+    {
+        let debug_bits = if self.jtag_enabled {0b000} else {0b010};
+        self.mapr().modify(unsafe{ |r, w| mod_fn(r, w).swj_cfg().bits(debug_bits) });
     }
 
     /// Disables the JTAG to free up pa15, pb3 and pb4 for normal use
@@ -72,8 +80,9 @@ impl MAPR {
         PB3<Input<Floating>>,
         PB4<Input<Floating>>,
     ) {
-        self.mapr()
-            .modify(|_, w| unsafe { w.swj_cfg().bits(0b010) });
+        self.jtag_enabled = false;
+        // Avoid duplicating swj_cfg write code
+        self.modify_mapr(|_, w| w);
 
         // NOTE(unsafe) The pins are now in the good state.
         unsafe { (pa15.activate(), pb3.activate(), pb4.activate()) }

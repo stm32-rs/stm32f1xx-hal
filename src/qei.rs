@@ -37,8 +37,7 @@ impl Timer<TIM2> {
     where
         PINS: Pins<TIM2>,
     {
-        mapr.mapr()
-            .modify(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
 
         let Self { tim, clk: _ } = self;
         Qei::_tim2(tim, pins)
@@ -50,8 +49,7 @@ impl Timer<TIM3> {
     where
         PINS: Pins<TIM3>,
     {
-        mapr.mapr()
-            .modify(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
 
         let Self { tim, clk: _ } = self;
         Qei::_tim3(tim, pins)
@@ -63,8 +61,7 @@ impl Timer<TIM4> {
     where
         PINS: Pins<TIM4>,
     {
-        mapr.mapr()
-            .modify(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
+        mapr.modify_mapr(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
 
         let Self { tim, clk: _ } = self;
         Qei::_tim4(tim, pins)

@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Remove `set_low` and `set_high` for pins in Alternate output mode
 - Renames `set_seconds` and `seconds` methods on RTC to `set_time` and `current_time`, respectively
 - Starting the timer does not generate interrupt requests anymore
+- Make MAPR::mapr() private
+
+### Fixed
+
+- Fix some F1 variants crashing when modifying MAPR if JTAG is disabled
 
 ### Changed
 

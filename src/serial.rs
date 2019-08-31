@@ -232,8 +232,7 @@ macro_rules! hal {
                     $USARTX::reset(apb);
 
                     #[allow(unused_unsafe)]
-                    mapr.mapr()
-                        .modify(|_, w| unsafe{
+                    mapr.modify_mapr(|_, w| unsafe{
                             w.$usartX_remap().$bit(($closure)(PINS::REMAP))
                         });
 
