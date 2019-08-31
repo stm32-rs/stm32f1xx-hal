@@ -15,6 +15,7 @@
 use crate::pac::{RTC, RCC};
 
 use crate::backup_domain::BackupDomain;
+use crate::time::Hertz;
 
 use nb;
 use void::Void;
@@ -29,7 +30,6 @@ const LSE_HERTZ: u32 = 32_768;
 pub struct Rtc {
     regs: RTC,
 }
-
 
 impl Rtc {
     /**
@@ -70,11 +70,27 @@ impl Rtc {
         })
     }
 
-    /// Set the current rtc value to the specified amount of seconds
-    pub fn set_seconds(&mut self, seconds: u32) {
+    /// Selects the frequency of the RTC Timer
+    /// NOTE: Maximum frequency of 16384 Hz using the internal LSE
+    pub fn select_frequency(&mut self, timeout: impl Into<Hertz>) {
+        let frequency = timeout.into().0;
+
+        // The manual says that the zero value for the prescaler is not recommended, thus the
+        // minimum division factor is 2 (prescaler + 1)
+        assert!(frequency <= LSE_HERTZ / 2);
+
+        let prescaler = LSE_HERTZ / frequency - 1;
+        self.perform_write( |s| {
+            s.regs.prlh.write(|w| unsafe { w.bits(prescaler >> 16) });
+            s.regs.prll.write(|w| unsafe { w.bits(prescaler as u16 as u32) });
+        });
+    }
+
+    /// Set the current RTC counter value to the specified amount
+    pub fn set_time(&mut self, counter_value: u32) {
         self.perform_write(|s| {
-            s.regs.cnth.write(|w| unsafe{w.bits(seconds >> 16)});
-            s.regs.cntl.write(|w| unsafe{w.bits(seconds as u16 as u32)});
+            s.regs.cnth.write(|w| unsafe{w.bits(counter_value >> 16)});
+            s.regs.cntl.write(|w| unsafe{w.bits(counter_value as u16 as u32)});
         });
     }
 
@@ -83,10 +99,10 @@ impl Rtc {
 
       This also clears the alarm flag if it is set
     */
-    pub fn set_alarm(&mut self, seconds: u32) {
+    pub fn set_alarm(&mut self, counter_value: u32) {
         // Set alarm time
         // See section 18.3.5 for explanation
-        let alarm_value = seconds - 1;
+        let alarm_value = counter_value - 1;
         self.perform_write(|s| {
             s.regs.alrh.write(|w| unsafe{w.alrh().bits((alarm_value >> 16) as u16)});
             s.regs.alrl.write(|w| unsafe{w.alrl().bits(alarm_value as u16)});
@@ -111,8 +127,8 @@ impl Rtc {
         })
     }
 
-    /// Reads the current time
-    pub fn seconds(&self) -> u32 {
+    /// Reads the current counter
+    pub fn current_time(&self) -> u32 {
         // Wait for the APB1 interface to be ready
         while self.regs.crl.read().rsf().bit() == false {}
 

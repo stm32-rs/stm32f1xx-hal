@@ -2,7 +2,7 @@
 
 use crate::hal::timer::{CountDown, Periodic};
 use crate::pac::{DBGMCU as DBG, TIM1, TIM2, TIM3, TIM4};
-use cast::{u16, u32};
+use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use nb;
@@ -43,6 +43,10 @@ impl Timer<SYST> {
         timer.start(timeout);
         timer
     }
+
+    pub fn release(self) -> SYST {
+        self.tim
+    }
 }
 
 impl CountDownTimer<SYST> {
@@ -60,15 +64,36 @@ impl CountDownTimer<SYST> {
         }
     }
 
+    /// Resets the counter
+    pub fn reset(&mut self) {
+        // According to the Cortex-M3 Generic User Guide, the interrupt request is only generated
+        // when the counter goes from 1 to 0, so writing zero should not trigger an interrupt
+        self.tim.clear_current();
+    }
+
+    /// Returns the number of microseconds since the last update event.
+    /// *NOTE:* This method is not a very good candidate to keep track of time, because
+    /// it is very easy to lose an update event.
+    pub fn micros_since(&self) -> u32 {
+        let reload_value = SYST::get_reload();
+        let timer_clock = u64(self.clk.0);
+        let ticks = u64(reload_value - SYST::get_current());
+
+        // It is safe to make this cast since the maximum ticks is (2^24 - 1) and the minimum sysclk
+        // is 4Mhz, which gives a maximum period of ~4.2 seconds which is < (2^32 - 1) microsenconds
+        u32(1_000_000 * ticks / timer_clock).unwrap()
+    }
+
     /// Stops the timer
-    pub fn stop(&mut self) {
+    pub fn stop(mut self) -> Timer<SYST> {
         self.tim.disable_counter();
+        let Self {tim, clk} = self;
+        Timer {tim, clk}
     }
 
     /// Releases the SYST
-    pub fn release(mut self) -> SYST {
-        self.stop();
-        self.tim
+    pub fn release(self) -> SYST {
+        self.stop().release()
     }
 }
 
@@ -157,8 +182,7 @@ macro_rules! hal {
                 }
 
                 /// Stops the timer
-                pub fn stop(mut self) -> Timer<$TIMX> {
-                    self.unlisten(Event::Update);
+                pub fn stop(self) -> Timer<$TIMX> {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
                     let Self { tim, clk } = self;
                     Timer { tim, clk }
@@ -172,6 +196,33 @@ macro_rules! hal {
                 /// Releases the TIM Peripheral
                 pub fn release(self) -> $TIMX {
                     self.stop().release()
+                }
+
+                /// Returns the number of microseconds since the last update event.
+                /// *NOTE:* This method is not a very good candidate to keep track of time, because
+                /// it is very easy to lose an update event.
+                pub fn micros_since(&self) -> u32 {
+                    let timer_clock = self.clk.0;
+                    let psc = u32(self.tim.psc.read().psc().bits());
+                    
+                    // freq_divider is always bigger than 0, since (psc + 1) is always less than
+                    // timer_clock
+                    let freq_divider = u64(timer_clock / (psc + 1));
+                    let cnt = u64(self.tim.cnt.read().cnt().bits());
+                    
+                    // It is safe to make this cast, because the maximum timer period in this HAL is
+                    // 1s (1Hz), then 1 second < (2^32 - 1) microseconds
+                    u32(1_000_000 * cnt / freq_divider).unwrap()
+                }
+
+                /// Resets the counter
+                pub fn reset(&mut self) {
+                    // Sets the URS bit to prevent an interrupt from being triggered by
+                    // the UG bit
+                    self.tim.cr1.modify(|_, w| w.urs().set_bit());
+
+                    self.tim.egr.write(|w| w.ug().set_bit());
+                    self.tim.cr1.modify(|_, w| w.urs().clear_bit());
                 }
             }
 
@@ -197,11 +248,7 @@ macro_rules! hal {
                     self.tim.arr.write(|w| w.arr().bits(arr) );
 
                     // Trigger an update event to load the prescaler value to the clock
-                    self.tim.egr.write(|w| w.ug().set_bit());
-                    // The above line raises an update event which will indicate
-                    // that the timer is already finished. Since this is not the case,
-                    // it should be cleared
-                    self.clear_update_interrupt_flag();
+                    self.reset();
 
                     // start counter
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());

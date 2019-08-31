@@ -42,7 +42,7 @@ fn main() -> ! {
     let mut led_on = false;
     loop {
         // Set the current time to 0
-        rtc.set_seconds(0);
+        rtc.set_time(0);
         // Trigger the alarm in 5 seconds
         rtc.set_alarm(5);
         block!(rtc.wait_alarm()).unwrap();
