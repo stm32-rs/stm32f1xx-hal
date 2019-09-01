@@ -111,7 +111,7 @@ macro_rules! gpio {
             use crate::stm32::EXTI;
             use crate::afio;
 
-            use crate::rcc::{APB2, Enable, Reset};
+            use crate::rcc::{APB2, sealed::{Enable, Reset}};
             use super::{
                 Alternate, Floating, GpioExt, Input,
                 OpenDrain,

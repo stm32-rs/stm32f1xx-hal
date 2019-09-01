@@ -502,15 +502,15 @@ pub trait RccBus {
     type Bus;
 }
 
-/// Enable/disable peripheral
-pub(crate) trait Enable: RccBus {
-    fn enable(apb: &mut Self::Bus);
-    fn disable(apb: &mut Self::Bus);
-}
+pub(crate) mod sealed {
+    pub trait Enable: super::RccBus {
+        fn enable(apb: &mut Self::Bus);
+        fn disable(apb: &mut Self::Bus);
+    }
 
-/// Reset peripheral
-pub(crate) trait Reset: RccBus {
-    fn reset(apb: &mut Self::Bus);
+    pub trait Reset: super::RccBus {
+        fn reset(apb: &mut Self::Bus);
+    }
 }
 
 macro_rules! bus {
@@ -519,7 +519,7 @@ macro_rules! bus {
             impl RccBus for crate::pac::$PER {
                 type Bus = $apbX;
             }
-            impl Enable for crate::pac::$PER {
+            impl sealed::Enable for crate::pac::$PER {
                 #[inline(always)]
                 fn enable(apb: &mut Self::Bus) {
                     apb.enr().modify(|_, w| w.$peren().set_bit());
@@ -529,7 +529,7 @@ macro_rules! bus {
                     apb.enr().modify(|_, w| w.$peren().clear_bit());
                 }
             }
-            impl Reset for crate::pac::$PER {
+            impl sealed::Reset for crate::pac::$PER {
                 #[inline(always)]
                 fn reset(apb: &mut Self::Bus) {
                     apb.rstr().modify(|_, w| w.$perrst().set_bit());
@@ -546,7 +546,7 @@ macro_rules! ahb_bus {
             impl RccBus for crate::pac::$PER {
                 type Bus = AHB;
             }
-            impl Enable for crate::pac::$PER {
+            impl sealed::Enable for crate::pac::$PER {
                 #[inline(always)]
                 fn enable(apb: &mut Self::Bus) {
                     apb.enr().modify(|_, w| w.$peren().set_bit());

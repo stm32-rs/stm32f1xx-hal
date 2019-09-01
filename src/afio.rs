@@ -1,7 +1,7 @@
 //! # Alternate Function I/Os
 use crate::pac::{afio, AFIO};
 
-use crate::rcc::{APB2, Enable, Reset};
+use crate::rcc::{APB2, sealed::{Enable, Reset}};
 
 use crate::gpio::{
     Debugger,
