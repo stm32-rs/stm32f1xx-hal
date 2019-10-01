@@ -95,6 +95,7 @@ macro_rules! gpio {
                 State,
                 Active,
                 Debugger,
+                Pxx
             };
 
             /// GPIO parts
@@ -154,6 +155,12 @@ macro_rules! gpio {
             pub struct $PXx<MODE> {
                 i: u8,
                 _mode: PhantomData<MODE>,
+            }
+
+            impl<MODE> $PXx<MODE> {
+                pub fn downgrade(self) -> Pxx<MODE> {
+                    Pxx::$PXx(self)
+                }
             }
 
             impl<MODE> OutputPin for $PXx<Output<MODE>> {
@@ -507,6 +514,69 @@ macro_rules! gpio {
     }
 }
 
+macro_rules! impl_pxx {
+    ($(($port:ident :: $pin:ident)),*) => {
+        use void::Void;
+        use embedded_hal::digital::v2::{InputPin, StatefulOutputPin, OutputPin};
+
+        pub enum Pxx<MODE> {
+            $(
+                $pin($port::$pin<MODE>)
+            ),*
+        }
+
+        impl<MODE> OutputPin for Pxx<Output<MODE>> {
+            type Error = Void;
+            fn set_high(&mut self) -> Result<(), Void> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.set_high()),*
+                }
+            }
+            fn set_low(&mut self) -> Result<(), Void> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.set_low()),*
+                }
+            }
+        }
+
+        impl<MODE> StatefulOutputPin for Pxx<Output<MODE>> {
+            fn is_set_high(&self) -> Result<bool, Self::Error> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_set_high()),*
+                }
+            }
+
+            fn is_set_low(&self) -> Result<bool, Self::Error> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_set_low()),*
+                }
+            }
+        }
+
+        impl<MODE> InputPin for Pxx<Input<MODE>> {
+            type Error = Void;
+            fn is_high(&self) -> Result<bool, Void> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_high()),*
+                }
+            }
+            fn is_low(&self) -> Result<bool, Void> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_low()),*
+                }
+            }
+        }
+    }
+}
+
+impl_pxx!{
+    (gpioa::PAx),
+    (gpiob::PBx),
+    (gpioc::PCx),
+    (gpiod::PDx),
+    (gpioe::PEx)
+}
+
 gpio!(GPIOA, gpioa, gpioa, PAx, [
     PA0: (pa0, 0, Input<Floating>, CRL),
     PA1: (pa1, 1, Input<Floating>, CRL),
@@ -601,3 +671,5 @@ gpio!(GPIOE, gpioe, gpioa, PEx, [
     PE14: (pe14, 14, Input<Floating>, CRH),
     PE15: (pe15, 15, Input<Floating>, CRH),
 ]);
+
+
