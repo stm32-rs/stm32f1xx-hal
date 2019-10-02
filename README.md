@@ -24,6 +24,17 @@ If no microcontroller is specified, the crate will not compile.
 
 ### Trying out the examples
 
+You may need to give `cargo` permission to call `gdb` from the working directory.
+- Linux
+  ```bash
+  echo "set auto-load safe-path $(pwd)" >> ~/.gdbinit
+  ```
+- Windows
+  ```batch
+  echo set auto-load safe-path %CD% >> %USERPROFILE%\.gdbinit
+  ```
+
+Compile, load, and launch the hardware debugger.
 ```bash
 $ rustup target add thumbv7m-none-eabi
 
