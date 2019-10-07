@@ -151,7 +151,7 @@ macro_rules! gpio {
                 }
             }
 
-            /// Partially erased pin
+            /// Partially erased pin. Only used in the Pxx enum
             pub struct Generic<MODE> {
                 i: u8,
                 _mode: PhantomData<MODE>,
@@ -454,14 +454,19 @@ macro_rules! gpio {
 
                 impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Erases the pin number from the type
-                    ///
-                    /// This is useful when you want to collect the pins into an array where you
-                    /// need all the elements to have the same type
-                    pub fn into_port(self) -> Generic<MODE> {
+                    fn into_generic(self) -> Generic<MODE> {
                         Generic {
                             i: $i,
                             _mode: self._mode,
                         }
+                    }
+
+                    /// Erases the pin number and port from the type
+                    ///
+                    /// This is useful when you want to collect the pins into an array where you
+                    /// need all the elements to have the same type
+                    pub fn downgrade(self) -> Pxx<MODE> {
+                        self.into_generic().downgrade()
                     }
                 }
 
