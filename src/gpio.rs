@@ -152,18 +152,18 @@ macro_rules! gpio {
             }
 
             /// Partially erased pin
-            pub struct $PXx<MODE> {
+            pub struct Generic<MODE> {
                 i: u8,
                 _mode: PhantomData<MODE>,
             }
 
-            impl<MODE> $PXx<MODE> {
+            impl<MODE> Generic<MODE> {
                 pub fn downgrade(self) -> Pxx<MODE> {
                     Pxx::$PXx(self)
                 }
             }
 
-            impl<MODE> OutputPin for $PXx<Output<MODE>> {
+            impl<MODE> OutputPin for Generic<Output<MODE>> {
                 type Error = Void;
                 fn set_high(&mut self) -> Result<(), Self::Error> {
                     // NOTE(unsafe) atomic write to a stateless register
@@ -176,7 +176,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl<MODE> InputPin for $PXx<Input<MODE>> {
+            impl<MODE> InputPin for Generic<Input<MODE>> {
                 type Error = Void;
                 fn is_high(&self) -> Result<bool, Self::Error> {
                     self.is_low().map(|b| !b)
@@ -188,7 +188,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl <MODE> StatefulOutputPin for $PXx<Output<MODE>> {
+            impl <MODE> StatefulOutputPin for Generic<Output<MODE>> {
                 fn is_set_high(&self) -> Result<bool, Self::Error> {
                     self.is_set_low().map(|b| !b)
                 }
@@ -199,9 +199,9 @@ macro_rules! gpio {
                 }
             }
 
-            impl <MODE> toggleable::Default for $PXx<Output<MODE>> {}
+            impl <MODE> toggleable::Default for Generic<Output<MODE>> {}
 
-            impl InputPin for $PXx<Output<OpenDrain>> {
+            impl InputPin for Generic<Output<OpenDrain>> {
                 type Error = Void;
                 fn is_high(&self) -> Result<bool, Self::Error> {
                     self.is_low().map(|b| !b)
@@ -212,6 +212,11 @@ macro_rules! gpio {
                     Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 })
                 }
             }
+
+            pub type $PXx<MODE> = Pxx<MODE>;
+
+
+
 
             $(
                 /// Pin
@@ -452,8 +457,8 @@ macro_rules! gpio {
                     ///
                     /// This is useful when you want to collect the pins into an array where you
                     /// need all the elements to have the same type
-                    pub fn downgrade(self) -> $PXx<MODE> {
-                        $PXx {
+                    pub fn into_port(self) -> Generic<MODE> {
+                        Generic {
                             i: $i,
                             _mode: self._mode,
                         }
@@ -521,7 +526,7 @@ macro_rules! impl_pxx {
 
         pub enum Pxx<MODE> {
             $(
-                $pin($port::$pin<MODE>)
+                $pin($port::Generic<MODE>)
             ),*
         }
 
