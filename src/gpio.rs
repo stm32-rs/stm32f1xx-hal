@@ -681,5 +681,3 @@ gpio!(GPIOE, gpioe, gpioa, PEx, [
     PE14: (pe14, 14, Input<Floating>, CRH),
     PE15: (pe15, 15, Input<Floating>, CRH),
 ]);
-
-
