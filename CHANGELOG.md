@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - DMA traits now require AsSlice instead of AsRef
+- GPIO `downgrade` function now returns a `Pxx` instead of a type specific to a
+  GPIO port
 
 ## [v0.4.0] - 2019-08-09
 

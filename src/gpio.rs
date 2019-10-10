@@ -95,6 +95,7 @@ macro_rules! gpio {
                 State,
                 Active,
                 Debugger,
+                Pxx
             };
 
             /// GPIO parts
@@ -150,13 +151,19 @@ macro_rules! gpio {
                 }
             }
 
-            /// Partially erased pin
-            pub struct $PXx<MODE> {
+            /// Partially erased pin. Only used in the Pxx enum
+            pub struct Generic<MODE> {
                 i: u8,
                 _mode: PhantomData<MODE>,
             }
 
-            impl<MODE> OutputPin for $PXx<Output<MODE>> {
+            impl<MODE> Generic<MODE> {
+                pub fn downgrade(self) -> Pxx<MODE> {
+                    Pxx::$PXx(self)
+                }
+            }
+
+            impl<MODE> OutputPin for Generic<Output<MODE>> {
                 type Error = Void;
                 fn set_high(&mut self) -> Result<(), Self::Error> {
                     // NOTE(unsafe) atomic write to a stateless register
@@ -169,7 +176,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl<MODE> InputPin for $PXx<Input<MODE>> {
+            impl<MODE> InputPin for Generic<Input<MODE>> {
                 type Error = Void;
                 fn is_high(&self) -> Result<bool, Self::Error> {
                     self.is_low().map(|b| !b)
@@ -181,7 +188,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl <MODE> StatefulOutputPin for $PXx<Output<MODE>> {
+            impl <MODE> StatefulOutputPin for Generic<Output<MODE>> {
                 fn is_set_high(&self) -> Result<bool, Self::Error> {
                     self.is_set_low().map(|b| !b)
                 }
@@ -192,9 +199,9 @@ macro_rules! gpio {
                 }
             }
 
-            impl <MODE> toggleable::Default for $PXx<Output<MODE>> {}
+            impl <MODE> toggleable::Default for Generic<Output<MODE>> {}
 
-            impl InputPin for $PXx<Output<OpenDrain>> {
+            impl InputPin for Generic<Output<OpenDrain>> {
                 type Error = Void;
                 fn is_high(&self) -> Result<bool, Self::Error> {
                     self.is_low().map(|b| !b)
@@ -205,6 +212,10 @@ macro_rules! gpio {
                     Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 })
                 }
             }
+
+            pub type $PXx<MODE> = Pxx<MODE>;
+
+
 
             $(
                 /// Pin
@@ -442,14 +453,19 @@ macro_rules! gpio {
 
                 impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Erases the pin number from the type
-                    ///
-                    /// This is useful when you want to collect the pins into an array where you
-                    /// need all the elements to have the same type
-                    pub fn downgrade(self) -> $PXx<MODE> {
-                        $PXx {
+                    fn into_generic(self) -> Generic<MODE> {
+                        Generic {
                             i: $i,
                             _mode: self._mode,
                         }
+                    }
+
+                    /// Erases the pin number and port from the type
+                    ///
+                    /// This is useful when you want to collect the pins into an array where you
+                    /// need all the elements to have the same type
+                    pub fn downgrade(self) -> Pxx<MODE> {
+                        self.into_generic().downgrade()
                     }
                 }
 
@@ -505,6 +521,71 @@ macro_rules! gpio {
             )+
         }
     }
+}
+
+macro_rules! impl_pxx {
+    ($(($port:ident :: $pin:ident)),*) => {
+        use void::Void;
+        use embedded_hal::digital::v2::{InputPin, StatefulOutputPin, OutputPin};
+
+        pub enum Pxx<MODE> {
+            $(
+                $pin($port::Generic<MODE>)
+            ),*
+        }
+
+        impl<MODE> OutputPin for Pxx<Output<MODE>> {
+            type Error = Void;
+            fn set_high(&mut self) -> Result<(), Void> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.set_high()),*
+                }
+            }
+
+            fn set_low(&mut self) -> Result<(), Void> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.set_low()),*
+                }
+            }
+        }
+
+        impl<MODE> StatefulOutputPin for Pxx<Output<MODE>> {
+            fn is_set_high(&self) -> Result<bool, Self::Error> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_set_high()),*
+                }
+            }
+
+            fn is_set_low(&self) -> Result<bool, Self::Error> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_set_low()),*
+                }
+            }
+        }
+
+        impl<MODE> InputPin for Pxx<Input<MODE>> {
+            type Error = Void;
+            fn is_high(&self) -> Result<bool, Void> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_high()),*
+                }
+            }
+
+            fn is_low(&self) -> Result<bool, Void> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_low()),*
+                }
+            }
+        }
+    }
+}
+
+impl_pxx!{
+    (gpioa::PAx),
+    (gpiob::PBx),
+    (gpioc::PCx),
+    (gpiod::PDx),
+    (gpioe::PEx)
 }
 
 gpio!(GPIOA, gpioa, gpioa, PAx, [
