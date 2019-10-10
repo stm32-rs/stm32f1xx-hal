@@ -217,7 +217,6 @@ macro_rules! gpio {
 
 
 
-
             $(
                 /// Pin
                 pub struct $PXi<MODE> {
@@ -542,6 +541,7 @@ macro_rules! impl_pxx {
                     $(Pxx::$pin(pin) => pin.set_high()),*
                 }
             }
+
             fn set_low(&mut self) -> Result<(), Void> {
                 match self {
                     $(Pxx::$pin(pin) => pin.set_low()),*
@@ -570,6 +570,7 @@ macro_rules! impl_pxx {
                     $(Pxx::$pin(pin) => pin.is_high()),*
                 }
             }
+
             fn is_low(&self) -> Result<bool, Void> {
                 match self {
                     $(Pxx::$pin(pin) => pin.is_low()),*
