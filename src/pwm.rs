@@ -139,8 +139,10 @@ use crate::pac::{TIM2, TIM3, TIM4};
 
 use crate::afio::MAPR;
 use crate::bb;
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7};
-use crate::gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
+use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7, PA15};
+use crate::gpio::gpiob::{PB0, PB1, PB3, PB4, PB5, PB6, PB7, PB8, PB9, PB10, PB11};
+use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
+use crate::gpio::gpiod::{PD12, PD13, PD14, PD15};
 use crate::gpio::{Alternate, PushPull};
 use crate::time::Hertz;
 use crate::timer::Timer;
@@ -166,10 +168,10 @@ macro_rules! impl_pins {
     // Each active channel should have $pin, $channel, true; inside the parens
     // Each inactive channel should have ;$unused_type, false inside
     (
-        $( $channel:ident(
+        $( $channel:ident{
                 $($channel_:ty, $pin:ident, $true:expr)?
                 ; $($unused_type:ty, $false:expr)?
-            )
+            }
          ),*
         ; for $timX:ident, $remap:expr
     ) => {
@@ -187,96 +189,65 @@ macro_rules! impl_pins {
     }
 }
 
-/**
-  Implements Pin for every combination of used and unused pins in a specific
-  remap for a specific timer.
-
-  Since macros are kind of hard to read, here is some pseudocode that does
-  the same thing
-
-  ```rust
-    fn impl_pins(pin_channel_mapping: &[Option<(Channel, Pin), Unused> {}
-
-    fn impl_pin_combinations(pins: &[Pin]) {
-        fn internal(
-            expanded: &[Option<(Channel, Pin)pins, Unused>],
-            unexpanded: [(Pin, Channel)]
-        ) -> impls {
-            if unexpanded.is_empty() {
-                impl_pins(expanded)
-            }
-            else {
-                let (first, rest) = split(unexpanded);
-                // Use the pin
-                internal(expanded ++ first, unexpanded);
-                // Don't use the pin
-                internal(expanded ++ Unused{}, unexpanded);
-            }
-        }
-        let pins_with_channels = pins.zip([C1, C2, C3, C4]);
-    }
-  ```
-*/
+// Private type representing unused pins to make the following macro more readable
+type U = ();
 macro_rules! impl_pin_combinations {
-    // Base case, all pins have been expanded
-    (
-        $( $channel:ident($($pin:ident)? ; $($unused_type:ty)?), )* ;
-        ; for $timX:ident, $remap:expr
-    ) => {
+    ($( $channel:ident { $($pin:ident)?; $($unused_type:ident)? } ),* ; $timX:ident, $remap:expr) => {
         impl_pins!{
-            $( $channel( $($channel, $pin, true)?; $($unused_type, false)? ) ),*
+            $( $channel {
+                $($channel, $pin, true)?
+                ; $($unused_type, false)?
+            }),*
             ; for $timX, $remap
         }
     };
-    // Intermediate recursion. Expand the first non-expanded pin/channel combo
-    // to be enabled and disabled
-    (
-        $( $channel:ident($($pin:ident)? ; $($unused_type:ty)?), )*
-        ;
-        ($first_channel:ident,$first_pin:ident),$( ($rest_channel:ident, $rest_pin:ident), )*
-        ; for $timX:ident, $remap:expr
-    ) => {
-        // Expand with pin enabled
-        impl_pin_combinations! {
-            // Add the previously expanded pins
-            $($channel($($pin)? ; $($unused_type)? ),)*
-            $first_channel($first_pin;),
-            ;
-            $( ($rest_channel, $rest_pin), )*
-            ; for $timX, $remap
-        }
-        // Expand with pin disabled
-        impl_pin_combinations! {
-            // Add the previously expanded pins
-            $($channel($($pin)? ; $($unused_type)? ),)*
-            $first_channel(;()),
-                ;
-            $( ($rest_channel, $rest_pin), )*
-            ; for $timX, $remap
-        }
-    };
-    // No expanded pins, call recursive version
-    ( $p1:ident, $p2:ident, $p3:ident, $p4:ident ; for $timX:ident, remap $remap:expr) => {
-        impl_pin_combinations!{
-            ; (C1, $p1), (C2, $p2), (C3, $p3), (C4, $p4),
-            ; for $timX, $remap
-        }
+    // Implement all combinations of unused/used pins apart from all pins being unused
+    // as that case would lead to multiple definitions defining remaps
+    ($p1:ident, $p2:ident, $p3:ident, $p4:ident; $timX:ident, $remap:expr) => {
+        impl_pin_combinations!(C1{$p1; }, C2{$p2; }, C3{$p3; }, C4{$p4; } ; $timX, $remap);
+        impl_pin_combinations!(C1{$p1; }, C2{$p2; }, C3{$p3; }, C4{   ;U} ; $timX, $remap);
+        impl_pin_combinations!(C1{$p1; }, C2{$p2; }, C3{   ;U}, C4{$p4; } ; $timX, $remap);
+        impl_pin_combinations!(C1{$p1; }, C2{$p2; }, C3{   ;U}, C4{   ;U} ; $timX, $remap);
+
+        impl_pin_combinations!(C1{$p1; }, C2{   ;U}, C3{$p3; }, C4{$p4; } ; $timX, $remap);
+        impl_pin_combinations!(C1{$p1; }, C2{   ;U}, C3{$p3; }, C4{   ;U} ; $timX, $remap);
+        impl_pin_combinations!(C1{$p1; }, C2{   ;U}, C3{   ;U}, C4{$p4; } ; $timX, $remap);
+        impl_pin_combinations!(C1{$p1; }, C2{   ;U}, C3{   ;U}, C4{   ;U} ; $timX, $remap);
+
+        impl_pin_combinations!(C1{   ;U}, C2{$p2; }, C3{$p3; }, C4{$p4; } ; $timX, $remap);
+        impl_pin_combinations!(C1{   ;U}, C2{$p2; }, C3{$p3; }, C4{   ;U} ; $timX, $remap);
+        impl_pin_combinations!(C1{   ;U}, C2{$p2; }, C3{   ;U}, C4{$p4; } ; $timX, $remap);
+        impl_pin_combinations!(C1{   ;U}, C2{$p2; }, C3{   ;U}, C4{   ;U} ; $timX, $remap);
+
+        impl_pin_combinations!(C1{   ;U}, C2{   ;U}, C3{$p3; }, C4{$p4; } ; $timX, $remap);
+        impl_pin_combinations!(C1{   ;U}, C2{   ;U}, C3{$p3; }, C4{   ;U} ; $timX, $remap);
+        impl_pin_combinations!(C1{   ;U}, C2{   ;U}, C3{   ;U}, C4{$p4; } ; $timX, $remap);
+    }
+}
+// Since some pins are shared between multiple remaps, the same impl would
+// be defined multipel times if the full macro is used. Instead, we define
+// another macro that only changes the lower, and upper pins. Again, we shouldn't
+// set all varying pins to unused, as that would lead to re-definition of an impl
+macro_rules! impl_partial_remap {
+    ($p1:ident, $p2:ident, $p3:ident, $p4:ident; $timX:ident, $remap:expr) => {
+        impl_pin_combinations!(C1{$p1; }, C2{$p2; }, C3{$p3; }, C4{$p4; } ; $timX, $remap);
+        impl_pin_combinations!(C1{$p1; }, C2{$p2; }, C3{$p3; }, C4{   ;U} ; $timX, $remap);
+        impl_pin_combinations!(C1{$p1; }, C2{$p2; }, C3{   ;U}, C4{$p4; } ; $timX, $remap);
     }
 }
 
 
-impl_pin_combinations!(PA0,  PA1, PA2,  PA3; for TIM2,  remap 0b00);
-impl_pin_combinations!(PA15, PB3, PA2,  PA3; for TIM2,  remap 0b01);
-impl_pin_combinations!(PA0,  PA1, PB10, PB11; for TIM2, remap 0b01);
-impl_pin_combinations!(PA15, PB3, PB10, PB11; for TIM2, remap 0b01);
+impl_pin_combinations!(PA0,  PA1, PA2,  PA3 ; TIM2, 0b00);
+impl_partial_remap!   (PA15, PB3, PA2,  PA3 ; TIM2, 0b01);
+impl_partial_remap!   (PA0,  PA1, PB10, PB11; TIM2, 0b10);
+impl_pin_combinations!(PA15, PB3, PB10, PB11; TIM2, 0b11);
 
-impl_pin_combinations!(PA6, PA7, PB0, PB1; for TIM3, remap 0b00);
-impl_pin_combinations!(PB4, PB5, PB0, PB1; for TIM3, remap 0b01);
-impl_pin_combinations!(PC6, PC7, PC8, PC9; for TIM3, remap 0b11);
+impl_pin_combinations!(PA6, PA7, PB0, PB1 ; TIM3, 0b00);
+impl_partial_remap!   (PB4, PB5, PB0, PB1 ; TIM3, 0b10);
+impl_pin_combinations!(PC6, PC7, PC8, PC9 ; TIM3, 0b11);
 
-impl_pin_combinations!(PB6,  PB7,  PB8,  PB9 ; for TIM4, remap 0b0);
-impl_pin_combinations!(PD12, PD13, PD14, PD15; for TIM4, remap 0b1);
-
+impl_pin_combinations!(PB6,  PB7,  PB8,  PB9  ; TIM4, 0b0);
+impl_pin_combinations!(PD12, PD13, PD14, PD15 ; TIM4, 0b0);
 
 impl Timer<TIM2> {
     pub fn pwm<PINS, T>(
