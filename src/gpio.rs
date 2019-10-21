@@ -208,6 +208,69 @@ macro_rules! gpio {
                 }
             }
 
+            impl<MODE> ExtiPin for Generic<Input<MODE>> {
+                /// Make corresponding EXTI line sensitive to this pin
+                fn make_interrupt_source(&mut self, afio: &mut AFIO) {
+                    let offset = 4 * (self.i % 4);
+                    match self.i {
+                        0..=3 => {
+                            afio.exticr1.modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                            });
+                        },
+                        4..=7 => {
+                            afio.exticr2.modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                            });
+                        },
+                        8..=11 => {
+                            afio.exticr3.modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                            });
+                        },
+                        12..=15 => {
+                            afio.exticr4.modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                            });
+                        },
+                        _ => {}
+                    }
+                }
+
+                /// Generate interrupt on rising edge, falling edge or both
+                fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
+                    match edge {
+                        Edge::RISING => {
+                            exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                            exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                        },
+                        Edge::FALLING => {
+                            exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                            exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                        },
+                        Edge::RISING_FALLING => {
+                            exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                            exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                        }
+                    }
+                }
+
+                /// Enable external interrupts from this pin.
+                fn enable_interrupt(&mut self, exti: &mut EXTI) {
+                    exti.imr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                }
+
+                /// Disable external interrupts from this pin
+                fn disable_interrupt(&mut self, exti: &mut EXTI) {
+                    exti.imr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                }
+
+                /// Clear the interrupt pending bit for this pin
+                fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI) {
+                    exti.pr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                }
+            }
+
             impl <MODE> StatefulOutputPin for Generic<Output<MODE>> {
                 fn is_set_high(&self) -> Result<bool, Self::Error> {
                     self.is_set_low().map(|b| !b)
