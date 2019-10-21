@@ -314,6 +314,14 @@ macro_rules! hal {
                     }
                 )?
 
+                pub fn start_raw(self, psc: u16, arr: u16) -> CountDownTimer<$TIMX>
+                {
+                    let Self { tim, clk } = self;
+                    let mut timer = CountDownTimer { tim, clk };
+                    timer.start_raw(psc, arr);
+                    timer
+                }
+
                 /// Resets timer peripheral
                 #[inline(always)]
                 pub fn clocking_reset(&mut self, apb: &mut <$TIMX as RccBus>::Bus) {
@@ -345,6 +353,32 @@ macro_rules! hal {
                     match event {
                         Event::Update => self.tim.dier.write(|w| w.uie().clear_bit()),
                     }
+                }
+
+                pub fn start_raw(&mut self, psc: u16, arr: u16)
+                {
+                    // pause
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+
+                    let timer_clock = self.clk;
+
+                    self.tim.psc.write(|w| w.psc().bits(psc) );
+                    self.tim.arr.write(|w| w.arr().bits(arr) );
+
+                    // Trigger an update event to load the prescaler value to the clock
+                    self.reset();
+
+                    // start counter
+                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                }
+
+                pub fn clk(&mut self) -> u32
+                {
+                    self.clk.0
+                }
+
+                pub fn cnt(&mut self) -> u16 {
+                    self.tim.cnt.read().cnt().bits()
                 }
 
                 /// Stops the timer
