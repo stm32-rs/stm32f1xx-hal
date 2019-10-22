@@ -718,7 +718,7 @@ impl_pxx!{
     (gpioe::PEx)
 }
 
-gpio!(GPIOA, gpioa, gpioa, PAx, 1, [
+gpio!(GPIOA, gpioa, gpioa, PAx, 0, [
     PA0: (pa0, 0, Input<Floating>, CRL, exticr1),
     PA1: (pa1, 1, Input<Floating>, CRL, exticr1),
     PA2: (pa2, 2, Input<Floating>, CRL, exticr1),
@@ -737,7 +737,7 @@ gpio!(GPIOA, gpioa, gpioa, PAx, 1, [
     PA15: (pa15, 15, Debugger, CRH, exticr4),
 ]);
 
-gpio!(GPIOB, gpiob, gpioa, PBx, 2, [
+gpio!(GPIOB, gpiob, gpioa, PBx, 1, [
     PB0: (pb0, 0, Input<Floating>, CRL, exticr1),
     PB1: (pb1, 1, Input<Floating>, CRL, exticr1),
     PB2: (pb2, 2, Input<Floating>, CRL, exticr1),
@@ -756,7 +756,7 @@ gpio!(GPIOB, gpiob, gpioa, PBx, 2, [
     PB15: (pb15, 15, Input<Floating>, CRH, exticr4),
 ]);
 
-gpio!(GPIOC, gpioc, gpioa, PCx, 3, [
+gpio!(GPIOC, gpioc, gpioa, PCx, 2, [
     PC0: (pc0, 0, Input<Floating>, CRL, exticr1),
     PC1: (pc1, 1, Input<Floating>, CRL, exticr1),
     PC2: (pc2, 2, Input<Floating>, CRL, exticr1),
@@ -775,7 +775,7 @@ gpio!(GPIOC, gpioc, gpioa, PCx, 3, [
     PC15: (pc15, 15, Input<Floating>, CRH, exticr4),
 ]);
 
-gpio!(GPIOD, gpiod, gpioa, PDx, 4, [
+gpio!(GPIOD, gpiod, gpioa, PDx, 3, [
     PD0: (pd0, 0, Input<Floating>, CRL, exticr1),
     PD1: (pd1, 1, Input<Floating>, CRL, exticr1),
     PD2: (pd2, 2, Input<Floating>, CRL, exticr1),
@@ -794,7 +794,7 @@ gpio!(GPIOD, gpiod, gpioa, PDx, 4, [
     PD15: (pd15, 15, Input<Floating>, CRH, exticr4),
 ]);
 
-gpio!(GPIOE, gpioe, gpioa, PEx, 5, [
+gpio!(GPIOE, gpioe, gpioa, PEx, 4, [
     PE0: (pe0, 0, Input<Floating>, CRL, exticr1),
     PE1: (pe1, 1, Input<Floating>, CRL, exticr1),
     PE2: (pe2, 2, Input<Floating>, CRL, exticr1),
