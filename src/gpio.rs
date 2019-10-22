@@ -269,7 +269,7 @@ macro_rules! gpio {
 
                 /// Clear the interrupt pending bit for this pin
                 fn clear_interrupt_pending_bit(&mut self, exti: &EXTI) {
-                    exti.pr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                    exti.pr.modify(|_r, w| unsafe { w.bits(1 << self.i) });
                 }
             }
 
@@ -645,7 +645,7 @@ macro_rules! gpio {
 
                     /// Clear the interrupt pending bit for this pin
                     fn clear_interrupt_pending_bit(&mut self, exti: &EXTI) {
-                        exti.pr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                        exti.pr.modify(|_r, w| unsafe { w.bits(1 << $i) });
                     }
                 }
             )+
