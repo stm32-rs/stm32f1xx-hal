@@ -17,7 +17,8 @@
 use core::marker::PhantomData;
 
 use crate::rcc::APB2;
-use crate::stm32::{EXTI,AFIO};
+use crate::stm32::EXTI;
+use crate::afio;
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
@@ -81,11 +82,11 @@ pub enum Edge {
 
 /// External Interrupt Pin
 pub trait ExtiPin {
-    fn make_interrupt_source(&mut self, syscfg: &mut AFIO);
-    fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
-    fn enable_interrupt(&mut self, exti: &mut EXTI);
-    fn disable_interrupt(&mut self, exti: &mut EXTI);
-    fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI);
+    fn make_interrupt_source(&mut self, afio: &mut afio::Parts);
+    fn trigger_on_edge(&mut self, exti: &EXTI, level: Edge);
+    fn enable_interrupt(&mut self, exti: &EXTI);
+    fn disable_interrupt(&mut self, exti: &EXTI);
+    fn clear_interrupt_pending_bit(&mut self, exti: &EXTI);
 }
 
 macro_rules! gpio {
@@ -99,7 +100,8 @@ macro_rules! gpio {
 
             use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, toggleable};
             use crate::pac::{$gpioy, $GPIOX};
-            use crate::stm32::{EXTI,AFIO};
+            use crate::stm32::EXTI;
+            use crate::afio;
 
             use crate::rcc::{APB2, Enable, Reset};
             use super::{
@@ -210,26 +212,26 @@ macro_rules! gpio {
 
             impl<MODE> ExtiPin for Generic<Input<MODE>> {
                 /// Make corresponding EXTI line sensitive to this pin
-                fn make_interrupt_source(&mut self, afio: &mut AFIO) {
+                fn make_interrupt_source(&mut self, afio: &mut afio::Parts) {
                     let offset = 4 * (self.i % 4);
                     match self.i {
                         0..=3 => {
-                            afio.exticr1.modify(|r, w| unsafe {
+                            afio.exticr1.exticr1().modify(|r, w| unsafe {
                                 w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
                             });
                         },
                         4..=7 => {
-                            afio.exticr2.modify(|r, w| unsafe {
+                            afio.exticr2.exticr2().modify(|r, w| unsafe {
                                 w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
                             });
                         },
                         8..=11 => {
-                            afio.exticr3.modify(|r, w| unsafe {
+                            afio.exticr3.exticr3().modify(|r, w| unsafe {
                                 w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
                             });
                         },
                         12..=15 => {
-                            afio.exticr4.modify(|r, w| unsafe {
+                            afio.exticr4.exticr4().modify(|r, w| unsafe {
                                 w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
                             });
                         },
@@ -238,7 +240,7 @@ macro_rules! gpio {
                 }
 
                 /// Generate interrupt on rising edge, falling edge or both
-                fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
+                fn trigger_on_edge(&mut self, exti: &EXTI, edge: Edge) {
                     match edge {
                         Edge::RISING => {
                             exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
@@ -256,17 +258,17 @@ macro_rules! gpio {
                 }
 
                 /// Enable external interrupts from this pin.
-                fn enable_interrupt(&mut self, exti: &mut EXTI) {
+                fn enable_interrupt(&mut self, exti: &EXTI) {
                     exti.imr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                 }
 
                 /// Disable external interrupts from this pin
-                fn disable_interrupt(&mut self, exti: &mut EXTI) {
+                fn disable_interrupt(&mut self, exti: &EXTI) {
                     exti.imr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
                 }
 
                 /// Clear the interrupt pending bit for this pin
-                fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI) {
+                fn clear_interrupt_pending_bit(&mut self, exti: &EXTI) {
                     exti.pr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                 }
             }
@@ -604,9 +606,9 @@ macro_rules! gpio {
 
                 impl<MODE> ExtiPin for $PXi<Input<MODE>> {
                     /// Configure EXTI Line $i to trigger from this pin.
-                    fn make_interrupt_source(&mut self, afio: &mut AFIO) {
+                    fn make_interrupt_source(&mut self, afio: &mut afio::Parts) {
                         let offset = 4 * ($i % 4);
-                        afio.$exticri.modify(|r, w| unsafe {
+                        afio.$exticri.$exticri().modify(|r, w| unsafe {
                             let mut exticr = r.bits();
                             exticr = (exticr & !(0xf << offset)) | ($extigpionr << offset);
                             w.bits(exticr)
@@ -614,7 +616,7 @@ macro_rules! gpio {
                     }
 
                     /// Generate interrupt on rising edge, falling edge or both
-                    fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
+                    fn trigger_on_edge(&mut self, exti: &EXTI, edge: Edge) {
                         match edge {
                             Edge::RISING => {
                                 exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
@@ -632,17 +634,17 @@ macro_rules! gpio {
                     }
 
                     /// Enable external interrupts from this pin.
-                    fn enable_interrupt(&mut self, exti: &mut EXTI) {
+                    fn enable_interrupt(&mut self, exti: &EXTI) {
                         exti.imr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                     }
 
                     /// Disable external interrupts from this pin
-                    fn disable_interrupt(&mut self, exti: &mut EXTI) {
+                    fn disable_interrupt(&mut self, exti: &EXTI) {
                         exti.imr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                     }
 
                     /// Clear the interrupt pending bit for this pin
-                    fn clear_interrupt_pending_bit(&mut self, exti: &mut EXTI) {
+                    fn clear_interrupt_pending_bit(&mut self, exti: &EXTI) {
                         exti.pr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                     }
                 }
