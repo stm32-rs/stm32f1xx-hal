@@ -138,9 +138,13 @@ use crate::pac::{TIM2, TIM3, TIM4};
 
 use crate::afio::MAPR;
 use crate::bb;
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7};
-use crate::gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
-use crate::gpio::{Alternate, PushPull};
+use crate::gpio::{
+    gpioa::{PA0, PA1, PA2, PA3, PA6, PA7, PA15},
+    gpiob::{PB0, PB1, PB3, PB4, PB5, PB6, PB7, PB8, PB9, PB10, PB11},
+    gpioc::{PC6, PC7, PC8, PC9},
+    gpiod::{PD12, PD13, PD14, PD15},
+    Alternate, PushPull
+};
 use crate::time::Hertz;
 use crate::timer::Timer;
 
@@ -153,52 +157,82 @@ pub trait Pins<TIM> {
     type Channels;
 }
 
-impl Pins<TIM2>
-    for (
-        PA0<Alternate<PushPull>>,
-        PA1<Alternate<PushPull>>,
-        PA2<Alternate<PushPull>>,
-        PA3<Alternate<PushPull>>,
-    )
-{
-    const REMAP: u8 = 0b00;
-    const C1: bool = true;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM2, C1>, Pwm<TIM2, C2>, Pwm<TIM2, C3>, Pwm<TIM2, C4>);
+pub trait IsRemap {
+    const REMAP: u8;
 }
 
-impl Pins<TIM3>
-    for (
-        PA6<Alternate<PushPull>>,
-        PA7<Alternate<PushPull>>,
-        PB0<Alternate<PushPull>>,
-        PB1<Alternate<PushPull>>,
-    )
-{
-    const REMAP: u8 = 0b00;
-    const C1: bool = true;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM3, C1>, Pwm<TIM3, C2>, Pwm<TIM3, C3>, Pwm<TIM3, C4>);
+macro_rules! remap_impl {
+    ( $($REMAP:ident: $BITS:tt,)+ ) => {
+        $(
+            pub struct $REMAP;
+
+            impl IsRemap for $REMAP {
+                const REMAP: u8 = $BITS;
+            }
+        )+
+    }
 }
 
-impl Pins<TIM4>
-    for (
-        PB6<Alternate<PushPull>>,
-        PB7<Alternate<PushPull>>,
-        PB8<Alternate<PushPull>>,
-        PB9<Alternate<PushPull>>,
-    )
-{
-    const REMAP: u8 = 0b0;
-    const C1: bool = true;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM4, C1>, Pwm<TIM4, C2>, Pwm<TIM4, C3>, Pwm<TIM4, C4>);
+remap_impl! {
+    NoRemap: 0b0,
+    Remap: 0b1,
+    PartialRemap1: 0b01,
+    PartialRemap2: 0b10,
+    FullRemap: 0b11,
+}
+
+macro_rules! pins_impl {
+    ( $($TIMX:ident: ( $REMAP:ident, $P1:ident, $P2:ident, $P3:ident, $P4:ident ),)+ ) => {
+        $(
+            pins_impl! {
+                $TIMX: ($REMAP, $P1, $P2, $P3, $P4), (C1, C2, C3, C4), (),
+                $TIMX: ($REMAP, $P2, $P3, $P4), (C2, C3, C4), (C1),
+                $TIMX: ($REMAP, $P1, $P3, $P4), (C1, C3, C4), (C2),
+                $TIMX: ($REMAP, $P1, $P2, $P4), (C1, C2, C4), (C3),
+                $TIMX: ($REMAP, $P1, $P2, $P3), (C1, C2, C3), (C4),
+                $TIMX: ($REMAP, $P3, $P4), (C3, C4), (C1, C2),
+                $TIMX: ($REMAP, $P2, $P4), (C2, C4), (C1, C3),
+                $TIMX: ($REMAP, $P2, $P3), (C2, C3), (C1, C4),
+                $TIMX: ($REMAP, $P1, $P4), (C1, C4), (C2, C3),
+                $TIMX: ($REMAP, $P1, $P3), (C1, C3), (C2, C4),
+                $TIMX: ($REMAP, $P1, $P2), (C1, C2), (C3, C4),
+                $TIMX: ($REMAP, $P1), (C1), (C2, C3, C4),
+                $TIMX: ($REMAP, $P2), (C2), (C1, C3, C4),
+                $TIMX: ($REMAP, $P3), (C3), (C1, C2, C4),
+                $TIMX: ($REMAP, $P4), (C4), (C1, C2, C3),
+            }
+        )+
+    };
+
+    ( $($TIMX:ident: ( $REMAP:ident, $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($DISCHX:ident),* ),)+ ) => {
+        $(
+            impl Pins<$TIMX>
+                for (
+                    $REMAP,
+                    $($PINX<Alternate<PushPull>>,)+
+                )
+            {
+                const REMAP: u8 = <$REMAP>::REMAP;
+                $(const $ENCHX: bool = true;)+
+                    $(const $DISCHX: bool = false;)*
+                type Channels = ($(Pwm<$TIMX, $ENCHX>),+);
+            }
+        )+
+    };
+}
+
+pins_impl! {
+    TIM2: (NoRemap, PA0, PA1, PA2, PA3),
+    TIM2: (PartialRemap1, PA15, PB3, PA2, PA3),
+    TIM2: (PartialRemap2, PA0, PA1, PB10, PB11),
+    TIM2: (FullRemap, PA15, PB3, PB10, PB11),
+
+    TIM3: (NoRemap, PA6, PA7, PB0, PB1),
+    TIM3: (PartialRemap2, PB4, PB5, PB0, PB1),
+    TIM3: (FullRemap, PC6, PC7, PC8, PC9),
+
+    TIM4: (NoRemap, PB6, PB7, PB8, PB9),
+    TIM4: (Remap, PD12, PD13, PD14, PD15),
 }
 
 impl Timer<TIM2> {
