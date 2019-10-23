@@ -86,7 +86,7 @@ pub trait ExtiPin {
     fn trigger_on_edge(&mut self, exti: &EXTI, level: Edge);
     fn enable_interrupt(&mut self, exti: &EXTI);
     fn disable_interrupt(&mut self, exti: &EXTI);
-    fn clear_interrupt_pending_bit(&mut self, exti: &EXTI);
+    fn clear_interrupt_pending_bit(&mut self);
 }
 
 macro_rules! gpio {
@@ -268,8 +268,8 @@ macro_rules! gpio {
                 }
 
                 /// Clear the interrupt pending bit for this pin
-                fn clear_interrupt_pending_bit(&mut self, exti: &EXTI) {
-                    exti.pr.modify(|_r, w| unsafe { w.bits(1 << self.i) });
+                fn clear_interrupt_pending_bit(&mut self) {
+                    unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << self.i) ) };
                 }
             }
 
@@ -644,8 +644,8 @@ macro_rules! gpio {
                     }
 
                     /// Clear the interrupt pending bit for this pin
-                    fn clear_interrupt_pending_bit(&mut self, exti: &EXTI) {
-                        exti.pr.modify(|_r, w| unsafe { w.bits(1 << $i) });
+                    fn clear_interrupt_pending_bit(&mut self) {
+                        unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << $i) ) };
                     }
                 }
             )+
