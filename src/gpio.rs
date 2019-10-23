@@ -707,6 +707,38 @@ macro_rules! impl_pxx {
                 }
             }
         }
+
+        impl<MODE> ExtiPin for Pxx<Input<MODE>> {
+            fn make_interrupt_source(&mut self, afio: &mut afio::Parts) {
+                match self {
+                    $(Pxx::$pin(pin) => pin.make_interrupt_source(afio)),*
+                }
+            }
+
+            fn trigger_on_edge(&mut self, exti: &EXTI, level: Edge) {
+                match self {
+                    $(Pxx::$pin(pin) => pin.trigger_on_edge(exti, level)),*
+                }
+            }
+
+            fn enable_interrupt(&mut self, exti: &EXTI) {
+                match self {
+                    $(Pxx::$pin(pin) => pin.enable_interrupt(exti)),*
+                }
+            }
+
+            fn disable_interrupt(&mut self, exti: &EXTI) {
+                match self {
+                    $(Pxx::$pin(pin) => pin.disable_interrupt(exti)),*
+                }
+            }
+
+            fn clear_interrupt_pending_bit(&mut self) {
+                match self {
+                    $(Pxx::$pin(pin) => pin.clear_interrupt_pending_bit()),*
+                }
+            }
+        }
     }
 }
 
