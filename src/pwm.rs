@@ -182,30 +182,32 @@ remap_impl! {
 }
 
 macro_rules! pins_impl {
-    ( $($TIMX:ident: ( $REMAP:ident, $P1:ident, $P2:ident, $P3:ident, $P4:ident ),)+ ) => {
-        $(
+    ( $($TIMX:ident: $( ( $REMAP:ident, $P1:ident, $P2:ident, $P3:ident, $P4:ident ) ),+ ;)+ ) => {
+        $( $(
             pins_impl! {
-                $TIMX: ($REMAP, $P1, $P2, $P3, $P4), (C1, C2, C3, C4), (),
-                $TIMX: ($REMAP, $P2, $P3, $P4), (C2, C3, C4), (C1),
-                $TIMX: ($REMAP, $P1, $P3, $P4), (C1, C3, C4), (C2),
-                $TIMX: ($REMAP, $P1, $P2, $P4), (C1, C2, C4), (C3),
-                $TIMX: ($REMAP, $P1, $P2, $P3), (C1, C2, C3), (C4),
-                $TIMX: ($REMAP, $P3, $P4), (C3, C4), (C1, C2),
-                $TIMX: ($REMAP, $P2, $P4), (C2, C4), (C1, C3),
-                $TIMX: ($REMAP, $P2, $P3), (C2, C3), (C1, C4),
-                $TIMX: ($REMAP, $P1, $P4), (C1, C4), (C2, C3),
-                $TIMX: ($REMAP, $P1, $P3), (C1, C3), (C2, C4),
-                $TIMX: ($REMAP, $P1, $P2), (C1, C2), (C3, C4),
-                $TIMX: ($REMAP, $P1), (C1), (C2, C3, C4),
-                $TIMX: ($REMAP, $P2), (C2), (C1, C3, C4),
-                $TIMX: ($REMAP, $P3), (C3), (C1, C2, C4),
-                $TIMX: ($REMAP, $P4), (C4), (C1, C2, C3),
+                $TIMX: $REMAP (
+                    ($P1, $P2, $P3, $P4), (C1, C2, C3, C4), ();
+                    ($P2, $P3, $P4), (C2, C3, C4), (C1);
+                    ($P1, $P3, $P4), (C1, C3, C4), (C2);
+                    ($P1, $P2, $P4), (C1, C2, C4), (C3);
+                    ($P1, $P2, $P3), (C1, C2, C3), (C4);
+                    ($P3, $P4), (C3, C4), (C1, C2);
+                    ($P2, $P4), (C2, C4), (C1, C3);
+                    ($P2, $P3), (C2, C3), (C1, C4);
+                    ($P1, $P4), (C1, C4), (C2, C3);
+                    ($P1, $P3), (C1, C3), (C2, C4);
+                    ($P1, $P2), (C1, C2), (C3, C4);
+                    ($P1), (C1), (C2, C3, C4);
+                    ($P2), (C2), (C1, C3, C4);
+                    ($P3), (C3), (C1, C2, C4);
+                    ($P4), (C4), (C1, C2, C3);
+                );
             }
-        )+
+        )+ )+
     };
 
-    ( $($TIMX:ident: ( $REMAP:ident, $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($DISCHX:ident),* ),)+ ) => {
-        $(
+    ( $( $TIMX:ident: $REMAP:ident ( $( ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($DISCHX:ident),* ); )+ ); )+ ) => {
+        $( $(
             impl Pins<$TIMX>
                 for (
                     $REMAP,
@@ -217,22 +219,25 @@ macro_rules! pins_impl {
                     $(const $DISCHX: bool = false;)*
                 type Channels = ($(Pwm<$TIMX, $ENCHX>),+);
             }
-        )+
+        )+ )+
     };
 }
 
 pins_impl! {
-    TIM2: (NoRemap, PA0, PA1, PA2, PA3),
-    TIM2: (PartialRemap1, PA15, PB3, PA2, PA3),
-    TIM2: (PartialRemap2, PA0, PA1, PB10, PB11),
-    TIM2: (FullRemap, PA15, PB3, PB10, PB11),
+    TIM2:
+    (NoRemap, PA0, PA1, PA2, PA3),
+    (PartialRemap1, PA15, PB3, PA2, PA3),
+    (PartialRemap2, PA0, PA1, PB10, PB11),
+    (FullRemap, PA15, PB3, PB10, PB11);
 
-    TIM3: (NoRemap, PA6, PA7, PB0, PB1),
-    TIM3: (PartialRemap2, PB4, PB5, PB0, PB1),
-    TIM3: (FullRemap, PC6, PC7, PC8, PC9),
+    TIM3:
+    (NoRemap, PA6, PA7, PB0, PB1),
+    (PartialRemap2, PB4, PB5, PB0, PB1),
+    (FullRemap, PC6, PC7, PC8, PC9);
 
-    TIM4: (NoRemap, PB6, PB7, PB8, PB9),
-    TIM4: (Remap, PD12, PD13, PD14, PD15),
+    TIM4:
+    (NoRemap, PB6, PB7, PB8, PB9),
+    (Remap, PD12, PD13, PD14, PD15);
 }
 
 impl Timer<TIM2> {
