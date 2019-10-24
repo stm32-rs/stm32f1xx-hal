@@ -235,7 +235,7 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
                             });
                         },
-                        _ => {}
+                        _ => unreachable!(),
                     }
                 }
 
