@@ -5,19 +5,19 @@ use cortex_m::peripheral::DWT;
 use crate::rcc::Clocks;
 
 /// Bits per second
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Bps(pub u32);
 
 /// Hertz
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Hertz(pub u32);
 
 /// KiloHertz
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct KiloHertz(pub u32);
 
 /// MegaHertz
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct MegaHertz(pub u32);
 
 /// Time unit

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Renames `set_seconds` and `seconds` methods on RTC to `set_time` and `current_time`, respectively
 - Starting the timer does not generate interrupt requests anymore
 - Make MAPR::mapr() private
+- i2c mode now takes Hertz instead of a generic u32
 
 ### Fixed
 
