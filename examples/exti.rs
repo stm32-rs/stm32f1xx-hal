@@ -30,12 +30,12 @@ fn EXTI9_5() {
     let led = unsafe { &mut *LED.as_mut_ptr()};
     let exti = unsafe { &mut *EXTI.as_mut_ptr()};
 
-    // TODO check which pin caused the interrupt
+    if exti.check_interrupt() {
+        led.toggle();
 
-    led.toggle();
-
-    // if we don't clear this bit, the ISR would trigger indefinitely
-    exti.clear_interrupt_pending_bit();
+        // if we don't clear this bit, the ISR would trigger indefinitely
+        exti.clear_interrupt_pending_bit();
+    }
 }
 
 #[entry]
