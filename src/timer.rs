@@ -157,7 +157,7 @@ macro_rules! hal {
                 /// Stopping timer in debug mode can cause troubles when sampling the signal
                 #[inline(always)]
                 pub fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
-                    dbg.cr.write(|w| w.$dbg_timX_stop().bit(state));
+                    dbg.cr.modify(|_, w| w.$dbg_timX_stop().bit(state));
                 }
 
                 /// Releases the TIM Peripheral

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 
 - Fix some F1 variants crashing when modifying MAPR if JTAG is disabled
+- Switched Timer stop_in_debug to modify cr instead of writing it to prevent it clobbering the rest of the register (was breaking ITM output when configuring pwm_input for example)
 
 ### Changed
 
