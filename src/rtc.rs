@@ -18,7 +18,7 @@ use crate::backup_domain::BackupDomain;
 use crate::time::Hertz;
 
 use nb;
-use void::Void;
+use core::convert::Infallible;
 
 // The LSE runs at at 32 768 hertz unless an external clock is provided
 const LSE_HERTZ: u32 = 32_768;
@@ -170,11 +170,11 @@ impl Rtc {
       use nb::block;
 
       rtc.set_alarm(rtc.read_counts() + 5);
-      // NOTE: Safe unwrap because Void can't be returned
+      // NOTE: Safe unwrap because Infallible can't be returned
       block!(rtc.wait_alarm()).unwrap();
       ```
     */
-    pub fn wait_alarm(&mut self) -> nb::Result<(), Void> {
+    pub fn wait_alarm(&mut self) -> nb::Result<(), Infallible> {
         if self.regs.crl.read().alrf().bit() == true {
             self.regs.crl.modify(|_, w| w.alrf().clear_bit());
             Ok(())

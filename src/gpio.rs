@@ -77,7 +77,7 @@ macro_rules! gpio {
     ]) => {
         /// GPIO
         pub mod $gpiox {
-            use void::Void;
+            use core::convert::Infallible;
             use core::marker::PhantomData;
 
             use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, toggleable};
@@ -164,7 +164,7 @@ macro_rules! gpio {
             }
 
             impl<MODE> OutputPin for Generic<Output<MODE>> {
-                type Error = Void;
+                type Error = Infallible;
                 fn set_high(&mut self) -> Result<(), Self::Error> {
                     // NOTE(unsafe) atomic write to a stateless register
                     Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << self.i)) })
@@ -177,7 +177,7 @@ macro_rules! gpio {
             }
 
             impl<MODE> InputPin for Generic<Input<MODE>> {
-                type Error = Void;
+                type Error = Infallible;
                 fn is_high(&self) -> Result<bool, Self::Error> {
                     self.is_low().map(|b| !b)
                 }
@@ -202,7 +202,7 @@ macro_rules! gpio {
             impl <MODE> toggleable::Default for Generic<Output<MODE>> {}
 
             impl InputPin for Generic<Output<OpenDrain>> {
-                type Error = Void;
+                type Error = Infallible;
                 fn is_high(&self) -> Result<bool, Self::Error> {
                     self.is_low().map(|b| !b)
                 }
@@ -470,7 +470,7 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> OutputPin for $PXi<Output<MODE>> {
-                    type Error = Void;
+                    type Error = Infallible;
                     fn set_high(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
                         Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i)) })
@@ -496,7 +496,7 @@ macro_rules! gpio {
                 impl<MODE> toggleable::Default for $PXi<Output<MODE>> {}
 
                 impl<MODE> InputPin for $PXi<Input<MODE>> {
-                    type Error = Void;
+                    type Error = Infallible;
                     fn is_high(&self) -> Result<bool, Self::Error> {
                         self.is_low().map(|b| !b)
                     }
@@ -508,7 +508,7 @@ macro_rules! gpio {
                 }
 
                 impl InputPin for $PXi<Output<OpenDrain>> {
-                    type Error = Void;
+                    type Error = Infallible;
                     fn is_high(&self) -> Result<bool, Self::Error> {
                         self.is_low().map(|b| !b)
                     }
@@ -525,8 +525,8 @@ macro_rules! gpio {
 
 macro_rules! impl_pxx {
     ($(($port:ident :: $pin:ident)),*) => {
-        use void::Void;
         use embedded_hal::digital::v2::{InputPin, StatefulOutputPin, OutputPin};
+        use core::convert::Infallible;
 
         pub enum Pxx<MODE> {
             $(
@@ -535,14 +535,14 @@ macro_rules! impl_pxx {
         }
 
         impl<MODE> OutputPin for Pxx<Output<MODE>> {
-            type Error = Void;
-            fn set_high(&mut self) -> Result<(), Void> {
+            type Error = Infallible;
+            fn set_high(&mut self) -> Result<(), Infallible> {
                 match self {
                     $(Pxx::$pin(pin) => pin.set_high()),*
                 }
             }
 
-            fn set_low(&mut self) -> Result<(), Void> {
+            fn set_low(&mut self) -> Result<(), Infallible> {
                 match self {
                     $(Pxx::$pin(pin) => pin.set_low()),*
                 }
@@ -564,14 +564,14 @@ macro_rules! impl_pxx {
         }
 
         impl<MODE> InputPin for Pxx<Input<MODE>> {
-            type Error = Void;
-            fn is_high(&self) -> Result<bool, Void> {
+            type Error = Infallible;
+            fn is_high(&self) -> Result<bool, Infallible> {
                 match self {
                     $(Pxx::$pin(pin) => pin.is_high()),*
                 }
             }
 
-            fn is_low(&self) -> Result<bool, Void> {
+            fn is_low(&self) -> Result<bool, Infallible> {
                 match self {
                     $(Pxx::$pin(pin) => pin.is_low()),*
                 }
