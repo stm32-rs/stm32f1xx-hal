@@ -69,9 +69,8 @@ version = "1.5.2"
 #git = "https://github.com/japaric/jnet"
 #rev = "df96b408049ca952ad7844d6552e87cf8fc18d2a"
 
-#[dev-dependencies.motor-driver]
-#git = "https://github.com/japaric/motor-driver"
-#rev = "00c8b15223643090d69f1acfb8b7a7a43a440417"
+[dev-dependencies.motor-driver]
+git = "https://github.com/japaric/motor-driver"
 
 #[dev-dependencies.mpu9250]
 #git = "https://github.com/japaric/mpu9250"

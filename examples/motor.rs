@@ -1,30 +1,41 @@
 //! Open loop motor control
 
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate cortex_m_rt as rt;
-extern crate cortex_m_semihosting as sh;
-extern crate motor_driver;
-extern crate panic_semihosting;
-#[macro_use(block)]
-extern crate nb;
-extern crate stm32f1xx_hal as hal;
+use panic_semihosting as _;
+use cortex_m_semihosting::hprintln;
+use stm32f1xx_hal::{
+    prelude::*,
+    pac::{self,TIM2},
+    gpio::gpioa::PA0,
+    gpio::{Alternate, PushPull},
+    timer::Timer,
+    serial::{Config, Serial},
+    pwm::{Pins, Pwm, C1},
+};
+use embedded_hal::digital::v1_compat::OldOutputPin;
 
-use core::fmt::Write;
+use nb::block;
 
-use hal::prelude::*;
-use hal::serial::Serial;
-use hal::stm32f103xx;
 use motor_driver::Motor;
-use rt::{entry, exception, ExceptionFrame};
-use sh::hio;
+use cortex_m_rt::{entry, exception, ExceptionFrame};
+
+// Using PA0 channel for TIM2 PWM output
+struct MyPwm(PA0<Alternate<PushPull>>);
+impl Pins<TIM2> for MyPwm {
+    const REMAP: u8 = 0b00;
+    const C1: bool = true;
+    const C2: bool = false;
+    const C3: bool = false;
+    const C4: bool = false;
+    type Channels = Pwm<TIM2, C1>;
+}
 
 #[entry]
 fn main() -> ! {
-    let p = stm32f103xx::Peripherals::take().unwrap();
+    let p = pac::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
@@ -42,25 +53,25 @@ fn main() -> ! {
         p.USART1,
         (tx, rx),
         &mut afio.mapr,
-        115_200.bps(),
+        Config::default().baudrate(115_200.bps()),
         clocks,
         &mut rcc.apb2,
     );
 
     let mut rx = serial.split().1;
 
-    let pwm = p.TIM2.pwm(
-        gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl),
-        &mut afio.mapr,
-        1.khz(),
-        clocks,
-        &mut rcc.apb1,
-    );
+
+    let pwm = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1)
+        .pwm(
+            MyPwm(gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl)),
+            &mut afio.mapr,
+            1.khz()
+        );
 
     let max_duty = pwm.get_max_duty() as i16;
     let mut motor = Motor::tb6612fng(
-        gpioa.pa1.into_push_pull_output(&mut gpioa.crl),
-        gpioa.pa2.into_push_pull_output(&mut gpioa.crl),
+        OldOutputPin::from(gpioa.pa1.into_push_pull_output(&mut gpioa.crl)),
+        OldOutputPin::from(gpioa.pa2.into_push_pull_output(&mut gpioa.crl)),
         pwm,
     );
 
@@ -69,8 +80,7 @@ fn main() -> ! {
 
     motor.duty(duty as u16);
 
-    let mut hstdout = hio::hstdout().unwrap();
-    writeln!(hstdout, "{} {}", max_duty, brake).unwrap();
+    hprintln!("{} {}", max_duty, brake).unwrap();
     loop {
         match block!(rx.read()).unwrap() {
             b'*' => duty *= 2,
@@ -98,7 +108,7 @@ fn main() -> ! {
 
         motor.duty(duty.abs() as u16);
 
-        writeln!(hstdout, "{} {}", duty, brake).unwrap();
+        hprintln!("{} {}", duty, brake).unwrap();
     }
 }
 
