@@ -163,142 +163,132 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     (core::cmp::max(1, arr as u16), presc as u16)
 }
 macro_rules! hal {
-   ($($TIMX:ident: ($timX:ident, $pclkX:ident ),)+) => {
-      $(
-         fn $timX<PINS,T>(
-            tim: $TIMX,
-            _pins: PINS,
-            clk: Hertz,
-            mode : Configuration<T>,
+    ($($TIMX:ident: ($timX:ident, $pclkX:ident ),)+) => {
+        $(
+            fn $timX<PINS,T>(
+                tim: $TIMX,
+                _pins: PINS,
+                clk: Hertz,
+                mode : Configuration<T>,
             ) -> PwmInput<$TIMX,PINS>
-         where
-         PINS: Pins<$TIMX>,
-         T : Into<Hertz>
-         {
-            use crate::pwm_input::Configuration::*;
-            // Disable capture on both channels during setting
-            // (for Channel X bit is CCXE)
-            tim.ccer.modify(|_,w| w.cc1e().clear_bit().cc2e().clear_bit()
-                            .cc1p().clear_bit().cc2p().set_bit());
+            where
+                PINS: Pins<$TIMX>,
+                T : Into<Hertz>
+            {
+                use crate::pwm_input::Configuration::*;
+                // Disable capture on both channels during setting
+                // (for Channel X bit is CCXE)
+                tim.ccer.modify(|_,w| w.cc1e().clear_bit().cc2e().clear_bit()
+                                       .cc1p().clear_bit().cc2p().set_bit());
 
+                // Define the direction of the channel (input/output)
+                // and the used input
+                tim.ccmr1_input().modify( |_,w| w.cc1s().ti1().cc2s().ti1());
 
-            // Define the direction of the channel (input/output)
-            // and the used input
-            tim.ccmr1_input().modify( |_,w| w.cc1s().ti1().cc2s().ti1());
+                tim.dier.write(|w| w.cc1ie().set_bit());
 
-            tim.dier.write(|w| w.cc1ie().set_bit());
+                // Configure slave mode control register
+                // Selects the trigger input to be used to synchronize the counter
+                // 101: Filtered Timer Input 1 (TI1FP1)
+                // ---------------------------------------
+                // Slave Mode Selection :
+                //  100: Reset Mode - Rising edge of the selected trigger input (TRGI)
+                //  reinitializes the counter and generates an update of the registers.
+                tim.smcr.modify( |_,w| unsafe {w.ts().bits(0b101).sms().bits(0b100)});
 
-            // Configure slave mode control register
-            // Selects the trigger input to be used to synchronize the counter
-            // 101: Filtered Timer Input 1 (TI1FP1)
-            // ---------------------------------------
-            // Slave Mode Selection :
-            //  100: Reset Mode - Rising edge of the selected trigger input (TRGI)
-            //  reinitializes the counter and generates an update of the registers.
-            tim.smcr.modify( |_,w| unsafe {w.ts().bits(0b101).sms().bits(0b100)});
+                match mode {
+                    Frequency(f)  => {
+                        let freq = f.into().0;
+                        let max_freq = if freq > 5 {freq/5} else {1};
+                        let (arr,presc) = compute_arr_presc(max_freq, clk.0);
+                        tim.arr.write(|w| w.arr().bits(arr));
+                        tim.psc.write(|w| w.psc().bits(presc) );
+                    },
+                    DutyCycle(f) => {
+                        let freq = f.into().0;
+                        let max_freq = if freq > 2 {freq/2 + freq/4 + freq/8} else {1};
+                        let (arr,presc) = compute_arr_presc(max_freq, clk.0);
+                        tim.arr.write(|w| w.arr().bits(arr));
+                        tim.psc.write(|w| w.psc().bits(presc) );
+                    },
+                    RawFrequency(f) => {
+                        let freq = f.into().0;
+                        let (arr,presc) = compute_arr_presc(freq, clk.0);
+                        tim.arr.write(|w| w.arr().bits(arr));
+                        tim.psc.write(|w| w.psc().bits(presc) );
+                    }
+                    RawValues{arr, presc} => {
+                        tim.arr.write(|w| w.arr().bits(arr));
+                        tim.psc.write(|w| w.psc().bits(presc) );
+                    }
+                }
 
-            match mode {
-               Frequency(f)  => {
-                  let freq = f.into().0;
-                  let max_freq = if freq > 5 {freq/5} else {1};
-                  let (arr,presc) = compute_arr_presc(max_freq, clk.0);
-                  tim.arr.write(|w| w.arr().bits(arr));
-                  tim.psc.write(|w| w.psc().bits(presc) );
+                // Enable Capture on both channels
+                tim.ccer.modify(|_,w| w.cc1e().set_bit().cc2e().set_bit());
 
-               },
-               DutyCycle(f) => {
-                  let freq = f.into().0;
-                  let max_freq = if freq > 2 {freq/2 + freq/4 + freq/8} else {1};
-                  let (arr,presc) = compute_arr_presc(max_freq, clk.0);
-                  tim.arr.write(|w| w.arr().bits(arr));
-                  tim.psc.write(|w| w.psc().bits(presc) );
-               },
-               RawFrequency(f) => {
-                  let freq = f.into().0;
-                  let (arr,presc) = compute_arr_presc(freq, clk.0);
-                  tim.arr.write(|w| w.arr().bits(arr));
-                  tim.psc.write(|w| w.psc().bits(presc) );
-               }
-               RawValues{arr, presc} => {
-                  tim.arr.write(|w| w.arr().bits(arr));
-                  tim.psc.write(|w| w.psc().bits(presc) );
-
-               }
+                tim.cr1.modify(|_,w| w.cen().set_bit());
+                unsafe { mem::MaybeUninit::uninit().assume_init() }
             }
 
-            // Enable Capture on both channels
-            tim.ccer.modify(|_,w| w.cc1e().set_bit().cc2e().set_bit());
+            impl<PINS> PwmInput<$TIMX,PINS> where PINS : Pins<$TIMX> {
+                /// Return the frequency sampled by the timer
+                pub fn read_frequency(&self, mode : ReadMode, clocks : &Clocks) -> Result<Hertz,Error> {
+                    match mode {
+                        ReadMode::WaitForNextCapture => self.wait_for_capture(),
+                        _ => (),
+                    }
+                    
+                    let presc = unsafe { (*$TIMX::ptr()).psc.read().bits() as u16};
+                    let ccr1 = unsafe { (*$TIMX::ptr()).ccr1.read().bits() as u16};
 
+                    // Formulas :
+                    //
+                    // F_timer = F_pclk / (PSC+1)*(ARR+1)
+                    // Frac_arr = (CCR1+1)/(ARR+1)
+                    // F_signal = F_timer/Frac_arr
+                    // <=> F_signal = [(F_plck)/((PSC+1)*(ARR+1))] * [(ARR+1)/(CCR1+1)]
+                    // <=> F_signal = F_pclk / ((PSC+1)*(CCR1+1))
+                    //
+                    // Where :
+                    // * PSC is the prescaler register
+                    // * ARR is the auto-reload register
+                    // * F_timer is the number of time per second where the timer overflow under normal
+                    // condition
+                    //
+                    if ccr1 == 0 {
+                        Err(Error::FrequencyTooLow)
+                    } else {
+                        let clk : u32 = clocks.$pclkX().0;
+                        Ok(Hertz(clk/((presc+1) as u32*(ccr1 + 1)as u32)))
+                    }
+                }
 
-            tim.cr1.modify(|_,w| w.cen().set_bit());
+                /// Return the duty in the form of a fraction : (duty_cycle/period)
+                pub fn read_duty(&self, mode : ReadMode) -> Result<(u16,u16),Error> {
+                    match mode {
+                        ReadMode::WaitForNextCapture => self.wait_for_capture(),
+                        _ => (),
+                    }
 
+                    // Formulas :
+                    // Duty_cycle = (CCR2+1)/(CCR1+1)
+                    let ccr1 = unsafe { (*$TIMX::ptr()).ccr1.read().bits() as u16};
+                    let ccr2 = unsafe { (*$TIMX::ptr()).ccr2.read().bits() as u16};
+                    if ccr1 == 0 {
+                        Err(Error::FrequencyTooLow)
+                    } else {
+                        Ok((ccr2,ccr1))
+                    }
+                }
 
-            unsafe { mem::MaybeUninit::uninit().assume_init() }
-         }
-
-      impl<PINS> PwmInput<$TIMX,PINS> where PINS : Pins<$TIMX> {
-         /// Return the frequency sampled by the timer
-         pub fn read_frequency(&self, mode : ReadMode, clocks : &Clocks) -> Result<Hertz,Error> {
-
-            match mode {
-               ReadMode::WaitForNextCapture => self.wait_for_capture(),
-                  _ => (),
+                /// Wait until the timer has captured a period
+                fn wait_for_capture(&self) {
+                    unsafe { (*$TIMX::ptr()).sr.write(|w| w.uif().clear_bit().cc1if().clear_bit().cc1of().clear_bit())};
+                    while unsafe { (*$TIMX::ptr()).sr.read().cc1if().bit_is_clear()} {}
+                }
             }
-            let presc = unsafe { (*$TIMX::ptr()).psc.read().bits() as u16};
-            let ccr1 = unsafe { (*$TIMX::ptr()).ccr1.read().bits() as u16};
-
-            // Formulas :
-            //
-            // F_timer = F_pclk / (PSC+1)*(ARR+1)
-            // Frac_arr = (CCR1+1)/(ARR+1)
-            // F_signal = F_timer/Frac_arr
-            // <=> F_signal = [(F_plck)/((PSC+1)*(ARR+1))] * [(ARR+1)/(CCR1+1)]
-            // <=> F_signal = F_pclk / ((PSC+1)*(CCR1+1))
-            //
-            // Where :
-            // * PSC is the prescaler register
-            // * ARR is the auto-reload register
-            // * F_timer is the number of time per second where the timer overflow under normal
-            // condition
-            //
-            if ccr1 == 0 {
-               Err(Error::FrequencyTooLow)
-            }
-            else {
-               let clk : u32 = clocks.$pclkX().0;
-               Ok(Hertz(clk/((presc+1) as u32*(ccr1 + 1)as u32)))
-            }
-         }
-
-
-         /// Return the duty in the form of a fraction : (duty_cycle/period)
-         pub fn read_duty(&self, mode : ReadMode) -> Result<(u16,u16),Error> {
-
-            match mode {
-               ReadMode::WaitForNextCapture => self.wait_for_capture(),
-               _ => (),
-            }
-
-            // Formulas :
-            // Duty_cycle = (CCR2+1)/(CCR1+1)
-            let ccr1 = unsafe { (*$TIMX::ptr()).ccr1.read().bits() as u16};
-            let ccr2 = unsafe { (*$TIMX::ptr()).ccr2.read().bits() as u16};
-            if ccr1 == 0 {
-               Err(Error::FrequencyTooLow)
-            } else {
-               Ok((ccr2,ccr1))
-            }
-         }
-
-         /// Wait until the timer has captured a period
-         fn wait_for_capture(&self) {
-            unsafe { (*$TIMX::ptr()).sr.write(|w| w.uif().clear_bit().cc1if().clear_bit().cc1of().clear_bit())};
-            while unsafe { (*$TIMX::ptr()).sr.read().cc1if().bit_is_clear()} {}
-         }
-      }
-
-      )+
-   }
+        )+
+    }
 }
 
 hal! {
