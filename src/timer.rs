@@ -1,7 +1,45 @@
 //! # Timer
 
 use crate::hal::timer::{CountDown, Periodic};
-use crate::pac::{DBGMCU as DBG, TIM1, TIM2, TIM3, TIM4};
+use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+use crate::pac::TIM1;
+#[cfg(feature = "medium")]
+use crate::pac::TIM4;
+#[cfg(feature = "high")]
+use crate::pac::TIM5;
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f105",
+    feature = "high",
+))]
+use crate::pac::TIM6;
+#[cfg(any(
+    all(
+        feature = "high",
+        any(
+            feature = "stm32f101",
+            feature = "stm32f103",
+            feature = "stm32f107",
+        ),
+    ),
+    any(
+        feature = "stm32f100",
+        feature = "stm32f105",
+)))]
+use crate::pac::TIM7;
+#[cfg(all(
+    feature = "stm32f103",
+    feature = "high",
+))]
+use crate::pac::TIM8;
+#[cfg(feature = "stm32f100")]
+use crate::pac::{TIM15, TIM16, TIM17};
+
 use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
@@ -124,7 +162,7 @@ impl CountDown for CountDownTimer<SYST> {
 impl Periodic for CountDownTimer<SYST> {}
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $timbase:ident, $pclkX:ident, $dbg_timX_stop:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $pclkX:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
         $(
             impl Timer<$TIMX> {
                 /// Initialize timer
@@ -147,16 +185,19 @@ macro_rules! hal {
                     timer
                 }
 
-                pub fn start_master<T>(self, timeout: T, mode: crate::pac::$timbase::cr2::MMS_A) -> CountDownTimer<$TIMX>
-                where
-                    T: Into<Hertz>,
-                {
-                    let Self { tim, clk } = self;
-                    let mut timer = CountDownTimer { tim, clk };
-                    timer.tim.cr2.modify(|_,w| w.mms().variant(mode));
-                    timer.start(timeout);
-                    timer
-                }
+                $(
+                    /// Starts timer in count down mode at a given frequency and additionally configures the timers master mode
+                    pub fn start_master<T>(self, timeout: T, mode: crate::pac::$master_timbase::cr2::MMS_A) -> CountDownTimer<$TIMX>
+                    where
+                        T: Into<Hertz>,
+                    {
+                        let Self { tim, clk } = self;
+                        let mut timer = CountDownTimer { tim, clk };
+                        timer.tim.cr2.modify(|_,w| w.mms().variant(mode));
+                        timer.start(timeout);
+                        timer
+                    }
+                )?
 
                 /// Resets timer peripheral
                 #[inline(always)]
@@ -248,7 +289,7 @@ macro_rules! hal {
 
                     let (psc, arr) = compute_arr_presc(timeout.into().0, self.clk.0);
                     self.tim.psc.write(|w| w.psc().bits(psc) );
-                    self.tim.arr.write(|w| w.arr().bits(arr) );
+                    self.tim.arr.write(|w| unsafe { w.arr().bits(arr) });
 
                     // Trigger an update event to load the prescaler value to the clock
                     self.reset();
@@ -280,16 +321,90 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     (psc, arr)
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-))]
 hal! {
-    TIM1: (tim1, tim1, pclk2_tim, dbg_tim1_stop),
+    TIM2: (tim2, pclk1_tim, dbg_tim2_stop, tim2),
+    TIM3: (tim3, pclk1_tim, dbg_tim3_stop, tim2),
 }
 
+#[cfg(any(
+    feature = "stm32f100", 
+    feature = "stm32f103", 
+    feature = "stm32f105",
+))]
 hal! {
-    TIM2: (tim2, tim2, pclk1_tim, dbg_tim2_stop),
-    TIM3: (tim3, tim2, pclk1_tim, dbg_tim3_stop),
-    TIM4: (tim4, tim2, pclk1_tim, dbg_tim4_stop),
+    TIM1: (tim1, pclk2_tim, dbg_tim1_stop, tim1),
 }
+
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f105", 
+    feature = "high",
+))]
+hal! {
+    TIM6: (tim6, pclk2_tim, dbg_tim6_stop, tim6),
+}
+
+#[cfg(any(
+    all(
+        feature = "high",
+        any(
+            feature = "stm32f101", 
+            feature = "stm32f103", 
+            feature = "stm32f107",
+        ),
+    ),
+    any(
+        feature = "stm32f100",
+        feature = "stm32f105",
+)))]
+hal! {
+    TIM7: (tim7, pclk2_tim, dbg_tim7_stop, tim6),
+}
+
+#[cfg(feature = "stm32f100")]
+hal! {
+    TIM15: (tim15, pclk2_tim, dbg_tim15_stop),
+    TIM16: (tim16, pclk2_tim, dbg_tim16_stop),
+    TIM17: (tim17, pclk2_tim, dbg_tim17_stop),
+}
+
+#[cfg(feature = "medium")]
+hal! {
+    TIM4: (tim4, pclk1_tim, dbg_tim4_stop, tim2),
+}
+
+#[cfg(feature = "high")]
+hal! {
+    TIM5: (tim5, pclk2_tim, dbg_tim5_stop, tim2),
+}
+
+#[cfg(all(
+    feature = "stm32f103", 
+    feature = "high",
+))]
+hal! {
+    TIM8: (tim8, pclk2_tim, dbg_tim8_stop, tim1),
+}
+
+//TODO: restore these timers once stm32-rs has been updated
+/*
+ *   dbg_tim(12-13)_stop fields missing from 103 xl in stm32-rs
+ *   dbg_tim(9-10)_stop fields missing from 101 xl in stm32-rs
+#[cfg(any(
+    feature = "xl",
+    all(
+        feature = "stm32f100",
+        feature = "high",
+)))]
+hal! {
+    TIM12: (tim12, pclk2_tim, dbg_tim12_stop),
+    TIM13: (tim13, pclk2_tim, dbg_tim13_stop),
+    TIM14: (tim14, pclk2_tim, dbg_tim14_stop),
+}
+#[cfg(feature = "xl")]
+hal! {
+    TIM9: (tim9, pclk2_tim, dbg_tim9_stop),
+    TIM10: (tim10, pclk2_tim, dbg_tim10_stop),
+    TIM11: (tim11, pclk2_tim, dbg_tim11_stop),
+}
+*/

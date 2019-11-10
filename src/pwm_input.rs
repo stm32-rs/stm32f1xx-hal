@@ -4,11 +4,15 @@
 use core::marker::PhantomData;
 use core::mem;
 
-use crate::stm32::{DBGMCU as DBG, TIM1, TIM2, TIM3, TIM4};
+use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
+#[cfg(feature = "medium")]
+use crate::pac::TIM4;
 
 use crate::afio::MAPR;
-use crate::gpio::gpioa::{PA0, PA1, PA15, PA6, PA7, PA8, PA9};
-use crate::gpio::gpiob::{PB3, PB4, PB5, PB6, PB7};
+use crate::gpio::gpioa::{PA0, PA1, PA15, PA6, PA7};
+use crate::gpio::gpiob::{PB3, PB4, PB5};
+#[cfg(feature = "medium")]
+use crate::gpio::gpiob::{PB6, PB7};
 use crate::gpio::{Floating, Input};
 use crate::rcc::Clocks;
 use crate::time::Hertz;
@@ -18,6 +22,7 @@ pub trait Pins<TIM> {
     const REMAP: u8;
 }
 
+#[cfg(feature = "medium")]
 impl Pins<TIM4> for (PB6<Input<Floating>>, PB7<Input<Floating>>) {
     const REMAP: u8 = 0b0;
 }
@@ -36,10 +41,6 @@ impl Pins<TIM2> for (PA0<Input<Floating>>, PA1<Input<Floating>>) {
 
 impl Pins<TIM2> for (PA15<Input<Floating>>, PB3<Input<Floating>>) {
     const REMAP: u8 = 0b11;
-}
-
-impl Pins<TIM1> for (PA8<Input<Floating>>, PA9<Input<Floating>>) {
-    const REMAP: u8 = 0b00;
 }
 
 /// PWM Input
@@ -132,6 +133,7 @@ impl Timer<TIM3> {
     }
 }
 
+#[cfg(feature = "medium")]
 impl Timer<TIM4> {
     pub fn pwm_input<PINS, T>(
         mut self,
@@ -300,7 +302,11 @@ macro_rules! hal {
 }
 
 hal! {
-   TIM2: (tim2, pclk1_tim),
-   TIM3: (tim3, pclk1_tim),
-   TIM4: (tim4, pclk1_tim),
+    TIM2: (tim2, pclk1_tim),
+    TIM3: (tim3, pclk1_tim),
+}
+
+#[cfg(feature = "medium")]
+hal! {
+    TIM4: (tim4, pclk1_tim),
 }

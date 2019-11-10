@@ -11,10 +11,13 @@ use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 
 use crate::stm32::ADC1;
-#[cfg(any(
-    feature = "stm32f103",
-))]
+#[cfg(feature = "stm32f103")]
 use crate::stm32::ADC2;
+#[cfg(all(
+    feature = "stm32f103",
+    feature = "high",
+))]
+use crate::stm32::ADC3;
 
 /// Continuous mode
 pub struct Continuous;
@@ -484,11 +487,17 @@ adc_hal! {
     ADC1: (adc1),
 }
 
-#[cfg(any(
-    feature = "stm32f103",
-))]
+#[cfg(feature = "stm32f103")]
 adc_hal! {
     ADC2: (adc2),
+}
+
+#[cfg(all(
+    feature = "stm32f103",
+    feature = "high",
+))]
+adc_hal! {
+    ADC3: (adc3),
 }
 
 pub struct AdcPayload<PINS, MODE> {
