@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Breaking changes
 
+- Bump `stm32f1` dependency (`0.9.0`)
 - `void::Void` replaced with `Infallible` where it is possible
 - Change timer/pwm init API
 - Remove `set_low` and `set_high` for pins in Alternate output mode
