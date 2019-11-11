@@ -231,7 +231,7 @@ macro_rules! hal {
             tim.cr1.modify(|_,w| w.cen().set_bit());
 
 
-            unsafe { mem::uninitialized() }
+            unsafe { mem::MaybeUninit::uninit().assume_init() }
          }
 
       impl<PINS> PwmInput<$TIMX,PINS> where PINS : Pins<$TIMX> {
