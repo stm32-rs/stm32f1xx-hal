@@ -37,6 +37,11 @@ version = "0.2.2"
 version = "0.2.3"
 features = ["unproven"]
 
+[dependencies.stm32-usbd]
+version = "0.5.0"
+features = ["ram_access_1x16"]
+optional = true
+
 [dev-dependencies]
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.2"
@@ -48,6 +53,8 @@ heapless = "0.4.3"
 m = "0.1.1"
 mfrc522 = "0.2.0"
 serde_derive = "1.0.90"
+usb-device = "0.2.3"
+usbd-serial = "0.1.0"
 
 [dev-dependencies.byteorder]
 default-features = false
@@ -108,3 +115,15 @@ codegen-units = 1
 codegen-units = 1
 debug = true
 lto = true
+
+[[example]]
+name = "usb_serial"
+required-features = ["rt", "stm32f103", "stm32-usbd"]
+
+[[example]]
+name = "usb_serial_interrupt"
+required-features = ["rt", "stm32f103", "stm32-usbd"]
+
+[[example]]
+name = "usb_serial_rtfm"
+required-features = ["rt", "stm32f103", "stm32-usbd"]

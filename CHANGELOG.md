@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `micros_since` and `reset` methods to timer
 - Added `select_frequency` method to RTC
 - Unidirectional DMA support for SPI (TX only)
+- Added USB driver for `stm32f102` and `stm32f103` devices
 
 ### Breaking changes
 
