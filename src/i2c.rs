@@ -46,6 +46,14 @@ pub enum Mode {
 }
 
 impl Mode {
+    pub fn standard<F: Into<Hertz>>(frequency: F) -> Self {
+        Mode::Standard{frequency: frequency.into()}
+    }
+
+    pub fn fast<F: Into<Hertz>>(frequency: F, duty_cycle: DutyCycle) -> Self {
+        Mode::Fast{frequency: frequency.into(), duty_cycle}
+    }
+
     pub fn get_frequency(&self) -> Hertz {
         match self {
             &Mode::Standard { frequency } => frequency,
