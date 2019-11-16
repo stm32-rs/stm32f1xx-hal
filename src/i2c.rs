@@ -1,6 +1,7 @@
 //! Inter-Integrated Circuit (I2C) bus
 
 use crate::afio::MAPR;
+use crate::time::Hertz;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
@@ -36,16 +37,24 @@ pub enum DutyCycle {
 #[derive(Debug, PartialEq)]
 pub enum Mode {
     Standard {
-        frequency: u32,
+        frequency: Hertz,
     },
     Fast {
-        frequency: u32,
+        frequency: Hertz,
         duty_cycle: DutyCycle,
     },
 }
 
 impl Mode {
-    pub fn get_frequency(&self) -> u32 {
+    pub fn standard<F: Into<Hertz>>(frequency: F) -> Self {
+        Mode::Standard{frequency: frequency.into()}
+    }
+
+    pub fn fast<F: Into<Hertz>>(frequency: F, duty_cycle: DutyCycle) -> Self {
+        Mode::Fast{frequency: frequency.into(), duty_cycle}
+    }
+
+    pub fn get_frequency(&self) -> Hertz {
         match self {
             &Mode::Standard { frequency } => frequency,
             &Mode::Fast { frequency, .. } => frequency,
@@ -251,7 +260,7 @@ macro_rules! hal {
 
                     let pclk1 = clocks.pclk1().0;
 
-                    assert!(mode.get_frequency() <= 400_000);
+                    assert!(mode.get_frequency().0 <= 400_000);
 
                     let mut i2c = I2c { i2c, pins, mode, pclk1 };
                     i2c.init();
@@ -273,7 +282,7 @@ macro_rules! hal {
                                 w.trise().bits((pclk1_mhz + 1) as u8)
                             });
                             self.i2c.ccr.write(|w| unsafe {
-                                w.ccr().bits(((self.pclk1 / (freq * 2)) as u16).max(4))
+                                w.ccr().bits(((self.pclk1 / (freq.0 * 2)) as u16).max(4))
                             });
                         },
                         Mode::Fast { ref duty_cycle, .. } => {
@@ -283,8 +292,8 @@ macro_rules! hal {
 
                             self.i2c.ccr.write(|w| {
                                 let (freq, duty) = match duty_cycle {
-                                    &DutyCycle::Ratio2to1 => (((self.pclk1 / (freq * 3)) as u16).max(1), false),
-                                    &DutyCycle::Ratio16to9 => (((self.pclk1 / (freq * 25)) as u16).max(1), true)
+                                    &DutyCycle::Ratio2to1 => (((self.pclk1 / (freq.0* 3)) as u16).max(1), false),
+                                    &DutyCycle::Ratio16to9 => (((self.pclk1 / (freq.0 * 25)) as u16).max(1), true)
                                 };
 
                                 unsafe {
