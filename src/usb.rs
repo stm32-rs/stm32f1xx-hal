@@ -1,6 +1,6 @@
 //! USB peripheral
 
-//! Requires the `stm32_usbd` feature.
+//! Requires the `stm32-usbd` feature.
 //! See https://github.com/stm32-rs/stm32f1xx-hal/tree/master/examples
 //! for usage examples
 
