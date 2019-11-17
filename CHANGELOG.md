@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Unidirectional DMA support for SPI (TX only)
 - Added USB driver for `stm32f102` and `stm32f103` devices
 
+- ADC measurement now can be run by timer
+
 ### Breaking changes
 
 - Bump `stm32f1` dependency (`0.9.0`)
@@ -36,6 +38,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - DMA traits now require AsSlice instead of AsRef
 - GPIO `downgrade` function now returns a `Pxx` instead of a type specific to a
   GPIO port
+
+- AdcDma can process several pins at a time
 
 ## [v0.4.0] - 2019-08-09
 
