@@ -1,5 +1,9 @@
 //! USB peripheral
 
+//! Requires the `stm32_usbd` feature.
+//! See https://github.com/stm32-rs/stm32f1xx-hal/tree/master/examples
+//! for usage examples
+
 use crate::pac::{RCC, USB};
 use stm32_usbd::UsbPeripheral;
 
