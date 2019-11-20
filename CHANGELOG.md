@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `select_frequency` method to RTC
 - Unidirectional DMA support for SPI (TX only)
 - Added USB driver for `stm32f102` and `stm32f103` devices
-
+- Added all timers for all variants as described by CubeMX. Commented out {TIM9, TIM10} for XL and {TIM12, TIM13, TIM14} for XL and F100-HIGH due to missing fields for those devices in stm32-rs.
 - ADC measurement now can be run by timer
 
 ### Breaking changes
@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Starting the timer does not generate interrupt requests anymore
 - Make MAPR::mapr() private
 - i2c mode now takes Hertz instead of a generic u32
+- Timers that were previously incorrectly available without medium/high/xl density features may now be missing
 
 ### Fixed
 

@@ -11,9 +11,18 @@
 
 This crate supports multiple microcontrollers in the
 stm32f1 family. Which specific microcontroller you want to build for has to be
-specified with a feature, for example `stm32f103`.
+specified with a feature, for example `stm32f103`. 
 
 If no microcontroller is specified, the crate will not compile.
+
+You may also need to specify the density of the device with `medium`, `high` or `xl` 
+to enable certain peripherals. Generally the density can be determined by the 2nd character 
+after the number in the device name (i.e. For STM32F103C6U, the 6 indicates a low-density
+device) but check the datasheet or CubeMX to be sure.
+* 4, 6 => low density, no feature required
+* 8, B => `medium` feature
+* C, D, E => `high` feature
+* F, G => `xl` feature
 
 ### Supported Microcontrollers
 
