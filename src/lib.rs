@@ -94,11 +94,6 @@
 
 #![no_std]
 
-// Some pac crates have fields specified in such a way that they are safe and other
-// have them unsafe (likely an SVD error that needs patching). Unsafe blocks for 
-// one device cause warnings for the safe devices. This disables that warning.
-#![allow(unused_unsafe)]
-
 // If no target specified, print error message.
 #[cfg(not(any(feature = "stm32f100", feature = "stm32f101", feature = "stm32f103")))]
 compile_error!("Target not found. A `--feature <target-name>` is required.");

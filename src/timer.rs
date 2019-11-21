@@ -289,6 +289,9 @@ macro_rules! hal {
 
                     let (psc, arr) = compute_arr_presc(timeout.into().0, self.clk.0);
                     self.tim.psc.write(|w| w.psc().bits(psc) );
+                    
+                    // TODO: Remove this `allow` once this field is made safe for stm32f100
+                    #[allow(unused_unsafe)]
                     self.tim.arr.write(|w| unsafe { w.arr().bits(arr) });
 
                     // Trigger an update event to load the prescaler value to the clock
