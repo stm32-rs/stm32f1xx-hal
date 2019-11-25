@@ -6,6 +6,8 @@ use nb;
 
 pub use crate::hal::spi::{Mode, Phase, Polarity};
 use crate::pac::{SPI1, SPI2};
+#[cfg(feature="high")]
+use crate::pac::SPI3;
 
 use crate::afio::MAPR;
 use crate::gpio::gpioa::{PA5, PA6, PA7};
@@ -33,46 +35,63 @@ pub enum Error {
     _Extensible,
 }
 
-pub trait Pins<SPI> {
-    const REMAP: bool;
-}
+use core::marker::PhantomData;
 
-impl Pins<SPI1>
-    for (
-        PA5<Alternate<PushPull>>,
-        PA6<Input<Floating>>,
-        PA7<Alternate<PushPull>>,
-    )
-{
-    const REMAP: bool = false;
+mod sealed {
+    pub trait Remap {
+        type Periph;
+        const REMAP: bool;
+    }
+    pub trait Sck<REMAP> {}
+    pub trait Miso<REMAP> {}
+    pub trait Mosi<REMAP> {}
 }
+use sealed::{Remap, Sck, Miso, Mosi};
 
-impl Pins<SPI1>
-    for (
-        PB3<Alternate<PushPull>>,
-        PB4<Input<Floating>>,
-        PB5<Alternate<PushPull>>,
-    )
-{
-    const REMAP: bool = true;
-}
+pub trait Pins<SPI> {}
+impl<REMAP, SCK, MISO, MOSI> Pins<REMAP> for (SCK, MISO, MOSI)
+where
+    SCK: Sck<REMAP>,
+    MISO: Miso<REMAP>,
+    MOSI: Mosi<REMAP> {}
 
-impl Pins<SPI2>
-    for (
-        PB13<Alternate<PushPull>>,
-        PB14<Input<Floating>>,
-        PB15<Alternate<PushPull>>,
-    )
-{
-    const REMAP: bool = false;
-}
-
-pub struct Spi<SPI, PINS> {
+pub struct Spi<SPI, REMAP, PINS> {
     spi: SPI,
     pins: PINS,
+    _remap: PhantomData<REMAP>,
 }
 
-impl<PINS> Spi<SPI1, PINS> {
+/// A filler type for when the SCK pin is unnecessary
+pub struct NoSck;
+/// A filler type for when the Miso pin is unnecessary
+pub struct NoMiso;
+/// A filler type for when the Mosi pin is unnecessary
+pub struct NoMosi;
+
+impl<REMAP> Sck<REMAP> for NoSck {}
+impl<REMAP> Miso<REMAP> for NoMiso {}
+impl<REMAP> Mosi<REMAP> for NoMosi {}
+
+macro_rules! remap {
+    ($name:ident, $SPIX:ident, $state:literal, $SCK:ident, $MISO:ident, $MOSI:ident) => {
+        pub struct $name;
+        impl Remap for $name {
+            type Periph = $SPIX;
+            const REMAP: bool = $state;
+        }
+        impl Sck<$name> for $SCK<Alternate<PushPull>> {}
+        impl Miso<$name> for $MISO<Input<Floating>> {}
+        impl Mosi<$name> for $MOSI<Alternate<PushPull>> {}
+    }
+}
+
+remap!(Spi1NoRemap, SPI1, false, PA5, PA6, PA7);
+remap!(Spi1Remap, SPI1, true, PB3, PB4, PB5);
+remap!(Spi2NoRemap, SPI2, false, PB13, PB14, PB15);
+#[cfg(feature="high")]
+remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
+
+impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
     pub fn spi1<F>(
         spi: SPI1,
         pins: PINS,
@@ -84,14 +103,15 @@ impl<PINS> Spi<SPI1, PINS> {
     ) -> Self
     where
         F: Into<Hertz>,
-        PINS: Pins<SPI1>,
+        REMAP: Remap<Periph = SPI1>,
+        PINS: Pins<REMAP>,
     {
-        mapr.modify_mapr(|_, w| w.spi1_remap().bit(PINS::REMAP));
+        mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
         Spi::_spi1(spi, pins, mode, freq.into(), clocks, apb)
     }
 }
 
-impl<PINS> Spi<SPI2, PINS> {
+impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
     pub fn spi2<F>(
         spi: SPI2,
         pins: PINS,
@@ -102,16 +122,36 @@ impl<PINS> Spi<SPI2, PINS> {
     ) -> Self
     where
         F: Into<Hertz>,
-        PINS: Pins<SPI2>,
+        REMAP: Remap<Periph = SPI2>,
+        PINS: Pins<REMAP>,
     {
         Spi::_spi2(spi, pins, mode, freq.into(), clocks, apb)
+    }
+}
+
+#[cfg(feature="high")]
+impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
+    pub fn spi3<F>(
+        spi: SPI3,
+        pins: PINS,
+        mode: Mode,
+        freq: F,
+        clocks: Clocks,
+        apb: &mut <SPI3 as RccBus>::Bus,
+    ) -> Self
+    where
+        F: Into<Hertz>,
+        REMAP: Remap<Periph = SPI3>,
+        PINS: Pins<REMAP>,
+    {
+        Spi::_spi3(spi, pins, mode, freq.into(), clocks, apb)
     }
 }
 
 macro_rules! hal {
     ($($SPIX:ident: ($spiX:ident),)+) => {
         $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl<REMAP, PINS> Spi<$SPIX, REMAP, PINS> {
                 fn $spiX(
                     spi: $SPIX,
                     pins: PINS,
@@ -171,7 +211,7 @@ macro_rules! hal {
                             .set_bit()
                     );
 
-                    Spi { spi, pins }
+                    Spi { spi, pins, _remap: PhantomData }
                 }
 
                 pub fn free(self) -> ($SPIX, PINS) {
@@ -179,7 +219,7 @@ macro_rules! hal {
                 }
             }
 
-            impl<PINS> crate::hal::spi::FullDuplex<u8> for Spi<$SPIX, PINS> {
+            impl<REMAP, PINS> crate::hal::spi::FullDuplex<u8> for Spi<$SPIX, REMAP, PINS> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
@@ -222,9 +262,9 @@ macro_rules! hal {
 
             }
 
-            impl<PINS> crate::hal::blocking::spi::transfer::Default<u8> for Spi<$SPIX, PINS> {}
+            impl<REMAP, PINS> crate::hal::blocking::spi::transfer::Default<u8> for Spi<$SPIX, REMAP, PINS> {}
 
-            impl<PINS> crate::hal::blocking::spi::write::Default<u8> for Spi<$SPIX, PINS> {}
+            impl<REMAP, PINS> crate::hal::blocking::spi::write::Default<u8> for Spi<$SPIX, REMAP, PINS> {}
         )+
     }
 }
@@ -233,24 +273,28 @@ hal! {
     SPI1: (_spi1),
     SPI2: (_spi2),
 }
+#[cfg(feature="high")]
+hal! {
+    SPI3: (_spi3),
+}
 
 // DMA
 
-pub struct SpiPayload<SPI, PINS> {
-    spi: Spi<SPI, PINS>
+pub struct SpiPayload<SPI, REMAP, PINS> {
+    spi: Spi<SPI, REMAP, PINS>
 }
 
-pub type SpiTxDma<SPI, PINS, CHANNEL> = TxDma<SpiPayload<SPI, PINS>, CHANNEL>;
+pub type SpiTxDma<SPI, REMAP, PINS, CHANNEL> = TxDma<SpiPayload<SPI, REMAP, PINS>, CHANNEL>;
 
 macro_rules! spi_dma {
     ($SPIi:ident, $TCi:ident) => {
-        impl<PINS> Transmit for SpiTxDma<$SPIi, PINS, $TCi> {
+        impl<REMAP, PINS> Transmit for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<PINS> Spi<$SPIi, PINS> {
-            pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, PINS, $TCi> {
+        impl<REMAP, PINS> Spi<$SPIi, REMAP, PINS> {
+            pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
                 let payload = SpiPayload{
                     spi: self
                 };
@@ -258,7 +302,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<PINS> TransferPayload for SpiTxDma<$SPIi, PINS, $TCi> {
+        impl<REMAP, PINS> TransferPayload for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
             fn start(&mut self) {
                 self.payload.spi.spi.cr2.modify(|_, w| w.txdmaen().set_bit());
                 self.channel.start();
@@ -269,7 +313,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<A, B, PIN> crate::dma::WriteDma<A, B, u8> for SpiTxDma<$SPIi, PIN, $TCi>
+        impl<A, B, REMAP, PIN> crate::dma::WriteDma<A, B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
         where
             A: AsSlice<Element=u8>,
             B: Static<A>
