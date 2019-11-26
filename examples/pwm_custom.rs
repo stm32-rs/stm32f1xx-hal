@@ -8,37 +8,13 @@ use panic_halt as _;
 
 use cortex_m::asm;
 use stm32f1xx_hal::{
-    gpio::gpiob::{PB4, PB5},
-    gpio::{Alternate, PushPull},
-    pac::{self,TIM3},
+    pac,
     prelude::*,
-    pwm::{Pins, Pwm, C1, C2},
     timer::Timer,
+    //timer::Tim2NoRemap,
 };
 
 use cortex_m_rt::entry;
-
-// Using PB5 channel for TIM3 PWM output 
-// struct MyChannels(PB5<Alternate<PushPull>>);
-// impl Pins<TIM3>  for MyChannels {
-//     const REMAP: u8 = 0b10;
-//     const C1: bool = false;
-//     const C2: bool = true;
-//     const C3: bool = false;
-//     const C4: bool = false;
-//     type Channels = Pwm<TIM3, C2>;
-// }
-
-// Using PB4 and PB5 channels for TIM3 PWM output
-struct MyChannels(PB4<Alternate<PushPull>>, PB5<Alternate<PushPull>>);
-impl Pins<TIM3> for MyChannels {
-    const REMAP: u8 = 0b10;
-    const C1: bool = true;
-    const C2: bool = true;
-    const C3: bool = false;
-    const C4: bool = false;
-    type Channels = (Pwm<TIM3, C1>, Pwm<TIM3, C2>);
-}
 
 #[entry]
 fn main() -> ! {
@@ -58,12 +34,12 @@ fn main() -> ! {
     let p0 = pb4.into_alternate_push_pull(&mut gpiob.crl);
     let p1 = gpiob.pb5.into_alternate_push_pull(&mut gpiob.crl);
 
+    //let pa1 = gpioa.pa1.into_alternate_push_pull(&mut gpioa.crl);
+    //let pa2 = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
+
     let mut pwm = Timer::tim3(p.TIM3, &clocks, &mut rcc.apb1)
-        .pwm(
-            MyChannels(p0, p1),
-            &mut afio.mapr,
-            1.khz(),
-        );
+        .pwm((p0, p1), &mut afio.mapr, 1.khz());
+    //    .pwm::<Tim2NoRemap, _, _, _>((pa1, pa2), &mut afio.mapr, 1.khz());
 
     let max = pwm.0.get_max_duty();
 

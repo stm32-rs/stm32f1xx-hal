@@ -65,6 +65,81 @@ pub struct CountDownTimer<TIM> {
     clk: Hertz,
 }
 
+
+pub(crate) mod sealed {
+    pub trait Remap {
+        type Periph;
+        const REMAP: u8;
+    }
+    pub trait Ch1<REMAP> {}
+    pub trait Ch2<REMAP> {}
+    pub trait Ch3<REMAP> {}
+    pub trait Ch4<REMAP> {}
+}
+
+macro_rules! remap {
+    ($($name:ident: ($TIMX:ident, $state:literal, $P1:ident, $P2:ident, $P3:ident, $P4:ident),)+) => {
+        $(
+            pub struct $name;
+            impl sealed::Remap for $name {
+                type Periph = $TIMX;
+                const REMAP: u8 = $state;
+            }
+            impl<MODE> sealed::Ch1<$name> for $P1<MODE> {}
+            impl<MODE> sealed::Ch2<$name> for $P2<MODE> {}
+            impl<MODE> sealed::Ch3<$name> for $P3<MODE> {}
+            impl<MODE> sealed::Ch4<$name> for $P4<MODE> {}
+        )+
+    }
+}
+
+use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7, PA15};
+use crate::gpio::gpiob::{PB0, PB1, PB3, PB4, PB5, PB10, PB11};
+use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
+
+
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+use crate::gpio::{
+    gpioa::{PA8, PA9, PA10, PA11},
+    gpioe::{PE9, PE11, PE13, PE14},
+};
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+remap!(
+    Tim1NoRemap: (TIM1, 0b00, PA8, PA9, PA10, PA11),
+    //Tim1PartialRemap: (TIM1, 0b01, PA8, PA9, PA10, PA11),
+    Tim1FullRemap: (TIM1, 0b11, PE9, PE11, PE13, PE14),
+);
+
+remap!(
+    Tim2NoRemap: (TIM2, 0b00, PA0, PA1, PA2, PA3),
+    Tim2PartialRemap1: (TIM2, 0b01, PA15, PB3, PA2, PA3),
+    Tim2PartialRemap2: (TIM2, 0b10, PA0, PA1, PB10, PB11),
+    Tim2FullRemap: (TIM2, 0b11, PA15, PB3, PB10, PB11),
+    
+    Tim3NoRemap: (TIM3, 0b00, PA6, PA7, PB0, PB1),
+    Tim3PartialRemap: (TIM3, 0b10, PB4, PB5, PB0, PB1),
+    Tim3FullRemap: (TIM3, 0b11, PC6, PC7, PC8, PC9),
+);
+
+#[cfg(feature = "medium")]
+use crate::gpio::{
+    gpiob::{PB6, PB7, PB8, PB9},
+    gpiod::{PD12, PD13, PD14, PD15}
+};
+#[cfg(feature = "medium")]
+remap!(
+    Tim4NoRemap: (TIM4, 0b00, PB6, PB7, PB8, PB9),
+    Tim4Remap: (TIM4, 0b01, PD12, PD13, PD14, PD15),
+);
+
 impl Timer<SYST> {
     pub fn syst(mut syst: SYST, clocks: &Clocks) -> Self {
         syst.set_clock_source(SystClkSource::Core);
@@ -330,8 +405,8 @@ hal! {
 }
 
 #[cfg(any(
-    feature = "stm32f100", 
-    feature = "stm32f103", 
+    feature = "stm32f100",
+    feature = "stm32f103",
     feature = "stm32f105",
 ))]
 hal! {
@@ -340,7 +415,7 @@ hal! {
 
 #[cfg(any(
     feature = "stm32f100",
-    feature = "stm32f105", 
+    feature = "stm32f105",
     feature = "high",
 ))]
 hal! {

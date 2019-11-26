@@ -4,48 +4,37 @@
 use core::marker::PhantomData;
 use core::mem;
 
-use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
+use crate::pac::DBGMCU as DBG;
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+use crate::pac::TIM1;
+use crate::pac::{TIM2, TIM3};
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
 
 use crate::afio::MAPR;
-use crate::gpio::gpioa::{PA0, PA1, PA15, PA6, PA7};
-use crate::gpio::gpiob::{PB3, PB4, PB5};
-#[cfg(feature = "medium")]
-use crate::gpio::gpiob::{PB6, PB7};
-use crate::gpio::{Floating, Input};
+use crate::gpio::{self, Floating, Input};
 use crate::rcc::Clocks;
 use crate::time::Hertz;
 use crate::timer::Timer;
 
-pub trait Pins<TIM> {
-    const REMAP: u8;
-}
+pub trait Pins<REMAP> {}
 
-#[cfg(feature = "medium")]
-impl Pins<TIM4> for (PB6<Input<Floating>>, PB7<Input<Floating>>) {
-    const REMAP: u8 = 0b0;
-}
+use crate::timer::sealed::{Remap, Ch1, Ch2};
 
-impl Pins<TIM3> for (PA6<Input<Floating>>, PA7<Input<Floating>>) {
-    const REMAP: u8 = 0b00;
-}
-
-impl Pins<TIM3> for (PB4<Input<Floating>>, PB5<Input<Floating>>) {
-    const REMAP: u8 = 0b10;
-}
-
-impl Pins<TIM2> for (PA0<Input<Floating>>, PA1<Input<Floating>>) {
-    const REMAP: u8 = 0b00;
-}
-
-impl Pins<TIM2> for (PA15<Input<Floating>>, PB3<Input<Floating>>) {
-    const REMAP: u8 = 0b11;
-}
+impl<TIM, REMAP, P1, P2> Pins<REMAP> for (P1, P2)
+where
+    REMAP: Remap<Periph = TIM>,
+    P1: Ch1<REMAP> + gpio::Mode<Input<Floating>>,
+    P2: Ch2<REMAP> + gpio::Mode<Input<Floating>> {}
 
 /// PWM Input
-pub struct PwmInput<TIM, PINS> {
+pub struct PwmInput<TIM, REMAP, PINS> {
     _timer: PhantomData<TIM>,
+    _remap: PhantomData<REMAP>,
     _pins: PhantomData<PINS>,
 }
 
@@ -95,19 +84,45 @@ where
     RawValues { arr: u16, presc: u16 },
 }
 
-impl Timer<TIM2> {
-    pub fn pwm_input<PINS, T>(
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+impl Timer<TIM1> {
+    pub fn pwm_input<REMAP, PINS, T>(
         mut self,
         pins: PINS,
         mapr: &mut MAPR,
         dbg: &mut DBG,
         mode: Configuration<T>,
-    ) -> PwmInput<TIM2, PINS>
+    ) -> PwmInput<TIM1, REMAP, PINS>
     where
-        PINS: Pins<TIM2>,
+        REMAP: Remap<Periph = TIM1>,
+        PINS: Pins<REMAP>,
         T: Into<Hertz>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim1_remap().bits(REMAP::REMAP) });
+        self.stop_in_debug(dbg, false);
+        let Self { tim, clk } = self;
+        tim1(tim, pins, clk, mode)
+    }
+}
+
+impl Timer<TIM2> {
+    pub fn pwm_input<REMAP, PINS, T>(
+        mut self,
+        pins: PINS,
+        mapr: &mut MAPR,
+        dbg: &mut DBG,
+        mode: Configuration<T>,
+    ) -> PwmInput<TIM2, REMAP, PINS>
+    where
+        REMAP: Remap<Periph = TIM2>,
+        PINS: Pins<REMAP>,
+        T: Into<Hertz>,
+    {
+        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(REMAP::REMAP) });
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim2(tim, pins, clk, mode)
@@ -115,18 +130,19 @@ impl Timer<TIM2> {
 }
 
 impl Timer<TIM3> {
-    pub fn pwm_input<PINS, T>(
+    pub fn pwm_input<REMAP, PINS, T>(
         mut self,
         pins: PINS,
         mapr: &mut MAPR,
         dbg: &mut DBG,
         mode: Configuration<T>,
-    ) -> PwmInput<TIM3, PINS>
+    ) -> PwmInput<TIM3, REMAP, PINS>
     where
-        PINS: Pins<TIM3>,
+        REMAP: Remap<Periph = TIM3>,
+        PINS: Pins<REMAP>,
         T: Into<Hertz>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(REMAP::REMAP) });
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim3(tim, pins, clk, mode)
@@ -135,18 +151,19 @@ impl Timer<TIM3> {
 
 #[cfg(feature = "medium")]
 impl Timer<TIM4> {
-    pub fn pwm_input<PINS, T>(
+    pub fn pwm_input<REMAP, PINS, T>(
         mut self,
         pins: PINS,
         mapr: &mut MAPR,
         dbg: &mut DBG,
         mode: Configuration<T>,
-    ) -> PwmInput<TIM4, PINS>
+    ) -> PwmInput<TIM4, REMAP, PINS>
     where
-        PINS: Pins<TIM4>,
+        REMAP: Remap<Periph = TIM4>,
+        PINS: Pins<REMAP>,
         T: Into<Hertz>,
     {
-        mapr.modify_mapr(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
+        mapr.modify_mapr(|_, w| w.tim4_remap().bit(REMAP::REMAP == 1));
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim4(tim, pins, clk, mode)
@@ -165,14 +182,15 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
 macro_rules! hal {
     ($($TIMX:ident: ($timX:ident, $pclkX:ident ),)+) => {
         $(
-            fn $timX<PINS,T>(
+            fn $timX<REMAP, PINS,T>(
                 tim: $TIMX,
                 _pins: PINS,
                 clk: Hertz,
                 mode : Configuration<T>,
-            ) -> PwmInput<$TIMX,PINS>
+            ) -> PwmInput<$TIMX, REMAP, PINS>
             where
-                PINS: Pins<$TIMX>,
+                REMAP: Remap<Periph = $TIMX>,
+                PINS: Pins<REMAP>,
                 T : Into<Hertz>
             {
                 use crate::pwm_input::Configuration::*;
@@ -230,7 +248,11 @@ macro_rules! hal {
                 unsafe { mem::MaybeUninit::uninit().assume_init() }
             }
 
-            impl<PINS> PwmInput<$TIMX,PINS> where PINS : Pins<$TIMX> {
+            impl<REMAP, PINS> PwmInput<$TIMX, REMAP, PINS>
+            where
+                REMAP: Remap<Periph = $TIMX>,
+                PINS: Pins<REMAP>,
+            {
                 /// Return the frequency sampled by the timer
                 pub fn read_frequency(&self, mode : ReadMode, clocks : &Clocks) -> Result<Hertz,Error> {
                     match mode {
@@ -289,6 +311,15 @@ macro_rules! hal {
             }
         )+
     }
+}
+
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+hal! {
+    TIM1: (tim1, pclk2_tim),
 }
 
 hal! {

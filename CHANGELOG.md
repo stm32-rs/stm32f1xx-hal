@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Added `Mode` marker trait for `gpio` pins that correspondent to pin mode.
 - RCC `Bus` trait + private `Enable` and `Reset` traits
 - Added `micros_since` and `reset` methods to timer
 - Added `select_frequency` method to RTC
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Breaking changes
 
+- Implement more pin combinations for PWM configuration, added PWM for TIM1 
 - Bump `stm32f1` dependency (`0.9.0`)
 - `void::Void` replaced with `Infallible` where it is possible
 - Change timer/pwm init API
