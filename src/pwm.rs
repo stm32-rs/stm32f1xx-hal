@@ -235,8 +235,8 @@ remap!(Tim2NoRemap, TIM2, 0b00, PA0, PA1, PA2, PA3);
 remap!(Tim2PartialRemap1, TIM2, 0b01, PA15, PB3, PA2, PA3);
 remap!(Tim2PartialRemap2, TIM2, 0b10, PA0, PA1, PB10, PB11);
 remap!(Tim2FullRemap, TIM2, 0b11, PA15, PB3, PB10, PB11);
-remap!(Tim3NoRemap, TIM3, 0b00, PB4, PB5, PB0, PB1);
-remap!(Tim3PartialRemap, TIM3, 0b10, PA6, PA7, PB0, PB1);
+remap!(Tim3NoRemap, TIM3, 0b00, PA6, PA7, PB0, PB1);
+remap!(Tim3PartialRemap, TIM3, 0b10, PB4, PB5, PB0, PB1);
 remap!(Tim3FullRemap, TIM3, 0b11, PC6, PC7, PC8, PC9);
 remap!(Tim4NoRemap, TIM4, 0b00, PB6, PB7, PB8, PB9);
 
