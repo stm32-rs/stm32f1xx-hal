@@ -167,10 +167,18 @@ mod sealed {
 use sealed::{Remap, Ch1, Ch2, Ch3, Ch4};
 
 pub trait Pins<TIM> {
-    fn ch1_state() -> bool;
-    fn ch2_state() -> bool;
-    fn ch3_state() -> bool;
-    fn ch4_state() -> bool;
+    fn ch1_state() -> bool {
+        false
+    }
+    fn ch2_state() -> bool {
+        false
+    }
+    fn ch3_state() -> bool {
+        false
+    }
+    fn ch4_state() -> bool {
+        false
+    }
     type Channels;
 }
 impl<TIM, REMAP, CH1, CH2, CH3, CH4> Pins<REMAP> for (CH1, CH2, CH3, CH4)
