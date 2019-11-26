@@ -138,81 +138,121 @@ use crate::pac::{TIM2, TIM3, TIM4};
 
 use crate::afio::MAPR;
 use crate::bb;
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7};
-use crate::gpio::gpiob::{PB0, PB1, PB6, PB7, PB8, PB9};
+use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7, PA15};
+use crate::gpio::gpiob::{PB0, PB1, PB3, PB4, PB5, PB6, PB7, PB8, PB9, PB10, PB11};
+use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
 use crate::gpio::{Alternate, PushPull};
 use crate::time::Hertz;
 use crate::timer::Timer;
 
+
+mod sealed {
+    pub trait Remap {
+        type Periph;
+        const REMAP: u8;
+    }
+    pub trait Ch1<REMAP> {
+        const ENABLED: bool;
+    }
+    pub trait Ch2<REMAP> {
+        const ENABLED: bool;
+    }
+    pub trait Ch3<REMAP> {
+        const ENABLED: bool;
+    }
+    pub trait Ch4<REMAP> {
+        const ENABLED: bool;
+    }
+}
+use sealed::{Remap, Ch1, Ch2, Ch3, Ch4};
+
 pub trait Pins<TIM> {
-    const REMAP: u8;
-    const C1: bool;
-    const C2: bool;
-    const C3: bool;
-    const C4: bool;
+    fn ch1_state() -> bool;
+    fn ch2_state() -> bool;
+    fn ch3_state() -> bool;
+    fn ch4_state() -> bool;
     type Channels;
 }
-
-impl Pins<TIM2>
-    for (
-        PA0<Alternate<PushPull>>,
-        PA1<Alternate<PushPull>>,
-        PA2<Alternate<PushPull>>,
-        PA3<Alternate<PushPull>>,
-    )
-{
-    const REMAP: u8 = 0b00;
-    const C1: bool = true;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM2, C1>, Pwm<TIM2, C2>, Pwm<TIM2, C3>, Pwm<TIM2, C4>);
+impl<TIM, REMAP, CH1, CH2, CH3, CH4> Pins<REMAP> for (CH1, CH2, CH3, CH4)
+where
+    REMAP: Remap<Periph = TIM>,
+    CH1: Ch1<REMAP>,
+    CH2: Ch2<REMAP>,
+    CH3: Ch3<REMAP>,
+    CH4: Ch4<REMAP> {
+    type Channels = (Pwm<TIM, C1>, Pwm<TIM, C2>, Pwm<TIM, C3>, Pwm<TIM, C4>);
+    fn ch1_state() -> bool {
+        CH1::ENABLED
+    }
+    fn ch2_state() -> bool {
+        CH2::ENABLED
+    }
+    fn ch3_state() -> bool {
+        CH3::ENABLED
+    }
+    fn ch4_state() -> bool {
+        CH4::ENABLED
+    }
 }
 
-impl Pins<TIM3>
-    for (
-        PA6<Alternate<PushPull>>,
-        PA7<Alternate<PushPull>>,
-        PB0<Alternate<PushPull>>,
-        PB1<Alternate<PushPull>>,
-    )
-{
-    const REMAP: u8 = 0b00;
-    const C1: bool = true;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM3, C1>, Pwm<TIM3, C2>, Pwm<TIM3, C3>, Pwm<TIM3, C4>);
+use crate::gpio::NoPin;
+impl<REMAP> Ch1<REMAP> for NoPin {
+    const ENABLED: bool = false;
+}
+impl<REMAP> Ch2<REMAP> for NoPin {
+    const ENABLED: bool = false;
+}
+impl<REMAP> Ch3<REMAP> for NoPin {
+    const ENABLED: bool = false;
+}
+impl<REMAP> Ch4<REMAP> for NoPin {
+    const ENABLED: bool = false;
 }
 
-impl Pins<TIM4>
-    for (
-        PB6<Alternate<PushPull>>,
-        PB7<Alternate<PushPull>>,
-        PB8<Alternate<PushPull>>,
-        PB9<Alternate<PushPull>>,
-    )
-{
-    const REMAP: u8 = 0b0;
-    const C1: bool = true;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM4, C1>, Pwm<TIM4, C2>, Pwm<TIM4, C3>, Pwm<TIM4, C4>);
+macro_rules! remap {
+    ($name:ident, $TIMX:ident, $state:literal, $CH1:ident, $CH2:ident, $CH3:ident, $CH4:ident) => {
+        pub struct $name;
+        impl Remap for $name {
+            type Periph = $TIMX;
+            const REMAP: u8 = $state;
+        }
+        impl Ch1<$name> for $CH1<Alternate<PushPull>> {
+            const ENABLED: bool = true;
+        }
+        impl Ch2<$name> for $CH2<Alternate<PushPull>> {
+            const ENABLED: bool = true;
+        }
+        impl Ch3<$name> for $CH3<Alternate<PushPull>> {
+            const ENABLED: bool = true;
+        }
+        impl Ch4<$name> for $CH4<Alternate<PushPull>> {
+            const ENABLED: bool = true;
+        }
+    }
 }
+
+remap!(Tim2NoRemap, TIM2, 0b00, PA0, PA1, PA2, PA3);
+remap!(Tim2PartialRemap1, TIM2, 0b01, PA15, PB3, PA2, PA3);
+remap!(Tim2PartialRemap2, TIM2, 0b10, PA0, PA1, PB10, PB11);
+remap!(Tim2FullRemap, TIM2, 0b11, PA15, PB3, PB10, PB11);
+remap!(Tim3NoRemap, TIM3, 0b00, PB4, PB5, PB0, PB1);
+remap!(Tim3PartialRemap, TIM3, 0b10, PA6, PA7, PB0, PB1);
+remap!(Tim3FullRemap, TIM3, 0b11, PC6, PC7, PC8, PC9);
+remap!(Tim4NoRemap, TIM4, 0b00, PB6, PB7, PB8, PB9);
 
 impl Timer<TIM2> {
-    pub fn pwm<PINS, T>(
+    pub fn pwm<REMAP, PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
     ) -> PINS::Channels
     where
-        PINS: Pins<TIM2>,
+        REMAP: Remap<Periph = TIM2>,
+        PINS: Pins<REMAP>,
         T: Into<Hertz>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(REMAP::REMAP) });
 
         let Self { tim, clk } = self;
         tim2(tim, _pins, freq.into(), clk)
@@ -220,17 +260,18 @@ impl Timer<TIM2> {
 }
 
 impl Timer<TIM3> {
-    pub fn pwm<PINS, T>(
+    pub fn pwm<REMAP, PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
     ) -> PINS::Channels
     where
-        PINS: Pins<TIM3>,
+        REMAP: Remap<Periph = TIM3>,
+        PINS: Pins<REMAP>,
         T: Into<Hertz>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(REMAP::REMAP) });
 
         let Self { tim, clk } = self;
         tim3(tim, _pins, freq.into(), clk)
@@ -238,17 +279,18 @@ impl Timer<TIM3> {
 }
 
 impl Timer<TIM4> {
-    pub fn pwm<PINS, T>(
+    pub fn pwm<REMAP, PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
     ) -> PINS::Channels
     where
-        PINS: Pins<TIM4>,
+        REMAP: Remap<Periph = TIM4>,
+        PINS: Pins<REMAP>,
         T: Into<Hertz>,
     {
-        mapr.modify_mapr(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
+        mapr.modify_mapr(|_, w| w.tim4_remap().bit(REMAP::REMAP == 1));
 
         let Self { tim, clk } = self;
         tim4(tim, _pins, freq.into(), clk)
@@ -268,31 +310,32 @@ pub struct C4;
 macro_rules! hal {
     ($($TIMX:ident: ($timX:ident),)+) => {
         $(
-            fn $timX<PINS>(
+            fn $timX<REMAP, PINS>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
                 clk: Hertz,
             ) -> PINS::Channels
             where
-                PINS: Pins<$TIMX>,
+                REMAP: Remap<Periph = $TIMX>,
+                PINS: Pins<REMAP>,
             {
-                if PINS::C1 {
+                if PINS::ch1_state() {
                     tim.ccmr1_output()
                         .modify(|_, w| w.oc1pe().set_bit().oc1m().pwm_mode1() );
                 }
 
-                if PINS::C2 {
+                if PINS::ch2_state() {
                     tim.ccmr1_output()
                         .modify(|_, w| w.oc2pe().set_bit().oc2m().pwm_mode1() );
                 }
 
-                if PINS::C3 {
+                if PINS::ch3_state() {
                     tim.ccmr2_output()
                         .modify(|_, w| w.oc3pe().set_bit().oc3m().pwm_mode1() );
                 }
 
-                if PINS::C4 {
+                if PINS::ch4_state() {
                     tim.ccmr2_output()
                         .modify(|_, w| w.oc4pe().set_bit().oc4m().pwm_mode1() );
                 }

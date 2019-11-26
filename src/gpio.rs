@@ -71,6 +71,9 @@ pub enum State {
     Low,
 }
 
+/// A filler type for when pin is unnecessary
+pub struct NoPin;
+
 macro_rules! gpio {
     ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $PXx:ident, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $CR:ident),)+
