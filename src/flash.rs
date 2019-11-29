@@ -15,7 +15,6 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum Error {
-    Success,
     AddressLargedThanFlash,
     AddressMisAligned,
     LengthNotMultiple2,
@@ -35,11 +34,10 @@ pub enum SectorSize {
     Sz4K = 4,
 }
 impl SectorSize {
-    fn size(self) -> u16 {
+    const fn kbytes(self) -> u16 {
         SZ_1K * self as u16
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub enum FlashSize {
@@ -54,8 +52,19 @@ pub enum FlashSize {
     Sz1M   = 1024,
 }
 impl FlashSize {
-    fn size(self) -> u32 {
+    const fn kbytes(self) -> u32 {
         SZ_1K as u32 * self as u32
+    }
+}
+
+pub struct FlashReaderGuard<'a> {
+    _flash: &'a FlashWriter<'a>,
+    data: &'a [u8],
+}
+
+impl<'a> FlashReaderGuard<'a> {
+    pub fn data(&self) -> &[u8] {
+        self.data
     }
 }
 
@@ -63,6 +72,7 @@ pub struct FlashWriter<'a> {
     flash: &'a mut Parts,
     sector_sz: SectorSize,
     flash_sz: FlashSize,
+    verify: bool,
 }
 impl<'a> FlashWriter<'a> {
     fn unlock(&mut self) -> Result<()> {
@@ -73,8 +83,6 @@ impl<'a> FlashWriter<'a> {
         unsafe { self.flash.keyr.keyr().write(|w| w.key().bits(KEY1)); }
         unsafe { self.flash.keyr.keyr().write(|w| w.key().bits(KEY2)); }
 
-        while self.flash.sr.sr().read().bsy().bit_is_set() {}
-
         // Verify success
         match self.flash.cr.cr().read().lock().bit_is_clear() {
             true => Ok(()),
@@ -83,12 +91,13 @@ impl<'a> FlashWriter<'a> {
     }
 
     fn lock(&mut self) -> Result<()> {
+        //Wait for ongoing flash operations
         while self.flash.sr.sr().read().bsy().bit_is_set() {}
 
+        // Set lock bit
         self.flash.cr.cr().modify(|_, w| w.lock().set_bit());
 
-        while self.flash.sr.sr().read().bsy().bit_is_set() {}
-
+        // Verify success
         match self.flash.cr.cr().read().lock().bit_is_set() {
             true => Ok(()),
             false => Err(Error::LockError),
@@ -99,7 +108,7 @@ impl<'a> FlashWriter<'a> {
         if FLASH_START + offset > FLASH_END {
             Err(Error::AddressLargedThanFlash)
         }
-        else if offset % 2 != 0 {
+        else if offset & 0x1 != 0 {
             Err(Error::AddressMisAligned)
         }
         else {
@@ -107,11 +116,11 @@ impl<'a> FlashWriter<'a> {
         }
     }
 
-    fn valid_length(&self, length: u32) -> Result<()> {
-        if length > self.sector_sz.size() as u32 {
+    fn valid_length(&self, offset: u32, length: usize) -> Result<()> {
+        if offset + length as u32 > self.flash_sz.kbytes() as u32 {
             Err(Error::LengthTooLong)
         }
-        else if length % 2 != 0 {
+        else if length & 0x1 != 0 {
             Err(Error::LengthNotMultiple2)
         }
         else {
@@ -119,9 +128,11 @@ impl<'a> FlashWriter<'a> {
         }
     }
 
+    /// Erase sector which contains start_offset
     pub fn page_erase(&mut self, start_offset: u32) -> Result<()> {
         self.valid_address(start_offset)?;
 
+        // Unlock Flash
         self.unlock()?;
 
         // Set Page Erase
@@ -134,7 +145,7 @@ impl<'a> FlashWriter<'a> {
         // Start Operation
         self.flash.cr.cr().modify(|_, w| w.strt().set_bit() );
 
-        // Wait
+        // Wait for operation to finish
         while self.flash.sr.sr().read().bsy().bit_is_set() { }
 
         // Check for errors
@@ -146,50 +157,62 @@ impl<'a> FlashWriter<'a> {
         // Re-lock flash
         self.lock()?;
 
-        for idx in 0..self.sector_sz.size() -1 {
-            let write_address = (FLASH_START + start_offset + idx as u32) as *mut u16;
-            let verify: u16 = unsafe { core::ptr::read_volatile(write_address) };
-            if verify != 0xFFFF {
-                return Err(Error::VerifyError);
-            }
-        }
         if sr.wrprterr().bit_is_set() {
+            self.flash.sr.sr().modify(|_, w| w.wrprterr().clear_bit() );
             Err(Error::EraseError)
         } else {
+            if self.verify {
+                let start = start_offset & !(self.sector_sz.kbytes() as u32 -1);
+                let end = start + self.sector_sz.kbytes() as u32 -1;
+                for idx in start..end {
+                    let write_address = (FLASH_START + idx as u32) as *const u16;
+                    let verify: u16 = unsafe { core::ptr::read_volatile(write_address) };
+                    if verify != 0xFFFF {
+                        return Err(Error::VerifyError);
+                    }
+                }
+            }
+
             Ok(())
         }
     }
 
-    /// Erase Flash from FLASH_START + start_offset to length
+    /// Erase the Flash Sectors from FLASH_START + start_offset to length
     pub fn erase(&mut self, start_offset: u32, length: usize) -> Result<()> {
-        if start_offset + length as u32 > self.flash_sz.size() {
-            return Err(Error::LengthTooLong);
-        }
+        self.valid_length(start_offset, length)?;
 
-        for offset in (start_offset..start_offset + length as u32).step_by(self.sector_sz.size() as usize) {
+        // Erase every sector touched by start_offset + length
+        for offset in (start_offset..start_offset + length as u32).step_by(self.sector_sz.kbytes() as usize) {
             self.page_erase(offset)?;
         }
 
+        // Report Success
         Ok(())
     }
 
-    /// Retrieve an slice of at most 1 sector of data from FLASH_START +offset
-    pub fn read(&mut self, offset: u32, length: usize) -> Result<&'static [u8]> {
+    /// Retrieve an slice of data from FLASH_START +offset
+    pub fn read(&self, offset: u32, length: usize) -> Result<FlashReaderGuard> {
         self.valid_address(offset)?;
-        self.valid_length(length as u32)?;
+
+        if offset + length as u32 > self.flash_sz.kbytes() as u32 {
+            return Err(Error::LengthTooLong);
+        }
 
         let address = (FLASH_START + offset) as *const _;
 
-        // NOTE(unsafe) grants read access to the FLASH
-        unsafe {
-            Ok(core::slice::from_raw_parts::<'static, u8>(address, length))
-        }
+        Ok(FlashReaderGuard {
+            _flash: self,
+
+            // NOTE(unsafe) read with no side effects safe-guarded by FlashReaderGuard.
+            data: unsafe { core::slice::from_raw_parts::<'static, u8>(address, length) }
+        })
     }
 
-    /// Write at most 1 sector of data to FLASH_START +offset
+    /// Write data to FLASH_START +offset
     pub fn write(&mut self, offset: u32, data: &[u8]) -> Result<()> {
-        self.valid_length(data.len() as u32)?;
+        self.valid_length(offset, data.len() )?;
 
+        // Unlock Flash
         self.unlock()?;
 
         for idx in (0..data.len() ).step_by(2) {
@@ -205,7 +228,7 @@ impl<'a> FlashWriter<'a> {
 
             while self.flash.sr.sr().read().bsy().bit_is_set() {}
 
-            // NOTE(unsafe) this writes data to the FLASH
+            // NOTE(unsafe) Write to FLASH area with no side effects
             unsafe { core::ptr::write_volatile(write_address, hword) };
 
             // Wait for write
@@ -215,26 +238,36 @@ impl<'a> FlashWriter<'a> {
             self.flash.cr.cr().modify(|_, w| w.pg().clear_bit() );
 
             // Check for errors
-            let sr = self.flash.sr.sr().read();
             if self.flash.sr.sr().read().pgerr().bit_is_set() {
+                self.flash.sr.sr().modify(|_, w| w.pgerr().clear_bit() );
+
                 self.lock()?;
                 return Err(Error::ProgrammingError);
             }
             else if self.flash.sr.sr().read().wrprterr().bit_is_set() {
+                self.flash.sr.sr().modify(|_, w| w.wrprterr().clear_bit() );
+
                 self.lock()?;
                 return Err(Error::WriteError);
             }
-
-            // Verify written word
-            let verify: u16 = unsafe { core::ptr::read_volatile(write_address) };
-            if verify != hword {
-                self.lock()?;
-                return Err(Error::VerifyError);
+            else if self.verify {
+                // Verify written WORD
+                // NOTE(unsafe) read with no side effects within FLASH area
+                let verify: u16 = unsafe { core::ptr::read_volatile(write_address) };
+                if verify != hword {
+                    self.lock()?;
+                    return Err(Error::VerifyError);
+                }
             }
         }
 
+        // Lock Flash and report success
         self.lock()?;
         Ok(())
+    }
+
+    pub fn change_verification(&mut self, verify: bool) {
+        self.verify = verify;
     }
 }
 
@@ -291,6 +324,7 @@ impl Parts {
             flash: self,
             sector_sz,
             flash_sz,
+            verify: true,
         }
     }
 }
