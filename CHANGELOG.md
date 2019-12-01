@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Breaking changes
 
-- Implement more pin combinations for PWM configuration, added PWM for TIM1 
+- Implement more pin combinations for PWM configuration, added PWM for TIM1 (API for custom PWM pins was removed as it's no more needed)
 - Bump `stm32f1` dependency (`0.9.0`)
 - `void::Void` replaced with `Infallible` where it is possible
 - Change timer/pwm init API
