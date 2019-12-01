@@ -1,4 +1,48 @@
-//! # Timer
+/*!
+  # Timer
+
+  ## Alternate function remapping
+
+  ### TIM1
+
+  Not available on STM32F101.
+
+  | Channel | Tim1NoRemap |
+  |:---:|:-----------:|
+  | CH1 |     PA8     |
+  | CH2 |     PA9     |
+  | CH3 |     PA10    |
+  | CH4 |     PA11    |
+
+  ### TIM2
+
+  | Channel | Tim2NoRemap | Tim2PartialRemap1 | Tim2PartialRemap2 | Tim2FullRemap |
+  |:---:|:-----------:|:-----------------:|:-----------------:|:-------------:|
+  | CH1 |     PA0     |        PA15       |        PA0        |      PA15     |
+  | CH2 |     PA1     |        PB3        |        PA1        |      PB3      |
+  | CH3 |     PA2     |        PA2        |        PB10       |      PB10     |
+  | CH4 |     PA3     |        PA3        |        PB10       |      PB11     |
+
+  ### TIM3
+
+  | Channel | Tim3NoRemap | Tim3PartialRemap | Tim3FullRemap |
+  |:---:|:-----------:|:----------------:|:-------------:|
+  | CH1 |     PA6     |        PB4       |      PC6      |
+  | CH2 |     PA7     |        PB5       |      PC7      |
+  | CH3 |     PB0     |        PB0       |      PC8      |
+  | CH4 |     PB1     |        PB1       |      PC9      |
+
+  ### TIM4
+
+  Not available on low density devices.
+
+  | Channel | Tim4NoRemap | Tim4Remap |
+  |:---:|:-----------:|:---------:|
+  | CH1 |     PB6     |    PD12   |
+  | CH2 |     PB7     |    PD13   |
+  | CH3 |     PB8     |    PD14   |
+  | CH4 |     PB9     |    PD15   |
+*/
 
 use crate::hal::timer::{CountDown, Periodic};
 use crate::pac::{DBGMCU as DBG, TIM2, TIM3};

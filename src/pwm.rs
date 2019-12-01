@@ -21,14 +21,16 @@
   );
   ```
 
-  Then call the `pwm` function on the corresponding timer:
+  Then call the `pwm` function on the corresponding timer.
+
+  NOTE: In some cases you need to specify remap you need, especially for TIM2
+  (see [Alternate function remapping](super::timer)):
 
   ```
     let device: pac::Peripherals = ..;
 
     // Put the timer in PWM mode using the specified pins
     // with a frequency of 100 hz.
-    // In some cases you need to specify remap you need, especcially for TIM2:
     let (c0, c1, c2, c3) = Timer::tim2(device.TIM2, &clocks, &mut rcc.apb1)
         .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 100.hz());
 
