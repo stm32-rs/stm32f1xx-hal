@@ -45,15 +45,37 @@ mod sealed {
     pub trait Sck<REMAP> {}
     pub trait Miso<REMAP> {}
     pub trait Mosi<REMAP> {}
+    pub struct _Sck;
+    pub struct _Miso;
+    pub struct _Mosi;
 }
 use sealed::{Remap, Sck, Miso, Mosi};
 
-pub trait Pins<SPI> {}
-impl<REMAP, SCK, MISO, MOSI> Pins<REMAP> for (SCK, MISO, MOSI)
-where
-    SCK: Sck<REMAP>,
-    MISO: Miso<REMAP>,
-    MOSI: Mosi<REMAP> {}
+pub trait Pins<SPI, P> {
+    type _Pos;
+}
+macro_rules! pins_impl {
+    ( $( ( $($PINX:ident),+ ), ( $($TRAIT:ident),+ ), ( $($POS:ident),* ); )+ ) => {
+        $(
+            #[allow(unused_parens)]
+            impl<REMAP, $($PINX,)+> Pins<REMAP, ($(sealed::$POS),+)> for ($($PINX),+)
+            where
+                $($PINX: $TRAIT<REMAP>,)+
+            {
+                type _Pos = ($(sealed::$POS),+);
+            }
+        )+
+    };
+}
+
+pins_impl!(
+    (SCK, MISO, MOSI), (Sck, Miso, Mosi), (_Sck, _Miso, _Mosi);
+    (SCK, MOSI, MISO), (Sck, Mosi, Miso), (_Sck, _Mosi, _Miso);
+    (MOSI, SCK, MISO), (Mosi, Sck, Miso), (_Mosi, _Sck, _Miso);
+    (MOSI, MISO, SCK), (Mosi, Miso, Sck), (_Mosi, _Miso, _Sck);
+    (MISO, MOSI, SCK), (Miso, Mosi, Sck), (_Miso, _Mosi, _Sck);
+    (MISO, SCK, MOSI), (Miso, Sck, Mosi), (_Miso, _Sck, _Mosi);
+);
 
 pub struct Spi<SPI, REMAP, PINS> {
     spi: SPI,
@@ -92,7 +114,7 @@ remap!(Spi2NoRemap, SPI2, false, PB13, PB14, PB15);
 remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
 
 impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
-    pub fn spi1<F>(
+    pub fn spi1<F, POS>(
         spi: SPI1,
         pins: PINS,
         mapr: &mut MAPR,
@@ -104,7 +126,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI1>,
-        PINS: Pins<REMAP>,
+        PINS: Pins<REMAP, POS>,
     {
         mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
         Spi::_spi1(spi, pins, mode, freq.into(), clocks, apb)
@@ -112,7 +134,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
 }
 
 impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
-    pub fn spi2<F>(
+    pub fn spi2<F, POS>(
         spi: SPI2,
         pins: PINS,
         mode: Mode,
@@ -123,7 +145,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI2>,
-        PINS: Pins<REMAP>,
+        PINS: Pins<REMAP, POS>,
     {
         Spi::_spi2(spi, pins, mode, freq.into(), clocks, apb)
     }
@@ -131,7 +153,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
 
 #[cfg(feature="high")]
 impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
-    pub fn spi3<F>(
+    pub fn spi3<F, POS>(
         spi: SPI3,
         pins: PINS,
         mode: Mode,
@@ -142,7 +164,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI3>,
-        PINS: Pins<REMAP>,
+        PINS: Pins<REMAP, POS>,
     {
         Spi::_spi3(spi, pins, mode, freq.into(), clocks, apb)
     }
