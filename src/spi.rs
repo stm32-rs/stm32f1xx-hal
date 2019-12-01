@@ -1,4 +1,34 @@
-//! # Serial Peripheral Interface
+/*!
+  # Serial Peripheral Interface
+
+  ## Alternate function remapping
+
+  ### SPI1
+
+  | Function | Spi1NoRemap | Spi1Remap |
+  |:----:|:-----------:|:---------:|
+  | SCK  |     PA5     |    PB3   |
+  | MISO |     PA6     |    PB4   |
+  | MOSI |     PA7     |    PB5   |
+
+  ### SPI2
+
+  | Function | Spi2NoRemap |
+  |:----:|:-----------:|
+  | SCK  |     PB13     |
+  | MISO |     PB14     |
+  | MOSI |     PB15     |
+
+  ### SPI3
+
+  Available only on high density devices.
+
+  | Function | Spi3NoRemap | Spi3Remap |
+  |:----:|:-----------:|:---------:|
+  | SCK  |     PB3     |    PC10   |
+  | MISO |     PB4     |    PC11   |
+  | MOSI |     PB5     |    PC12   |
+*/
 
 use core::ptr;
 
@@ -112,6 +142,8 @@ remap!(Spi1Remap, SPI1, true, PB3, PB4, PB5);
 remap!(Spi2NoRemap, SPI2, false, PB13, PB14, PB15);
 #[cfg(feature="high")]
 remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
+#[cfg(feature = "stm32f105")]
+remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
 
 impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
     pub fn spi1<F, POS>(
