@@ -27,6 +27,10 @@ pub trait GpioExt {
     fn split(self, apb2: &mut APB2) -> Self::Parts;
 }
 
+
+/// Marker trait for pin mode detection.
+pub trait Mode<MODE> {}
+
 /// Marker trait for active states.
 pub trait Active {}
 
@@ -95,7 +99,8 @@ macro_rules! gpio {
                 State,
                 Active,
                 Debugger,
-                Pxx
+                Pxx,
+                Mode,
             };
 
             /// GPIO parts
@@ -216,12 +221,16 @@ macro_rules! gpio {
             pub type $PXx<MODE> = Pxx<MODE>;
 
 
+            impl<MODE> Mode<MODE> for Generic<MODE> {}
+
 
             $(
                 /// Pin
                 pub struct $PXi<MODE> {
                     _mode: PhantomData<MODE>,
                 }
+
+                impl<MODE> Mode<MODE> for $PXi<MODE> {}
 
                 impl $PXi<Debugger> {
                     /// Put the pin in an active state. The caller
