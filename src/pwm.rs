@@ -13,12 +13,24 @@
 
   ```rust
   let gpioa = ..; // Set up and split GPIOA
+  // Select the pins you want to use
   let pins = (
       gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl),
       gpioa.pa1.into_alternate_push_pull(&mut gpioa.crl),
       gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl),
       gpioa.pa3.into_alternate_push_pull(&mut gpioa.crl),
   );
+
+  // Set up the timer as a PWM output. Since there are multiple remap
+  // options for tim2 that use the same pins, you need to specify
+  // the remap generic parameter.
+  let (c1, c2, c3, c4) = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1)
+      .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz())
+      .3;
+
+  // Start using the channels
+  c1.set_duty(c1.get_max_duty());
+  // ...
   ```
 
   Then call the `pwm` function on the corresponding timer.
