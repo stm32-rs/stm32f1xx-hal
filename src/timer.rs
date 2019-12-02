@@ -3,6 +3,9 @@
 
   ## Alternate function remapping
 
+  This is a list of the remap settings you can use to assign pins to PWM channels
+  and the QEI peripherals
+
   ### TIM1
 
   Not available on STM32F101.
