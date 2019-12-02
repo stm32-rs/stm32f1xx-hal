@@ -557,6 +557,11 @@ bus! {
     WWDG => (APB1, wwdgen, wwdgrst),
 }
 
+#[cfg(feature = "high")]
+bus! {
+    SPI3 => (APB1, spi3en, spi3rst),
+}
+
 ahb_bus! {
     CRC => (crcen),
     DMA1 => (dma1en),

@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Pins can be passed in any order to SPI constructor,
+  `NoSck`, `NoMiso` and `NoMosi` can be also passed instead of real pin
 - DMA traits now require AsSlice instead of AsRef
 - GPIO `downgrade` function now returns a `Pxx` instead of a type specific to a
   GPIO port
