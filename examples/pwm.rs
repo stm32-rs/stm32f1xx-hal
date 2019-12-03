@@ -10,7 +10,7 @@ use cortex_m::asm;
 use stm32f1xx_hal::{
     prelude::*,
     pac,
-    timer::Timer,
+    timer::{Tim2NoRemap, Timer},
 };
 use cortex_m_rt::entry;
 
@@ -25,14 +25,16 @@ fn main() -> ! {
 
     let mut afio = p.AFIO.constrain(&mut rcc.apb2);
 
-    // let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
-    let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
+    let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
+    // let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
 
     // TIM2
-    // let c1 = gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl);
-    // let c2 = gpioa.pa1.into_alternate_push_pull(&mut gpioa.crl);
-    // let c3 = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
+    let c1 = gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl);
+    let c2 = gpioa.pa1.into_alternate_push_pull(&mut gpioa.crl);
+    let c3 = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
+    // If you don't want to use all channels, just leave some out
     // let c4 = gpioa.pa3.into_alternate_push_pull(&mut gpioa.crl);
+    let pins = (c1, c2, c3);
 
     // TIM3
     // let c1 = gpioa.pa6.into_alternate_push_pull(&mut gpioa.crl);
@@ -40,15 +42,15 @@ fn main() -> ! {
     // let c3 = gpiob.pb0.into_alternate_push_pull(&mut gpiob.crl);
     // let c4 = gpiob.pb1.into_alternate_push_pull(&mut gpiob.crl);
 
-    // TIM4
-    let c1 = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
-    let c2 = gpiob.pb7.into_alternate_push_pull(&mut gpiob.crl);
-    let c3 = gpiob.pb8.into_alternate_push_pull(&mut gpiob.crh);
-    let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
+    // TIM4 (Only available with the "medium" density feature)
+    // let c1 = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
+    // let c2 = gpiob.pb7.into_alternate_push_pull(&mut gpiob.crl);
+    // let c3 = gpiob.pb8.into_alternate_push_pull(&mut gpiob.crh);
+    // let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
-    let mut pwm = Timer::tim4(p.TIM4, &clocks, &mut rcc.apb1)
-        .pwm((c1, c2, c3, c4), &mut afio.mapr, 1.khz())
-        .3;
+    let mut pwm = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1)
+        .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz())
+        .2;
 
     let max = pwm.get_max_duty();
 
