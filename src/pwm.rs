@@ -21,9 +21,9 @@
       gpioa.pa3.into_alternate_push_pull(&mut gpioa.crl),
   );
 
-  // Set up the timer as a PWM output. Since there are multiple remap
-  // options for tim2 that use the same pins, you need to specify
-  // the remap generic parameter.
+  // Set up the timer as a PWM output. If selected pins may correspond to different remap options,
+  // then you must specify the remap generic parameter. Otherwise, if there is no such ambiguity,
+  // the remap generic parameter can be omitted without complains from the compiler.
   let (c1, c2, c3, c4) = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1)
       .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz())
       .3;
