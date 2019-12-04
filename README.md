@@ -11,9 +11,18 @@
 
 This crate supports multiple microcontrollers in the
 stm32f1 family. Which specific microcontroller you want to build for has to be
-specified with a feature, for example `stm32f103`.
+specified with a feature, for example `stm32f103`. 
 
 If no microcontroller is specified, the crate will not compile.
+
+You may also need to specify the density of the device with `medium`, `high` or `xl` 
+to enable certain peripherals. Generally the density can be determined by the 2nd character 
+after the number in the device name (i.e. For STM32F103C6U, the 6 indicates a low-density
+device) but check the datasheet or CubeMX to be sure.
+* 4, 6 => low density, no feature required
+* 8, B => `medium` feature
+* C, D, E => `high` feature
+* F, G => `xl` feature
 
 ### Supported Microcontrollers
 
@@ -60,7 +69,7 @@ be specified as part of the `Cargo.toml` definition.
 
 ```toml
 [dependencies.stm32f1xx-hal]
-version = "0.3.0"
+version = "0.5.0"
 features = ["stm32f100", "rt"]
 ```
 
@@ -110,14 +119,15 @@ fn main() -> ! {
     // in order to configure the port. For pins 0-7, crl should be passed instead.
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
     // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, 1.hz(), clocks);
+    let mut timer = Timer::syst(cp.SYST, clocks)
+        .start_count_down(1.hz());
 
     // Wait for the timer to trigger an update and change the state of the LED
     loop {
         block!(timer.wait()).unwrap();
-        led.set_high();
+        led.set_high().unwrap();
         block!(timer.wait()).unwrap();
-        led.set_low();
+        led.set_low().unwrap();
     }
 }
 ```

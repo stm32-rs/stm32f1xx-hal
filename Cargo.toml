@@ -9,10 +9,10 @@ repository = "https://github.com/stm32-rs/stm32f1xx-hal"
 documentation = "https://docs.rs/stm32f1xx-hal"
 readme = "README.md"
 edition = "2018"
-version = "0.4.0"
+version = "0.5.0"
 
 [package.metadata.docs.rs]
-features = ["stm32f103", "rt"]
+features = ["stm32f103", "rt", "stm32-usbd"]
 
 [[example]]
 name = "timer-interrupt-rtfm"
@@ -25,8 +25,8 @@ required-features = ["rt"]
 cortex-m = "0.6.0"
 nb = "0.1.2"
 cortex-m-rt = "0.6.8"
-stm32f1 = "0.8.0"
-as-slice = "0.2"
+stm32f1 = "0.9.0"
+as-slice = "0.1"
 
 [dependencies.void]
 default-features = false
@@ -40,17 +40,23 @@ version = "0.2.2"
 version = "0.2.3"
 features = ["unproven"]
 
+[dependencies.stm32-usbd]
+version = "0.5.0"
+features = ["ram_access_1x16"]
+optional = true
+
 [dev-dependencies]
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.2"
 panic-itm = "0.4.1"
 cortex-m-rtfm = "0.4.3"
 cortex-m-semihosting = "0.3.3"
-enc28j60 = "0.2.1"
 heapless = "0.4.3"
 m = "0.1.1"
 mfrc522 = "0.2.0"
 serde_derive = "1.0.90"
+usb-device = "0.2.3"
+usbd-serial = "0.1.0"
 
 [dev-dependencies.byteorder]
 default-features = false
@@ -68,25 +74,9 @@ version = "0.4.0"
 default-features = false
 version = "1.5.2"
 
-#[dev-dependencies.jnet]
-#git = "https://github.com/japaric/jnet"
-#rev = "df96b408049ca952ad7844d6552e87cf8fc18d2a"
-
-#[dev-dependencies.motor-driver]
-#git = "https://github.com/japaric/motor-driver"
-#rev = "00c8b15223643090d69f1acfb8b7a7a43a440417"
-
-#[dev-dependencies.mpu9250]
-#git = "https://github.com/japaric/mpu9250"
-#rev = "8f9ecad690093cb71c41301ca5e5705706150610"
-
 [dev-dependencies.serde]
 default-features = false
 version = "1.0.90"
-
-#[dev-dependencies.serde-json-core]
-#git = "https://github.com/japaric/serde-json-core"
-#rev = "6f12b77c1ffeae167989fe06e0d8b15978bd6d18"
 
 [features]
 device-selected = []
@@ -111,3 +101,15 @@ codegen-units = 1
 codegen-units = 1
 debug = true
 lto = true
+
+[[example]]
+name = "usb_serial"
+required-features = ["rt", "stm32f103", "stm32-usbd"]
+
+[[example]]
+name = "usb_serial_interrupt"
+required-features = ["rt", "stm32f103", "stm32-usbd"]
+
+[[example]]
+name = "usb_serial_rtfm"
+required-features = ["rt", "stm32f103", "stm32-usbd"]

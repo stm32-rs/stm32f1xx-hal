@@ -1,6 +1,7 @@
 //! # API for the Analog to Digital converter
 
 use embedded_hal::adc::{Channel, OneShot};
+use core::marker::PhantomData;
 
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
@@ -10,17 +11,25 @@ use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 
 use crate::stm32::ADC1;
-#[cfg(any(
-    feature = "stm32f103",
-))]
+#[cfg(feature = "stm32f103")]
 use crate::stm32::ADC2;
+#[cfg(all(
+    feature = "stm32f103",
+    feature = "high",
+))]
+use crate::stm32::ADC3;
+
+/// Continuous mode
+pub struct Continuous;
+/// Scan mode
+pub struct Scan;
 
 /// ADC configuration
 pub struct Adc<ADC> {
     rb: ADC,
-    sample_time: AdcSampleTime,
-    align: AdcAlign,
-    clocks: Clocks
+    sample_time: SampleTime,
+    align: Align,
+    clocks: Clocks,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -28,7 +37,7 @@ pub struct Adc<ADC> {
 /// ADC sampling time
 ///
 /// Options for the sampling time, each is T + 0.5 ADC clock cycles.
-pub enum AdcSampleTime {
+pub enum SampleTime {
     /// 1.5 cycles sampling time
     T_1,
     /// 7.5 cycles sampling time
@@ -47,58 +56,50 @@ pub enum AdcSampleTime {
     T_239,
 }
 
-impl AdcSampleTime {
+impl Default for SampleTime {
     /// Get the default sample time (currently 28.5 cycles)
-    pub fn default() -> Self {
-        AdcSampleTime::T_28
+    fn default() -> Self {
+        SampleTime::T_28
     }
 }
 
-impl From<AdcSampleTime> for u8 {
-    fn from(val: AdcSampleTime) -> Self {
+impl From<SampleTime> for u8 {
+    fn from(val: SampleTime) -> Self {
+        use SampleTime::*;
         match val {
-            AdcSampleTime::T_1 => 0,
-            AdcSampleTime::T_7 => 1,
-            AdcSampleTime::T_13 => 2,
-            AdcSampleTime::T_28 => 3,
-            AdcSampleTime::T_41 => 4,
-            AdcSampleTime::T_55 => 5,
-            AdcSampleTime::T_71 => 6,
-            AdcSampleTime::T_239 => 7,
+            T_1 => 0,
+            T_7 => 1,
+            T_13 => 2,
+            T_28 => 3,
+            T_41 => 4,
+            T_55 => 5,
+            T_71 => 6,
+            T_239 => 7,
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 /// ADC data register alignment
-pub enum AdcAlign {
+pub enum Align {
     /// Right alignment of output data
     Right,
     /// Left alignment of output data
     Left,
 }
 
-impl AdcAlign {
+impl Default for Align {
     /// Default: right alignment
-    pub fn default() -> Self {
-        AdcAlign::Right
+    fn default() -> Self {
+        Align::Right
     }
 }
 
-impl From<AdcAlign> for u8 {
-    fn from(val: AdcAlign) -> Self {
+impl From<Align> for bool {
+    fn from(val: Align) -> Self {
         match val {
-            AdcAlign::Right => 0,
-            AdcAlign::Left => 1,
-        }
-    }
-}
-
-impl From<AdcAlign> for bool {
-    fn from(val: AdcAlign) -> Self {
-        match val {
-            AdcAlign::Right => false,
-            AdcAlign::Left => true,
+            Align::Right => false,
+            Align::Left => true,
         }
     }
 }
@@ -157,12 +158,12 @@ adc_pins!(ADC2,
 );
 
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct StoredConfig(AdcSampleTime, AdcAlign);
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+pub struct StoredConfig(SampleTime, Align);
 
 macro_rules! adc_hal {
     ($(
-        $ADC:ident: ($init:ident),
+        $ADC:ident: ($adc:ident),
     )+) => {
         $(
 
@@ -171,11 +172,11 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $init(adc: $ADC, apb2: &mut APB2, clocks: Clocks) -> Self {
+                pub fn $adc(adc: $ADC, apb2: &mut APB2, clocks: Clocks) -> Self {
                     let mut s = Self {
                         rb: adc,
-                        sample_time: AdcSampleTime::default(),
-                        align: AdcAlign::default(),
+                        sample_time: SampleTime::default(),
+                        align: Align::default(),
                         clocks,
                     };
                     s.enable_clock(apb2);
@@ -212,31 +213,36 @@ macro_rules! adc_hal {
                 /// Reset the ADC config to default, return existing config
                 pub fn default_cfg(&mut self) -> StoredConfig {
                     let cfg = self.save_cfg();
-                    self.sample_time = AdcSampleTime::default();
-                    self.align = AdcAlign::default();
+                    self.sample_time = SampleTime::default();
+                    self.align = Align::default();
                     cfg
                 }
 
                 /// Set ADC sampling time
                 ///
-                /// Options can be found in [AdcSampleTime](crate::adc::AdcSampleTime).
-                pub fn set_sample_time(&mut self, t_samp: AdcSampleTime) {
+                /// Options can be found in [SampleTime](crate::adc::SampleTime).
+                pub fn set_sample_time(&mut self, t_samp: SampleTime) {
                     self.sample_time = t_samp;
                 }
 
                 /// Set the Adc result alignment
                 ///
-                /// Options can be found in [AdcAlign](crate::adc::AdcAlign).
-                pub fn set_align(&mut self, align: AdcAlign) {
+                /// Options can be found in [Align](crate::adc::Align).
+                pub fn set_align(&mut self, align: Align) {
                     self.align = align;
                 }
 
                 /// Returns the largest possible sample value for the current settings
                 pub fn max_sample(&self) -> u16 {
                     match self.align {
-                        AdcAlign::Left => u16::max_value(),
-                        AdcAlign::Right => (1 << 12) - 1,
+                        Align::Left => u16::max_value(),
+                        Align::Right => (1 << 12) - 1,
                     }
+                }
+
+                #[inline(always)]
+                pub fn set_external_trigger(&mut self, trigger: crate::pac::$adc::cr2::EXTSEL_A) {
+                    self.rb.cr2.modify(|_, w| w.extsel().variant(trigger))
                 }
 
                 fn power_up(&mut self) {
@@ -276,100 +282,76 @@ macro_rules! adc_hal {
                 }
 
                 fn setup_oneshot(&mut self) {
-                    self.rb.cr2.modify(|_, w| w.cont().clear_bit());
-                    self.rb.cr2.modify(|_, w| w.exttrig().set_bit());
-                    self.rb.cr2.modify(|_, w| unsafe { w.extsel().bits(0b111) });
+                    self.rb.cr2.modify(|_, w| w
+                        .cont().clear_bit()
+                        .exttrig().set_bit()
+                        .extsel().bits(0b111)
+                    );
 
-                    self.rb.cr1.modify(|_, w| w.scan().clear_bit());
-                    self.rb.cr1.modify(|_, w| w.discen().set_bit());
+                    self.rb.cr1.modify(|_, w| w
+                        .scan().clear_bit()
+                        .discen().set_bit()
+                    );
 
-                    self.rb.sqr1.modify(|_, w| unsafe { w.l().bits(0b0) });
+                    self.rb.sqr1.modify(|_, w| w.l().bits(0b0));
                 }
 
-                fn set_chan_smps(&mut self, chan: u8) {
+                fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime) {
+                    let sample_time = sample_time.into();
                     match chan {
-                        0 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp0().bits(self.sample_time.into()) }),
-                        1 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp1().bits(self.sample_time.into()) }),
-                        2 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp2().bits(self.sample_time.into()) }),
-                        3 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp3().bits(self.sample_time.into()) }),
-                        4 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp4().bits(self.sample_time.into()) }),
-                        5 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp5().bits(self.sample_time.into()) }),
-                        6 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp6().bits(self.sample_time.into()) }),
-                        7 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp7().bits(self.sample_time.into()) }),
-                        8 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp8().bits(self.sample_time.into()) }),
-                        9 => self
-                            .rb
-                            .smpr2
-                            .modify(|_, w| unsafe { w.smp9().bits(self.sample_time.into()) }),
+                        0 => self.rb.smpr2.modify(|_, w| w.smp0().bits(sample_time)),
+                        1 => self.rb.smpr2.modify(|_, w| w.smp1().bits(sample_time)),
+                        2 => self.rb.smpr2.modify(|_, w| w.smp2().bits(sample_time)),
+                        3 => self.rb.smpr2.modify(|_, w| w.smp3().bits(sample_time)),
+                        4 => self.rb.smpr2.modify(|_, w| w.smp4().bits(sample_time)),
+                        5 => self.rb.smpr2.modify(|_, w| w.smp5().bits(sample_time)),
+                        6 => self.rb.smpr2.modify(|_, w| w.smp6().bits(sample_time)),
+                        7 => self.rb.smpr2.modify(|_, w| w.smp7().bits(sample_time)),
+                        8 => self.rb.smpr2.modify(|_, w| w.smp8().bits(sample_time)),
+                        9 => self.rb.smpr2.modify(|_, w| w.smp9().bits(sample_time)),
 
-                        10 => self
-                            .rb
-                            .smpr1
-                            .modify(|_, w| unsafe { w.smp10().bits(self.sample_time.into()) }),
-                        11 => self
-                            .rb
-                            .smpr1
-                            .modify(|_, w| unsafe { w.smp11().bits(self.sample_time.into()) }),
-                        12 => self
-                            .rb
-                            .smpr1
-                            .modify(|_, w| unsafe { w.smp12().bits(self.sample_time.into()) }),
-                        13 => self
-                            .rb
-                            .smpr1
-                            .modify(|_, w| unsafe { w.smp13().bits(self.sample_time.into()) }),
-                        14 => self
-                            .rb
-                            .smpr1
-                            .modify(|_, w| unsafe { w.smp14().bits(self.sample_time.into()) }),
-                        15 => self
-                            .rb
-                            .smpr1
-                            .modify(|_, w| unsafe { w.smp15().bits(self.sample_time.into()) }),
-                        16 => self
-                            .rb
-                            .smpr1
-                            .modify(|_, w| unsafe { w.smp16().bits(self.sample_time.into()) }),
-                        17 => self
-                            .rb
-                            .smpr1
-                            .modify(|_, w| unsafe { w.smp17().bits(self.sample_time.into()) }),
+                        10 => self.rb.smpr1.modify(|_, w| w.smp10().bits(sample_time)),
+                        11 => self.rb.smpr1.modify(|_, w| w.smp11().bits(sample_time)),
+                        12 => self.rb.smpr1.modify(|_, w| w.smp12().bits(sample_time)),
+                        13 => self.rb.smpr1.modify(|_, w| w.smp13().bits(sample_time)),
+                        14 => self.rb.smpr1.modify(|_, w| w.smp14().bits(sample_time)),
+                        15 => self.rb.smpr1.modify(|_, w| w.smp15().bits(sample_time)),
+                        16 => self.rb.smpr1.modify(|_, w| w.smp16().bits(sample_time)),
+                        17 => self.rb.smpr1.modify(|_, w| w.smp17().bits(sample_time)),
                         _ => unreachable!(),
                     }
+                }
 
-                    return;
+                fn set_regular_sequence (&mut self, channels: &[u8]) {
+                    let len = channels.len();
+                    let bits = channels.iter().take(6).enumerate().fold(0u32, |s, (i, c)|
+                        s | ((*c as u32) << (i * 5))
+                    );
+                    self.rb.sqr3.write(|w| unsafe { w
+                        .bits( bits )
+                    });
+                    if len > 6 {
+                        let bits = channels.iter().skip(6).take(6).enumerate().fold(0u32, |s, (i, c)|
+                            s | ((*c as u32) << (i * 5))
+                        );
+                        self.rb.sqr2.write(|w| unsafe { w
+                            .bits( bits )
+                        });
+                    }
+                    if len > 12 {
+                        let bits = channels.iter().skip(12).take(4).enumerate().fold(0u32, |s, (i, c)|
+                            s | ((*c as u32) << (i * 5))
+                        );
+                        self.rb.sqr1.write(|w| unsafe { w
+                            .bits( bits )
+                        });
+                    }
+                    self.rb.sqr1.modify(|_, w| w.l().bits((len-1) as u8));
                 }
 
                 fn convert(&mut self, chan: u8) -> u16 {
                     self.rb.cr2.modify(|_, w| w.align().bit(self.align.into()));
-                    self.set_chan_smps(chan);
+                    self.set_channel_sample_time(chan, self.sample_time);
                     self.rb.sqr3.modify(|_, w| unsafe { w.sq1().bits(chan) });
 
                     // ADC start conversion of regular sequence
@@ -387,6 +369,17 @@ macro_rules! adc_hal {
                     self.power_down();
                     self.disable_clock(apb2);
                     self.rb
+                }
+            }
+
+            impl ChannelTimeSequence for Adc<$ADC> {
+                #[inline(always)]
+                fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime) {
+                    self.set_channel_sample_time(chan, sample_time);
+                }
+                #[inline(always)]
+                fn set_regular_sequence (&mut self, channels: &[u8]) {
+                    self.set_regular_sequence(channels);
                 }
             }
 
@@ -457,14 +450,14 @@ impl Adc<ADC1> {
         // so use the following approximate settings
         // to support all ADC frequencies
         let sample_time = match self.clocks.adcclk().0 {
-            0 ..= 1_200_000 => AdcSampleTime::T_1,
-            1_200_001 ..= 1_500_000 => AdcSampleTime::T_7,
-            1_500_001 ..= 2_400_000 => AdcSampleTime::T_13,
-            2_400_001 ..= 3_100_000 => AdcSampleTime::T_28,
-            3_100_001 ..= 4_000_000 => AdcSampleTime::T_41,
-            4_000_001 ..= 5_000_000 => AdcSampleTime::T_55,
-            5_000_001 ..= 14_000_000 => AdcSampleTime::T_71,
-            _ => AdcSampleTime::T_239,
+            0 ..= 1_200_000 => SampleTime::T_1,
+            1_200_001 ..= 1_500_000 => SampleTime::T_7,
+            1_500_001 ..= 2_400_000 => SampleTime::T_13,
+            2_400_001 ..= 3_100_000 => SampleTime::T_28,
+            3_100_001 ..= 4_000_000 => SampleTime::T_41,
+            4_000_001 ..= 5_000_000 => SampleTime::T_55,
+            5_000_001 ..= 14_000_000 => SampleTime::T_71,
+            _ => SampleTime::T_239,
         };
 
         self.set_sample_time(sample_time);
@@ -490,35 +483,66 @@ impl Adc<ADC1> {
     }
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f101",
-))]
 adc_hal! {
     ADC1: (adc1),
 }
 
-#[cfg(any(
-    feature = "stm32f103",
-))]
+#[cfg(feature = "stm32f103")]
 adc_hal! {
-    ADC1: (adc1),
     ADC2: (adc2),
 }
 
-pub struct AdcPayload<PIN: Channel<ADC1>> {
-    adc: Adc<ADC1>,
-    pin: PIN,
+#[cfg(all(
+    feature = "stm32f103",
+    feature = "high",
+))]
+adc_hal! {
+    ADC3: (adc3),
 }
 
-pub type AdcDma<PIN> = RxDma<AdcPayload<PIN>, C1>;
+pub struct AdcPayload<PINS, MODE> {
+    adc: Adc<ADC1>,
+    pins: PINS,
+    _mode: PhantomData<MODE>,
+}
 
-impl<PIN> Receive for AdcDma<PIN> where PIN: Channel<ADC1> {
+pub trait ChannelTimeSequence {
+    /// Set ADC sampling time for particular channel
+    fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime);
+    /// ADC Set a Regular Channel Conversion Sequence
+    ///
+    /// Define a sequence of channels to be converted as a regular group.
+    fn set_regular_sequence (&mut self, channels: &[u8]);
+}
+
+/// Set channel sequence and sample times for custom pins
+///
+/// Example:
+/// ```rust, ignore
+/// pub struct AdcPins(PA0<Analog>, PA2<Analog>);
+/// impl SetChannels<AdcPins> for Adc<ADC1> {
+///     fn set_samples(&mut self) {
+///         self.set_channel_sample_time(0, adc::SampleTime::T_28);
+///         self.set_channel_sample_time(2, adc::SampleTime::T_28);
+///     }
+///     fn set_sequence(&mut self) {
+///         self.set_regular_sequence(&[0, 2, 0, 2]);
+///     }
+/// }
+/// ```
+pub trait SetChannels<PINS>: ChannelTimeSequence {
+    fn set_samples(&mut self);
+    fn set_sequence(&mut self);
+}
+
+pub type AdcDma<PINS, MODE> = RxDma<AdcPayload<PINS, MODE>, C1>;
+
+impl<PINS, MODE> Receive for AdcDma<PINS, MODE> {
     type RxChannel = C1;
     type TransmittedWord = u16;
 }
 
-impl<PIN> TransferPayload for AdcDma<PIN> where PIN: Channel<ADC1> {
+impl<PINS> TransferPayload for AdcDma<PINS, Continuous> {
     fn start(&mut self) {
         self.channel.start();
         self.payload.adc.rb.cr2.modify(|_, w| w.cont().set_bit());
@@ -530,20 +554,63 @@ impl<PIN> TransferPayload for AdcDma<PIN> where PIN: Channel<ADC1> {
     }
 }
 
+impl<PINS> TransferPayload for AdcDma<PINS, Scan> {
+    fn start(&mut self) {
+        self.channel.start();
+        self.payload.adc.rb.cr2.modify(|_, w| w.adon().set_bit());
+    }
+    fn stop(&mut self) {
+        self.channel.stop();
+    }
+}
+
 impl Adc<ADC1> {
-    pub fn with_dma<PIN>(mut self, pin: PIN, dma_ch: C1) -> AdcDma<PIN>
+    pub fn with_dma<PIN>(mut self, pins: PIN, dma_ch: C1) -> AdcDma<PIN, Continuous>
     where
         PIN: Channel<ADC1, ID = u8>,
     {
         self.rb.cr1.modify(|_, w| w.discen().clear_bit());
         self.rb.cr2.modify(|_, w| w.align().bit(self.align.into()));
-        self.set_chan_smps(PIN::channel());
+        self.set_channel_sample_time(PIN::channel(), self.sample_time);
         self.rb.sqr3.modify(|_, w| unsafe { w.sq1().bits(PIN::channel()) });
         self.rb.cr2.modify(|_, w| w.dma().set_bit());
 
         let payload = AdcPayload {
             adc: self,
-            pin,
+            pins,
+            _mode: PhantomData,
+        };
+        RxDma {
+            payload,
+            channel: dma_ch,
+        }
+    }
+
+    pub fn with_scan_dma<PINS>(mut self, pins: PINS, dma_ch: C1) -> AdcDma<PINS, Scan>
+    where
+        Self:SetChannels<PINS>
+    {
+        self.rb.cr2.modify(|_, w| w
+            .adon().clear_bit()
+            .dma().clear_bit()
+            .cont().clear_bit()
+            .align().bit(self.align.into())
+        );
+        self.rb.cr1.modify(|_, w| w
+            .scan().set_bit()
+            .discen().clear_bit()
+        );
+        self.set_samples();
+        self.set_sequence();
+        self.rb.cr2.modify(|_, w| w
+            .dma().set_bit()
+            .adon().set_bit()
+        );
+
+        let payload = AdcPayload {
+            adc: self,
+            pins,
+            _mode: PhantomData,
         };
         RxDma {
             payload,
@@ -552,22 +619,41 @@ impl Adc<ADC1> {
     }
 }
 
-impl<PIN> AdcDma<PIN> where PIN: Channel<ADC1> {
-    pub fn split(mut self) -> (Adc<ADC1>, PIN, C1) {
+impl<PINS> AdcDma<PINS, Continuous>
+where
+    Self: TransferPayload
+{
+    pub fn split(mut self) -> (Adc<ADC1>, PINS, C1) {
         self.stop();
 
         let AdcDma {payload, channel} = self;
         payload.adc.rb.cr2.modify(|_, w| w.dma().clear_bit());
         payload.adc.rb.cr1.modify(|_, w| w.discen().set_bit());
 
-        (payload.adc, payload.pin, channel)
+        (payload.adc, payload.pins, channel)
     }
 }
 
-impl<B, PIN> crate::dma::CircReadDma<B, u16> for AdcDma<PIN>
+impl<PINS> AdcDma<PINS, Scan>
 where
+    Self: TransferPayload
+{
+    pub fn split(mut self) -> (Adc<ADC1>, PINS, C1) {
+        self.stop();
+
+        let AdcDma {payload, channel} = self;
+        payload.adc.rb.cr2.modify(|_, w| w.dma().clear_bit());
+        payload.adc.rb.cr1.modify(|_, w| w.discen().set_bit());
+        payload.adc.rb.cr1.modify(|_, w| w.scan().clear_bit());
+
+        (payload.adc, payload.pins, channel)
+    }
+}
+
+impl<B, PINS, MODE> crate::dma::CircReadDma<B, u16> for AdcDma<PINS, MODE>
+where
+    Self: TransferPayload,
     B: as_slice::AsMutSlice<Element=u16>,
-    PIN: Channel<ADC1>,
 {
     fn circ_read(mut self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
         {
@@ -594,10 +680,10 @@ where
     }
 }
 
-impl<B, PIN> crate::dma::ReadDma<B, u16> for AdcDma<PIN>
+impl<B, PINS, MODE> crate::dma::ReadDma<B, u16> for AdcDma<PINS, MODE>
 where
+    Self: TransferPayload,
     B: as_slice::AsMutSlice<Element=u16>,
-    PIN: Channel<ADC1>,
 {
     fn read(mut self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self> {
         {

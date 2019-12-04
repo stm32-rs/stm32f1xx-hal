@@ -42,13 +42,15 @@ use core::sync::atomic::{self, Ordering};
 
 use nb;
 use crate::pac::{USART1, USART2, USART3};
-use void::Void;
+use core::convert::Infallible;
 use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
 use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W, RxDma, TxDma};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
+use crate::gpio::gpioc::{PC10, PC11};
+use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{RccBus, Clocks, Enable, Reset};
 use crate::time::{U32Ext, Bps};
@@ -76,6 +78,9 @@ pub enum Error {
     _Extensible,
 }
 
+
+// USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
+// Section 9.3.8
 pub trait Pins<USART> {
     const REMAP: u8;
 }
@@ -92,21 +97,21 @@ impl Pins<USART2> for (PA2<Alternate<PushPull>>, PA3<Input<Floating>>) {
     const REMAP: u8 = 0;
 }
 
-// impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
-//     const REMAP: u8 = 0;
-// }
+impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
+    const REMAP: u8 = 0;
+}
 
 impl Pins<USART3> for (PB10<Alternate<PushPull>>, PB11<Input<Floating>>) {
     const REMAP: u8 = 0;
 }
 
-// impl Pins<USART3> for (PC10<Alternate<PushPull>>, PC11<Input<Floating>>) {
-//     const REMAP: u8 = 1;
-// }
+impl Pins<USART3> for (PC10<Alternate<PushPull>>, PC11<Input<Floating>>) {
+    const REMAP: u8 = 1;
+}
 
-// impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
-//     const REMAP: u8 = 0b11;
-// }
+impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
+    const REMAP: u8 = 0b11;
+}
 
 pub enum Parity {
     ParityNone,
@@ -388,7 +393,7 @@ macro_rules! hal {
             }
 
             impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
-                type Error = Void;
+                type Error = Infallible;
 
                 fn flush(&mut self) -> nb::Result<(), Self::Error> {
                     // NOTE(unsafe) atomic read with no side effects

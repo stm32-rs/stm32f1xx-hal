@@ -1,43 +1,61 @@
-//! # Quadrature Encoder Interface
+/**
+  # Quadrature Encoder Interface
+
+  NOTE: In some cases you need to specify remap you need, especially for TIM2
+  (see [Alternate function remapping](super::timer)):
+*/
+
 use core::u16;
 
+use core::marker::PhantomData;
+
 use crate::hal::{self, Direction};
-use crate::pac::{TIM2, TIM3, TIM4};
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+use crate::pac::TIM1;
+use crate::pac::{TIM2, TIM3};
+#[cfg(feature = "medium")]
+use crate::pac::TIM4;
 
 use crate::afio::MAPR;
-use crate::gpio::gpioa::{PA0, PA1, PA6, PA7};
-use crate::gpio::gpiob::{PB6, PB7};
-use crate::gpio::{Floating, Input};
 
-use crate::timer::Timer;
+use crate::timer::{Timer, sealed::Remap};
+use crate::pwm_input::Pins;
 
-pub trait Pins<TIM> {
-    const REMAP: u8;
-}
-
-impl Pins<TIM2> for (PA0<Input<Floating>>, PA1<Input<Floating>>) {
-    const REMAP: u8 = 0b00;
-}
-
-impl Pins<TIM3> for (PA6<Input<Floating>>, PA7<Input<Floating>>) {
-    const REMAP: u8 = 0b00;
-}
-
-impl Pins<TIM4> for (PB6<Input<Floating>>, PB7<Input<Floating>>) {
-    const REMAP: u8 = 0b00;
-}
-
-pub struct Qei<TIM, PINS> {
+pub struct Qei<TIM, REMAP, PINS> {
     tim: TIM,
     pins: PINS,
+    _remap: PhantomData<REMAP>,
+}
+
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+impl Timer<TIM1> {
+    pub fn qei<REMAP, PINS>(self, pins: PINS, mapr: &mut MAPR) -> Qei<TIM1, REMAP, PINS>
+    where
+        REMAP: Remap<Periph = TIM1>,
+        PINS: Pins<REMAP>,
+    {
+        mapr.modify_mapr(|_, w| unsafe { w.tim1_remap().bits(REMAP::REMAP) });
+
+        let Self { tim, clk: _ } = self;
+        Qei::_tim1(tim, pins)
+    }
 }
 
 impl Timer<TIM2> {
-    pub fn qei<PINS>(self, pins: PINS, mapr: &mut MAPR) -> Qei<TIM2, PINS>
+    pub fn qei<REMAP, PINS>(self, pins: PINS, mapr: &mut MAPR) -> Qei<TIM2, REMAP, PINS>
     where
-        PINS: Pins<TIM2>,
+        REMAP: Remap<Periph = TIM2>,
+        PINS: Pins<REMAP>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(REMAP::REMAP) });
 
         let Self { tim, clk: _ } = self;
         Qei::_tim2(tim, pins)
@@ -45,23 +63,26 @@ impl Timer<TIM2> {
 }
 
 impl Timer<TIM3> {
-    pub fn qei<PINS>(self, pins: PINS, mapr: &mut MAPR) -> Qei<TIM3, PINS>
+    pub fn qei<REMAP, PINS>(self, pins: PINS, mapr: &mut MAPR) -> Qei<TIM3, REMAP, PINS>
     where
-        PINS: Pins<TIM3>,
+        REMAP: Remap<Periph = TIM3>,
+        PINS: Pins<REMAP>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(REMAP::REMAP) });
 
         let Self { tim, clk: _ } = self;
         Qei::_tim3(tim, pins)
     }
 }
 
+#[cfg(feature = "medium")]
 impl Timer<TIM4> {
-    pub fn qei<PINS>(self, pins: PINS, mapr: &mut MAPR) -> Qei<TIM4, PINS>
+    pub fn qei<REMAP, PINS>(self, pins: PINS, mapr: &mut MAPR) -> Qei<TIM4, REMAP, PINS>
     where
-        PINS: Pins<TIM4>,
+        REMAP: Remap<Periph = TIM4>,
+        PINS: Pins<REMAP>,
     {
-        mapr.modify_mapr(|_, w| w.tim4_remap().bit(PINS::REMAP == 1));
+        mapr.modify_mapr(|_, w| w.tim4_remap().bit(REMAP::REMAP == 1));
 
         let Self { tim, clk: _ } = self;
         Qei::_tim4(tim, pins)
@@ -71,7 +92,7 @@ impl Timer<TIM4> {
 macro_rules! hal {
     ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident),)+) => {
         $(
-            impl<PINS> Qei<$TIMX, PINS> {
+            impl<REMAP, PINS> Qei<$TIMX, REMAP, PINS> {
                 fn $timX(tim: $TIMX, pins: PINS) -> Self {
                     // Configure TxC1 and TxC2 as captures
                     tim.ccmr1_input().write(|w| w.cc1s().ti1().cc2s().ti2());
@@ -94,7 +115,7 @@ macro_rules! hal {
                     tim.arr.write(|w| w.arr().bits(u16::MAX));
                     tim.cr1.write(|w| w.cen().set_bit());
 
-                    Qei { tim, pins }
+                    Qei { tim, pins, _remap: PhantomData }
                 }
 
                 pub fn release(self) -> ($TIMX, PINS) {
@@ -102,7 +123,7 @@ macro_rules! hal {
                 }
             }
 
-            impl<PINS> hal::Qei for Qei<$TIMX, PINS> {
+            impl<REMAP, PINS> hal::Qei for Qei<$TIMX, REMAP, PINS> {
                 type Count = u16;
 
                 fn count(&self) -> u16 {
@@ -122,8 +143,19 @@ macro_rules! hal {
     }
 }
 
+#[cfg(any(
+    feature = "stm32f100",
+    feature = "stm32f103",
+    feature = "stm32f105",
+))]
+hal! {
+    TIM1: (_tim1, tim1en, tim1rst),
+}
 hal! {
     TIM2: (_tim2, tim2en, tim2rst),
     TIM3: (_tim3, tim3en, tim3rst),
+}
+#[cfg(feature = "medium")]
+hal! {
     TIM4: (_tim4, tim4en, tim4rst),
 }
