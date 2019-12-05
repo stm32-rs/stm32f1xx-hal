@@ -17,6 +17,9 @@ features = ["stm32f103", "rt", "stm32-usbd"]
 [[example]]
 name = "timer-interrupt-rtfm"
 required-features = ["rt"]
+[[example]]
+name = "exti"
+required-features = ["rt"]
 
 [dependencies]
 cortex-m = "0.6.0"
