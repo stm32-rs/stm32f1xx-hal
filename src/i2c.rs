@@ -199,7 +199,7 @@ pub fn blocking_i2c<I2C, PINS>(
 }
 
 macro_rules! wait_for_flag {
-    ($i2c:expr, $flag:ident, $is_set:expr) => {{
+    ($i2c:expr, $flag:ident) => {{
         let sr1 = $i2c.sr1.read();
 
         if sr1.berr().bit_is_set() {
@@ -210,7 +210,7 @@ macro_rules! wait_for_flag {
             Err(Other(Error::Acknowledge))
         } else if sr1.ovr().bit_is_set() {
             Err(Other(Error::Overrun))
-        } else if sr1.$flag().bit_is_set() == $is_set {
+        } else if sr1.$flag().bit_is_set() {
             Ok(())
         } else {
             Err(WouldBlock)
@@ -317,17 +317,19 @@ macro_rules! hal {
                 }
 
                 fn wait_after_sent_start(&mut self) -> NbResult<(), Error> {
-                    wait_for_flag!(self.i2c, sb, true)
+                    wait_for_flag!(self.i2c, sb)
+                }
+
+                fn wait_for_stop(&mut self) -> NbResult<(), Error> {
+                    if self.i2c.cr1.read().stop().is_no_stop() {
+                        Ok(())
+                    } else {
+                        Err(WouldBlock)
+                    }
                 }
 
                 fn send_addr(&self, addr: u8, read: bool) {
                     self.i2c.dr.write(|w| { w.dr().bits(addr << 1 | (if read {1} else {0})) });
-                }
-
-                fn wait_after_sent_addr(&self) -> NbResult<(), Error> {
-                    wait_for_flag!(self.i2c, addr, true)?;
-                    self.i2c.sr2.read();
-                    Ok(())
                 }
 
                 fn send_stop(&self) {
@@ -375,20 +377,22 @@ macro_rules! hal {
                     last_ret
                 }
 
-                fn send_addr_and_wait(&self, addr: u8, read: bool) -> NbResult<(), Error> {
-                    self.nb.send_addr(addr, read);
-                    busy_wait_cycles!(self.nb.wait_after_sent_addr(), self.addr_timeout)
-                }
-
                 fn write_without_stop(&mut self, addr: u8, bytes: &[u8]) -> NbResult<(), Error> {
                     self.send_start_and_wait()?;
-                    self.send_addr_and_wait(addr, false)?;
+                    self.nb.i2c.sr1.read();
+                    self.nb.send_addr(addr, false);
 
-                    for byte in bytes {
-                        busy_wait_cycles!(wait_for_flag!(self.nb.i2c, tx_e, true), self.data_timeout)?;
+                    busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr), self.addr_timeout)?;
+                    self.nb.i2c.sr1.read();
+                    self.nb.i2c.sr2.read();
+
+                    self.nb.i2c.dr.write(|w| { w.dr().bits(bytes[0]) });
+
+                    for byte in &bytes[1..] {                      
+                        busy_wait_cycles!(wait_for_flag!(self.nb.i2c, tx_e), self.data_timeout)?;
                         self.nb.i2c.dr.write(|w| { w.dr().bits(*byte) });
                     }
-                    busy_wait_cycles!(wait_for_flag!(self.nb.i2c, tx_e, true), self.data_timeout)?;
+                    busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.data_timeout)?;
 
                     Ok(())
                 }
@@ -400,6 +404,7 @@ macro_rules! hal {
                 fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
                     self.write_without_stop(addr, bytes)?;
                     self.nb.send_stop();
+                    busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
 
                     Ok(())
                 }
@@ -412,7 +417,7 @@ macro_rules! hal {
                     self.send_start_and_wait()?;
                     self.nb.i2c.sr1.read();
                     self.nb.send_addr(addr, true);
-                    busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr, true), self.addr_timeout)?;
+                    busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr), self.addr_timeout)?;
 
                     match buffer.len() {
                         1 => {
@@ -421,10 +426,10 @@ macro_rules! hal {
                             self.nb.i2c.sr2.read();
                             self.nb.send_stop();
 
-                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne, true), self.data_timeout)?;
+                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.data_timeout)?;
                             buffer[0] = self.nb.i2c.dr.read().dr().bits();
 
-                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, stopf, false), self.data_timeout)?;
+                            busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
                             self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
                         }
                         2 => {
@@ -433,12 +438,12 @@ macro_rules! hal {
                             self.nb.i2c.sr2.read();
                             self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
 
-                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf, true), self.data_timeout)?;
+                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.data_timeout)?;
                             self.nb.send_stop();
                             buffer[0] = self.nb.i2c.dr.read().dr().bits();
                             buffer[1] = self.nb.i2c.dr.read().dr().bits();
 
-                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, stopf, false), self.data_timeout)?;
+                            busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
                             self.nb.i2c.cr1.modify(|_, w| w.pos().clear_bit().ack().clear_bit());
                             self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
                         }
@@ -448,19 +453,19 @@ macro_rules! hal {
 
                             let (first_bytes, last_two_bytes) = buffer.split_at_mut(buffer_len - 3);
                             for byte in first_bytes {
-                                busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne, true), self.data_timeout)?;
+                                busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.data_timeout)?;
                                 *byte = self.nb.i2c.dr.read().dr().bits();
                             }
 
-                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf, true), self.data_timeout)?;
+                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.data_timeout)?;
                             self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
                             last_two_bytes[0] = self.nb.i2c.dr.read().dr().bits();
                             self.nb.send_stop();
                             last_two_bytes[1] = self.nb.i2c.dr.read().dr().bits();
-                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne, true), self.data_timeout)?;
+                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.data_timeout)?;
                             last_two_bytes[2] = self.nb.i2c.dr.read().dr().bits();
 
-                            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, stopf, false), self.data_timeout)?;
+                            busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
                             self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
                         }
                     }
@@ -486,6 +491,7 @@ macro_rules! hal {
                         self.read(addr, buffer)?;
                     } else if !bytes.is_empty() {
                         self.nb.send_stop();
+                        busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
                     }
 
                     Ok(())
