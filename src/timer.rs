@@ -10,12 +10,12 @@
 
   Not available on STM32F101.
 
-  | Channel | Tim1NoRemap |
-  |:---:|:-----------:|
-  | CH1 |     PA8     |
-  | CH2 |     PA9     |
-  | CH3 |     PA10    |
-  | CH4 |     PA11    |
+  | Channel | Tim1NoRemap | Tim1FullRemap |
+  |:---:|:-----------:|:-------------:|
+  | CH1 |     PA8     |       PE9     |
+  | CH2 |     PA9     |       PE11    |
+  | CH3 |     PA10    |       PE13    |
+  | CH4 |     PA11    |       PE14    |
 
   ### TIM2
 
@@ -24,7 +24,7 @@
   | CH1 |     PA0     |        PA15       |        PA0        |      PA15     |
   | CH2 |     PA1     |        PB3        |        PA1        |      PB3      |
   | CH3 |     PA2     |        PA2        |        PB10       |      PB10     |
-  | CH4 |     PA3     |        PA3        |        PB10       |      PB11     |
+  | CH4 |     PA3     |        PA3        |        PB11       |      PB11     |
 
   ### TIM3
 
