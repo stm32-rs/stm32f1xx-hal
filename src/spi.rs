@@ -43,7 +43,7 @@ use crate::afio::MAPR;
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{RccBus, Clocks, Enable, Reset};
+use crate::rcc::{RccBus, Clocks, Enable, Reset, GetBusFreq};
 use crate::time::Hertz;
 use crate::dma::dma1::{C3, C5};
 use crate::dma::{Transmit, TxDma, Transfer, R, Static, TransferPayload};
@@ -221,7 +221,7 @@ macro_rules! hal {
                     // disable SS output
                     spi.cr2.write(|w| w.ssoe().clear_bit());
 
-                    let br = match clocks.pclk2().0 / freq.0 {
+                    let br = match <$SPIX as RccBus>::Bus::get_frequency(&clocks).0 / freq.0 {
                         0 => unreachable!(),
                         1..=2 => 0b000,
                         3..=5 => 0b001,

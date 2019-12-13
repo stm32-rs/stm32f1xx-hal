@@ -7,7 +7,7 @@ use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
-use crate::rcc::{Clocks, APB1, Enable, Reset};
+use crate::rcc::{Clocks, APB1, Enable, Reset, RccBus, GetBusFreq};
 use crate::pac::{DWT, I2C1, I2C2};
 
 /// I2C error
@@ -253,12 +253,12 @@ macro_rules! hal {
                     pins: PINS,
                     mode: Mode,
                     clocks: Clocks,
-                    apb: &mut APB1,
+                    apb: &mut <$I2CX as RccBus>::Bus,
                 ) -> Self {
                     $I2CX::enable(apb);
                     $I2CX::reset(apb);
 
-                    let pclk1 = clocks.pclk1().0;
+                    let pclk1 = <$I2CX as RccBus>::Bus::get_frequency(&clocks).0;
 
                     assert!(mode.get_frequency().0 <= 400_000);
 

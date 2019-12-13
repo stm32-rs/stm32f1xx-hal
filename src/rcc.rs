@@ -398,7 +398,6 @@ impl BKP {
     }
 }
 
-
 /// Frozen clock frequencies
 ///
 /// The existence of this value indicates that the clock configuration can no longer be changed
@@ -463,6 +462,37 @@ impl Clocks {
     /// Returns whether the USBCLK clock frequency is valid for the USB peripheral
     pub fn usbclk_valid(&self) -> bool {
         self.usbclk_valid
+    }
+}
+
+pub trait GetBusFreq {
+    fn get_frequency(clocks: &Clocks) -> Hertz;
+    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+        Self::get_frequency(clocks)
+    }
+}
+
+impl GetBusFreq for AHB {
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        clocks.hclk
+    }
+}
+
+impl GetBusFreq for APB1 {
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        clocks.pclk1
+    }
+    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+        clocks.pclk1_tim()
+    }
+}
+
+impl GetBusFreq for APB2 {
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        clocks.pclk2
+    }
+    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+        clocks.pclk2_tim()
     }
 }
 
@@ -633,4 +663,9 @@ bus! {
     TIM9 => (APB2, tim9en, tim9rst),
     TIM10 => (APB2, tim10en, tim10rst),
     TIM11 => (APB2, tim11en, tim11rst),
+}
+
+#[cfg(any(feature = "stm32f102", feature = "stm32f103"))]
+bus! {
+    USB => (APB1, usben, usbrst),
 }

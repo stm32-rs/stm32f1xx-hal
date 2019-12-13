@@ -52,7 +52,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{RccBus, Clocks, Enable, Reset};
+use crate::rcc::{RccBus, Clocks, Enable, Reset, GetBusFreq};
 use crate::time::{U32Ext, Bps};
 
 /// Interrupt event
@@ -196,7 +196,6 @@ macro_rules! hal {
         $USARTX:ident: (
             $usartX:ident,
             $usartX_remap:ident,
-            $pclk:ident,
             $bit:ident,
             $closure:expr,
         ),
@@ -246,7 +245,7 @@ macro_rules! hal {
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
                     // Configure baud rate
-                    let brr = clocks.$pclk().0 / config.baudrate.0;
+                    let brr = <$USARTX as RccBus>::Bus::get_frequency(&clocks).0 / config.baudrate.0;
                     assert!(brr >= 16, "impossible baud rate");
                     usart.brr.write(|w| unsafe { w.bits(brr) });
 
@@ -443,7 +442,6 @@ hal! {
     USART1: (
         usart1,
         usart1_remap,
-        pclk2,
         bit,
         |remap| remap == 1,
     ),
@@ -451,7 +449,6 @@ hal! {
     USART2: (
         usart2,
         usart2_remap,
-        pclk1,
         bit,
         |remap| remap == 1,
     ),
@@ -459,7 +456,6 @@ hal! {
     USART3: (
         usart3,
         usart3_remap,
-        pclk1,
         bits,
         |remap| remap,
     ),

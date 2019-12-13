@@ -17,7 +17,7 @@ use crate::pac::TIM4;
 
 use crate::afio::MAPR;
 use crate::gpio::{self, Floating, Input};
-use crate::rcc::Clocks;
+use crate::rcc::{Clocks, GetBusFreq, RccBus};
 use crate::time::Hertz;
 use crate::timer::Timer;
 
@@ -180,7 +180,7 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     (core::cmp::max(1, arr as u16), presc as u16)
 }
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $pclkX:ident ),)+) => {
+    ($($TIMX:ident: ($timX:ident),)+) => {
         $(
             fn $timX<REMAP, PINS,T>(
                 tim: $TIMX,
@@ -280,7 +280,7 @@ macro_rules! hal {
                     if ccr1 == 0 {
                         Err(Error::FrequencyTooLow)
                     } else {
-                        let clk : u32 = clocks.$pclkX().0;
+                        let clk : u32 = <$TIMX as RccBus>::Bus::get_timer_frequency(&clocks).0;
                         Ok(Hertz(clk/((presc+1) as u32*(ccr1 + 1)as u32)))
                     }
                 }
@@ -319,15 +319,15 @@ macro_rules! hal {
     feature = "stm32f105",
 ))]
 hal! {
-    TIM1: (tim1, pclk2_tim),
+    TIM1: (tim1),
 }
 
 hal! {
-    TIM2: (tim2, pclk1_tim),
-    TIM3: (tim3, pclk1_tim),
+    TIM2: (tim2),
+    TIM3: (tim3),
 }
 
 #[cfg(feature = "medium")]
 hal! {
-    TIM4: (tim4, pclk1_tim),
+    TIM4: (tim4),
 }
