@@ -1,5 +1,9 @@
 //! Inter-Integrated Circuit (I2C) bus
 
+// This document describes a correct i2c implementation and is what
+// parts of this code is based on
+// https://www.st.com/content/ccc/resource/technical/document/application_note/5d/ae/a3/6f/08/69/4e/9b/CD00209826.pdf/files/CD00209826.pdf/jcr:content/translations/en.CD00209826.pdf
+
 use crate::afio::MAPR;
 use crate::time::Hertz;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
@@ -388,7 +392,7 @@ macro_rules! hal {
 
                     self.nb.i2c.dr.write(|w| { w.dr().bits(bytes[0]) });
 
-                    for byte in &bytes[1..] {                      
+                    for byte in &bytes[1..] {
                         busy_wait_cycles!(wait_for_flag!(self.nb.i2c, tx_e), self.data_timeout)?;
                         self.nb.i2c.dr.write(|w| { w.dr().bits(*byte) });
                     }
