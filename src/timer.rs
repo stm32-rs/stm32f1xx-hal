@@ -92,7 +92,7 @@ use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use nb;
 use void::Void;
-use crate::rcc::{RccBus, Clocks, Enable, Reset};
+use crate::rcc::{RccBus, Clocks, Enable, Reset, GetBusFreq};
 
 use crate::time::Hertz;
 
@@ -284,7 +284,7 @@ impl CountDown for CountDownTimer<SYST> {
 impl Periodic for CountDownTimer<SYST> {}
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $pclkX:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
+    ($($TIMX:ident: ($timX:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
         $(
             impl Timer<$TIMX> {
                 /// Initialize timer
@@ -293,7 +293,7 @@ macro_rules! hal {
                     $TIMX::enable(apb);
                     $TIMX::reset(apb);
 
-                    Self { tim, clk: clocks.$pclkX() }
+                    Self { tim, clk: <$TIMX as RccBus>::Bus::get_timer_frequency(&clocks) }
                 }
 
                 /// Starts timer in count down mode at a given frequency
@@ -447,8 +447,8 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
 }
 
 hal! {
-    TIM2: (tim2, pclk1_tim, dbg_tim2_stop, tim2),
-    TIM3: (tim3, pclk1_tim, dbg_tim3_stop, tim2),
+    TIM2: (tim2, dbg_tim2_stop, tim2),
+    TIM3: (tim3, dbg_tim3_stop, tim2),
 }
 
 #[cfg(any(
@@ -457,7 +457,7 @@ hal! {
     feature = "stm32f105",
 ))]
 hal! {
-    TIM1: (tim1, pclk2_tim, dbg_tim1_stop, tim1),
+    TIM1: (tim1, dbg_tim1_stop, tim1),
 }
 
 #[cfg(any(
@@ -466,7 +466,7 @@ hal! {
     feature = "high",
 ))]
 hal! {
-    TIM6: (tim6, pclk2_tim, dbg_tim6_stop, tim6),
+    TIM6: (tim6, dbg_tim6_stop, tim6),
 }
 
 #[cfg(any(
@@ -483,24 +483,24 @@ hal! {
         feature = "stm32f105",
 )))]
 hal! {
-    TIM7: (tim7, pclk2_tim, dbg_tim7_stop, tim6),
+    TIM7: (tim7, dbg_tim7_stop, tim6),
 }
 
 #[cfg(feature = "stm32f100")]
 hal! {
-    TIM15: (tim15, pclk2_tim, dbg_tim15_stop),
-    TIM16: (tim16, pclk2_tim, dbg_tim16_stop),
-    TIM17: (tim17, pclk2_tim, dbg_tim17_stop),
+    TIM15: (tim15, dbg_tim15_stop),
+    TIM16: (tim16, dbg_tim16_stop),
+    TIM17: (tim17, dbg_tim17_stop),
 }
 
 #[cfg(feature = "medium")]
 hal! {
-    TIM4: (tim4, pclk1_tim, dbg_tim4_stop, tim2),
+    TIM4: (tim4, dbg_tim4_stop, tim2),
 }
 
 #[cfg(feature = "high")]
 hal! {
-    TIM5: (tim5, pclk2_tim, dbg_tim5_stop, tim2),
+    TIM5: (tim5, dbg_tim5_stop, tim2),
 }
 
 #[cfg(all(
@@ -508,7 +508,7 @@ hal! {
     feature = "high",
 ))]
 hal! {
-    TIM8: (tim8, pclk2_tim, dbg_tim8_stop, tim1),
+    TIM8: (tim8, dbg_tim8_stop, tim1),
 }
 
 //TODO: restore these timers once stm32-rs has been updated
@@ -522,14 +522,14 @@ hal! {
         feature = "high",
 )))]
 hal! {
-    TIM12: (tim12, pclk2_tim, dbg_tim12_stop),
-    TIM13: (tim13, pclk2_tim, dbg_tim13_stop),
-    TIM14: (tim14, pclk2_tim, dbg_tim14_stop),
+    TIM12: (tim12, dbg_tim12_stop),
+    TIM13: (tim13, dbg_tim13_stop),
+    TIM14: (tim14, dbg_tim14_stop),
 }
 #[cfg(feature = "xl")]
 hal! {
-    TIM9: (tim9, pclk2_tim, dbg_tim9_stop),
-    TIM10: (tim10, pclk2_tim, dbg_tim10_stop),
-    TIM11: (tim11, pclk2_tim, dbg_tim11_stop),
+    TIM9: (tim9, dbg_tim9_stop),
+    TIM10: (tim10, dbg_tim10_stop),
+    TIM11: (tim11, dbg_tim11_stop),
 }
 */
