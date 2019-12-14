@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.5.1] - 2019-12-14
+
 ### Added
 
 - Added support for `ExtiPin` pin traits
+
+### Fixed
+
+- Fix SPI2 and 3 using the wrong frequency
+- Fix some problems with I2C reads anad writes
+
 
 ## [v0.5.0] - 2019-12-03
 
@@ -146,7 +154,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.1...HEAD
+[v0.5.1]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.2.1...v0.3.0
