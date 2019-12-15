@@ -77,6 +77,9 @@ pub enum State {
     Low,
 }
 
+// Using SCREAMING_SNAKE_CASE to be consistent with other HALs
+// see 59b2740 and #125 for motivation
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub enum Edge {
     RISING,
