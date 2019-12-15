@@ -69,7 +69,7 @@ be specified as part of the `Cargo.toml` definition.
 
 ```toml
 [dependencies.stm32f1xx-hal]
-version = "0.5.1"
+version = "0.5.2"
 features = ["stm32f100", "rt"]
 ```
 
