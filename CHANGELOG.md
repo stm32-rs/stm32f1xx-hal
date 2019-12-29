@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Add `InputPin` impl for generic open drain outputs
+
 ## [v0.5.2] - 2019-12-15
 
 - Fix USB module docs

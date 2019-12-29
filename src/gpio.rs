@@ -731,6 +731,21 @@ macro_rules! impl_pxx {
             }
         }
 
+        impl InputPin for Pxx<Output<OpenDrain>> {
+            type Error = Infallible;
+            fn is_high(&self) -> Result<bool, Infallible> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_high()),*
+                }
+            }
+
+            fn is_low(&self) -> Result<bool, Infallible> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_low()),*
+                }
+            }
+        }
+
         impl<MODE> ExtiPin for Pxx<Input<MODE>> {
             fn make_interrupt_source(&mut self, afio: &mut afio::Parts) {
                 match self {
