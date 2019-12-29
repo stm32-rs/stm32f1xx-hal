@@ -129,7 +129,7 @@ macro_rules! dma {
                 use crate::pac::{$DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
-                use crate::rcc::{AHB, Enable};
+                use crate::rcc::{AHB, sealed::Enable};
 
                 pub struct Channels((), $(pub $CX),+);
 

@@ -111,7 +111,7 @@ macro_rules! gpio {
             use crate::stm32::EXTI;
             use crate::afio;
 
-            use crate::rcc::{APB2, Enable, Reset};
+            use crate::rcc::{APB2, sealed::{Enable, Reset}};
             use super::{
                 Alternate, Floating, GpioExt, Input,
                 OpenDrain,
@@ -717,6 +717,21 @@ macro_rules! impl_pxx {
         }
 
         impl<MODE> InputPin for Pxx<Input<MODE>> {
+            type Error = Infallible;
+            fn is_high(&self) -> Result<bool, Infallible> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_high()),*
+                }
+            }
+
+            fn is_low(&self) -> Result<bool, Infallible> {
+                match self {
+                    $(Pxx::$pin(pin) => pin.is_low()),*
+                }
+            }
+        }
+
+        impl InputPin for Pxx<Output<OpenDrain>> {
             type Error = Infallible;
             fn is_high(&self) -> Result<bool, Infallible> {
                 match self {

@@ -43,7 +43,7 @@ use crate::afio::MAPR;
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{RccBus, Clocks, Enable, Reset, GetBusFreq};
+use crate::rcc::{RccBus, Clocks, GetBusFreq, sealed::{Enable, Reset}};
 use crate::time::Hertz;
 use crate::dma::dma1::{C3, C5};
 use crate::dma::{Transmit, TxDma, Transfer, R, Static, TransferPayload};

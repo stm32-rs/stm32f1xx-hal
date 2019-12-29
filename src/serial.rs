@@ -52,7 +52,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{RccBus, Clocks, Enable, Reset, GetBusFreq};
+use crate::rcc::{RccBus, Clocks, GetBusFreq, sealed::{Enable, Reset}};
 use crate::time::{U32Ext, Bps};
 
 /// Interrupt event

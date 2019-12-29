@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
-use crate::rcc::{APB2, Clocks, Enable, Reset};
+use crate::rcc::{APB2, Clocks, sealed::{Enable, Reset}};
 use crate::dma::{Receive, TransferPayload, dma1::C1, CircBuffer, Transfer, W, RxDma};
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;

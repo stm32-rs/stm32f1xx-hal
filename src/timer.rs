@@ -92,7 +92,7 @@ use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use nb;
 use void::Void;
-use crate::rcc::{RccBus, Clocks, Enable, Reset, GetBusFreq};
+use crate::rcc::{RccBus, Clocks, GetBusFreq, sealed::{Enable, Reset}};
 
 use crate::time::Hertz;
 
