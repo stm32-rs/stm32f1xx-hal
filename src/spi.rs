@@ -31,7 +31,6 @@
 */
 
 use core::ptr;
-use core::ops::Deref;
 
 use nb;
 
@@ -48,6 +47,7 @@ use crate::rcc::{RccBus, Clocks, GetBusFreq, sealed::{Enable, Reset}};
 use crate::time::Hertz;
 use crate::dma::dma1::{C3, C5};
 use crate::dma::{Transmit, TxDma, Transfer, R, Static, TransferPayload};
+use crate::utils::RegisterBlock;
 
 use core::sync::atomic::{self, Ordering};
 
@@ -207,7 +207,7 @@ type SpiRegisterBlock = crate::pac::spi1::RegisterBlock;
 
 impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS>
 where
-    SPI: Deref<Target = SpiRegisterBlock> + RccBus + Enable + Reset,
+    SPI: RegisterBlock<RB = SpiRegisterBlock> + RccBus + Enable + Reset,
     SPI::Bus: GetBusFreq,
 {
     fn _spi(
@@ -223,7 +223,7 @@ where
         SPI::reset(apb);
 
         // disable SS output
-        spi.cr2.write(|w| w.ssoe().clear_bit());
+        unsafe { &*SPI::rb() }.cr2.write(|w| w.ssoe().clear_bit());
 
         let br = match SPI::Bus::get_frequency(&clocks).0 / freq.0 {
             0 => unreachable!(),
@@ -244,7 +244,7 @@ where
         // dff: 8 bit frames
         // bidimode: 2-line unidirectional
         // spe: enable the SPI bus
-        spi.cr1.write(|w|
+        unsafe { &*SPI::rb() }.cr1.write(|w|
             w.cpha()
                 .bit(mode.phase == Phase::CaptureOnSecondTransition)
                 .cpol()
@@ -279,12 +279,12 @@ where
 
 impl<SPI, REMAP, PINS> crate::hal::spi::FullDuplex<u8> for Spi<SPI, REMAP, PINS>
 where
-    SPI: Deref<Target = SpiRegisterBlock>,
+    SPI: RegisterBlock<RB = SpiRegisterBlock>
 {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
-        let sr = self.spi.sr.read();
+        let sr = unsafe { &*SPI::rb() }.sr.read();
 
         Err(if sr.ovr().bit_is_set() {
             nb::Error::Other(Error::Overrun)
@@ -296,7 +296,7 @@ where
             // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
             // reading a half-word)
             return Ok(unsafe {
-                ptr::read_volatile(&self.spi.dr as *const _ as *const u8)
+                ptr::read_volatile(&(*SPI::rb()).dr as *const _ as *const u8)
             });
         } else {
             nb::Error::WouldBlock
@@ -304,7 +304,7 @@ where
     }
 
     fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
-        let sr = self.spi.sr.read();
+        let sr = unsafe { &*SPI::rb() }.sr.read();
 
         Err(if sr.ovr().bit_is_set() {
             nb::Error::Other(Error::Overrun)
@@ -314,7 +314,7 @@ where
             nb::Error::Other(Error::Crc)
         } else if sr.txe().bit_is_set() {
             // NOTE(write_volatile) see note above
-            unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, byte) }
+            unsafe { ptr::write_volatile(&(*SPI::rb()).dr as *const _ as *mut u8, byte) }
             return Ok(());
         } else {
             nb::Error::WouldBlock
@@ -325,11 +325,11 @@ where
 
 impl<SPI, REMAP, PINS> crate::hal::blocking::spi::transfer::Default<u8> for Spi<SPI, REMAP, PINS>
 where
-    SPI: Deref<Target = SpiRegisterBlock> {}
+    SPI: RegisterBlock<RB = SpiRegisterBlock> {}
 
 impl<SPI, REMAP, PINS> crate::hal::blocking::spi::write::Default<u8> for Spi<SPI, REMAP, PINS>
 where
-    SPI: Deref<Target = SpiRegisterBlock> {}
+    SPI: RegisterBlock<RB = SpiRegisterBlock> {}
 
 // DMA
 

@@ -4,8 +4,6 @@
 // parts of this code is based on
 // https://www.st.com/content/ccc/resource/technical/document/application_note/5d/ae/a3/6f/08/69/4e/9b/CD00209826.pdf/files/CD00209826.pdf/jcr:content/translations/en.CD00209826.pdf
 
-use core::ops::Deref;
-
 use crate::afio::MAPR;
 use crate::time::Hertz;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
@@ -15,6 +13,7 @@ use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 use crate::rcc::{Clocks, RccBus, GetBusFreq, sealed::{Enable, Reset}};
 use crate::pac::{DWT, I2C1, I2C2};
+use crate::utils::RegisterBlock;
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
@@ -253,11 +252,11 @@ type I2cRegisterBlock = crate::pac::i2c1::RegisterBlock;
 
 impl<I2C, PINS> I2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock> + RccBus + Enable + Reset,
+    I2C: RegisterBlock<RB = I2cRegisterBlock> + RccBus + Enable + Reset,
     I2C::Bus: GetBusFreq,
 {
     /// Configures the I2C peripheral to work in master mode
-    pub fn _i2c(
+    fn _i2c(
         i2c: I2C,
         pins: PINS,
         mode: Mode,
@@ -280,26 +279,26 @@ where
         let freq = self.mode.get_frequency();
         let pclk1_mhz = (self.pclk1 / 1000000) as u16;
 
-        self.i2c.cr2.write(|w| unsafe {
+        self.rb().cr2.write(|w| unsafe {
             w.freq().bits(pclk1_mhz as u8)
         });
-        self.i2c.cr1.write(|w| w.pe().clear_bit());
+        self.rb().cr1.write(|w| w.pe().clear_bit());
 
         match self.mode {
             Mode::Standard { .. } => {
-                self.i2c.trise.write(|w| {
+                self.rb().trise.write(|w| {
                     w.trise().bits((pclk1_mhz + 1) as u8)
                 });
-                self.i2c.ccr.write(|w| unsafe {
+                self.rb().ccr.write(|w| unsafe {
                     w.ccr().bits(((self.pclk1 / (freq.0 * 2)) as u16).max(4))
                 });
             },
             Mode::Fast { ref duty_cycle, .. } => {
-                self.i2c.trise.write(|w| {
+                self.rb().trise.write(|w| {
                     w.trise().bits((pclk1_mhz * 300 / 1000 + 1) as u8)
                 });
 
-                self.i2c.ccr.write(|w| {
+                self.rb().ccr.write(|w| {
                     let (freq, duty) = match duty_cycle {
                         &DutyCycle::Ratio2to1 => (((self.pclk1 / (freq.0 * 3)) as u16).max(1), false),
                         &DutyCycle::Ratio16to9 => (((self.pclk1 / (freq.0 * 25)) as u16).max(1), true)
@@ -312,12 +311,12 @@ where
             }
         };
 
-        self.i2c.cr1.modify(|_, w| w.pe().set_bit());
+        self.rb().cr1.modify(|_, w| w.pe().set_bit());
     }
 
     fn reset(&mut self) {
-        self.i2c.cr1.write(|w| w.pe().set_bit().swrst().set_bit());
-        self.i2c.cr1.reset();
+        self.rb().cr1.write(|w| w.pe().set_bit().swrst().set_bit());
+        self.rb().cr1.reset();
         self.init();
     }
 
@@ -325,18 +324,23 @@ where
 
 impl<I2C, PINS> I2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock>
+    I2C: RegisterBlock<RB = I2cRegisterBlock>
 {
+    #[inline(always)]
+    fn rb(&self) -> &I2cRegisterBlock {
+        unsafe { &*I2C::rb() }
+    }
+
     fn send_start(&mut self) {
-        self.i2c.cr1.modify(|_, w| w.start().set_bit());
+        self.rb().cr1.modify(|_, w| w.start().set_bit());
     }
 
     fn wait_after_sent_start(&mut self) -> NbResult<(), Error> {
-        wait_for_flag!(self.i2c, sb)
+        wait_for_flag!(self.rb(), sb)
     }
 
     fn wait_for_stop(&mut self) -> NbResult<(), Error> {
-        if self.i2c.cr1.read().stop().is_no_stop() {
+        if self.rb().cr1.read().stop().is_no_stop() {
             Ok(())
         } else {
             Err(WouldBlock)
@@ -344,11 +348,11 @@ where
     }
 
     fn send_addr(&self, addr: u8, read: bool) {
-        self.i2c.dr.write(|w| { w.dr().bits(addr << 1 | (if read {1} else {0})) });
+        self.rb().dr.write(|w| { w.dr().bits(addr << 1 | (if read {1} else {0})) });
     }
 
     fn send_stop(&self) {
-        self.i2c.cr1.modify(|_, w| w.stop().set_bit());
+        self.rb().cr1.modify(|_, w| w.stop().set_bit());
     }
 
     /// Releases the I2C peripheral and associated pins
@@ -359,7 +363,7 @@ where
 
 impl<I2C, PINS> BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock> + RccBus + Enable + Reset,
+    I2C: RegisterBlock<RB = I2cRegisterBlock> + RccBus + Enable + Reset,
     I2C::Bus: GetBusFreq,
 {
     pub fn _i2c(
@@ -398,20 +402,20 @@ where
 
     fn write_without_stop(&mut self, addr: u8, bytes: &[u8]) -> NbResult<(), Error> {
         self.send_start_and_wait()?;
-        self.nb.i2c.sr1.read();
+        self.nb.rb().sr1.read();
         self.nb.send_addr(addr, false);
 
-        busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr), self.addr_timeout)?;
-        self.nb.i2c.sr1.read();
-        self.nb.i2c.sr2.read();
+        busy_wait_cycles!(wait_for_flag!(self.nb.rb(), addr), self.addr_timeout)?;
+        self.nb.rb().sr1.read();
+        self.nb.rb().sr2.read();
 
-        self.nb.i2c.dr.write(|w| { w.dr().bits(bytes[0]) });
+        self.nb.rb().dr.write(|w| { w.dr().bits(bytes[0]) });
 
         for byte in &bytes[1..] {
-            busy_wait_cycles!(wait_for_flag!(self.nb.i2c, tx_e), self.data_timeout)?;
-            self.nb.i2c.dr.write(|w| { w.dr().bits(*byte) });
+            busy_wait_cycles!(wait_for_flag!(self.nb.rb(), tx_e), self.data_timeout)?;
+            self.nb.rb().dr.write(|w| { w.dr().bits(*byte) });
         }
-        busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.data_timeout)?;
+        busy_wait_cycles!(wait_for_flag!(self.nb.rb(), btf), self.data_timeout)?;
 
         Ok(())
     }
@@ -419,7 +423,7 @@ where
 
 impl<I2C, PINS> Write for BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock> + RccBus + Enable + Reset,
+    I2C: RegisterBlock<RB = I2cRegisterBlock> + RccBus + Enable + Reset,
     I2C::Bus: GetBusFreq,
 {
     type Error = NbError<Error>;
@@ -435,65 +439,65 @@ where
 
 impl<I2C, PINS> Read for BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock> + RccBus + Enable + Reset,
+    I2C: RegisterBlock<RB = I2cRegisterBlock> + RccBus + Enable + Reset,
     I2C::Bus: GetBusFreq,
 {
     type Error = NbError<Error>;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         self.send_start_and_wait()?;
-        self.nb.i2c.sr1.read();
+        self.nb.rb().sr1.read();
         self.nb.send_addr(addr, true);
-        busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr), self.addr_timeout)?;
+        busy_wait_cycles!(wait_for_flag!(self.nb.rb(), addr), self.addr_timeout)?;
 
         match buffer.len() {
             1 => {
-                self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
-                self.nb.i2c.sr1.read();
-                self.nb.i2c.sr2.read();
+                self.nb.rb().cr1.modify(|_, w| w.ack().clear_bit());
+                self.nb.rb().sr1.read();
+                self.nb.rb().sr2.read();
                 self.nb.send_stop();
 
-                busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.data_timeout)?;
-                buffer[0] = self.nb.i2c.dr.read().dr().bits();
+                busy_wait_cycles!(wait_for_flag!(self.nb.rb(), rx_ne), self.data_timeout)?;
+                buffer[0] = self.nb.rb().dr.read().dr().bits();
 
                 busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
-                self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
+                self.nb.rb().cr1.modify(|_, w| w.ack().set_bit());
             }
             2 => {
-                self.nb.i2c.cr1.modify(|_, w| w.pos().set_bit().ack().set_bit());
-                self.nb.i2c.sr1.read();
-                self.nb.i2c.sr2.read();
-                self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
+                self.nb.rb().cr1.modify(|_, w| w.pos().set_bit().ack().set_bit());
+                self.nb.rb().sr1.read();
+                self.nb.rb().sr2.read();
+                self.nb.rb().cr1.modify(|_, w| w.ack().clear_bit());
 
-                busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.data_timeout)?;
+                busy_wait_cycles!(wait_for_flag!(self.nb.rb(), btf), self.data_timeout)?;
                 self.nb.send_stop();
-                buffer[0] = self.nb.i2c.dr.read().dr().bits();
-                buffer[1] = self.nb.i2c.dr.read().dr().bits();
+                buffer[0] = self.nb.rb().dr.read().dr().bits();
+                buffer[1] = self.nb.rb().dr.read().dr().bits();
 
                 busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
-                self.nb.i2c.cr1.modify(|_, w| w.pos().clear_bit().ack().clear_bit());
-                self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
+                self.nb.rb().cr1.modify(|_, w| w.pos().clear_bit().ack().clear_bit());
+                self.nb.rb().cr1.modify(|_, w| w.ack().set_bit());
             }
             buffer_len => {
-                self.nb.i2c.sr1.read();
-                self.nb.i2c.sr2.read();
+                self.nb.rb().sr1.read();
+                self.nb.rb().sr2.read();
 
                 let (first_bytes, last_two_bytes) = buffer.split_at_mut(buffer_len - 3);
                 for byte in first_bytes {
-                    busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.data_timeout)?;
-                    *byte = self.nb.i2c.dr.read().dr().bits();
+                    busy_wait_cycles!(wait_for_flag!(self.nb.rb(), rx_ne), self.data_timeout)?;
+                    *byte = self.nb.rb().dr.read().dr().bits();
                 }
 
-                busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.data_timeout)?;
-                self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
-                last_two_bytes[0] = self.nb.i2c.dr.read().dr().bits();
+                busy_wait_cycles!(wait_for_flag!(self.nb.rb(), btf), self.data_timeout)?;
+                self.nb.rb().cr1.modify(|_, w| w.ack().clear_bit());
+                last_two_bytes[0] = self.nb.rb().dr.read().dr().bits();
                 self.nb.send_stop();
-                last_two_bytes[1] = self.nb.i2c.dr.read().dr().bits();
-                busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.data_timeout)?;
-                last_two_bytes[2] = self.nb.i2c.dr.read().dr().bits();
+                last_two_bytes[1] = self.nb.rb().dr.read().dr().bits();
+                busy_wait_cycles!(wait_for_flag!(self.nb.rb(), rx_ne), self.data_timeout)?;
+                last_two_bytes[2] = self.nb.rb().dr.read().dr().bits();
 
                 busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
-                self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
+                self.nb.rb().cr1.modify(|_, w| w.ack().set_bit());
             }
         }
 
@@ -503,7 +507,7 @@ where
 
 impl<I2C, PINS> WriteRead for BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock> + RccBus + Enable + Reset,
+    I2C: RegisterBlock<RB = I2cRegisterBlock> + RccBus + Enable + Reset,
     I2C::Bus: GetBusFreq,
 {
     type Error = NbError<Error>;

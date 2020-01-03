@@ -59,8 +59,6 @@
   |    RX    |     PB11      |     PC11           |      PD9        |
 */
 
-
-use core::ops::Deref;
 use core::marker::PhantomData;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
@@ -79,11 +77,7 @@ use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{RccBus, Clocks, GetBusFreq, sealed::{Enable, Reset}};
 use crate::time::{U32Ext, Bps};
-
-pub trait RegisterBlock {
-    type RB;
-    unsafe fn rb() -> *const Self::RB;
-}
+use crate::utils::RegisterBlock;
 
 /// Interrupt event
 pub enum Event {
@@ -296,14 +290,6 @@ macro_rules! hal {
                     Serial::<$USARTX, _, _>::_usart(usart, pins, config, clocks, apb)
                 }
             }
-
-            impl RegisterBlock for $USARTX {
-                type RB = crate::serial::UsartRegisterBlock;
-                #[inline(always)]
-                unsafe fn rb() -> *const Self::RB {
-                    $USARTX::ptr()
-                }
-            }
         )+
     }
 }
@@ -337,7 +323,7 @@ type UsartRegisterBlock = crate::pac::usart1::RegisterBlock;
 
 impl<USART, REMAP, PINS> Serial<USART, REMAP, PINS>
 where
-    USART: Deref<Target = UsartRegisterBlock> + RccBus + Enable + Reset,
+    USART: RegisterBlock<RB = UsartRegisterBlock> + RccBus + Enable + Reset,
     USART::Bus: GetBusFreq,
 {
     fn _usart(
@@ -352,12 +338,12 @@ where
         USART::reset(apb);
 
         // enable DMA transfers
-        usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
+        unsafe { &*USART::rb() }.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
         // Configure baud rate
         let brr = USART::Bus::get_frequency(&clocks).0 / config.baudrate.0;
         assert!(brr >= 16, "impossible baud rate");
-        usart.brr.write(|w| unsafe { w.bits(brr) });
+        unsafe { &*USART::rb() }.brr.write(|w| unsafe { w.bits(brr) });
 
         // Configure parity and word length
         // Unlike most uart devices, the "word length" of this usart device refers to
@@ -369,7 +355,7 @@ where
             Parity::ParityEven => (true, true, false),
             Parity::ParityOdd => (true, true, true),
         };
-        usart.cr1.modify(|_r, w| {
+        unsafe { &*USART::rb() }.cr1.modify(|_r, w| {
             w
                 .m().bit(word_length)
                 .ps().bit(parity)
@@ -383,14 +369,14 @@ where
             StopBits::STOP2 => 0b10,
             StopBits::STOP1P5 => 0b11,
         };
-        usart.cr2.modify(|_r, w| {
+        unsafe { &*USART::rb() }.cr2.modify(|_r, w| {
             w.stop().bits(stop_bits)
         });
 
         // UE: enable USART
         // RE: enable receiver
         // TE: enable transceiver
-        usart
+        unsafe { &*USART::rb() }
             .cr1
             .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
@@ -402,8 +388,8 @@ where
     /// register empty (TXE)_ interrupt
     pub fn listen(&mut self, event: Event) {
         match event {
-            Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
-            Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().set_bit()),
+            Event::Rxne => unsafe { &*USART::rb() }.cr1.modify(|_, w| w.rxneie().set_bit()),
+            Event::Txe => unsafe { &*USART::rb() }.cr1.modify(|_, w| w.txeie().set_bit()),
         }
     }
 
@@ -412,8 +398,8 @@ where
     /// register empty (TXE)_ interrupt
     pub fn unlisten(&mut self, event: Event) {
         match event {
-            Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
-            Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().clear_bit()),
+            Event::Rxne => unsafe { &*USART::rb() }.cr1.modify(|_, w| w.rxneie().clear_bit()),
+            Event::Txe => unsafe { &*USART::rb() }.cr1.modify(|_, w| w.txeie().clear_bit()),
         }
     }
 
@@ -440,12 +426,17 @@ impl<USART> Tx<USART>
 where
     USART: RegisterBlock<RB = UsartRegisterBlock>,
 {
+    #[inline(always)]
+    fn rb(&self) -> &UsartRegisterBlock {
+        unsafe { &*USART::rb() }
+    }
+
     pub fn listen(&mut self) {
-        unsafe { (*USART::rb()).cr1.modify(|_, w| w.txeie().set_bit()) };
+        self.rb().cr1.modify(|_, w| w.txeie().set_bit());
     }
 
     pub fn unlisten(&mut self) {
-        unsafe { (*USART::rb()).cr1.modify(|_, w| w.txeie().clear_bit()) };
+        self.rb().cr1.modify(|_, w| w.txeie().clear_bit());
     }
 }
 
@@ -453,12 +444,17 @@ impl<USART> Rx<USART>
 where
     USART: RegisterBlock<RB = UsartRegisterBlock>,
 {
+    #[inline(always)]
+    fn rb(&self) -> &UsartRegisterBlock {
+        unsafe { &*USART::rb() }
+    }
+
     pub fn listen(&mut self) {
-        unsafe { (*USART::rb()).cr1.modify(|_, w| w.rxneie().set_bit()) };
+        self.rb().cr1.modify(|_, w| w.rxneie().set_bit());
     }
 
     pub fn unlisten(&mut self) {
-        unsafe { (*USART::rb()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
+        self.rb().cr1.modify(|_, w| w.rxneie().clear_bit());
     }
 }
 
@@ -470,7 +466,7 @@ where
 
     fn read(&mut self) -> nb::Result<u8, Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let sr = unsafe { (*USART::rb()).sr.read() };
+        let sr = self.rb().sr.read();
 
         // Check for any errors
         let err = if sr.pe().bit_is_set() {
@@ -491,8 +487,8 @@ where
             // register
             // NOTE(read_volatile) see `write_volatile` below
             unsafe {
-                ptr::read_volatile(&(*USART::rb()).sr as *const _ as *const _);
-                ptr::read_volatile(&(*USART::rb()).dr as *const _ as *const _);
+                ptr::read_volatile(&self.rb().sr as *const _ as *const _);
+                ptr::read_volatile(&self.rb().dr as *const _ as *const _);
             }
             Err(nb::Error::Other(err))
         } else {
@@ -501,7 +497,7 @@ where
                 // Read the received byte
                 // NOTE(read_volatile) see `write_volatile` below
                 Ok(unsafe {
-                    ptr::read_volatile(&(*USART::rb()).dr as *const _ as *const _)
+                    ptr::read_volatile(&self.rb().dr as *const _ as *const _)
                 })
             } else {
                 Err(nb::Error::WouldBlock)
@@ -518,7 +514,7 @@ where
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         // NOTE(unsafe) atomic read with no side effects
-        let sr = unsafe { (*USART::rb()).sr.read() };
+        let sr = self.rb().sr.read();
 
         if sr.tc().bit_is_set() {
             Ok(())
@@ -535,7 +531,7 @@ where
             // NOTE(unsafe) atomic write to stateless register
             // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
             unsafe {
-                ptr::write_volatile(&(*USART::rb()).dr as *const _ as *mut _, byte)
+                ptr::write_volatile(&self.rb().dr as *const _ as *mut _, byte)
             }
             Ok(())
         } else {
