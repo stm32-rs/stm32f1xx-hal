@@ -82,7 +82,7 @@ mod sealed {
 }
 use sealed::{Remap, Sck, Miso, Mosi};
 
-pub trait Pins<SPI, P> {
+pub trait Pins<REMAP, P> {
     type _Pos;
 }
 macro_rules! pins_impl {
@@ -203,7 +203,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
     }
 }
 
-type SpiRegisterBlock = crate::stm32::spi1::RegisterBlock;
+type SpiRegisterBlock = crate::pac::spi1::RegisterBlock;
 
 impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS>
 where

@@ -249,7 +249,7 @@ macro_rules! busy_wait_cycles {
     }};
 }
 
-type I2cRegisterBlock = crate::stm32::i2c1::RegisterBlock;
+type I2cRegisterBlock = crate::pac::i2c1::RegisterBlock;
 
 impl<I2C, PINS> I2c<I2C, PINS>
 where

@@ -1,41 +1,66 @@
-//! # Serial Communication (USART)
-//! This module contains the functions to utilize the USART (Universal
-//! synchronous asynchronous receiver transmitter)
-//!
-//!
-//! ## Example usage:
-//!  ```rust
-//! // prelude: create handles to the peripherals and registers
-//! let p = crate::pac::Peripherals::take().unwrap();
-//! let cp = cortex_m::Peripherals::take().unwrap();
-//! let mut flash = p.FLASH.constrain();
-//! let mut rcc = p.RCC.constrain();
-//! let clocks = rcc.cfgr.freeze(&mut flash.acr);
-//! let mut afio = p.AFIO.constrain(&mut rcc.apb2);
-//! let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
-//!
-//! // USART1 on Pins A9 and A10
-//! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
-//! let pin_rx = gpioa.pa10;
-//! // Create an interface struct for USART1 with 9600 Baud
-//! let serial = Serial::usart1(
-//!     p.USART1,
-//!     (pin_tx, pin_rx),
-//!     &mut afio.mapr,
-//!     Config::default().baudrate(9_600.bps()),
-//!     clocks,
-//!     &mut rcc.apb2,
-//! );
-//!
-//! // separate into tx and rx channels
-//! let (mut tx, mut rx) = serial.split();
-//!
-//! // Write 'R' to the USART
-//! block!(tx.write(b'R')).ok();
-//! // Receive a byte from the USART and store it in "received"
-//! let received = block!(rx.read()).unwrap();
-//!  ```
+/*! # Serial Communication (USART)
+  This module contains the functions to utilize the USART (Universal
+  synchronous asynchronous receiver transmitter)
 
+
+  ## Example usage:
+   ```rust
+  // prelude: create handles to the peripherals and registers
+  let p = crate::pac::Peripherals::take().unwrap();
+  let cp = cortex_m::Peripherals::take().unwrap();
+  let mut flash = p.FLASH.constrain();
+  let mut rcc = p.RCC.constrain();
+  let clocks = rcc.cfgr.freeze(&mut flash.acr);
+  let mut afio = p.AFIO.constrain(&mut rcc.apb2);
+  let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
+
+  // USART1 on Pins A9 and A10
+  let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
+  let pin_rx = gpioa.pa10;
+  // Create an interface struct for USART1 with 9600 Baud
+  let serial = Serial::usart1(
+      p.USART1,
+      (pin_tx, pin_rx),
+      &mut afio.mapr,
+      Config::default().baudrate(9_600.bps()),
+      clocks,
+      &mut rcc.apb2,
+  );
+
+  // separate into tx and rx channels
+  let (mut tx, mut rx) = serial.split();
+
+  // Write 'R' to the USART
+  block!(tx.write(b'R')).ok();
+  // Receive a byte from the USART and store it in "received"
+  let received = block!(rx.read()).unwrap();
+   ```
+  ## Alternate function remapping
+
+  ### USART1
+
+  | Function | Usart1NoRemap | Usart1Remap |
+  |:--------:|:-------------:|:-----------:|
+  |    TX    |     PA9       |     PB6     |
+  |    RX    |     PA10      |     PB7     |
+
+  ### USART2
+
+  | Function | Usart2NoRemap | Usart2Remap |
+  |:--------:|:-------------:|:-----------:|
+  |    TX    |     PA2       |     PD5     |
+  |    RX    |     PA3       |     PD6     |
+
+  ### USART3
+
+  | Function | Usart3NoRemap | Usart3PartialRemap | Usart3FullRemap |
+  |:--------:|:-------------:|:------------------:|:---------------:|
+  |    TX    |     PB10      |     PC10           |      PD8        |
+  |    RX    |     PB11      |     PC11           |      PD9        |
+*/
+
+
+use core::ops::Deref;
 use core::marker::PhantomData;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
@@ -54,6 +79,11 @@ use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{RccBus, Clocks, GetBusFreq, sealed::{Enable, Reset}};
 use crate::time::{U32Ext, Bps};
+
+pub trait RegisterBlock {
+    type RB;
+    unsafe fn rb() -> *const Self::RB;
+}
 
 /// Interrupt event
 pub enum Event {
@@ -78,40 +108,65 @@ pub enum Error {
     _Extensible,
 }
 
+mod sealed {
+    pub trait Remap {
+        type Periph;
+        const REMAP: u8;
+    }
+    pub trait TxPin<REMAP> {}
+    pub trait RxPin<REMAP> {}
+    pub struct _Tx;
+    pub struct _Rx;
+}
+use sealed::{Remap, TxPin, RxPin};
 
-// USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
-// Section 9.3.8
-pub trait Pins<USART> {
-    const REMAP: u8;
+pub trait Pins<REMAP, P> {
+    type _Pos;
 }
 
-impl Pins<USART1> for (PA9<Alternate<PushPull>>, PA10<Input<Floating>>) {
-    const REMAP: u8 = 0;
+impl <REMAP, TX, RX> Pins<REMAP, (sealed::_Tx, sealed::_Rx)> for (TX, RX)
+where
+    TX: TxPin<REMAP>,
+    RX: RxPin<REMAP>,
+{
+    type _Pos = (sealed::_Tx, sealed::_Rx);
+}
+impl <REMAP, RX, TX> Pins<REMAP, (sealed::_Rx, sealed::_Tx)> for (RX, TX)
+where
+    RX: RxPin<REMAP>,
+    TX: TxPin<REMAP>,
+{
+    type _Pos = (sealed::_Rx, sealed::_Tx);
 }
 
-impl Pins<USART1> for (PB6<Alternate<PushPull>>, PB7<Input<Floating>>) {
-    const REMAP: u8 = 1;
+/// A filler type for when the TX pin is unnecessary
+pub struct NoTx;
+/// A filler type for when the RX pin is unnecessary
+pub struct NoRx;
+
+impl<REMAP> TxPin<REMAP> for NoTx {}
+impl<REMAP> RxPin<REMAP> for NoRx {}
+
+macro_rules! remap {
+    ($name:ident, $USARTX:ident, $state:literal, $TX:ident, $RX:ident) => {
+        pub struct $name;
+        impl Remap for $name {
+            type Periph = $USARTX;
+            const REMAP: u8 = $state;
+        }
+        impl TxPin<$name> for $TX<Alternate<PushPull>> {}
+        impl RxPin<$name> for $RX<Input<Floating>> {}
+    }
 }
 
-impl Pins<USART2> for (PA2<Alternate<PushPull>>, PA3<Input<Floating>>) {
-    const REMAP: u8 = 0;
-}
-
-impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
-    const REMAP: u8 = 0;
-}
-
-impl Pins<USART3> for (PB10<Alternate<PushPull>>, PB11<Input<Floating>>) {
-    const REMAP: u8 = 0;
-}
-
-impl Pins<USART3> for (PC10<Alternate<PushPull>>, PC11<Input<Floating>>) {
-    const REMAP: u8 = 1;
-}
-
-impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
-    const REMAP: u8 = 0b11;
-}
+// TODO: check density
+remap!(Usart1NoRemap, USART1, 0b00, PA9, PA10);
+remap!(Usart1Remap, USART1, 0b01, PB6, PB7);
+remap!(Usart2NoRemap, USART2, 0b00, PA2, PA3);
+remap!(Usart2Remap, USART2, 0b01, PD5, PD6);
+remap!(Usart3NoRemap, USART3, 0b00, PB10, PB11);
+remap!(Usart3PartialRemap, USART3, 0b01, PC10, PC11);
+remap!(Usart3FullRemap, USART3, 0b11, PD8, PD9);
 
 pub enum Parity {
     ParityNone,
@@ -175,9 +230,10 @@ impl Default for Config {
 }
 
 /// Serial abstraction
-pub struct Serial<USART, PINS> {
+pub struct Serial<USART, REMAP, PINS> {
     usart: USART,
     pins: PINS,
+    _remap: PhantomData<REMAP>,
 }
 
 /// Serial receiver
@@ -204,7 +260,7 @@ macro_rules! hal {
             $(#[$meta])*
             /// The behaviour of the functions is equal for all three USARTs.
             /// Except that they are using the corresponding USART hardware and pins.
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl<REMAP, PINS> Serial<$USARTX, REMAP, PINS> {
 
                 /// Configures the serial interface and creates the interface
                 /// struct.
@@ -221,7 +277,7 @@ macro_rules! hal {
                 /// `MAPR` and `APBX` are register handles which are passed for
                 /// configuration. (`MAPR` is used to map the USART to the
                 /// corresponding pins. `APBX` is used to reset the USART.)
-                pub fn $usartX(
+                pub fn $usartX<POS>(
                     usart: $USARTX,
                     pins: PINS,
                     mapr: &mut MAPR,
@@ -230,210 +286,25 @@ macro_rules! hal {
                     apb: &mut <$USARTX as RccBus>::Bus,
                 ) -> Self
                 where
-                    PINS: Pins<$USARTX>,
+                    REMAP: Remap<Periph = $USARTX>,
+                    PINS: Pins<REMAP, POS>,
                 {
-                    // enable and reset $USARTX
-                    $USARTX::enable(apb);
-                    $USARTX::reset(apb);
-
                     #[allow(unused_unsafe)]
                     mapr.modify_mapr(|_, w| unsafe{
-                            w.$usartX_remap().$bit(($closure)(PINS::REMAP))
+                            w.$usartX_remap().$bit(($closure)(REMAP::REMAP))
                         });
-
-                    // enable DMA transfers
-                    usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
-
-                    // Configure baud rate
-                    let brr = <$USARTX as RccBus>::Bus::get_frequency(&clocks).0 / config.baudrate.0;
-                    assert!(brr >= 16, "impossible baud rate");
-                    usart.brr.write(|w| unsafe { w.bits(brr) });
-
-                    // Configure parity and word length
-                    // Unlike most uart devices, the "word length" of this usart device refers to
-                    // the size of the data plus the parity bit. I.e. "word length"=8, parity=even
-                    // results in 7 bits of data. Therefore, in order to get 8 bits and one parity
-                    // bit, we need to set the "word" length to 9 when using parity bits.
-                    let (word_length, parity_control_enable, parity) = match config.parity {
-                        Parity::ParityNone => (false, false, false),
-                        Parity::ParityEven => (true, true, false),
-                        Parity::ParityOdd => (true, true, true),
-                    };
-                    usart.cr1.modify(|_r, w| {
-                        w
-                            .m().bit(word_length)
-                            .ps().bit(parity)
-                            .pce().bit(parity_control_enable)
-                    });
-
-                    // Configure stop bits
-                    let stop_bits = match config.stopbits {
-                        StopBits::STOP1 => 0b00,
-                        StopBits::STOP0P5 => 0b01,
-                        StopBits::STOP2 => 0b10,
-                        StopBits::STOP1P5 => 0b11,
-                    };
-                    usart.cr2.modify(|_r, w| {
-                        w.stop().bits(stop_bits)
-                    });
-
-                    // UE: enable USART
-                    // RE: enable receiver
-                    // TE: enable transceiver
-                    usart
-                        .cr1
-                        .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
-
-                    Serial { usart, pins }
-                }
-
-                /// Starts listening to the USART by enabling the _Received data
-                /// ready to be read (RXNE)_ interrupt and _Transmit data
-                /// register empty (TXE)_ interrupt
-                pub fn listen(&mut self, event: Event) {
-                    match event {
-                        Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
-                        Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().set_bit()),
-                    }
-                }
-
-                /// Stops listening to the USART by disabling the _Received data
-                /// ready to be read (RXNE)_ interrupt and _Transmit data
-                /// register empty (TXE)_ interrupt
-                pub fn unlisten(&mut self, event: Event) {
-                    match event {
-                        Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
-                        Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().clear_bit()),
-                    }
-                }
-
-                /// Returns ownership of the borrowed register handles
-                pub fn release(self) -> ($USARTX, PINS) {
-                    (self.usart, self.pins)
-                }
-
-                /// Separates the serial struct into separate channel objects for sending (Tx) and
-                /// receiving (Rx)
-                pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>) {
-                    (
-                        Tx {
-                            _usart: PhantomData,
-                        },
-                        Rx {
-                            _usart: PhantomData,
-                        },
-                    )
+                    Serial::<$USARTX, _, _>::_usart(usart, pins, config, clocks, apb)
                 }
             }
 
-            impl Tx<$USARTX> {
-                pub fn listen(&mut self) {
-                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
-                }
-
-                pub fn unlisten(&mut self) {
-                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().clear_bit()) };
-                }
-            }
-
-            impl Rx<$USARTX> {
-                pub fn listen(&mut self) {
-                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
-                }
-
-                pub fn unlisten(&mut self) {
-                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
-                }
-            }
-
-            impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
-                type Error = Error;
-
-                fn read(&mut self) -> nb::Result<u8, Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    let sr = unsafe { (*$USARTX::ptr()).sr.read() };
-
-                    // Check for any errors
-                    let err = if sr.pe().bit_is_set() {
-                        Some(Error::Parity)
-                    } else if sr.fe().bit_is_set() {
-                        Some(Error::Framing)
-                    } else if sr.ne().bit_is_set() {
-                        Some(Error::Noise)
-                    } else if sr.ore().bit_is_set() {
-                        Some(Error::Overrun)
-                    } else {
-                        None
-                    };
-
-                    if let Some(err) = err {
-                        // Some error occured. In order to clear that error flag, you have to
-                        // do a read from the sr register followed by a read from the dr
-                        // register
-                        // NOTE(read_volatile) see `write_volatile` below
-                        unsafe {
-                            ptr::read_volatile(&(*$USARTX::ptr()).sr as *const _ as *const _);
-                            ptr::read_volatile(&(*$USARTX::ptr()).dr as *const _ as *const _);
-                        }
-                        Err(nb::Error::Other(err))
-                    } else {
-                        // Check if a byte is available
-                        if sr.rxne().bit_is_set() {
-                            // Read the received byte
-                            // NOTE(read_volatile) see `write_volatile` below
-                            Ok(unsafe {
-                                ptr::read_volatile(&(*$USARTX::ptr()).dr as *const _ as *const _)
-                            })
-                        } else {
-                            Err(nb::Error::WouldBlock)
-                        }
-                    }
-                }
-            }
-
-            impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
-                type Error = Infallible;
-
-                fn flush(&mut self) -> nb::Result<(), Self::Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    let sr = unsafe { (*$USARTX::ptr()).sr.read() };
-
-                    if sr.tc().bit_is_set() {
-                        Ok(())
-                    } else {
-                        Err(nb::Error::WouldBlock)
-                    }
-                }
-
-                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    let sr = unsafe { (*$USARTX::ptr()).sr.read() };
-
-                    if sr.txe().bit_is_set() {
-                        // NOTE(unsafe) atomic write to stateless register
-                        // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-                        unsafe {
-                            ptr::write_volatile(&(*$USARTX::ptr()).dr as *const _ as *mut _, byte)
-                        }
-                        Ok(())
-                    } else {
-                        Err(nb::Error::WouldBlock)
-                    }
+            impl RegisterBlock for $USARTX {
+                type RB = crate::serial::UsartRegisterBlock;
+                #[inline(always)]
+                unsafe fn rb() -> *const Self::RB {
+                    $USARTX::ptr()
                 }
             }
         )+
-    }
-}
-
-impl<USART> core::fmt::Write for Tx<USART>
-where
-    Tx<USART>: embedded_hal::serial::Write<u8>,
-{
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        s.as_bytes()
-            .iter()
-            .try_for_each(|c| nb::block!(self.write(*c)))
-            .map_err(|_| core::fmt::Error)
     }
 }
 
@@ -459,6 +330,232 @@ hal! {
         bits,
         |remap| remap,
     ),
+}
+
+
+type UsartRegisterBlock = crate::pac::usart1::RegisterBlock;
+
+impl<USART, REMAP, PINS> Serial<USART, REMAP, PINS>
+where
+    USART: Deref<Target = UsartRegisterBlock> + RccBus + Enable + Reset,
+    USART::Bus: GetBusFreq,
+{
+    fn _usart(
+        usart: USART,
+        pins: PINS,
+        config: Config,
+        clocks: Clocks,
+        apb: &mut USART::Bus,
+    ) -> Self {
+        // enable and reset USART
+        USART::enable(apb);
+        USART::reset(apb);
+
+        // enable DMA transfers
+        usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
+
+        // Configure baud rate
+        let brr = USART::Bus::get_frequency(&clocks).0 / config.baudrate.0;
+        assert!(brr >= 16, "impossible baud rate");
+        usart.brr.write(|w| unsafe { w.bits(brr) });
+
+        // Configure parity and word length
+        // Unlike most uart devices, the "word length" of this usart device refers to
+        // the size of the data plus the parity bit. I.e. "word length"=8, parity=even
+        // results in 7 bits of data. Therefore, in order to get 8 bits and one parity
+        // bit, we need to set the "word" length to 9 when using parity bits.
+        let (word_length, parity_control_enable, parity) = match config.parity {
+            Parity::ParityNone => (false, false, false),
+            Parity::ParityEven => (true, true, false),
+            Parity::ParityOdd => (true, true, true),
+        };
+        usart.cr1.modify(|_r, w| {
+            w
+                .m().bit(word_length)
+                .ps().bit(parity)
+                .pce().bit(parity_control_enable)
+        });
+
+        // Configure stop bits
+        let stop_bits = match config.stopbits {
+            StopBits::STOP1 => 0b00,
+            StopBits::STOP0P5 => 0b01,
+            StopBits::STOP2 => 0b10,
+            StopBits::STOP1P5 => 0b11,
+        };
+        usart.cr2.modify(|_r, w| {
+            w.stop().bits(stop_bits)
+        });
+
+        // UE: enable USART
+        // RE: enable receiver
+        // TE: enable transceiver
+        usart
+            .cr1
+            .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
+
+        Serial { usart, pins, _remap: PhantomData }
+    }
+
+    /// Starts listening to the USART by enabling the _Received data
+    /// ready to be read (RXNE)_ interrupt and _Transmit data
+    /// register empty (TXE)_ interrupt
+    pub fn listen(&mut self, event: Event) {
+        match event {
+            Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
+            Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().set_bit()),
+        }
+    }
+
+    /// Stops listening to the USART by disabling the _Received data
+    /// ready to be read (RXNE)_ interrupt and _Transmit data
+    /// register empty (TXE)_ interrupt
+    pub fn unlisten(&mut self, event: Event) {
+        match event {
+            Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
+            Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().clear_bit()),
+        }
+    }
+
+    /// Returns ownership of the borrowed register handles
+    pub fn release(self) -> (USART, PINS) {
+        (self.usart, self.pins)
+    }
+
+    /// Separates the serial struct into separate channel objects for sending (Tx) and
+    /// receiving (Rx)
+    pub fn split(self) -> (Tx<USART>, Rx<USART>) {
+        (
+            Tx {
+                _usart: PhantomData,
+            },
+            Rx {
+                _usart: PhantomData,
+            },
+        )
+    }
+}
+
+impl<USART> Tx<USART>
+where
+    USART: RegisterBlock<RB = UsartRegisterBlock>,
+{
+    pub fn listen(&mut self) {
+        unsafe { (*USART::rb()).cr1.modify(|_, w| w.txeie().set_bit()) };
+    }
+
+    pub fn unlisten(&mut self) {
+        unsafe { (*USART::rb()).cr1.modify(|_, w| w.txeie().clear_bit()) };
+    }
+}
+
+impl<USART> Rx<USART>
+where
+    USART: RegisterBlock<RB = UsartRegisterBlock>,
+{
+    pub fn listen(&mut self) {
+        unsafe { (*USART::rb()).cr1.modify(|_, w| w.rxneie().set_bit()) };
+    }
+
+    pub fn unlisten(&mut self) {
+        unsafe { (*USART::rb()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
+    }
+}
+
+impl<USART> crate::hal::serial::Read<u8> for Rx<USART>
+where
+    USART: RegisterBlock<RB = UsartRegisterBlock>,
+{
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        // NOTE(unsafe) atomic read with no side effects
+        let sr = unsafe { (*USART::rb()).sr.read() };
+
+        // Check for any errors
+        let err = if sr.pe().bit_is_set() {
+            Some(Error::Parity)
+        } else if sr.fe().bit_is_set() {
+            Some(Error::Framing)
+        } else if sr.ne().bit_is_set() {
+            Some(Error::Noise)
+        } else if sr.ore().bit_is_set() {
+            Some(Error::Overrun)
+        } else {
+            None
+        };
+
+        if let Some(err) = err {
+            // Some error occured. In order to clear that error flag, you have to
+            // do a read from the sr register followed by a read from the dr
+            // register
+            // NOTE(read_volatile) see `write_volatile` below
+            unsafe {
+                ptr::read_volatile(&(*USART::rb()).sr as *const _ as *const _);
+                ptr::read_volatile(&(*USART::rb()).dr as *const _ as *const _);
+            }
+            Err(nb::Error::Other(err))
+        } else {
+            // Check if a byte is available
+            if sr.rxne().bit_is_set() {
+                // Read the received byte
+                // NOTE(read_volatile) see `write_volatile` below
+                Ok(unsafe {
+                    ptr::read_volatile(&(*USART::rb()).dr as *const _ as *const _)
+                })
+            } else {
+                Err(nb::Error::WouldBlock)
+            }
+        }
+    }
+}
+
+impl<USART> crate::hal::serial::Write<u8> for Tx<USART>
+where
+    USART: RegisterBlock<RB = UsartRegisterBlock>,
+{
+    type Error = Infallible;
+
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        // NOTE(unsafe) atomic read with no side effects
+        let sr = unsafe { (*USART::rb()).sr.read() };
+
+        if sr.tc().bit_is_set() {
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+        // NOTE(unsafe) atomic read with no side effects
+        let sr = unsafe { (*USART::rb()).sr.read() };
+
+        if sr.txe().bit_is_set() {
+            // NOTE(unsafe) atomic write to stateless register
+            // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
+            unsafe {
+                ptr::write_volatile(&(*USART::rb()).dr as *const _ as *mut _, byte)
+            }
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+}
+
+
+impl<USART> core::fmt::Write for Tx<USART>
+where
+    USART: RegisterBlock<RB = UsartRegisterBlock>,
+    Self: embedded_hal::serial::Write<u8>,
+{
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        s.as_bytes()
+            .iter()
+            .try_for_each(|c| nb::block!(self.write(*c)))
+            .map_err(|_| core::fmt::Error)
+    }
 }
 
 pub type Rx1 = Rx<USART1>;
@@ -557,7 +654,7 @@ macro_rules! serialdma {
                 {
                     {
                         let buffer = buffer[0].as_mut_slice();
-                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::rb()).dr as *const _ as u32 }, false);
                         self.channel.set_memory_address(buffer.as_ptr() as u32, true);
                         self.channel.set_transfer_length(buffer.len() * 2);
 
@@ -585,7 +682,7 @@ macro_rules! serialdma {
                 {
                     {
                         let buffer = buffer.as_mut_slice();
-                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::rb()).dr as *const _ as u32 }, false);
                         self.channel.set_memory_address(buffer.as_ptr() as u32, true);
                         self.channel.set_transfer_length(buffer.len());
                     }
@@ -611,7 +708,7 @@ macro_rules! serialdma {
                     {
                         let buffer = buffer.borrow().as_slice();
 
-                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                        self.channel.set_peripheral_address(unsafe{ &(*$USARTX::rb()).dr as *const _ as u32 }, false);
 
                         self.channel.set_memory_address(buffer.as_ptr() as u32, true);
                         self.channel.set_transfer_length(buffer.len());
