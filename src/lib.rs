@@ -114,7 +114,7 @@
 
 // If no target specified, print error message.
 #[cfg(not(any(feature = "stm32f100", feature = "stm32f101", feature = "stm32f103")))]
-compile_error!("Target not found. A `--feature <target-name>` is required.");
+compile_error!("Target not found. A `--features <target-name>` is required.");
 
 // If any two or more targets are specified, print error message.
 #[cfg(any(
@@ -122,7 +122,7 @@ compile_error!("Target not found. A `--feature <target-name>` is required.");
     all(feature = "stm32f100", feature = "stm32f103"),
     all(feature = "stm32f101", feature = "stm32f103"),
 ))]
-compile_error!("Multiple targets specified. Only a single `--feature <target-name>` can be specified.");
+compile_error!("Multiple targets specified. Only a single `--features <target-name>` can be specified.");
 
 #[cfg(feature = "device-selected")]
 use embedded_hal as hal;
