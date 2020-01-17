@@ -59,7 +59,7 @@ fn main() -> ! {
 
     // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let serial = Serial::usart3(
+    let mut serial = Serial::usart3(
         p.USART3,
         (tx, rx),
         &mut afio.mapr,
@@ -68,22 +68,29 @@ fn main() -> ! {
         &mut rcc.apb1,
     );
 
-    // Split the serial struct into a receiving and a transmitting part
-    let (mut tx, mut rx) = serial.split();
 
+    // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';
-
-    // Write `X` and wait until the write is successful
-    block!(tx.write(sent)).ok();
+    block!(serial.write(sent)).ok();
 
     // Read the byte that was just sent. Blocks until the read is complete
-    let received = block!(rx.read()).unwrap();
+    let received = block!(serial.read()).unwrap();
 
     // Since we have connected tx and rx, the byte we sent should be the one we received
     assert_eq!(received, sent);
 
     // Trigger a breakpoint to allow us to inspect the values
     asm::bkpt();
+
+
+    // You can also split the serial struct into a receiving and a transmitting part
+    let (mut tx, mut rx) = serial.split();
+    let sent = b'Y';
+    block!(tx.write(sent)).ok();
+    let received = block!(rx.read()).unwrap();
+    assert_eq!(received, sent);
+    asm::bkpt();
+
 
     loop {}
 }

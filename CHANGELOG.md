@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 - Add `InputPin` impl for generic open drain outputs
+- Implement `Read<u8>` / `Write<u8>` for `Serial` (#171)
 
 ## [v0.5.2] - 2019-12-15
 

@@ -1,9 +1,10 @@
 //! # Serial Communication (USART)
+//!
 //! This module contains the functions to utilize the USART (Universal
 //! synchronous asynchronous receiver transmitter)
 //!
-//!
 //! ## Example usage:
+//!
 //!  ```rust
 //! // prelude: create handles to the peripherals and registers
 //! let p = crate::pac::Peripherals::take().unwrap();
@@ -111,6 +112,16 @@ impl Pins<USART3> for (PC10<Alternate<PushPull>>, PC11<Input<Floating>>) {
 
 impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
     const REMAP: u8 = 0b11;
+}
+
+/// Internal trait for the serial read / write logic.
+///
+/// Note that reading / writing is done on the USART peripheral, not on the
+/// rx / tx pins!
+trait UsartReadWrite<Word> {
+    fn read() -> nb::Result<Word, Error>;
+    fn write(byte: Word) -> nb::Result<(), Infallible>;
+    fn flush() -> nb::Result<(), Infallible>;
 }
 
 pub enum Parity {
@@ -346,10 +357,8 @@ macro_rules! hal {
                 }
             }
 
-            impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
-                type Error = Error;
-
-                fn read(&mut self) -> nb::Result<u8, Error> {
+            impl UsartReadWrite<u8> for $USARTX {
+                fn read() -> nb::Result<u8, Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let sr = unsafe { (*$USARTX::ptr()).sr.read() };
 
@@ -389,23 +398,8 @@ macro_rules! hal {
                         }
                     }
                 }
-            }
 
-            impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
-                type Error = Infallible;
-
-                fn flush(&mut self) -> nb::Result<(), Self::Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    let sr = unsafe { (*$USARTX::ptr()).sr.read() };
-
-                    if sr.tc().bit_is_set() {
-                        Ok(())
-                    } else {
-                        Err(nb::Error::WouldBlock)
-                    }
-                }
-
-                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+                fn write(byte: u8) -> nb::Result<(), Infallible> {
                     // NOTE(unsafe) atomic read with no side effects
                     let sr = unsafe { (*$USARTX::ptr()).sr.read() };
 
@@ -420,7 +414,58 @@ macro_rules! hal {
                         Err(nb::Error::WouldBlock)
                     }
                 }
+
+                fn flush() -> nb::Result<(), Infallible> {
+                    // NOTE(unsafe) atomic read with no side effects
+                    let sr = unsafe { (*$USARTX::ptr()).sr.read() };
+
+                    if sr.tc().bit_is_set() {
+                        Ok(())
+                    } else {
+                        Err(nb::Error::WouldBlock)
+                    }
+                }
             }
+
+            impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
+                type Error = Error;
+
+                fn read(&mut self) -> nb::Result<u8, Error> {
+                    $USARTX::read()
+                }
+            }
+
+            impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
+                type Error = Infallible;
+
+                fn flush(&mut self) -> nb::Result<(), Self::Error> {
+                    $USARTX::flush()
+                }
+                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+                    $USARTX::write(byte)
+                }
+            }
+
+            impl<PINS> crate::hal::serial::Read<u8> for Serial<$USARTX, PINS> {
+                type Error = Error;
+
+                fn read(&mut self) -> nb::Result<u8, Error> {
+                    $USARTX::read()
+                }
+            }
+
+            impl<PINS> crate::hal::serial::Write<u8> for Serial<$USARTX, PINS> {
+                type Error = Infallible;
+
+                fn flush(&mut self) -> nb::Result<(), Self::Error> {
+                    $USARTX::flush()
+                }
+
+                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+                    $USARTX::write(byte)
+                }
+            }
+
         )+
     }
 }
