@@ -118,9 +118,9 @@ impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
 ///
 /// Note that reading / writing is done on the USART peripheral, not on the
 /// rx / tx pins!
-trait UsartReadWrite<Word> {
-    fn read() -> nb::Result<Word, Error>;
-    fn write(byte: Word) -> nb::Result<(), Infallible>;
+trait UsartReadWrite {
+    fn read() -> nb::Result<u8, Error>;
+    fn write(byte: u8) -> nb::Result<(), Infallible>;
     fn flush() -> nb::Result<(), Infallible>;
 }
 
@@ -357,7 +357,7 @@ macro_rules! hal {
                 }
             }
 
-            impl UsartReadWrite<u8> for $USARTX {
+            impl UsartReadWrite for $USARTX {
                 fn read() -> nb::Result<u8, Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let sr = unsafe { (*$USARTX::ptr()).sr.read() };
