@@ -115,75 +115,6 @@ impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
     const REMAP: u8 = 0b11;
 }
 
-/// Internal trait for the serial read / write logic.
-trait UsartReadWrite: Deref<Target=crate::stm32::usart1::RegisterBlock> {
-    fn read(&self) -> nb::Result<u8, Error> {
-        let sr = self.sr.read();
-
-        // Check for any errors
-        let err = if sr.pe().bit_is_set() {
-            Some(Error::Parity)
-        } else if sr.fe().bit_is_set() {
-            Some(Error::Framing)
-        } else if sr.ne().bit_is_set() {
-            Some(Error::Noise)
-        } else if sr.ore().bit_is_set() {
-            Some(Error::Overrun)
-        } else {
-            None
-        };
-
-        if let Some(err) = err {
-            // Some error occured. In order to clear that error flag, you have to
-            // do a read from the sr register followed by a read from the dr
-            // register
-            // NOTE(read_volatile) see `write_volatile` below
-            unsafe {
-                ptr::read_volatile(&self.sr as *const _ as *const _);
-                ptr::read_volatile(&self.dr as *const _ as *const _);
-            }
-            Err(nb::Error::Other(err))
-        } else {
-            // Check if a byte is available
-            if sr.rxne().bit_is_set() {
-                // Read the received byte
-                // NOTE(read_volatile) see `write_volatile` below
-                Ok(unsafe {
-                    ptr::read_volatile(&self.dr as *const _ as *const _)
-                })
-            } else {
-                Err(nb::Error::WouldBlock)
-            }
-        }
-    }
-
-    fn write(&self, byte: u8) -> nb::Result<(), Infallible> {
-        let sr = self.sr.read();
-
-        if sr.txe().bit_is_set() {
-            // NOTE(unsafe) atomic write to stateless register
-            // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-            unsafe {
-                ptr::write_volatile(&self.dr as *const _ as *mut _, byte)
-            }
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
-    }
-
-    fn flush(&self) -> nb::Result<(), Infallible> {
-        let sr = self.sr.read();
-
-        if sr.tc().bit_is_set() {
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
-    }
-}
-impl UsartReadWrite for &crate::stm32::usart1::RegisterBlock {}
-
 pub enum Parity {
     ParityNone,
     ParityEven,
@@ -260,6 +191,75 @@ pub struct Rx<USART> {
 pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
+
+/// Internal trait for the serial read / write logic.
+trait UsartReadWrite: Deref<Target=crate::stm32::usart1::RegisterBlock> {
+    fn read(&self) -> nb::Result<u8, Error> {
+        let sr = self.sr.read();
+
+        // Check for any errors
+        let err = if sr.pe().bit_is_set() {
+            Some(Error::Parity)
+        } else if sr.fe().bit_is_set() {
+            Some(Error::Framing)
+        } else if sr.ne().bit_is_set() {
+            Some(Error::Noise)
+        } else if sr.ore().bit_is_set() {
+            Some(Error::Overrun)
+        } else {
+            None
+        };
+
+        if let Some(err) = err {
+            // Some error occured. In order to clear that error flag, you have to
+            // do a read from the sr register followed by a read from the dr
+            // register
+            // NOTE(read_volatile) see `write_volatile` below
+            unsafe {
+                ptr::read_volatile(&self.sr as *const _ as *const _);
+                ptr::read_volatile(&self.dr as *const _ as *const _);
+            }
+            Err(nb::Error::Other(err))
+        } else {
+            // Check if a byte is available
+            if sr.rxne().bit_is_set() {
+                // Read the received byte
+                // NOTE(read_volatile) see `write_volatile` below
+                Ok(unsafe {
+                    ptr::read_volatile(&self.dr as *const _ as *const _)
+                })
+            } else {
+                Err(nb::Error::WouldBlock)
+            }
+        }
+    }
+
+    fn write(&self, byte: u8) -> nb::Result<(), Infallible> {
+        let sr = self.sr.read();
+
+        if sr.txe().bit_is_set() {
+            // NOTE(unsafe) atomic write to stateless register
+            // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
+            unsafe {
+                ptr::write_volatile(&self.dr as *const _ as *mut _, byte)
+            }
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    fn flush(&self) -> nb::Result<(), Infallible> {
+        let sr = self.sr.read();
+
+        if sr.tc().bit_is_set() {
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+}
+impl UsartReadWrite for &crate::stm32::usart1::RegisterBlock {}
 
 macro_rules! hal {
     ($(
