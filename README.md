@@ -16,9 +16,9 @@ it.
 
 ![blue pill pinout](BluePillPinout.jpg "opt title")
 
-You will also need an [stlink](https://www.adafruit.com/product/2548) for
-programming and debugging. (There are many different versions of this out
-there, most of them _should_ work)
+You will also need a debug probe, for example an [stlink v3
+mini](https://www.adafruit.com/product/2548) for programming and debugging.
+(There are many different stlinks out there, all of them _should_ work fine)
 
 ### Installing software
 
@@ -56,22 +56,29 @@ version = "0.5.2"
 features = ["rt", "stm32f103"]
 ```
 
-If you build your project now, you should get a single error: `error: language item required, but not found: eh_personality`
-This unhelpful error message
-can be fixed by compiling for the right target. To do so, run
+If you build your project now, you should get a single error: `error: language
+item required, but not found: eh_personality` This unhelpful error message 
+is fixed by compiling for the right target
+
+We also need to tell rust how to link our executable, and how to lay out the
+result in memory. To accomplish this, copy [.cargo/config](.cargo/config) and
+[memory.x](memory.x) from the stm32f1xx-hal repo to your project
+
 ```bash
-cargo build --target thumbv7m-none-eabi
+cargo build
 ```
+
+If everything went well, your project should have built without errors.
+
 
 ### Programming the microcontroller
 
-If all went well, cargo should have successfully built your project. That means
-it is time to actually run it on the hardware.  To do so plug your stlink into
-the blue pill and start `openocd` using
+It is now time to actually run the code on the hardware.  To do so plug your
+stlink into the blue pill and start `openocd` using
 ```bash
-openocd -f interface/stlink-v2.cfg -f target/stm32f1x.cfg
+openocd -f interface/stlink-v3.cfg -f target/stm32f1x.cfg
 ```
-If you are not using an stlink V2, change the interface accordingly. 
+If you are not using an stlink V3, change the interface accordingly. 
 For more information, see the [embeddonomicon].
 
 If all went well, it should detect your microcontroller and say `Info :
@@ -82,8 +89,6 @@ We now need to tell `cargo` how to run the project and how to lay out the code
 in memory. To do so, copy the following files from this repo to your project.
 
 - [.gdbinit](.gdbinit)
-- [.cargo/config](.cargo/config)
-- [memory.x](memory.x)
 
 You may also need to give `cargo` permission to call `gdb` from the working directory.
 - Linux
