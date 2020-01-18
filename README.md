@@ -17,7 +17,7 @@ it.
 ![blue pill pinout](BluePillPinout.jpg "opt title")
 
 You will also need a debug probe, for example an [stlink v3
-mini](https://www.adafruit.com/product/2548) for programming and debugging.
+mini](https://www.st.com/en/development-tools/stlink-v3mini.html) for programming and debugging.
 (There are many different stlinks out there, all of them _should_ work fine)
 
 ### Installing software
