@@ -58,7 +58,7 @@ features = ["rt", "stm32f103"]
 
 If you build your project now, you should get a single error: `error: language
 item required, but not found: eh_personality`. This unhelpful error message 
-is fixed by compiling for the right target
+is fixed by compiling for the right target.
 
 We also need to tell rust how to link our executable, and how to lay out the
 result in memory. To accomplish this, copy [.cargo/config](.cargo/config) and
