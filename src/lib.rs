@@ -9,12 +9,12 @@
 //!
 //! ## Building an application (binary crate)
 //!
-//! Follow the [cortex-m-quickstart] instructions, add this crate as a dependency
-//! and make sure you enable the "rt" Cargo feature of this crate. Also select which
-//! microcontroller you will be using by using the corresponding feature. The currently
+//! A detailed usage guide can be found in the [README]
+//!
 //! supported microcontrollers are:
 //!
 //! - stm32f103
+//! - stm32f101
 //! - stm32f100
 //!
 //! ## Usage
@@ -44,71 +44,23 @@
 //!
 //! [cortex-m-quickstart]: https://docs.rs/cortex-m-quickstart/0.3.1
 //!
-//! ## Usage example
-//!
-//! The following example blinks an LED connected to PC13 which is where the LED is connected on the
-//! [blue_pill] board. If you are testing on a different breakout board, you may need
-//! to change the pin accordingly.
-//!
-//!
-//! ```rust
-//! #![no_std]
-//! #![no_main]
-//! 
-//! use panic_halt as _;
-//! 
-//! use nb::block;
-//! 
-//! use stm32f1xx_hal::{
-//!     prelude::*,
-//!     pac,
-//!     timer::Timer,
-//! };
-//! use cortex_m_rt::entry;
-//! use embedded_hal::digital::v2::OutputPin;
-//! 
-//! #[entry]
-//! fn main() -> ! {
-//!     // Get access to the core peripherals from the cortex-m crate
-//!     let cp = cortex_m::Peripherals::take().unwrap();
-//!     // Get access to the device specific peripherals from the peripheral access crate
-//!     let dp = pac::Peripherals::take().unwrap();
-//! 
-//!     // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-//!     // HAL structs
-//!     let mut flash = dp.FLASH.constrain();
-//!     let mut rcc = dp.RCC.constrain();
-//! 
-//!     // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
-//!     // `clocks`
-//!     let clocks = rcc.cfgr.freeze(&mut flash.acr);
-//! 
-//!     // Acquire the GPIOC peripheral
-//!     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
-//! 
-//!     // Configure gpio C pin 13 as a push-pull output. The `crh` register is passed to the function
-//!     // in order to configure the port. For pins 0-7, crl should be passed instead.
-//!     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-//!     // Configure the syst timer to trigger an update every second
-//!     let mut timer = Timer::syst(cp.SYST, &clocks).start_count_down(1.hz());
-//! 
-//!     // Wait for the timer to trigger an update and change the state of the LED
-//!     loop {
-//!         block!(timer.wait()).unwrap();
-//!         led.set_high().unwrap();
-//!         block!(timer.wait()).unwrap();
-//!         led.set_low().unwrap();
-//!     }
-//! }
-//! ```
-//!
-//! [blue_pill]: http://wiki.stm32duino.com/index.php?title=Blue_Pill
-//!
-//! # More examples
+//! ## Usage examples
 //!
 //! See the [examples] folder.
 //!
-//! [examples]: https://github.com/stm32-rs/stm32f1xx-hal/tree/master/examples
+//! Most of the examples require the following additional dependencies
+//! ```toml
+//! [dependencies]
+//! embedded-hal = "0.2.3"
+//! nb = "0.1.2"
+//! cortex-m = "0.6.2"
+//! cortex-m-rt = "0.6.11"
+//! # Panic behaviour, see https://crates.io/keywords/panic-impl for alternatives
+//! panic-halt = "0.2.0"
+//! ```
+//!
+//! [examples]: https://github.com/stm32-rs/stm32f1xx-hal/tree/v0.5.2/examples
+//! [README]: https://github.com/stm32-rs/stm32f1xx-hal/tree/v0.5.2
 
 #![no_std]
 

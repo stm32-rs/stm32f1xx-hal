@@ -7,7 +7,112 @@
 [![crates.io](https://img.shields.io/crates/v/stm32f1xx-hal.svg)](https://crates.io/crates/stm32f1xx-hal)
 [![Released API docs](https://docs.rs/stm32f1xx-hal/badge.svg)](https://docs.rs/stm32f1xx-hal)
 
-## Usage
+## Quick start guide
+
+Embedded rust development requires a bit more setup than ordinary development.
+For this guide, we'll assume you're using a stm32 blue pill board (shown
+below), but if you have another f1 microcontroller, you should be able to adapt
+it.
+
+![blue pill pinout](BluePillPinout.jpg "opt title")
+
+You will also need an [stlink](https://www.adafruit.com/product/2548) for
+programming and debugging. (There are many different versions of this out
+there, most of them _should_ work)
+
+### Installing software
+
+To program your microcontroller, you need to install:
+- [openocd](http://openocd.org/)
+- `arm-none-eabi-gdb`
+
+Finally, you need to install arm target support for the rust compiler. To do
+so, run
+```
+rustup target install thumbv7m-none-eabi
+```
+
+
+### Setting up your project
+
+Create a new rust project as you usually do with `cargo init`. The hello world
+of embedded development is usually to blink an LED and code to do so is
+available in [examples/blinky.rs](examples/blinky.rs). Copy that file to the
+`main.rs` of your project.
+
+You also need to add some dependencies to your `Cargo.toml`:
+
+```toml
+[dependencies]
+embedded-hal = "0.2.3"
+nb = "0.1.2"
+cortex-m = "0.6.2"
+cortex-m-rt = "0.6.11"
+# Panic behaviour, see https://crates.io/keywords/panic-impl for alternatives
+panic-halt = "0.2.0"
+
+[dependencies.stm32f1xx-hal]
+version = "0.5.2"
+features = ["rt", "stm32f103"]
+```
+
+If you build your project now, you should get a single error: `error: language item required, but not found: eh_personality`
+This unhelpful error message
+can be fixed by compiling for the right target. To do so, run
+```bash
+cargo build --target thumbv7m-none-eabi
+```
+
+### Programming the microcontroller
+
+If all went well, cargo should have successfully built your project. That means
+it is time to actually run it on the hardware.  To do so plug your stlink into
+the blue pill and start `openocd` using
+```bash
+openocd -f interface/stlink-v2.cfg -f target/stm32f1x.cfg
+```
+If you are not using an stlink V2, change the interface accordingly. 
+For more information, see the [embeddonomicon].
+
+If all went well, it should detect your microcontroller and say `Info :
+stm32f1x.cpu: hardware has 6 breakpoints, 4 watchpoints`. Keep it running in
+the background
+
+We now need to tell `cargo` how to run the project and how to lay out the code
+in memory. To do so, copy the following files from this repo to your project.
+
+- [.gdbinit](.gdbinit)
+- [.cargo/config](.cargo/config)
+- [memory.x](memory.x)
+
+You may also need to give `cargo` permission to call `gdb` from the working directory.
+- Linux
+  ```bash
+  echo "set auto-load safe-path $(pwd)" >> ~/.gdbinit
+  ```
+- Windows
+  ```batch
+  echo set auto-load safe-path %CD% >> %USERPROFILE%\.gdbinit
+  ```
+
+If everything was successful, cargo should compile your project, start gdb,
+load your program and give you a prompt. If you type `continue` in the gdb
+prompt, your program should start and the green led on the blue pill should
+start blinking.
+
+
+### Going further
+
+From here on, you can start adding more code to your project to make it do
+something more interesting. For crate documentation, see
+[docs.rs/stm32f1xx-hal](https://docs.rs/stm32f1xx-hal). There are also a lot
+more [examples](examples) available. If something is unclear in the docs or
+examples, please, open an issue and we will try to improve it.
+
+
+
+
+## Selecting a microcontroller
 
 This crate supports multiple microcontrollers in the
 stm32f1 family. Which specific microcontroller you want to build for has to be
@@ -31,7 +136,7 @@ device) but check the datasheet or CubeMX to be sure.
 * `stm32f103`
 
 
-### Trying out the examples
+## Trying out the examples
 
 You may need to give `cargo` permission to call `gdb` from the working directory.
 - Linux
@@ -62,7 +167,7 @@ an stlink V2, use `stlink-v2.cfg`. For more information, see the
 
 
 
-### Using as a Dependency
+## Using as a Dependency
 
 When using this crate as a dependency in your project, the microcontroller can 
 be specified as part of the `Cargo.toml` definition.
@@ -71,65 +176,6 @@ be specified as part of the `Cargo.toml` definition.
 [dependencies.stm32f1xx-hal]
 version = "0.5.2"
 features = ["stm32f100", "rt"]
-```
-
-## Blinky example
-
-The following example blinks an LED connected to pin PC13. For instructions on
-how set up a project and run the example, see the [documentation]. For more
-examples, see the [examples](examples) directory.
-
-[documentation]: https://docs.rs/stm32f1xx-hal/
-
-```rust
-#![no_std]
-#![no_main]
-
-extern crate panic_halt;
-
-use nb::block;
-
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    timer::Timer,
-};
-use cortex_m_rt::entry;
-
-#[entry]
-fn main() -> ! {
-    // Get access to the core peripherals from the cortex-m crate
-    let cp = cortex_m::Peripherals::take().unwrap();
-    // Get access to the device specific peripherals from the peripheral access crate
-    let dp = pac::Peripherals::take().unwrap();
-
-    // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-    // HAL structs
-    let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
-
-    // Freeze the configuration of all the clocks in the system and store
-    // the frozen frequencies in `clocks`
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    // Acquire the GPIOC peripheral
-    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
-
-    // Configure gpio C pin 13 as a push-pull output. The `crh` register is passed to the function
-    // in order to configure the port. For pins 0-7, crl should be passed instead.
-    let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, clocks)
-        .start_count_down(1.hz());
-
-    // Wait for the timer to trigger an update and change the state of the LED
-    loop {
-        block!(timer.wait()).unwrap();
-        led.set_high().unwrap();
-        block!(timer.wait()).unwrap();
-        led.set_low().unwrap();
-    }
-}
 ```
 
 ## Documentation
