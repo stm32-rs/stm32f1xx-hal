@@ -9,7 +9,7 @@
 
 ## Quick start guide
 
-Embedded rust development requires a bit more setup than ordinary development.
+Embedded Rust development requires a bit more setup than ordinary development.
 For this guide, we'll assume you're using a stm32 blue pill board (shown
 below), but if you have another f1 microcontroller, you should be able to adapt
 it.
@@ -18,7 +18,7 @@ it.
 
 You will also need a debug probe, for example an [stlink v3
 mini](https://www.st.com/en/development-tools/stlink-v3mini.html) for programming and debugging.
-(There are many different STLink probes out there, all of them _should_ work fine with this instructions given here, other JTAG or SWD debug probes will work as well but will need different software or configuration)
+(There are many different STLink probes out there, all of them _should_ work fine with this instructions given here, other JTAG or SWD debug probes will work as well but will need different software or configuration).
 
 ### Installing software
 
@@ -26,7 +26,7 @@ To program your microcontroller, you need to install:
 - [openocd](http://openocd.org/)
 - `arm-none-eabi-gdb`
 
-Finally, you need to install arm target support for the rust compiler. To do
+Finally, you need to install arm target support for the Rust compiler. To do
 so, run
 ```
 rustup target install thumbv7m-none-eabi
@@ -35,7 +35,7 @@ rustup target install thumbv7m-none-eabi
 
 ### Setting up your project
 
-Create a new rust project as you usually do with `cargo init`. The hello world
+Create a new Rust project as you usually do with `cargo init`. The hello world
 of embedded development is usually to blink an LED and code to do so is
 available in [examples/blinky.rs](examples/blinky.rs). Copy that file to the
 `main.rs` of your project.
@@ -60,9 +60,9 @@ If you build your project now, you should get a single error: `error: language
 item required, but not found: eh_personality`. This unhelpful error message 
 is fixed by compiling for the right target.
 
-We also need to tell rust how to link our executable, and how to lay out the
-result in memory. To accomplish this, copy [.cargo/config](.cargo/config) and
-[memory.x](memory.x) from the stm32f1xx-hal repo to your project
+We also need to tell Rust how to link our executable, and how to lay out the
+result in memory. To accomplish all this, copy [.cargo/config](.cargo/config) and
+[memory.x](memory.x) from the stm32f1xx-hal repo to your project.
 
 ```bash
 cargo build
@@ -74,7 +74,7 @@ If everything went well, your project should have built without errors.
 ### Programming the microcontroller
 
 It is now time to actually run the code on the hardware.  To do so plug your
-stlink into the blue pill and start `openocd` using
+debug probe into the blue pill and start `openocd` using
 ```bash
 openocd -f interface/stlink-v3.cfg -f target/stm32f1x.cfg
 ```
@@ -83,14 +83,16 @@ For more information, see the [embeddonomicon].
 
 If all went well, it should detect your microcontroller and say `Info :
 stm32f1x.cpu: hardware has 6 breakpoints, 4 watchpoints`. Keep it running in
-the background
+the background.
 
-We now need to tell `cargo` how to run the project and how to lay out the code
-in memory. To do so, copy the following files from this repo to your project.
+We will use gdb for uploading the compiled binary to the microcontroller and
+for debugging. Cargo will automatically start `gdb` thanks to the
+[.cargo/config](.cargo/config) you added earlier. `gdb` also needs to be told
+to connect to openocd which is done by copying [.gdbinit](.gdbinit) to the root
+of your project.
 
-- [.gdbinit](.gdbinit)
-
-You may also need to give `cargo` permission to call `gdb` from the working directory.
+You may also need to tell `gdb` that it is safe to load `.gdbinit` from the
+working directory.
 - Linux
   ```bash
   echo "set auto-load safe-path $(pwd)" >> ~/.gdbinit
