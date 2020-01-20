@@ -52,7 +52,7 @@ cortex-m-rt = "0.6.11"
 panic-halt = "0.2.0"
 
 [dependencies.stm32f1xx-hal]
-version = "0.5.2"
+version = "0.5.3"
 features = ["rt", "stm32f103", "medium"]
 ```
 
@@ -181,7 +181,7 @@ be specified as part of the `Cargo.toml` definition.
 
 ```toml
 [dependencies.stm32f1xx-hal]
-version = "0.5.2"
+version = "0.5.3"
 features = ["stm32f100", "rt"]
 ```
 

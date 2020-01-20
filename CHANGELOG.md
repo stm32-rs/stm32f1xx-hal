@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.5.3] - 2020-01-20
+
 - Add `InputPin` impl for generic open drain outputs
 - Implement `Read<u8>` / `Write<u8>` for `Serial` (#171)
+- Fix docs.rs build
 
 ## [v0.5.2] - 2019-12-15
 
@@ -161,7 +164,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.3...HEAD
+[v0.5.3]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.2...v0.5.3
 [v0.5.2]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.1...v0.5.2
 [v0.5.1]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.4.0...v0.5.0
