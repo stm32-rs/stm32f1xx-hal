@@ -53,7 +53,7 @@ panic-halt = "0.2.0"
 
 [dependencies.stm32f1xx-hal]
 version = "0.5.2"
-features = ["rt", "stm32f103"]
+features = ["rt", "stm32f103", "medium"]
 ```
 
 If you build your project now, you should get a single error: `error: language
