@@ -248,7 +248,7 @@ pub struct C4;
   something that is natural to both the MCU and the end user.
 */
 macro_rules! pwm_impl {
-    ( $( $TIMX:ident, $timX:ident, ( $($CHNUM:pat),+ ), ( $($ENUMNUM:tt),+ ), ( $($ENCHX:ident),+ ); )+ )  => {
+    ( $( $TIMX:ident, $timX:ident, ( $($CHNUM:tt),+ ), ( $($ENCHX:ident),+ ); )+ )  => {
             $(
             #[allow(unused_parens)]
             impl hal::Pwm for Pwm<$TIMX, ($(PwmChannel<$TIMX, $ENCHX>),+,)> {
@@ -258,28 +258,28 @@ macro_rules! pwm_impl {
 
                 fn enable(&mut self, channel: Self::Channel) {
                     match channel {
-                        $( $CHNUM => self.$ENUMNUM.enable(),)+
+                        $( $CHNUM => self.$CHNUM.enable(),)+
                         _ => {}
                     }
                 }
 
                 fn disable(&mut self, channel: Self::Channel) {
                     match channel {
-                        $( $CHNUM => self.$ENUMNUM.disable(),)+
+                        $( $CHNUM => self.$CHNUM.disable(),)+
                         _ => {}
                     }
                 }
 
                 fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
                     match channel {
-                        $( $CHNUM => self.$ENUMNUM.get_duty(),)+
+                        $( $CHNUM => self.$CHNUM.get_duty(),)+
                         _ => 0
                     }
                 }
 
                 fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
                     match channel {
-                        $( $CHNUM => self.$ENUMNUM.set_duty(duty),)+
+                        $( $CHNUM => self.$CHNUM.set_duty(duty),)+
                         _ => {}
                     }
                 }
@@ -378,20 +378,20 @@ macro_rules! hal {
             }
             
             pwm_impl!(
-                $TIMX, $timX, (0, 1, 2, 3), (0, 1, 2, 3), (C1, C2, C3, C4);
-                $TIMX, $timX, (0, 1, 2), (0, 1, 2), (C1, C2, C3);
-                $TIMX, $timX, (0, 1, 2), (0, 1, 2), (C1, C2, C4);
-                $TIMX, $timX, (0, 1, 2), (0, 1, 2), (C2, C3, C4);
-                $TIMX, $timX, (0, 1), (0, 1), (C1, C2);
-                $TIMX, $timX, (0, 1), (0, 1), (C1, C3);
-                $TIMX, $timX, (0, 1), (0, 1), (C1, C4);
-                $TIMX, $timX, (0, 1), (0, 1), (C2, C3);
-                $TIMX, $timX, (0, 1), (0, 1), (C2, C4);
-                $TIMX, $timX, (0, 1), (0, 1), (C3, C4);
-                $TIMX, $timX, (0), (0), (C1);
-                $TIMX, $timX, (0), (0), (C2);
-                $TIMX, $timX, (0), (0), (C3);
-                $TIMX, $timX, (0), (0), (C4);
+                $TIMX, $timX, (0, 1, 2, 3), (C1, C2, C3, C4);
+                $TIMX, $timX, (0, 1, 2), (C1, C2, C3);
+                $TIMX, $timX, (0, 1, 2), (C1, C2, C4);
+                $TIMX, $timX, (0, 1, 2), (C2, C3, C4);
+                $TIMX, $timX, (0, 1), (C1, C2);
+                $TIMX, $timX, (0, 1), (C1, C3);
+                $TIMX, $timX, (0, 1), (C1, C4);
+                $TIMX, $timX, (0, 1), (C2, C3);
+                $TIMX, $timX, (0, 1), (C2, C4);
+                $TIMX, $timX, (0, 1), (C3, C4);
+                $TIMX, $timX, (0), (C1);
+                $TIMX, $timX, (0), (C2);
+                $TIMX, $timX, (0), (C3);
+                $TIMX, $timX, (0), (C4);
             );
 
             impl Copy for PwmChannel<$TIMX, C1> {}
