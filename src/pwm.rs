@@ -206,6 +206,20 @@ pub struct Pwm<TIM, PWMCHANNELS> {
     _tim: PhantomData<TIM>,
 }
 
+impl<TIM, PWMCHANNELS> Deref for Pwm<TIM, PWMCHANNELS> {
+    type Target = PWMCHANNELS;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { mem::MaybeUninit::uninit().assume_init() }
+    }
+}
+
+impl<TIM, PWMCHANNELS> DerefMut for Pwm<TIM, PWMCHANNELS> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { mem::MaybeUninit::uninit().assume_init() }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct PwmChannel<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
