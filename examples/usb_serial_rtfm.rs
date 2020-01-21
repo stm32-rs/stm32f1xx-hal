@@ -47,7 +47,7 @@ const APP: () = {
         // This forced reset is needed only for development, without it host
         // will not reset your device when you upload new firmware.
         let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
-        let _ = usb_dp.set_low();
+        usb_dp.set_low().unwrap();
         delay(clocks.sysclk().0 / 100);
 
         let usb_dm = gpioa.pa11;
