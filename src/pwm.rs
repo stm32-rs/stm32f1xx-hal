@@ -54,6 +54,7 @@
 */
 
 use core::marker::PhantomData;
+use core::marker::{Copy};
 use core::mem;
 
 use cast::{u16, u32};
@@ -199,6 +200,7 @@ impl Timer<TIM4> {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct PwmChannel<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
     _tim: PhantomData<TIM>,
