@@ -17,7 +17,7 @@ use crate::pac::BKP;
 
 /**
   The existence of this struct indicates that writing to the the backup
-  domain has been enabled. It is aquired by calling `constrain` on `rcc::Rcc::BKP`
+  domain has been enabled. It is acquired by calling `constrain` on `rcc::Rcc::BKP`
 */
 pub struct BackupDomain {
     pub(crate) _regs: BKP,

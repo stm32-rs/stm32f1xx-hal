@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.5.3] - 2020-01-20
+
 - Add `InputPin` impl for generic open drain outputs
+- Implement `Read<u8>` / `Write<u8>` for `Serial` (#171)
+- Fix docs.rs build
 
 ## [v0.5.2] - 2019-12-15
 
@@ -85,7 +89,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Replace gpio traits with digital::v2
 - Bump `stm32f1` dependency (`0.8.0`)
 - ADC now requires the clock configuration for initialisation
-- `disable_jtag` now transforms PA15, PB3 and PB4 to forbid their use without desactivating JTAG
+- `disable_jtag` now transforms PA15, PB3 and PB4 to forbid their use without deactivating JTAG
 
 ### Changed
 
@@ -106,7 +110,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add methods `stop`, `release` and `clear_update_interrupt_flag` to `Timer` (`clear_update_interrupt_flag` does not apply to `Timer<SYST>`)
 - Add timer interrupt example using RTFM
 - Implement IndependentWatchdog for the IWDG peripheral
-- Remove all PWM channel configurations except 'all the channels for default remapping' configuratons
+- Remove all PWM channel configurations except 'all the channels for default remapping' configurations
 - Update PWM documentation: clarify custom selection of channels
 - Add PWM example for custom selection of channels
 
@@ -160,7 +164,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.3...HEAD
+[v0.5.3]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.2...v0.5.3
 [v0.5.2]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.1...v0.5.2
 [v0.5.1]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.4.0...v0.5.0

@@ -6,7 +6,7 @@
 //! If compiled for the stm32f100, this assumes that an active high LED is connected to pc9
 //!
 //! Note: Without additional hardware, PC13 should not be used to drive a LED, see
-//! section 5.1.2 of the reference manaual for an explanation.
+//! section 5.1.2 of the reference manual for an explanation.
 //! This is not an issue on the blue pill.
 
 #![deny(unsafe_code)]
