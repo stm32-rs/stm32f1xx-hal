@@ -56,6 +56,7 @@
 use core::marker::PhantomData;
 use core::marker::{Copy};
 use core::mem;
+use core::ops::{Deref, DerefMut};
 
 use cast::{u16, u32};
 use crate::hal;
