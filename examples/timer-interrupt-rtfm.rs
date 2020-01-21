@@ -11,7 +11,6 @@
 // you can put a breakpoint on `rust_begin_unwind` to catch panics
 use panic_halt as _;
 
-use cortex_m::asm::wfi;
 use rtfm::app;
 
 use stm32f1xx_hal::{
@@ -22,15 +21,20 @@ use stm32f1xx_hal::{
 };
 use embedded_hal::digital::v2::OutputPin;
 
-#[app(device = stm32f1xx_hal::pac)]
+#[app(device = stm32f1xx_hal::pac, peripherals = true)]
 const APP: () = {
 
-    static mut LED: PC13<Output<PushPull>> = ();
-    static mut TIMER_HANDLER: CountDownTimer<pac::TIM1> = ();
-    static mut LED_STATE: bool = false;
-    
+    struct Resources {
+        led: PC13<Output<PushPull>>,
+        timer_handler: CountDownTimer<pac::TIM1>,
+
+        #[init(false)]
+        led_state: bool,
+    }
+
     #[init]
-    fn init() -> init::LateResources {
+    fn init(cx: init::Context) -> init::LateResources {
+        let device = cx.device;
 
         // Take ownership over the raw flash and rcc devices and convert them into the corresponding
         // HAL structs
@@ -54,22 +58,25 @@ const APP: () = {
 
         // Init the static resources to use them later through RTFM
         init::LateResources {
-            LED: led,
-            TIMER_HANDLER: timer,
+            led,
+            timer_handler: timer,
         }
     }
 
+    // Optional.
+    //
+    // https://rtfm.rs/0.5/book/en/by-example/app.html#idle
+    // > When no idle function is declared, the runtime sets the SLEEPONEXIT bit and then
+    // > sends the microcontroller to sleep after running init.
     #[idle]
-    fn idle() -> ! {
-
+    fn idle(_cx: idle::Context) -> ! {
         loop {
-            // Waits for interrupt
-            wfi();
+            cortex_m::asm::wfi();
         }
     }
 
-    #[interrupt(priority = 1, resources = [LED, TIMER_HANDLER, LED_STATE])]
-    fn TIM1_UP() {
+    #[task(binds = TIM1_UP, priority = 1, resources = [led, timer_handler, led_state])]
+    fn tim1_up(cx: tim1_up::Context) {
         // Depending on the application, you could want to delegate some of the work done here to
         // the idle task if you want to minimize the latency of interrupts with same priority (if
         // you have any). That could be done with some kind of machine state, etc.
@@ -77,25 +84,25 @@ const APP: () = {
         // Count used to change the timer update frequency
         static mut COUNT: u8 = 0;
 
-        if *resources.LED_STATE {
-            // Uses resourcers managed by rtfm to turn led off (on bluepill)
-            resources.LED.set_high().unwrap();
-            *resources.LED_STATE = false;
+        if *cx.resources.led_state {
+            // Uses resources managed by rtfm to turn led off (on bluepill)
+            cx.resources.led.set_high().unwrap();
+            *cx.resources.led_state = false;
         } else {
-            resources.LED.set_low().unwrap();
-            *resources.LED_STATE = true;
+            cx.resources.led.set_low().unwrap();
+            *cx.resources.led_state = true;
         }
         *COUNT += 1;
 
         if *COUNT == 4 {
             // Changes timer update frequency
-            resources.TIMER_HANDLER.start(2.hz());
+            cx.resources.timer_handler.start(2.hz());
         } else if *COUNT == 12 {
-            resources.TIMER_HANDLER.start(1.hz());
+            cx.resources.timer_handler.start(1.hz());
             *COUNT = 0;
         }
 
         // Clears the update flag
-        resources.TIMER_HANDLER.clear_update_interrupt_flag();
+        cx.resources.timer_handler.clear_update_interrupt_flag();
     }
 };
