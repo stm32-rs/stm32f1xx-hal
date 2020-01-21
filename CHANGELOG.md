@@ -110,7 +110,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add methods `stop`, `release` and `clear_update_interrupt_flag` to `Timer` (`clear_update_interrupt_flag` does not apply to `Timer<SYST>`)
 - Add timer interrupt example using RTFM
 - Implement IndependentWatchdog for the IWDG peripheral
-- Remove all PWM channel configurations except 'all the channels for default remapping' configuratons
+- Remove all PWM channel configurations except 'all the channels for default remapping' configurations
 - Update PWM documentation: clarify custom selection of channels
 - Add PWM example for custom selection of channels
 

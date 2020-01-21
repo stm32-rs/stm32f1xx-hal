@@ -82,7 +82,7 @@ impl Into<KiloHertz> for MegaHertz {
     }
 }
 
-/// A monotonic nondecreasing timer
+/// A monotonic non-decreasing timer
 #[derive(Clone, Copy)]
 pub struct MonoTimer {
     frequency: Hertz,
@@ -93,7 +93,7 @@ impl MonoTimer {
     pub fn new(mut dwt: DWT, clocks: Clocks) -> Self {
         dwt.enable_cycle_counter();
 
-        // now the CYCCNT counter can't be stopped or resetted
+        // now the CYCCNT counter can't be stopped or reset
         drop(dwt);
 
         MonoTimer {
@@ -114,7 +114,7 @@ impl MonoTimer {
     }
 }
 
-/// A measurement of a monotonically nondecreasing clock
+/// A measurement of a monotonically non-decreasing clock
 #[derive(Clone, Copy)]
 pub struct Instant {
     now: u32,
