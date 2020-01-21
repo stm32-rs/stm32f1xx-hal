@@ -24,6 +24,9 @@ pub struct MegaHertz(pub u32);
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub struct MilliSeconds(pub u32);
 
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
+pub struct MicroSeconds(pub u32);
+
 /// Extension trait that adds convenience methods to the `u32` type
 pub trait U32Ext {
     /// Wrap in `Bps`
@@ -40,6 +43,9 @@ pub trait U32Ext {
 
     /// Wrap in `MilliSeconds`
     fn ms(self) -> MilliSeconds;
+
+    /// Wrap in `MicroSeconds`
+    fn us(self) -> MicroSeconds;
 }
 
 impl U32Ext for u32 {
@@ -62,6 +68,10 @@ impl U32Ext for u32 {
     fn ms(self) -> MilliSeconds {
         MilliSeconds(self)
     }
+
+    fn us(self) -> MicroSeconds {
+        MicroSeconds(self)
+}
 }
 
 impl Into<Hertz> for KiloHertz {
