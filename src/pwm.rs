@@ -93,7 +93,7 @@ macro_rules! pins_impl {
                 $($PINX: $TRAIT<REMAP> + gpio::Mode<Alternate<PushPull>>,)+
             {
                 $(const $ENCHX: bool = true;)+
-                type Channels = ($(Pwm<TIM, $ENCHX>),+);
+                type Channels = ($(PwmChannel<TIM, $ENCHX>),+);
             }
         )+
     };
@@ -199,7 +199,7 @@ impl Timer<TIM4> {
     }
 }
 
-pub struct Pwm<TIM, CHANNEL> {
+pub struct PwmChannel<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
     _tim: PhantomData<TIM>,
 }
@@ -261,7 +261,7 @@ macro_rules! hal {
                 unsafe { mem::MaybeUninit::uninit().assume_init() }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C1> {
+            impl hal::PwmPin for PwmChannel<$TIMX, C1> {
                 type Duty = u16;
 
                 fn disable(&mut self) {
@@ -285,7 +285,7 @@ macro_rules! hal {
                 }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C2> {
+            impl hal::PwmPin for PwmChannel<$TIMX, C2> {
                 type Duty = u16;
 
                 fn disable(&mut self) {
@@ -309,7 +309,7 @@ macro_rules! hal {
                 }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C3> {
+            impl hal::PwmPin for PwmChannel<$TIMX, C3> {
                 type Duty = u16;
 
                 fn disable(&mut self) {
@@ -333,7 +333,7 @@ macro_rules! hal {
                 }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C4> {
+            impl hal::PwmPin for PwmChannel<$TIMX, C4> {
                 type Duty = u16;
 
                 fn disable(&mut self) {
