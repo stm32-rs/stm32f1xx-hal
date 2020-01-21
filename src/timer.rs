@@ -239,7 +239,7 @@ impl CountDownTimer<SYST> {
         let ticks = u64(reload_value - SYST::get_current());
 
         // It is safe to make this cast since the maximum ticks is (2^24 - 1) and the minimum sysclk
-        // is 4Mhz, which gives a maximum period of ~4.2 seconds which is < (2^32 - 1) microsenconds
+        // is 4Mhz, which gives a maximum period of ~4.2 seconds which is < (2^32 - 1) microseconds
         u32(1_000_000 * ticks / timer_clock).unwrap()
     }
 

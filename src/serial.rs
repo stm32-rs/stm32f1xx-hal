@@ -211,7 +211,7 @@ trait UsartReadWrite: Deref<Target=crate::stm32::usart1::RegisterBlock> {
         };
 
         if let Some(err) = err {
-            // Some error occured. In order to clear that error flag, you have to
+            // Some error occurred. In order to clear that error flag, you have to
             // do a read from the sr register followed by a read from the dr
             // register
             // NOTE(read_volatile) see `write_volatile` below
