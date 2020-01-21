@@ -26,10 +26,8 @@ const APP: () = {
     fn init(cx: init::Context) -> init::LateResources {
         static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
 
-        let device = cx.device;
-
-        let mut flash = device.FLASH.constrain();
-        let mut rcc = device.RCC.constrain();
+        let mut flash = cx.device.FLASH.constrain();
+        let mut rcc = cx.device.RCC.constrain();
 
         let clocks = rcc
             .cfgr
@@ -40,7 +38,7 @@ const APP: () = {
 
         assert!(clocks.usbclk_valid());
 
-        let mut gpioa = device.GPIOA.split(&mut rcc.apb2);
+        let mut gpioa = cx.device.GPIOA.split(&mut rcc.apb2);
 
         // BluePill board has a pull-up resistor on the D+ line.
         // Pull the D+ pin down to send a RESET condition to the USB bus.
@@ -54,7 +52,7 @@ const APP: () = {
         let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);
 
         let usb = Peripheral {
-            usb: device.USB,
+            usb: cx.device.USB,
             pin_dm: usb_dm,
             pin_dp: usb_dp,
         };
