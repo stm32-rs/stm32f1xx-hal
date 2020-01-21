@@ -15,14 +15,18 @@ use usb_device::bus;
 use usb_device::prelude::*;
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
-#[app(device = stm32f1xx_hal::stm32)]
+#[app(device = stm32f1xx_hal::stm32, peripherals = true)]
 const APP: () = {
-    static mut USB_DEV: UsbDevice<'static, UsbBusType> = ();
-    static mut SERIAL: SerialPort<'static, UsbBusType> = ();
+    struct Resources {
+        usb_dev: UsbDevice<'static, UsbBusType>,
+        serial: SerialPort<'static, UsbBusType>,
+    }
 
     #[init]
-    fn init() {
+    fn init(cx: init::Context) -> init::LateResources {
         static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
+
+        let device = cx.device;
 
         let mut flash = device.FLASH.constrain();
         let mut rcc = device.RCC.constrain();
@@ -43,7 +47,7 @@ const APP: () = {
         // This forced reset is needed only for development, without it host
         // will not reset your device when you upload new firmware.
         let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
-        usb_dp.set_low();
+        let _ = usb_dp.set_low();
         delay(clocks.sysclk().0 / 100);
 
         let usb_dm = gpioa.pa11;
@@ -66,18 +70,20 @@ const APP: () = {
             .device_class(USB_CLASS_CDC)
             .build();
 
-        USB_DEV = usb_dev;
-        SERIAL = serial;
+        init::LateResources {
+            usb_dev,
+            serial,
+        }
     }
 
-    #[interrupt(resources = [USB_DEV, SERIAL])]
-    fn USB_HP_CAN_TX() {
-        usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
+    #[task(binds = USB_HP_CAN_TX, resources = [usb_dev, serial])]
+    fn usb_tx(mut cx: usb_tx::Context) {
+        usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.serial);
     }
 
-    #[interrupt(resources = [USB_DEV, SERIAL])]
-    fn USB_LP_CAN_RX0() {
-        usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
+    #[task(binds = USB_LP_CAN_RX0, resources = [usb_dev, serial])]
+    fn usb_rx0(mut cx: usb_rx0::Context) {
+        usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.serial);
     }
 };
 
