@@ -129,7 +129,7 @@ impl Timer<TIM1> {
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-    ) -> PINS::Channels
+    ) -> Pwm<TIM1, PINS::Channels>
     where
         REMAP: Remap<Periph = TIM1>,
         PINS: Pins<REMAP, P>,
@@ -148,7 +148,7 @@ impl Timer<TIM2> {
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-    ) -> PINS::Channels
+    ) -> Pwm<TIM2, PINS::Channels>
     where
         REMAP: Remap<Periph = TIM2>,
         PINS: Pins<REMAP, P>,
@@ -167,7 +167,7 @@ impl Timer<TIM3> {
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-    ) -> PINS::Channels
+    ) -> Pwm<TIM3, PINS::Channels>
     where
         REMAP: Remap<Periph = TIM3>,
         PINS: Pins<REMAP, P>,
@@ -187,7 +187,7 @@ impl Timer<TIM4> {
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-    ) -> PINS::Channels
+    ) -> Pwm<TIM4, PINS::Channels>
     where
         REMAP: Remap<Periph = TIM4>,
         PINS: Pins<REMAP, P>,
@@ -198,6 +198,12 @@ impl Timer<TIM4> {
         let Self { tim, clk } = self;
         tim4(tim, _pins, freq.into(), clk)
     }
+}
+
+pub struct Pwm<TIM, PWMCHANNELS> {
+    clk: Hertz,
+    _channels: PhantomData<PWMCHANNELS>,
+    _tim: PhantomData<TIM>,
 }
 
 #[derive(Copy, Clone)]
@@ -219,7 +225,7 @@ macro_rules! hal {
                 _pins: PINS,
                 freq: Hertz,
                 clk: Hertz,
-            ) -> PINS::Channels
+            ) -> Pwm<$TIMX, PINS::Channels>
             where
                 REMAP: Remap<Periph = $TIMX>,
                 PINS: Pins<REMAP, P>,
@@ -260,6 +266,13 @@ macro_rules! hal {
                         .set_bit()
                 );
 
+                Pwm {
+                    clk: clk,
+                    _tim: PhantomData,
+                    _channels: PhantomData
+                }
+            }
+            
             impl Copy for PwmChannel<$TIMX, C1> {}
             impl Clone for PwmChannel<$TIMX, C1> {
                 fn clone(&self) -> Self {
