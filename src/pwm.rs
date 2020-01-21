@@ -260,7 +260,34 @@ macro_rules! hal {
                         .set_bit()
                 );
 
-                unsafe { mem::MaybeUninit::uninit().assume_init() }
+            impl Copy for PwmChannel<$TIMX, C1> {}
+            impl Clone for PwmChannel<$TIMX, C1> {
+                fn clone(&self) -> Self {
+                    unsafe { mem::MaybeUninit::uninit().assume_init() }
+                }            
+            }
+
+            impl Copy for PwmChannel<$TIMX, C2> {}
+            impl Clone for PwmChannel<$TIMX, C2> {
+                fn clone(&self) -> Self {
+                    unsafe { mem::MaybeUninit::uninit().assume_init() }
+                }            
+            }
+                }            
+            }
+
+            impl Copy for PwmChannel<$TIMX, C3> {}
+            impl Clone for PwmChannel<$TIMX, C3> {
+                fn clone(&self) -> Self {
+                    unsafe { mem::MaybeUninit::uninit().assume_init() }
+                }            
+            }
+
+            impl Copy for PwmChannel<$TIMX, C4> {}
+            impl Clone for PwmChannel<$TIMX, C4> {
+                fn clone(&self) -> Self {
+                    unsafe { mem::MaybeUninit::uninit().assume_init() }
+                }            
             }
 
             impl hal::PwmPin for PwmChannel<$TIMX, C1> {
