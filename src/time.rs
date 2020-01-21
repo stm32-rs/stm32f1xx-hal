@@ -71,7 +71,7 @@ impl U32Ext for u32 {
 
     fn us(self) -> MicroSeconds {
         MicroSeconds(self)
-}
+    }
 }
 
 impl Into<Hertz> for KiloHertz {
