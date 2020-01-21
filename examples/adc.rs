@@ -15,7 +15,7 @@ use cortex_m_semihosting::hprintln;
 
 #[entry]
 fn main() -> ! {
-    // Aquire peripherals
+    // Acquire peripherals
     let p = pac::Peripherals::take().unwrap();
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
