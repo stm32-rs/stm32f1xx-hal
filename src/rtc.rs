@@ -199,7 +199,7 @@ impl Rtc {
         // Put the clock into config mode
         self.regs.crl.modify(|_, w| w.cnf().set_bit());
 
-        // Perform the write opertaion
+        // Perform the write operation
         func(self);
 
         // Take the device out of config mode
