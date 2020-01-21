@@ -92,6 +92,18 @@ impl Into<KiloHertz> for MegaHertz {
     }
 }
 
+impl Into<Hertz> for MilliSeconds {
+    fn into(self) -> Hertz {
+        Hertz(1_000_000 / self.0)
+    }
+}
+
+impl Into<Hertz> for MicroSeconds {
+    fn into(self) -> Hertz {
+        Hertz(1_000 / self.0)
+    }
+}
+
 /// A monotonic nondecreasing timer
 #[derive(Clone, Copy)]
 pub struct MonoTimer {
