@@ -57,6 +57,7 @@ use core::marker::PhantomData;
 use core::marker::{Copy};
 use core::mem;
 use core::ops::{Deref, DerefMut};
+use embedded_hal::PwmPin;
 
 use cast::{u16, u32};
 use crate::hal;
@@ -74,6 +75,7 @@ use crate::afio::MAPR;
 use crate::bb;
 use crate::gpio::{self, Alternate, PushPull};
 use crate::time::Hertz;
+use crate::time::U32Ext;
 use crate::timer::Timer;
 
 pub trait Pins<REMAP, P> {
@@ -232,6 +234,93 @@ pub struct C2;
 pub struct C3;
 pub struct C4;
 
+/*
+  The following implemention of the embedded_hal::Pwm uses Hertz as a time type.  This was choosen 
+  because of the timescales of operationsbeing on the order of nanoseconds and not being able to 
+  efficently represent a float on the hardware.  It might be possible to change the time type to
+  a different time based using such as the nanosecond.  The issue with doing so is that the max 
+  delay would then be at just a little over 2 seconds because of the 32 bit depth of the number.
+  Using milliseconds is also an option, however, using this as a base unit means that only there 
+  could be resolution issues when trying to get a specific value, because of the integer nature.
+
+  To find a middle ground, the Hertz type is used as a base here and the Into trait has been 
+  defined for several base time units.  This will allow for calling the set_period method with 
+  something that is natural to both the MCU and the end user.
+*/
+macro_rules! pwm_impl {
+    ( $( $TIMX:ident, $timX:ident, ( $($CHNUM:pat),+ ), ( $($ENUMNUM:tt),+ ), ( $($ENCHX:ident),+ ); )+ )  => {
+            $(
+            #[allow(unused_parens)]
+            impl hal::Pwm for Pwm<$TIMX, ($(PwmChannel<$TIMX, $ENCHX>),+,)> {
+                type Channel = u8;
+                type Duty = u16;
+                type Time = Hertz;
+
+                fn enable(&mut self, channel: Self::Channel) {
+                    match channel {
+                        $( $CHNUM => self.$ENUMNUM.enable(),)+
+                        _ => {}
+                    }
+                }
+
+                fn disable(&mut self, channel: Self::Channel) {
+                    match channel {
+                        $( $CHNUM => self.$ENUMNUM.disable(),)+
+                        _ => {}
+                    }
+                }
+
+                fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
+                    match channel {
+                        $( $CHNUM => self.$ENUMNUM.get_duty(),)+
+                        _ => 0
+                    }
+                }
+
+                fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
+                    match channel {
+                        $( $CHNUM => self.$ENUMNUM.set_duty(duty),)+
+                        _ => {}
+                    }
+                }
+
+                fn get_max_duty(&self) -> Self::Duty {
+                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
+                }
+
+                fn get_period(&self) -> Self::Time {
+                    let clk = self.clk;
+                    let mut psc: u16 = 0;
+                    let mut arr: u16 = 0;
+                    unsafe {
+                        psc = (*$TIMX::ptr()).psc.read().psc().bits();
+                        arr = (*$TIMX::ptr()).arr.read().arr().bits();
+                    }
+
+                    // Length in ms of an internal clock pulse
+                    (clk.0 / u32(psc * arr)).hz()
+//                    (((psc as u32) / clk.0) * (1_000_000 as u32) * (arr as u32)).ms()
+                }
+
+                fn set_period<P>(&mut self, period: P) where
+                    P: Into<Self::Time> {
+                        let clk = self.clk;
+
+//                        let freq = u16(1 / period.into());
+
+                        let ticks = clk.0 / period.into().0;
+                        let psc = u16(ticks / (1 << 16)).unwrap();
+                        let arr = u16(ticks / u32(psc + 1)).unwrap();
+                        unsafe {
+                            (*$TIMX::ptr()).psc.write(|w| w.psc().bits(psc));
+                            (*$TIMX::ptr()).arr.write(|w| w.arr().bits(arr));
+                        }
+                }
+            }
+        )+
+    };
+}
+
 macro_rules! hal {
     ($($TIMX:ident: ($timX:ident),)+) => {
         $(
@@ -288,6 +377,23 @@ macro_rules! hal {
                 }
             }
             
+            pwm_impl!(
+                $TIMX, $timX, (0, 1, 2, 3), (0, 1, 2, 3), (C1, C2, C3, C4);
+                $TIMX, $timX, (0, 1, 2), (0, 1, 2), (C1, C2, C3);
+                $TIMX, $timX, (0, 1, 2), (0, 1, 2), (C1, C2, C4);
+                $TIMX, $timX, (0, 1, 2), (0, 1, 2), (C2, C3, C4);
+                $TIMX, $timX, (0, 1), (0, 1), (C1, C2);
+                $TIMX, $timX, (0, 1), (0, 1), (C1, C3);
+                $TIMX, $timX, (0, 1), (0, 1), (C1, C4);
+                $TIMX, $timX, (0, 1), (0, 1), (C2, C3);
+                $TIMX, $timX, (0, 1), (0, 1), (C2, C4);
+                $TIMX, $timX, (0, 1), (0, 1), (C3, C4);
+                $TIMX, $timX, (0), (0), (C1);
+                $TIMX, $timX, (0), (0), (C2);
+                $TIMX, $timX, (0), (0), (C3);
+                $TIMX, $timX, (0), (0), (C4);
+            );
+
             impl Copy for PwmChannel<$TIMX, C1> {}
             impl Clone for PwmChannel<$TIMX, C1> {
                 fn clone(&self) -> Self {
@@ -299,8 +405,6 @@ macro_rules! hal {
             impl Clone for PwmChannel<$TIMX, C2> {
                 fn clone(&self) -> Self {
                     unsafe { mem::MaybeUninit::uninit().assume_init() }
-                }            
-            }
                 }            
             }
 
