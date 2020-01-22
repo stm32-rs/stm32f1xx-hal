@@ -205,7 +205,7 @@ impl Timer<TIM4> {
 
 pub struct Pwm<TIM, PWMCHANNELS> {
     clk: Hertz,
-    _channels: PhantomData<PWMCHANNELS>,
+    _channels: PWMCHANNELS,
     _tim: PhantomData<TIM>,
 }
 
