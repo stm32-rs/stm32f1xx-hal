@@ -219,13 +219,13 @@ impl<TIM, PWMCHANNELS> Deref for Pwm<TIM, PWMCHANNELS> {
     type Target = PWMCHANNELS;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { mem::MaybeUninit::uninit().assume_init() }
+        &self._channels
     }
 }
 
 impl<TIM, PWMCHANNELS> DerefMut for Pwm<TIM, PWMCHANNELS> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { mem::MaybeUninit::uninit().assume_init() }
+        &mut self._channels
     }
 }
 
