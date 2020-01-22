@@ -209,6 +209,12 @@ pub struct Pwm<TIM, PWMCHANNELS> {
     _tim: PhantomData<TIM>,
 }
 
+impl<TIM, PWMCHANNELS> Pwm<TIM, PWMCHANNELS> {
+    fn into_channels(&self) -> PWMCHANNELS {
+        self._channels
+    }
+}
+
 impl<TIM, PWMCHANNELS> Deref for Pwm<TIM, PWMCHANNELS> {
     type Target = PWMCHANNELS;
 
