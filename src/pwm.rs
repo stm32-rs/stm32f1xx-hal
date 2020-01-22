@@ -82,17 +82,15 @@ pub trait Pins<REMAP, P> {
     const C4: bool = false;
     type Channels;
 
-    fn check_enabled(c: Channel) -> Option<Channel> {
-        if c == Channel::C1 && Self::C1 {
-            Some(c)
-        } else if c == Channel::C2 && Self::C2 {
-            Some(c)
-        } else if c == Channel::C3 && Self::C3 {
-            Some(c)
-        } else if c == Channel::C4 && Self::C4 {
-            Some(c)
+    fn check_used(c: Channel) -> Channel {
+        if (c == Channel::C1 && Self::C1)
+            || (c == Channel::C2 && Self::C2)
+            || (c == Channel::C3 && Self::C3)
+            || (c == Channel::C4 && Self::C4)
+        {
+            c
         } else {
-            None
+            panic!("Unused channel")
         }
     }
 }
@@ -315,42 +313,38 @@ macro_rules! hal {
                 type Time = Hertz;
 
                 fn enable(&mut self, channel: Self::Channel) {
-                    match PINS::check_enabled(channel) {
-                        Some(Channel::C1) => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) },
-                        Some(Channel::C2) => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) },
-                        Some(Channel::C3) => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) },
-                        Some(Channel::C4) => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) },
-                        None => {}
+                    match PINS::check_used(channel) {
+                        Channel::C1 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) },
+                        Channel::C2 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) },
+                        Channel::C3 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) },
+                        Channel::C4 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) },
                     }
                 }
 
                 fn disable(&mut self, channel: Self::Channel) {
-                    match PINS::check_enabled(channel) {
-                        Some(Channel::C1) => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) },
-                        Some(Channel::C2) => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) },
-                        Some(Channel::C3) => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 8) },
-                        Some(Channel::C4) => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) },
-                        None => {}
+                    match PINS::check_used(channel) {
+                        Channel::C1 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) },
+                        Channel::C2 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) },
+                        Channel::C3 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 8) },
+                        Channel::C4 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) },
                     }
                 }
 
                 fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
-                    match PINS::check_enabled(channel) {
-                        Some(Channel::C1) => unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() },
-                        Some(Channel::C2) => unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() },
-                        Some(Channel::C3) => unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() },
-                        Some(Channel::C4) => unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() },
-                        None => 0,
+                    match PINS::check_used(channel) {
+                        Channel::C1 => unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() },
+                        Channel::C2 => unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() },
+                        Channel::C3 => unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() },
+                        Channel::C4 => unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() },
                     }
                 }
 
                 fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
-                    match PINS::check_enabled(channel) {
-                        Some(Channel::C1) => unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) },
-                        Some(Channel::C2) => unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) },
-                        Some(Channel::C3) => unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) },
-                        Some(Channel::C4) => unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) },
-                        None => {},
+                    match PINS::check_used(channel) {
+                        Channel::C1 => unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) },
+                        Channel::C2 => unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) },
+                        Channel::C3 => unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) },
+                        Channel::C4 => unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) },
                     }
                 }
 
@@ -367,16 +361,13 @@ macro_rules! hal {
                         arr = (*$TIMX::ptr()).arr.read().arr().bits();
                     }
 
-                    // Length in ms of an internal clock pulse
+                    // Frequency of an internal clock pulse
                     (clk.0 / u32(psc * arr)).hz()
-//                    (((psc as u32) / clk.0) * (1_000_000 as u32) * (arr as u32)).ms()
                 }
 
                 fn set_period<T>(&mut self, period: T) where
                     T: Into<Self::Time> {
                         let clk = self.clk;
-
-//                        let freq = u16(1 / period.into());
 
                         let ticks = clk.0 / period.into().0;
                         let psc = u16(ticks / (1 << 16)).unwrap();
