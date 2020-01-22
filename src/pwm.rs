@@ -236,7 +236,7 @@ pub struct C4;
 
 /*
   The following implemention of the embedded_hal::Pwm uses Hertz as a time type.  This was choosen 
-  because of the timescales of operationsbeing on the order of nanoseconds and not being able to 
+  because of the timescales of operations being on the order of nanoseconds and not being able to 
   efficently represent a float on the hardware.  It might be possible to change the time type to
   a different time based using such as the nanosecond.  The issue with doing so is that the max 
   delay would then be at just a little over 2 seconds because of the 32 bit depth of the number.
