@@ -229,7 +229,6 @@ impl<TIM, PWMCHANNELS> DerefMut for Pwm<TIM, PWMCHANNELS> {
     }
 }
 
-#[derive(Copy, Clone)]
 pub struct PwmChannel<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
     _tim: PhantomData<TIM>,
@@ -256,7 +255,6 @@ pub struct C4;
 macro_rules! pwm_impl {
     ( $( $TIMX:ident, $timX:ident, ( $($CHNUM:tt),+ ), ( $($ENCHX:ident),+ ); )+ )  => {
             $(
-            #[allow(unused_parens)]
             impl hal::Pwm for Pwm<$TIMX, ($(PwmChannel<$TIMX, $ENCHX>),+,)> {
                 type Channel = u8;
                 type Duty = u16;
