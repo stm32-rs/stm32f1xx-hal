@@ -290,12 +290,8 @@ macro_rules! pwm_impl {
 
                 fn get_period(&self) -> Self::Time {
                     let clk = self.clk;
-                    let mut psc: u16 = 0;
-                    let mut arr: u16 = 0;
-                    unsafe {
-                        psc = (*$TIMX::ptr()).psc.read().psc().bits();
-                        arr = (*$TIMX::ptr()).arr.read().arr().bits();
-                    }
+                    let psc = unsafe{ (*$TIMX::ptr()).psc.read().psc().bits() };
+                    let arr = unsafe{ (*$TIMX::ptr()).arr.read().arr().bits() };
 
                     // Length in ms of an internal clock pulse
                     (clk.0 / u32(psc * arr)).hz()
