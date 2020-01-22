@@ -389,7 +389,7 @@ macro_rules! hal {
                 $TIMX, $timX, (0), (C3);
                 $TIMX, $timX, (0), (C4);
             );
-
+/*
             impl Copy for PwmChannel<$TIMX, C1> {}
             impl Clone for PwmChannel<$TIMX, C1> {
                 fn clone(&self) -> Self {
@@ -417,7 +417,7 @@ macro_rules! hal {
                     unsafe { mem::MaybeUninit::uninit().assume_init() }
                 }            
             }
-
+*/
             impl hal::PwmPin for PwmChannel<$TIMX, C1> {
                 type Duty = u16;
 
