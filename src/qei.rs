@@ -4,26 +4,21 @@
   NOTE: In some cases you need to specify remap you need, especially for TIM2
   (see [Alternate function remapping](super::timer)):
 */
-
 use core::u16;
 
 use core::marker::PhantomData;
 
 use crate::hal::{self, Direction};
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 use crate::pac::TIM1;
-use crate::pac::{TIM2, TIM3};
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
+use crate::pac::{TIM2, TIM3};
 
 use crate::afio::MAPR;
 
-use crate::timer::{Timer, sealed::Remap};
 use crate::pwm_input::Pins;
+use crate::timer::{sealed::Remap, Timer};
 
 pub struct Qei<TIM, REMAP, PINS> {
     tim: TIM,
@@ -31,11 +26,7 @@ pub struct Qei<TIM, REMAP, PINS> {
     _remap: PhantomData<REMAP>,
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 impl Timer<TIM1> {
     pub fn qei<REMAP, PINS>(self, pins: PINS, mapr: &mut MAPR) -> Qei<TIM1, REMAP, PINS>
     where
@@ -143,11 +134,7 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 hal! {
     TIM1: (_tim1, tim1en, tim1rst),
 }
