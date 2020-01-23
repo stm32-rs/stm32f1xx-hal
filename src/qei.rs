@@ -21,6 +21,7 @@ use crate::pwm_input::Pins;
 use crate::timer::{sealed::Remap, Timer};
 
 /// SMS (Slave Mode Selection) register
+#[derive(Copy, Clone, Debug)]
 pub enum SlaveMode {
     /// Counter counts up/down on TI2FP1 edge depending on TI1FP2 level.
     EncoderMode1 = 0b001,
@@ -39,14 +40,27 @@ pub enum SlaveMode {
     ExternalClockMode1 = 0b111,
 }
 
+/// Quadrature Encoder Interface (QEI) options
+///
+/// The `Default` implementation provides a configuration for a 4-count pulse which counts from
+/// 0-65535. The counter wraps back to 0 on overflow.
+#[derive(Copy, Clone, Debug)]
 pub struct QeiOptions {
-    slave_mode: SlaveMode,
+    /// Encoder slave mode
+    pub slave_mode: SlaveMode,
+
+    /// Autoreload value
+    ///
+    /// This value allows the maximum count to be configured, up to 65535. Setting a lower value
+    /// will overflow the counter to 0 sooner.
+    pub auto_reload_value: u16,
 }
 
 impl Default for QeiOptions {
     fn default() -> Self {
         Self {
             slave_mode: SlaveMode::EncoderMode3,
+            auto_reload_value: u16::MAX,
         }
     }
 }
@@ -154,7 +168,7 @@ macro_rules! hal {
                     // configure as quadrature encoder
                     tim.smcr.write(|w| w.sms().bits(options.slave_mode as u8));
 
-                    tim.arr.write(|w| w.arr().bits(u16::MAX));
+                    tim.arr.write(|w| w.arr().bits(options.auto_reload_value));
                     tim.cr1.write(|w| w.cen().set_bit());
 
                     Qei { tim, pins, _remap: PhantomData }
