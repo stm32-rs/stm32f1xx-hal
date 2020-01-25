@@ -379,14 +379,11 @@ macro_rules! hal {
 
                     // Length in ms of an internal clock pulse
                     (clk.0 / u32(psc * arr)).hz()
-    //                    (((psc as u32) / clk.0) * (1_000_000 as u32) * (arr as u32)).ms()
                 }
 
                 fn set_period<T>(&mut self, period: T) where
                     T: Into<Self::Time> {
                         let clk = self.clk;
-
-    //                        let freq = u16(1 / period.into());
 
                         let ticks = clk.0 / period.into().0;
                         let psc = u16(ticks / (1 << 16)).unwrap();
