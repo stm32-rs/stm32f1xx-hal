@@ -11,7 +11,8 @@ use stm32f1xx_hal::{
     prelude::*,
     pac,
     timer::{Tim2NoRemap, Timer},
-    time::U32Ext
+    time::U32Ext,
+    pwm::Channel
 };
 use cortex_m_rt::entry;
 
@@ -55,7 +56,7 @@ fn main() -> ! {
     //// Operations affecting all defined channels on the Timer
 
     // Adjust period to 0.5 seconds
-    pwm.set_period(500.us());
+    pwm.set_period(500.ms());
 
     asm::bkpt();
 
@@ -67,27 +68,26 @@ fn main() -> ! {
     let max = pwm.get_max_duty();
 
     //// Operations affecting single channels can be accessed through
-    //// the Pwm object or via dereferencing to the pin.  Pin indexing
-    //// starts at 0.
+    //// the Pwm object or via dereferencing to the pin.
 
     // Use the Pwm object to set C3 to full strength
-    pwm.set_duty(2, max);
+    pwm.set_duty(Channel::C2, max);
 
     asm::bkpt();
 
     // Use the Pwm object to set C3 to be dim
-    pwm.set_duty(2, max / 4);
+    pwm.set_duty(Channel::C2, max / 4);
 
     asm::bkpt();
 
     // Use the Pwm object to set C3 to be zero
-    pwm.set_duty(2, 0);
+    pwm.set_duty(Channel::C2, 0);
 
     asm::bkpt();
 
 
     // Extract the PwmChannel for C3
-    let mut pwm_channel = pwm.2;
+    let mut pwm_channel = pwm.split().1;
 
     // Use the PwmChannel object to set C3 to be full strength
     pwm_channel.set_duty(max);
