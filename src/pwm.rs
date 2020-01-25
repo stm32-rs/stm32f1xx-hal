@@ -56,8 +56,6 @@
 use core::marker::PhantomData;
 use core::marker::{Copy};
 use core::mem;
-use core::ops::{Deref, DerefMut};
-use embedded_hal::PwmPin;
 
 use cast::{u16, u32};
 use crate::hal;
@@ -84,6 +82,28 @@ pub trait Pins<REMAP, P> {
     const C3: bool = false;
     const C4: bool = false;
     type Channels;
+
+    fn check_enabled(c: Channel) -> Option<Channel> {
+        if c == Channel::C1 && Self::C1 {
+            Some(c)
+        } else if c == Channel::C2 && Self::C2 {
+            Some(c)
+        } else if c == Channel::C3 && Self::C3 {
+            Some(c)
+        } else if c == Channel::C4 && Self::C4 {
+            Some(c)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Channel {
+    C1,
+    C2,
+    C3,
+    C4,
 }
 
 use crate::timer::sealed::{Remap, Ch1, Ch2, Ch3, Ch4};
@@ -132,7 +152,7 @@ impl Timer<TIM1> {
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-    ) -> Pwm<TIM1, PINS::Channels>
+    ) -> Pwm<TIM1, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM1>,
         PINS: Pins<REMAP, P>,
@@ -151,7 +171,7 @@ impl Timer<TIM2> {
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-    ) -> Pwm<TIM2, PINS::Channels>
+    ) -> Pwm<TIM2, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM2>,
         PINS: Pins<REMAP, P>,
@@ -170,7 +190,7 @@ impl Timer<TIM3> {
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-    ) -> Pwm<TIM3, PINS::Channels>
+    ) -> Pwm<TIM3, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM3>,
         PINS: Pins<REMAP, P>,
@@ -190,7 +210,7 @@ impl Timer<TIM4> {
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
-    ) -> Pwm<TIM4, PINS::Channels>
+    ) -> Pwm<TIM4, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM4>,
         PINS: Pins<REMAP, P>,
@@ -203,29 +223,22 @@ impl Timer<TIM4> {
     }
 }
 
-pub struct Pwm<TIM, PWMCHANNELS> {
+pub struct Pwm<TIM, REMAP, P, PINS>
+where
+    REMAP: Remap<Periph = TIM>,
+    PINS: Pins<REMAP, P>
+{
     clk: Hertz,
-    _channels: PWMCHANNELS,
-    _tim: PhantomData<TIM>,
+    _pins: PhantomData<(TIM, REMAP, P, PINS)>,
 }
 
-impl<TIM, PWMCHANNELS> Pwm<TIM, PWMCHANNELS> {
-    fn into_channels(&self) -> PWMCHANNELS {
-        self._channels
-    }
-}
-
-impl<TIM, PWMCHANNELS> Deref for Pwm<TIM, PWMCHANNELS> {
-    type Target = PWMCHANNELS;
-
-    fn deref(&self) -> &Self::Target {
-        &self._channels
-    }
-}
-
-impl<TIM, PWMCHANNELS> DerefMut for Pwm<TIM, PWMCHANNELS> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self._channels
+impl<TIM, REMAP, P, PINS> Pwm<TIM, REMAP, P, PINS>
+where
+    REMAP: Remap<Periph = TIM>,
+    PINS: Pins<REMAP, P>
+{
+    pub fn split(self) -> PINS::Channels {
+        unsafe { mem::MaybeUninit::uninit().assume_init() }
     }
 }
 
@@ -252,74 +265,6 @@ pub struct C4;
   defined for several base time units.  This will allow for calling the set_period method with 
   something that is natural to both the MCU and the end user.
 */
-macro_rules! pwm_impl {
-    ( $( $TIMX:ident, $timX:ident, ( $($CHNUM:tt),+ ), ( $($ENCHX:ident),+ ); )+ )  => {
-            $(
-            impl hal::Pwm for Pwm<$TIMX, ($(PwmChannel<$TIMX, $ENCHX>),+,)> {
-                type Channel = u8;
-                type Duty = u16;
-                type Time = Hertz;
-
-                fn enable(&mut self, channel: Self::Channel) {
-                    match channel {
-                        $( $CHNUM => self.$CHNUM.enable(),)+
-                        _ => {}
-                    }
-                }
-
-                fn disable(&mut self, channel: Self::Channel) {
-                    match channel {
-                        $( $CHNUM => self.$CHNUM.disable(),)+
-                        _ => {}
-                    }
-                }
-
-                fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
-                    match channel {
-                        $( $CHNUM => self.$CHNUM.get_duty(),)+
-                        _ => 0
-                    }
-                }
-
-                fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
-                    match channel {
-                        $( $CHNUM => self.$CHNUM.set_duty(duty),)+
-                        _ => {}
-                    }
-                }
-
-                fn get_max_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
-                }
-
-                fn get_period(&self) -> Self::Time {
-                    let clk = self.clk;
-                    let psc = unsafe{ (*$TIMX::ptr()).psc.read().psc().bits() };
-                    let arr = unsafe{ (*$TIMX::ptr()).arr.read().arr().bits() };
-
-                    // Length in ms of an internal clock pulse
-                    (clk.0 / u32(psc * arr)).hz()
-//                    (((psc as u32) / clk.0) * (1_000_000 as u32) * (arr as u32)).ms()
-                }
-
-                fn set_period<P>(&mut self, period: P) where
-                    P: Into<Self::Time> {
-                        let clk = self.clk;
-
-//                        let freq = u16(1 / period.into());
-
-                        let ticks = clk.0 / period.into().0;
-                        let psc = u16(ticks / (1 << 16)).unwrap();
-                        let arr = u16(ticks / u32(psc + 1)).unwrap();
-                        unsafe {
-                            (*$TIMX::ptr()).psc.write(|w| w.psc().bits(psc));
-                            (*$TIMX::ptr()).arr.write(|w| w.arr().bits(arr));
-                        }
-                }
-            }
-        )+
-    };
-}
 
 macro_rules! hal {
     ($($TIMX:ident: ($timX:ident),)+) => {
@@ -329,7 +274,7 @@ macro_rules! hal {
                 _pins: PINS,
                 freq: Hertz,
                 clk: Hertz,
-            ) -> Pwm<$TIMX, PINS::Channels>
+            ) -> Pwm<$TIMX, REMAP, P, PINS>
             where
                 REMAP: Remap<Periph = $TIMX>,
                 PINS: Pins<REMAP, P>,
@@ -372,12 +317,89 @@ macro_rules! hal {
 
                 Pwm {
                     clk: clk,
-                    _tim: PhantomData,
-                    _channels: PhantomData
+                    _pins: PhantomData
                 }
             }
             
-            pwm_impl!(
+            impl<REMAP, P, PINS> hal::Pwm for Pwm<$TIMX, REMAP, P, PINS> where
+            REMAP: Remap<Periph = $TIMX>,
+            PINS: Pins<REMAP, P>,
+        {
+            type Channel = Channel;
+            type Duty = u16;
+            type Time = Hertz;
+
+            fn enable(&mut self, channel: Self::Channel) {
+                match PINS::check_enabled(channel) {
+                    Some(Channel::C1) => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) },
+                    Some(Channel::C2) => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) },
+                    Some(Channel::C3) => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) },
+                    Some(Channel::C4) => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) },
+                    None => {}
+                }
+            }
+
+            fn disable(&mut self, channel: Self::Channel) {
+                match PINS::check_enabled(channel) {
+                    Some(Channel::C1) => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) },
+                    Some(Channel::C2) => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) },
+                    Some(Channel::C3) => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 8) },
+                    Some(Channel::C4) => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) },
+                    None => {}
+                }
+            }
+
+            fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
+                match PINS::check_enabled(channel) {
+                    Some(Channel::C1) => unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() },
+                    Some(Channel::C2) => unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() },
+                    Some(Channel::C3) => unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() },
+                    Some(Channel::C4) => unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() },
+                    None => 0,
+                }
+            }
+
+            fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
+                match PINS::check_enabled(channel) {
+                    Some(Channel::C1) => unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) },
+                    Some(Channel::C2) => unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) },
+                    Some(Channel::C3) => unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) },
+                    Some(Channel::C4) => unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) },
+                    None => {},
+                }
+            }
+
+            fn get_max_duty(&self) -> Self::Duty {
+                unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
+            }
+
+            fn get_period(&self) -> Self::Time {
+                let clk = self.clk;
+                let psc: u16 = unsafe{(*$TIMX::ptr()).psc.read().psc().bits()};
+                let arr: u16 = unsafe{(*$TIMX::ptr()).psc.read().psc().bits()};
+
+                // Length in ms of an internal clock pulse
+                (clk.0 / u32(psc * arr)).hz()
+//                    (((psc as u32) / clk.0) * (1_000_000 as u32) * (arr as u32)).ms()
+            }
+
+            fn set_period<T>(&mut self, period: T) where
+                T: Into<Self::Time> {
+                    let clk = self.clk;
+
+//                        let freq = u16(1 / period.into());
+
+                    let ticks = clk.0 / period.into().0;
+                    let psc = u16(ticks / (1 << 16)).unwrap();
+                    let arr = u16(ticks / u32(psc + 1)).unwrap();
+                    unsafe {
+                        (*$TIMX::ptr()).psc.write(|w| w.psc().bits(psc));
+                        (*$TIMX::ptr()).arr.write(|w| w.arr().bits(arr));
+                    }
+            }
+        }
+/*
+        pwm_impl!(
                 $TIMX, $timX, (0, 1, 2, 3), (C1, C2, C3, C4);
                 $TIMX, $timX, (0, 1, 2), (C1, C2, C3);
                 $TIMX, $timX, (0, 1, 2), (C1, C2, C4);
@@ -393,7 +415,7 @@ macro_rules! hal {
                 $TIMX, $timX, (0), (C3);
                 $TIMX, $timX, (0), (C4);
             );
-/*
+
             impl Copy for PwmChannel<$TIMX, C1> {}
             impl Clone for PwmChannel<$TIMX, C1> {
                 fn clone(&self) -> Self {
