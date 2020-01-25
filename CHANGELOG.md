@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Add `QeiOptions` struct to configure slave mode and auto reload value of QEI interface
+
 ## [v0.5.3] - 2020-01-20
 
 - Add `InputPin` impl for generic open drain outputs
