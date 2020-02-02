@@ -17,7 +17,7 @@ use crate::pac::TIM4;
 
 use crate::afio::MAPR;
 use crate::gpio::{self, Floating, Input};
-use crate::rcc::{Clocks, GetBusFreq, RccBus};
+use crate::rcc::{Clocks, GetBusFreq, sealed::RccBus};
 use crate::time::Hertz;
 use crate::timer::Timer;
 
