@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- Fix period retrival for timers
+- Fix period retrieval for timers
+
+### Changed
+
+- Use `Deref` for I2C generic implementations instead of macros
 
 ## [v0.6.0] - 2020-06-06
 
