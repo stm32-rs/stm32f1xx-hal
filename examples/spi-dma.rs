@@ -41,7 +41,7 @@ fn main() -> ! {
         polarity: Polarity::IdleLow,
         phase: Phase::CaptureOnFirstTransition
     };
-    let mut spi = Spi::spi2(
+    let spi = Spi::spi2(
         dp.SPI2,
         pins,
         spi_mode,
