@@ -203,7 +203,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
     }
 }
 
-type SpiRegisterBlock = crate::pac::spi1::RegisterBlock;
+pub type SpiRegisterBlock = crate::pac::spi1::RegisterBlock;
 
 impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS>
 where
