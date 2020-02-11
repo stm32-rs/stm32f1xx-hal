@@ -348,8 +348,7 @@ impl<PINS> Can<CAN1, PINS> {
 
         // choose pin mapping
         #[allow(unused_unsafe)]
-        mapr.mapr()
-            .modify(|_, w| unsafe { w.can_remap().bits(PINS::REMAP) });
+        mapr.modify_mapr(|_, w| unsafe { w.can_remap().bits(PINS::REMAP) });
 
         Can {
             can: can,
