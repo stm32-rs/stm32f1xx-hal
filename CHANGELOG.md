@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Bump `stm32f1` dependency (`0.10.0`)
 - Use `Deref` for SPI generic implementations instead of macros
 - Make traits `rcc::Enable` and `rcc::Reset` public, but `RccBus` sealed
 - Add `QeiOptions` struct to configure slave mode and auto reload value of QEI interface

@@ -15,7 +15,6 @@ use stm32f1xx_hal::{
 use cortex_m_rt::entry;
 use pac::interrupt;
 use core::mem::MaybeUninit;
-use embedded_hal::digital::v2::OutputPin;
 use stm32f1xx_hal::gpio::*;
 
 // These two are owned by the ISR. main() may only access them during the initialization phase,
@@ -31,7 +30,7 @@ fn EXTI9_5() {
     let int_pin = unsafe { &mut *INT_PIN.as_mut_ptr()};
 
     if int_pin.check_interrupt() {
-        led.toggle();
+        led.toggle().unwrap();
 
         // if we don't clear this bit, the ISR would trigger indefinitely
         int_pin.clear_interrupt_pending_bit();
@@ -42,7 +41,7 @@ fn EXTI9_5() {
 fn main() -> ! {
     // initialization phase
     let p = pac::Peripherals::take().unwrap();
-    let cp = cortex_m::peripheral::Peripherals::take().unwrap();
+    let _cp = cortex_m::peripheral::Peripherals::take().unwrap();
     {
         // the scope ensures that the int_pin reference is dropped before the first ISR can be executed.
 
@@ -61,8 +60,7 @@ fn main() -> ! {
         int_pin.enable_interrupt(&p.EXTI);
     } // initialization ends here
 
-    let mut nvic = cp.NVIC;
-    nvic.enable(pac::Interrupt::EXTI9_5);
+    unsafe { pac::NVIC::unmask(pac::Interrupt::EXTI9_5); }
 
     loop {}
 }
