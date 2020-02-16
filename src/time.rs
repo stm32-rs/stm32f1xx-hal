@@ -9,6 +9,35 @@ use crate::rcc::Clocks;
 pub struct Bps(pub u32);
 
 /// Hertz
+///
+/// Create a frequency specified in [Hertz](https://en.wikipedia.org/wiki/Hertz).
+///
+/// See also [`KiloHertz`] and [`MegaHertz`] for semantically correct ways of creating higher
+/// frequencies.
+///
+/// # Examples
+///
+/// ## Create an 8 MHz frequency
+///
+/// ```rust
+/// use stm32f1xx_hal::time::Hertz;
+///
+/// let freq = 8_000_000.hz();
+/// ```
+///
+/// ## Get the cycle count of a frequency
+///
+/// This example converts a `Hertz` into a [`rtfm::cyccnt::Duration`]. This is useful for scheduling
+/// RTFM tasks at certain times or intervals.
+///
+/// ```rust
+/// use stm32f1xx_hal::time::Hertz;
+/// use rtfm::cyccnt::Duration;
+///
+/// let freq = 8_000_000.hz();
+///
+/// let duration = Duration::from_cycles(freq.0);
+/// ```
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Hertz(pub u32);
 
