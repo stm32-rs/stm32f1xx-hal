@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use `Deref` for SPI generic implementations instead of macros
 - Make traits `rcc::Enable` and `rcc::Reset` public, but `RccBus` sealed
 - Add `QeiOptions` struct to configure slave mode and auto reload value of QEI interface
+- Fix PWM on `TIM1`
 
 ## [v0.5.3] - 2020-01-20
 
