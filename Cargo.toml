@@ -114,3 +114,8 @@ required-features = ["rt", "stm32f103", "stm32-usbd"]
 [[example]]
 name = "usb_serial_rtfm"
 required-features = ["rt", "stm32f103", "stm32-usbd"]
+
+[[example]]
+name = "blinky_timer_irq"
+required-features = ["medium", "rt", "stm32f103"]
+
