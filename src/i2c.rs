@@ -66,6 +66,8 @@ impl Mode {
     }
 }
 
+/// Helper Trait that ensures, that you can only create an I2C object with the corresponding I2C
+/// Pins
 pub trait Pins<I2C> {
     const REMAP: bool;
 }
@@ -90,6 +92,7 @@ pub struct I2c<I2C, PINS> {
     pclk1: u32,
 }
 
+/// Embedded-HAL compatible blocking I2C implementation
 pub struct BlockingI2c<I2C, PINS> {
     nb: I2c<I2C, PINS>,
     start_timeout: u32,
@@ -99,6 +102,7 @@ pub struct BlockingI2c<I2C, PINS> {
 }
 
 impl<PINS> I2c<I2C1, PINS> {
+    /// Creates a generic I2C1 object (on pins PB6/7 or PB8/9)
     pub fn i2c1(
         i2c: I2C1,
         pins: PINS,
@@ -116,6 +120,7 @@ impl<PINS> I2c<I2C1, PINS> {
 }
 
 impl<PINS> BlockingI2c<I2C1, PINS> {
+    /// Creates a blocking I2C1 object (on pins PB6/7 or PB8/9)
     pub fn i2c1(
         i2c: I2C1,
         pins: PINS,
@@ -147,6 +152,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
 }
 
 impl<PINS> I2c<I2C2, PINS> {
+    /// Creates a generic I2C2 object (on pins PB10/11)
     pub fn i2c2(
         i2c: I2C2,
         pins: PINS,
@@ -162,6 +168,7 @@ impl<PINS> I2c<I2C2, PINS> {
 }
 
 impl<PINS> BlockingI2c<I2C2, PINS> {
+    /// Creates a blocking I2C2 object (on pins PB10/11)
     pub fn i2c2(
         i2c: I2C2,
         pins: PINS,
@@ -190,6 +197,7 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
     }
 }
 
+/// Generates a blocking I2C from a universal I2C Object
 pub fn blocking_i2c<I2C, PINS>(
     i2c: I2c<I2C, PINS>,
     clocks: Clocks,
@@ -253,6 +261,7 @@ macro_rules! busy_wait_cycles {
     }};
 }
 
+// Generate the same code for both I2Cs
 macro_rules! hal {
     ($($I2CX:ident: ($i2cX:ident),)+) => {
         $(
@@ -277,6 +286,8 @@ macro_rules! hal {
                     i2c
                 }
 
+                /// Initializes I2c. Configures I2C_TRISE register, I2C_CRX, and I2C_CCR register
+                /// according to the system-frequency and the I2C mode.
                 fn init(&mut self) {
                     let freq = self.mode.get_frequency();
                     let pclk1_mhz = (self.pclk1 / 1000000) as u16;
@@ -316,20 +327,26 @@ macro_rules! hal {
                     self.i2c.cr1.modify(|_, w| w.pe().set_bit());
                 }
 
+                /// Perform an I2C software reset
                 fn reset(&mut self) {
                     self.i2c.cr1.write(|w| w.pe().set_bit().swrst().set_bit());
                     self.i2c.cr1.reset();
                     self.init();
                 }
 
+                /// Generate Start condition
                 fn send_start(&mut self) {
                     self.i2c.cr1.modify(|_, w| w.start().set_bit());
                 }
 
+                /// Check if Start condition is generated. Returns `WouldBlock`
+                /// if not so the program can act acordingly (busy wait, async, ...)
                 fn wait_after_sent_start(&mut self) -> NbResult<(), Error> {
                     wait_for_flag!(self.i2c, sb)
                 }
 
+                /// Check if Stop condition is generated. Returns `WouldBlock`
+                /// if not so the program can act acordingly (busy wait, async, ...)
                 fn wait_for_stop(&mut self) -> NbResult<(), Error> {
                     if self.i2c.cr1.read().stop().is_no_stop() {
                         Ok(())
@@ -338,10 +355,13 @@ macro_rules! hal {
                     }
                 }
 
+                /// Sends the (7-Bit) address on the I2C bus. The 8th bit on the bus is set
+                /// depending on wether it is a read or write transfer.
                 fn send_addr(&self, addr: u8, read: bool) {
                     self.i2c.dr.write(|w| { w.dr().bits(addr << 1 | (if read {1} else {0})) });
                 }
 
+                /// Generate Stop condition
                 fn send_stop(&self) {
                     self.i2c.cr1.modify(|_, w| w.stop().set_bit());
                 }
