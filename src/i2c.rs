@@ -198,7 +198,7 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
 }
 
 /// Generates a blocking I2C from a universal I2C Object
-pub fn blocking_i2c<I2C, PINS>(
+fn blocking_i2c<I2C, PINS>(
     i2c: I2c<I2C, PINS>,
     clocks: Clocks,
     start_timeout_us: u32,
@@ -267,7 +267,7 @@ macro_rules! hal {
         $(
             impl<PINS> I2c<$I2CX, PINS> {
                 /// Configures the I2C peripheral to work in master mode
-                pub fn $i2cX(
+                fn $i2cX(
                     i2c: $I2CX,
                     pins: PINS,
                     mode: Mode,
@@ -373,7 +373,7 @@ macro_rules! hal {
             }
 
             impl<PINS> BlockingI2c<$I2CX, PINS> {
-                pub fn $i2cX(
+                fn $i2cX(
                     i2c: $I2CX,
                     pins: PINS,
                     mode: Mode,
