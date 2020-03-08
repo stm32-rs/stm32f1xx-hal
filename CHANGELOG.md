@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- Fix wrong frequency reported by `MonoTimer`
 - Fix period retrieval for timers
 
 ### Changed
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Deprecate `Spi::free` and rename it to `Spi::release`
 - Improve `SPI` documentation
 - Improve `RCC` and `AFIO` register documentation
+
 
 ## [v0.6.0] - 2020-06-06
 
