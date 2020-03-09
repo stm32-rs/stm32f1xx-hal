@@ -101,7 +101,7 @@ pub struct BlockingI2c<I2C, PINS> {
 }
 
 impl<PINS> I2c<I2C1, PINS> {
-    /// Creates a generic I2C1 object (on pins PB6/7 or PB8/9)
+    /// Creates a generic I2C1 object on pins PB6 and PB7 or PB8 and PB9 (if remapped)
     pub fn i2c1(
         i2c: I2C1,
         pins: PINS,
@@ -119,7 +119,8 @@ impl<PINS> I2c<I2C1, PINS> {
 }
 
 impl<PINS> BlockingI2c<I2C1, PINS> {
-    /// Creates a blocking I2C1 object (on pins PB6/7 or PB8/9)
+    /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 (if remapped)
+    /// embedeed-hal compatible!
     pub fn i2c1(
         i2c: I2C1,
         pins: PINS,
@@ -333,20 +334,20 @@ macro_rules! hal {
                     self.init();
                 }
 
-                /// Generate Start condition
+                /// Generate START condition
                 fn send_start(&mut self) {
                     self.i2c.cr1.modify(|_, w| w.start().set_bit());
                 }
 
-                /// Check if start condition is generated. If the condition is not generated, this 
-                /// method returns `WouldBlock` so the program can act accordingly 
+                /// Check if START condition is generated. If the condition is not generated, this
+                /// method returns `WouldBlock` so the program can act accordingly
                 /// (busy wait, async, ...)
                 fn wait_after_sent_start(&mut self) -> NbResult<(), Error> {
                     wait_for_flag!(self.i2c, sb)
                 }
 
-                /// Check if stop condition is generated. If the condition is not generated, this 
-                /// method returns `WouldBlock` so the program can act accordingly 
+                /// Check if STOP condition is generated. If the condition is not generated, this
+                /// method returns `WouldBlock` so the program can act accordingly
                 /// (busy wait, async, ...)
                 fn wait_for_stop(&mut self) -> NbResult<(), Error> {
                     if self.i2c.cr1.read().stop().is_no_stop() {
@@ -362,7 +363,7 @@ macro_rules! hal {
                     self.i2c.dr.write(|w| { w.dr().bits(addr << 1 | (if read {1} else {0})) });
                 }
 
-                /// Generate Stop condition
+                /// Generate STOP condition
                 fn send_stop(&self) {
                     self.i2c.cr1.modify(|_, w| w.stop().set_bit());
                 }
@@ -392,7 +393,7 @@ macro_rules! hal {
 
                 fn send_start_and_wait(&mut self) -> NbResult<(), Error> {
                     // According to http://www.st.com/content/ccc/resource/technical/document/errata_sheet/f5/50/c9/46/56/db/4a/f6/CD00197763.pdf/files/CD00197763.pdf/jcr:content/translations/en.CD00197763.pdf
-                    // 2.14.4 Wrong behavior of I2C peripheral in master mode after a misplaced Stop
+                    // 2.14.4 Wrong behavior of I2C peripheral in master mode after a misplaced STOP
                     let mut retries_left = self.start_retries;
                     let mut last_ret: NbResult<(), Error> = Err(WouldBlock);
                     while retries_left > 0 {
