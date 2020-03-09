@@ -51,21 +51,6 @@ pub struct Bps(pub u32);
 ///
 /// let freq = 60.hz();
 /// ```
-///
-/// ## Get the cycle count of a frequency
-///
-/// This example converts a `Hertz` into a [`rtfm::cyccnt::Duration`] (**not**
-/// [`core::time::Duration`]). This is useful for scheduling RTFM tasks at certain times or
-/// intervals.
-///
-/// ```rust
-/// use stm32f1xx_hal::time::Hertz;
-/// use rtfm::cyccnt::Duration;
-///
-/// let freq = 60.hz();
-///
-/// let duration = Duration::from_cycles(freq.0);
-/// ```
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Hertz(pub u32);
 
