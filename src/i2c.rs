@@ -119,8 +119,7 @@ impl<PINS> I2c<I2C1, PINS> {
 }
 
 impl<PINS> BlockingI2c<I2C1, PINS> {
-    /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 (if remapped)
-    /// embedeed-hal compatible!
+    /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 using the embedded-hal `BlockingI2c` trait.
     pub fn i2c1(
         i2c: I2C1,
         pins: PINS,
@@ -152,7 +151,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
 }
 
 impl<PINS> I2c<I2C2, PINS> {
-    /// Creates a generic I2C2 object on pins PB10 and PB11
+    /// Creates a generic I2C2 object on pins PB10 and PB11 using the embedded-hal `BlockingI2c` trait.
     pub fn i2c2(
         i2c: I2C2,
         pins: PINS,
