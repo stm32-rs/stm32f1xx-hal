@@ -66,8 +66,7 @@ impl Mode {
     }
 }
 
-/// Helper Trait that ensures, that you can only create an I2C object with the corresponding I2C
-/// Pins
+/// Helper trait to ensure that the correct I2C pins are used for the corresponding interface
 pub trait Pins<I2C> {
     const REMAP: bool;
 }
@@ -92,7 +91,7 @@ pub struct I2c<I2C, PINS> {
     pclk1: u32,
 }
 
-/// Embedded-HAL compatible blocking I2C implementation
+/// embedded-hal compatible blocking I2C implementation
 pub struct BlockingI2c<I2C, PINS> {
     nb: I2c<I2C, PINS>,
     start_timeout: u32,
@@ -152,7 +151,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
 }
 
 impl<PINS> I2c<I2C2, PINS> {
-    /// Creates a generic I2C2 object (on pins PB10/11)
+    /// Creates a generic I2C2 object on pins PB10 and PB11
     pub fn i2c2(
         i2c: I2C2,
         pins: PINS,
@@ -168,7 +167,7 @@ impl<PINS> I2c<I2C2, PINS> {
 }
 
 impl<PINS> BlockingI2c<I2C2, PINS> {
-    /// Creates a blocking I2C2 object (on pins PB10/11)
+    /// Creates a blocking I2C2 object on pins PB10 and PB1
     pub fn i2c2(
         i2c: I2C2,
         pins: PINS,
@@ -197,7 +196,7 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
     }
 }
 
-/// Generates a blocking I2C from a universal I2C Object
+/// Generates a blocking I2C instance from a universal I2C object
 fn blocking_i2c<I2C, PINS>(
     i2c: I2c<I2C, PINS>,
     clocks: Clocks,
@@ -286,8 +285,8 @@ macro_rules! hal {
                     i2c
                 }
 
-                /// Initializes I2c. Configures I2C_TRISE register, I2C_CRX, and I2C_CCR register
-                /// according to the system-frequency and the I2C mode.
+                /// Initializes I2C. Configures the `I2C_TRISE`, `I2C_CRX`, and `I2C_CCR` registers
+                /// according to the system frequency and I2C mode.
                 fn init(&mut self) {
                     let freq = self.mode.get_frequency();
                     let pclk1_mhz = (self.pclk1 / 1000000) as u16;
@@ -339,14 +338,16 @@ macro_rules! hal {
                     self.i2c.cr1.modify(|_, w| w.start().set_bit());
                 }
 
-                /// Check if Start condition is generated. Returns `WouldBlock`
-                /// if not so the program can act acordingly (busy wait, async, ...)
+                /// Check if start condition is generated. If the condition is not generated, this 
+                /// method returns `WouldBlock` so the program can act accordingly 
+                /// (busy wait, async, ...)
                 fn wait_after_sent_start(&mut self) -> NbResult<(), Error> {
                     wait_for_flag!(self.i2c, sb)
                 }
 
-                /// Check if Stop condition is generated. Returns `WouldBlock`
-                /// if not so the program can act acordingly (busy wait, async, ...)
+                /// Check if stop condition is generated. If the condition is not generated, this 
+                /// method returns `WouldBlock` so the program can act accordingly 
+                /// (busy wait, async, ...)
                 fn wait_for_stop(&mut self) -> NbResult<(), Error> {
                     if self.i2c.cr1.read().stop().is_no_stop() {
                         Ok(())
