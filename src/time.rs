@@ -27,6 +27,7 @@
 //! assert_eq!(freq_khz, freq_mhz);
 //! ```
 
+use core::ops;
 use cortex_m::peripheral::DWT;
 
 use crate::rcc::Clocks;
@@ -180,6 +181,50 @@ impl Into<Hertz> for MicroSeconds {
         Hertz(1_000_000 / self.0)
     }
 }
+
+/// Macro to implement arithmetic operations (e.g. multiplication, division)
+/// for wrapper types.
+macro_rules! impl_arithmetic {
+    ($wrapper:ty, $wrapped:ty) => {
+        impl ops::Mul<$wrapped> for $wrapper {
+            type Output = Self;
+            fn mul(self, rhs: $wrapped) -> Self {
+                Self(self.0 * rhs)
+            }
+        }
+
+        impl ops::MulAssign<$wrapped> for $wrapper {
+            fn mul_assign(&mut self, rhs: $wrapped) {
+                self.0 *= rhs;
+            }
+        }
+
+        impl ops::Div<$wrapped> for $wrapper {
+            type Output = Self;
+            fn div(self, rhs: $wrapped) -> Self {
+                Self(self.0 / rhs)
+            }
+        }
+
+        impl ops::Div<$wrapper> for $wrapper {
+            type Output = $wrapped;
+            fn div(self, rhs: $wrapper) -> $wrapped {
+                self.0 / rhs.0
+            }
+        }
+
+        impl ops::DivAssign<$wrapped> for $wrapper {
+            fn div_assign(&mut self, rhs: $wrapped) {
+                self.0 /= rhs;
+            }
+        }
+    }
+}
+
+impl_arithmetic!(Hertz, u32);
+impl_arithmetic!(KiloHertz, u32);
+impl_arithmetic!(MegaHertz, u32);
+impl_arithmetic!(Bps, u32);
 
 /// A monotonic non-decreasing timer
 #[derive(Clone, Copy)]
