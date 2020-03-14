@@ -496,20 +496,23 @@ impl GetBusFreq for APB2 {
     }
 }
 
-/// Bus associated to peripheral
-pub trait RccBus {
-    /// Bus type;
-    type Bus;
+pub(crate) mod sealed {
+    /// Bus associated to peripheral
+    pub trait RccBus {
+        /// Bus type;
+        type Bus;
+    }
 }
+use sealed::RccBus;
 
 /// Enable/disable peripheral
-pub(crate) trait Enable: RccBus {
+pub trait Enable: RccBus {
     fn enable(apb: &mut Self::Bus);
     fn disable(apb: &mut Self::Bus);
 }
 
 /// Reset peripheral
-pub(crate) trait Reset: RccBus {
+pub trait Reset: RccBus {
     fn reset(apb: &mut Self::Bus);
 }
 

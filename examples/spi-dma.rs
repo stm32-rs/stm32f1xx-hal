@@ -41,7 +41,7 @@ fn main() -> ! {
         polarity: Polarity::IdleLow,
         phase: Phase::CaptureOnFirstTransition
     };
-    let mut spi = Spi::spi2(
+    let spi = Spi::spi2(
         dp.SPI2,
         pins,
         spi_mode,
@@ -61,7 +61,7 @@ fn main() -> ! {
 
     // Wait for it to finnish. The transfer takes ownership over the SPI device
     // and the data being sent anb those things are returned by transfer.wait
-    let (_spi_dma, _buffer) = transfer.wait();
+    let (_buffer, _spi_dma) = transfer.wait();
 
     loop {
     }

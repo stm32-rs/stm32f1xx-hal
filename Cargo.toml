@@ -50,7 +50,7 @@ optional = true
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.2"
 panic-itm = "0.4.1"
-cortex-m-rtfm = "0.4.3"
+cortex-m-rtfm = "0.5"
 cortex-m-semihosting = "0.3.3"
 heapless = "0.4.3"
 m = "0.1.1"
@@ -114,3 +114,8 @@ required-features = ["rt", "stm32f103", "stm32-usbd"]
 [[example]]
 name = "usb_serial_rtfm"
 required-features = ["rt", "stm32f103", "stm32-usbd"]
+
+[[example]]
+name = "blinky_timer_irq"
+required-features = ["medium", "rt", "stm32f103"]
+
