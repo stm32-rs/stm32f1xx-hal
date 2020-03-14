@@ -63,6 +63,7 @@
 //! [README]: https://github.com/stm32-rs/stm32f1xx-hal/tree/v0.5.3
 
 #![no_std]
+#![deny(intra_doc_link_resolution_failure)]
 
 // If no target specified, print error message.
 #[cfg(not(any(feature = "stm32f100", feature = "stm32f101", feature = "stm32f103")))]

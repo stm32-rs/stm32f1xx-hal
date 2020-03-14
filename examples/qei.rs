@@ -8,13 +8,8 @@ use panic_semihosting as _;
 
 use cortex_m_semihosting::hprintln;
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    delay::Delay,
-    timer::Timer,
-};
 use cortex_m_rt::entry;
+use stm32f1xx_hal::{delay::Delay, pac, prelude::*, qei::QeiOptions, timer::Timer};
 
 #[entry]
 fn main() -> ! {
@@ -43,8 +38,11 @@ fn main() -> ! {
     let c1 = gpiob.pb6;
     let c2 = gpiob.pb7;
 
-    let qei = Timer::tim4(dp.TIM4, &clocks, &mut rcc.apb1)
-        .qei((c1, c2), &mut afio.mapr);
+    let qei = Timer::tim4(dp.TIM4, &clocks, &mut rcc.apb1).qei(
+        (c1, c2),
+        &mut afio.mapr,
+        QeiOptions::default(),
+    );
     let mut delay = Delay::new(cp.SYST, clocks);
 
     loop {

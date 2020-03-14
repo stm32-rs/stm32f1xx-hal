@@ -15,17 +15,19 @@ use usb_device::bus;
 use usb_device::prelude::*;
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
-#[app(device = stm32f1xx_hal::stm32)]
+#[app(device = stm32f1xx_hal::stm32, peripherals = true)]
 const APP: () = {
-    static mut USB_DEV: UsbDevice<'static, UsbBusType> = ();
-    static mut SERIAL: SerialPort<'static, UsbBusType> = ();
+    struct Resources {
+        usb_dev: UsbDevice<'static, UsbBusType>,
+        serial: SerialPort<'static, UsbBusType>,
+    }
 
     #[init]
-    fn init() {
+    fn init(cx: init::Context) -> init::LateResources {
         static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
 
-        let mut flash = device.FLASH.constrain();
-        let mut rcc = device.RCC.constrain();
+        let mut flash = cx.device.FLASH.constrain();
+        let mut rcc = cx.device.RCC.constrain();
 
         let clocks = rcc
             .cfgr
@@ -36,21 +38,21 @@ const APP: () = {
 
         assert!(clocks.usbclk_valid());
 
-        let mut gpioa = device.GPIOA.split(&mut rcc.apb2);
+        let mut gpioa = cx.device.GPIOA.split(&mut rcc.apb2);
 
         // BluePill board has a pull-up resistor on the D+ line.
         // Pull the D+ pin down to send a RESET condition to the USB bus.
         // This forced reset is needed only for development, without it host
         // will not reset your device when you upload new firmware.
         let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
-        usb_dp.set_low();
+        usb_dp.set_low().unwrap();
         delay(clocks.sysclk().0 / 100);
 
         let usb_dm = gpioa.pa11;
         let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);
 
         let usb = Peripheral {
-            usb: device.USB,
+            usb: cx.device.USB,
             pin_dm: usb_dm,
             pin_dp: usb_dp,
         };
@@ -66,18 +68,20 @@ const APP: () = {
             .device_class(USB_CLASS_CDC)
             .build();
 
-        USB_DEV = usb_dev;
-        SERIAL = serial;
+        init::LateResources {
+            usb_dev,
+            serial,
+        }
     }
 
-    #[interrupt(resources = [USB_DEV, SERIAL])]
-    fn USB_HP_CAN_TX() {
-        usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
+    #[task(binds = USB_HP_CAN_TX, resources = [usb_dev, serial])]
+    fn usb_tx(mut cx: usb_tx::Context) {
+        usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.serial);
     }
 
-    #[interrupt(resources = [USB_DEV, SERIAL])]
-    fn USB_LP_CAN_RX0() {
-        usb_poll(&mut resources.USB_DEV, &mut resources.SERIAL);
+    #[task(binds = USB_LP_CAN_RX0, resources = [usb_dev, serial])]
+    fn usb_rx0(mut cx: usb_rx0::Context) {
+        usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.serial);
     }
 };
 

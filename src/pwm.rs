@@ -57,17 +57,13 @@ use core::marker::PhantomData;
 use core::marker::{Copy};
 use core::mem;
 
-use cast::{u16, u32};
 use crate::hal;
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 use crate::pac::TIM1;
-use crate::pac::{TIM2, TIM3};
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
+use crate::pac::{TIM2, TIM3};
+use cast::{u16, u32};
 
 use crate::afio::MAPR;
 use crate::bb;
@@ -104,7 +100,7 @@ pub enum Channel {
     C4,
 }
 
-use crate::timer::sealed::{Remap, Ch1, Ch2, Ch3, Ch4};
+use crate::timer::sealed::{Ch1, Ch2, Ch3, Ch4, Remap};
 macro_rules! pins_impl {
     ( $( ( $($PINX:ident),+ ), ( $($TRAIT:ident),+ ), ( $($ENCHX:ident),* ); )+ ) => {
         $(
@@ -139,18 +135,18 @@ pins_impl!(
     (P4), (Ch4), (C4);
 );
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 impl Timer<TIM1> {
+<<<<<<< HEAD
     pub fn pwm<REMAP, P, PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
     ) -> Pwm<TIM1, REMAP, P, PINS>
+=======
+    pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> PINS::Channels
+>>>>>>> master
     where
         REMAP: Remap<Periph = TIM1>,
         PINS: Pins<REMAP, P>,
@@ -158,18 +154,26 @@ impl Timer<TIM1> {
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim1_remap().bits(REMAP::REMAP) });
 
+        // TIM1 has a break function that deactivates the outputs, this bit automatically activates
+        // the output when no break input is present
+        self.tim.bdtr.modify(|_, w| w.aoe().set_bit());
+
         let Self { tim, clk } = self;
         tim1(tim, _pins, freq.into(), clk)
     }
 }
 
 impl Timer<TIM2> {
+<<<<<<< HEAD
     pub fn pwm<REMAP, P, PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
     ) -> Pwm<TIM2, REMAP, P, PINS>
+=======
+    pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> PINS::Channels
+>>>>>>> master
     where
         REMAP: Remap<Periph = TIM2>,
         PINS: Pins<REMAP, P>,
@@ -183,12 +187,16 @@ impl Timer<TIM2> {
 }
 
 impl Timer<TIM3> {
+<<<<<<< HEAD
     pub fn pwm<REMAP, P, PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
     ) -> Pwm<TIM3, REMAP, P, PINS>
+=======
+    pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> PINS::Channels
+>>>>>>> master
     where
         REMAP: Remap<Periph = TIM3>,
         PINS: Pins<REMAP, P>,
@@ -203,12 +211,16 @@ impl Timer<TIM3> {
 
 #[cfg(feature = "medium")]
 impl Timer<TIM4> {
+<<<<<<< HEAD
     pub fn pwm<REMAP, P, PINS, T>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
         freq: T,
     ) -> Pwm<TIM4, REMAP, P, PINS>
+=======
+    pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> PINS::Channels
+>>>>>>> master
     where
         REMAP: Remap<Periph = TIM4>,
         PINS: Pins<REMAP, P>,
@@ -287,6 +299,12 @@ macro_rules! hal {
                 tim.psc.write(|w| w.psc().bits(psc) );
                 let arr = u16(ticks / u32(psc + 1)).unwrap();
                 tim.arr.write(|w| w.arr().bits(arr));
+
+                // The psc register is buffered, so we trigger an update event to update it
+                // Sets the URS bit to prevent an interrupt from being triggered by the UG bit
+                tim.cr1.modify(|_, w| w.urs().set_bit());
+                tim.egr.write(|w| w.ug().set_bit());
+                tim.cr1.modify(|_, w| w.urs().clear_bit());
 
                 tim.cr1.write(|w|
                     w.cms()
@@ -488,11 +506,7 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 hal! {
     TIM1: (tim1),
 }

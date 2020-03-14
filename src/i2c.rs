@@ -11,7 +11,7 @@ use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
-use crate::rcc::{Clocks, APB1, Enable, Reset, RccBus, GetBusFreq};
+use crate::rcc::{Clocks, Enable, Reset, sealed::RccBus, GetBusFreq};
 use crate::pac::{DWT, I2C1, I2C2};
 
 /// I2C error
@@ -105,7 +105,7 @@ impl<PINS> I2c<I2C1, PINS> {
         mapr: &mut MAPR,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut APB1,
+        apb: &mut <I2C1 as RccBus>::Bus,
     ) -> Self
     where
         PINS: Pins<I2C1>,
@@ -122,7 +122,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
         mapr: &mut MAPR,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut APB1,
+        apb: &mut <I2C1 as RccBus>::Bus,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
@@ -147,7 +147,13 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
 }
 
 impl<PINS> I2c<I2C2, PINS> {
-    pub fn i2c2(i2c: I2C2, pins: PINS, mode: Mode, clocks: Clocks, apb: &mut APB1) -> Self
+    pub fn i2c2(
+        i2c: I2C2,
+        pins: PINS,
+        mode: Mode,
+        clocks: Clocks,
+        apb: &mut <I2C2 as RccBus>::Bus
+    ) -> Self
     where
         PINS: Pins<I2C2>,
     {
@@ -161,7 +167,7 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
         pins: PINS,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut APB1,
+        apb: &mut <I2C2 as RccBus>::Bus,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
@@ -352,7 +358,7 @@ macro_rules! hal {
                     pins: PINS,
                     mode: Mode,
                     clocks: Clocks,
-                    apb: &mut APB1,
+                    apb: &mut <$I2CX as RccBus>::Bus,
                     start_timeout_us: u32,
                     start_retries: u8,
                     addr_timeout_us: u32,
