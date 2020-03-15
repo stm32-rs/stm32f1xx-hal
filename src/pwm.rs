@@ -137,16 +137,7 @@ pins_impl!(
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 impl Timer<TIM1> {
-<<<<<<< HEAD
-    pub fn pwm<REMAP, P, PINS, T>(
-        self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: T,
-    ) -> Pwm<TIM1, REMAP, P, PINS>
-=======
     pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> PINS::Channels
->>>>>>> master
     where
         REMAP: Remap<Periph = TIM1>,
         PINS: Pins<REMAP, P>,
@@ -164,16 +155,7 @@ impl Timer<TIM1> {
 }
 
 impl Timer<TIM2> {
-<<<<<<< HEAD
-    pub fn pwm<REMAP, P, PINS, T>(
-        self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: T,
-    ) -> Pwm<TIM2, REMAP, P, PINS>
-=======
     pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> PINS::Channels
->>>>>>> master
     where
         REMAP: Remap<Periph = TIM2>,
         PINS: Pins<REMAP, P>,
@@ -187,16 +169,7 @@ impl Timer<TIM2> {
 }
 
 impl Timer<TIM3> {
-<<<<<<< HEAD
-    pub fn pwm<REMAP, P, PINS, T>(
-        self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: T,
-    ) -> Pwm<TIM3, REMAP, P, PINS>
-=======
     pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> PINS::Channels
->>>>>>> master
     where
         REMAP: Remap<Periph = TIM3>,
         PINS: Pins<REMAP, P>,
@@ -211,16 +184,7 @@ impl Timer<TIM3> {
 
 #[cfg(feature = "medium")]
 impl Timer<TIM4> {
-<<<<<<< HEAD
-    pub fn pwm<REMAP, P, PINS, T>(
-        self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: T,
-    ) -> Pwm<TIM4, REMAP, P, PINS>
-=======
     pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> PINS::Channels
->>>>>>> master
     where
         REMAP: Remap<Periph = TIM4>,
         PINS: Pins<REMAP, P>,
