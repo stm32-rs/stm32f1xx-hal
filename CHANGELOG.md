@@ -7,10 +7,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
 - Bump `stm32f1` dependency (`0.10.0`)
-- Use `Deref` for SPI generic implementations instead of macros
 - Make traits `rcc::Enable` and `rcc::Reset` public, but `RccBus` sealed
+
+### Added
+
+- Extend the Pwm implementation to cover the full embedded_hal::Pwm API
 - Add `QeiOptions` struct to configure slave mode and auto reload value of QEI interface
+
+### Changed
+
+- Replace default blocking spi Write implementation with an optimized one
+- Use `Deref` for SPI generic implementations instead of macros
+
+### Fixed
+
+- Fix PWM on `TIM1`
 
 ## [v0.5.3] - 2020-01-20
 

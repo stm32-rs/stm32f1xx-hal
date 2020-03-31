@@ -35,7 +35,7 @@ use core::ptr;
 
 use nb;
 
-pub use crate::hal::spi::{Mode, Phase, Polarity};
+pub use crate::hal::spi::{Mode, Phase, Polarity, FullDuplex};
 #[cfg(feature = "high")]
 use crate::pac::SPI3;
 use crate::pac::{SPI1, SPI2};
@@ -334,9 +334,52 @@ impl<SPI, REMAP, PINS> crate::hal::blocking::spi::transfer::Default<u8> for Spi<
 {
 }
 
-impl<SPI, REMAP, PINS> crate::hal::blocking::spi::write::Default<u8> for Spi<SPI, REMAP, PINS> where
+impl<SPI, REMAP, PINS> crate::hal::blocking::spi::Write<u8> for Spi<SPI, REMAP, PINS> where
     SPI: Deref<Target = SpiRegisterBlock>
 {
+     type Error = Error;
+
+    // Implement write as per the "Transmit only procedure" page 712
+    // of RM0008 Rev 20. This is more than twice as fast as the
+    // default Write<> implementation (which reads and drops each
+    // received value)
+    fn write(&mut self, words: &[u8]) -> Result<(), Error> {
+        // Write each word when the tx buffer is empty
+        for word in words {
+            loop {
+                let sr = self.spi.sr.read();
+                if sr.txe().bit_is_set() {
+                    // NOTE(write_volatile) see note above
+                    unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, *word) }
+                    if sr.modf().bit_is_set() {
+                        return Err(Error::ModeFault);
+                    }
+                    break;
+                }
+            }
+        }
+        // Wait for final TXE
+        loop {
+            let sr = self.spi.sr.read();
+            if sr.txe().bit_is_set() {
+              break;
+            }
+        }
+        // Wait for final !BSY
+        loop {
+            let sr = self.spi.sr.read();
+            if !sr.bsy().bit_is_set() {
+              break;
+            }
+        }
+        // Clear OVR set due to dropped received values
+        // NOTE(read_volatile) see note aboev
+        unsafe {
+           let _ = ptr::read_volatile(&self.spi.dr as *const _ as *const u8);
+        }
+        let _ = self.spi.sr.read();
+        Ok(())
+    }
 }
 
 // DMA

@@ -54,24 +54,22 @@
 */
 
 use core::marker::PhantomData;
+use core::marker::{Copy};
 use core::mem;
 
-use cast::{u16, u32};
 use crate::hal;
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 use crate::pac::TIM1;
-use crate::pac::{TIM2, TIM3};
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
+use crate::pac::{TIM2, TIM3};
+use cast::{u16, u32};
 
 use crate::afio::MAPR;
 use crate::bb;
 use crate::gpio::{self, Alternate, PushPull};
 use crate::time::Hertz;
+use crate::time::U32Ext;
 use crate::timer::Timer;
 
 pub trait Pins<REMAP, P> {
@@ -80,9 +78,29 @@ pub trait Pins<REMAP, P> {
     const C3: bool = false;
     const C4: bool = false;
     type Channels;
+
+    fn check_used(c: Channel) -> Channel {
+        if (c == Channel::C1 && Self::C1)
+            || (c == Channel::C2 && Self::C2)
+            || (c == Channel::C3 && Self::C3)
+            || (c == Channel::C4 && Self::C4)
+        {
+            c
+        } else {
+            panic!("Unused channel")
+        }
+    }
 }
 
-use crate::timer::sealed::{Remap, Ch1, Ch2, Ch3, Ch4};
+#[derive(Clone, Copy, PartialEq)]
+pub enum Channel {
+    C1,
+    C2,
+    C3,
+    C4,
+}
+
+use crate::timer::sealed::{Ch1, Ch2, Ch3, Ch4, Remap};
 macro_rules! pins_impl {
     ( $( ( $($PINX:ident),+ ), ( $($TRAIT:ident),+ ), ( $($ENCHX:ident),* ); )+ ) => {
         $(
@@ -93,7 +111,7 @@ macro_rules! pins_impl {
                 $($PINX: $TRAIT<REMAP> + gpio::Mode<Alternate<PushPull>>,)+
             {
                 $(const $ENCHX: bool = true;)+
-                type Channels = ($(Pwm<TIM, $ENCHX>),+);
+                type Channels = ($(PwmChannel<TIM, $ENCHX>),+);
             }
         )+
     };
@@ -117,18 +135,9 @@ pins_impl!(
     (P4), (Ch4), (C4);
 );
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 impl Timer<TIM1> {
-    pub fn pwm<REMAP, P, PINS, T>(
-        self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: T,
-    ) -> PINS::Channels
+    pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> Pwm<TIM1, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM1>,
         PINS: Pins<REMAP, P>,
@@ -136,18 +145,17 @@ impl Timer<TIM1> {
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim1_remap().bits(REMAP::REMAP) });
 
+        // TIM1 has a break function that deactivates the outputs, this bit automatically activates
+        // the output when no break input is present
+        self.tim.bdtr.modify(|_, w| w.aoe().set_bit());
+
         let Self { tim, clk } = self;
         tim1(tim, _pins, freq.into(), clk)
     }
 }
 
 impl Timer<TIM2> {
-    pub fn pwm<REMAP, P, PINS, T>(
-        self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: T,
-    ) -> PINS::Channels
+    pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> Pwm<TIM2, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM2>,
         PINS: Pins<REMAP, P>,
@@ -161,12 +169,7 @@ impl Timer<TIM2> {
 }
 
 impl Timer<TIM3> {
-    pub fn pwm<REMAP, P, PINS, T>(
-        self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: T,
-    ) -> PINS::Channels
+    pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> Pwm<TIM3, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM3>,
         PINS: Pins<REMAP, P>,
@@ -181,12 +184,7 @@ impl Timer<TIM3> {
 
 #[cfg(feature = "medium")]
 impl Timer<TIM4> {
-    pub fn pwm<REMAP, P, PINS, T>(
-        self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: T,
-    ) -> PINS::Channels
+    pub fn pwm<REMAP, P, PINS, T>(self, _pins: PINS, mapr: &mut MAPR, freq: T) -> Pwm<TIM4, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM4>,
         PINS: Pins<REMAP, P>,
@@ -199,7 +197,26 @@ impl Timer<TIM4> {
     }
 }
 
-pub struct Pwm<TIM, CHANNEL> {
+pub struct Pwm<TIM, REMAP, P, PINS>
+where
+    REMAP: Remap<Periph = TIM>,
+    PINS: Pins<REMAP, P>
+{
+    clk: Hertz,
+    _pins: PhantomData<(TIM, REMAP, P, PINS)>,
+}
+
+impl<TIM, REMAP, P, PINS> Pwm<TIM, REMAP, P, PINS>
+where
+    REMAP: Remap<Periph = TIM>,
+    PINS: Pins<REMAP, P>
+{
+    pub fn split(self) -> PINS::Channels {
+        unsafe { mem::MaybeUninit::uninit().assume_init() }
+    }
+}
+
+pub struct PwmChannel<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
     _tim: PhantomData<TIM>,
 }
@@ -217,7 +234,7 @@ macro_rules! hal {
                 _pins: PINS,
                 freq: Hertz,
                 clk: Hertz,
-            ) -> PINS::Channels
+            ) -> Pwm<$TIMX, REMAP, P, PINS>
             where
                 REMAP: Remap<Periph = $TIMX>,
                 PINS: Pins<REMAP, P>,
@@ -247,6 +264,12 @@ macro_rules! hal {
                 let arr = u16(ticks / u32(psc + 1)).unwrap();
                 tim.arr.write(|w| w.arr().bits(arr));
 
+                // The psc register is buffered, so we trigger an update event to update it
+                // Sets the URS bit to prevent an interrupt from being triggered by the UG bit
+                tim.cr1.modify(|_, w| w.urs().set_bit());
+                tim.egr.write(|w| w.ug().set_bit());
+                tim.cr1.modify(|_, w| w.urs().clear_bit());
+
                 tim.cr1.write(|w|
                     w.cms()
                         .bits(0b00)
@@ -258,10 +281,97 @@ macro_rules! hal {
                         .set_bit()
                 );
 
-                unsafe { mem::MaybeUninit::uninit().assume_init() }
+                Pwm {
+                    clk: clk,
+                    _pins: PhantomData
+                }
+            }
+            
+        /*
+        The following implemention of the embedded_hal::Pwm uses Hertz as a time type.  This was choosen 
+        because of the timescales of operations being on the order of nanoseconds and not being able to 
+        efficently represent a float on the hardware.  It might be possible to change the time type to
+        a different time based using such as the nanosecond.  The issue with doing so is that the max 
+        delay would then be at just a little over 2 seconds because of the 32 bit depth of the number.
+        Using milliseconds is also an option, however, using this as a base unit means that only there 
+        could be resolution issues when trying to get a specific value, because of the integer nature.
+
+        To find a middle ground, the Hertz type is used as a base here and the Into trait has been 
+        defined for several base time units.  This will allow for calling the set_period method with 
+        something that is natural to both the MCU and the end user.
+        */
+        impl<REMAP, P, PINS> hal::Pwm for Pwm<$TIMX, REMAP, P, PINS> where
+            REMAP: Remap<Periph = $TIMX>,
+            PINS: Pins<REMAP, P>,
+            {
+                type Channel = Channel;
+                type Duty = u16;
+                type Time = Hertz;
+
+                fn enable(&mut self, channel: Self::Channel) {
+                    match PINS::check_used(channel) {
+                        Channel::C1 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) },
+                        Channel::C2 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) },
+                        Channel::C3 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) },
+                        Channel::C4 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) }
+                    }
+                }
+
+                fn disable(&mut self, channel: Self::Channel) {
+                    match PINS::check_used(channel) {
+                        Channel::C1 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) },
+                        Channel::C2 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) },
+                        Channel::C3 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 8) },
+                        Channel::C4 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) },
+                    }
+                }
+
+                fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
+                    match PINS::check_used(channel) {
+                        Channel::C1 => unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() },
+                        Channel::C2 => unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() },
+                        Channel::C3 => unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() },
+                        Channel::C4 => unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() },
+                    }
+                }
+
+                fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
+                    match PINS::check_used(channel) {
+                        Channel::C1 => unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) },
+                        Channel::C2 => unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) },
+                        Channel::C3 => unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) },
+                        Channel::C4 => unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) },
+                    }
+                }
+
+                fn get_max_duty(&self) -> Self::Duty {
+                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
+                }
+
+                fn get_period(&self) -> Self::Time {
+                    let clk = self.clk;
+                    let psc: u16 = unsafe{(*$TIMX::ptr()).psc.read().psc().bits()};
+                    let arr: u16 = unsafe{(*$TIMX::ptr()).psc.read().psc().bits()};
+
+                    // Length in ms of an internal clock pulse
+                    (clk.0 / u32(psc * arr)).hz()
+                }
+
+                fn set_period<T>(&mut self, period: T) where
+                    T: Into<Self::Time> {
+                        let clk = self.clk;
+
+                        let ticks = clk.0 / period.into().0;
+                        let psc = u16(ticks / (1 << 16)).unwrap();
+                        let arr = u16(ticks / u32(psc + 1)).unwrap();
+                        unsafe {
+                            (*$TIMX::ptr()).psc.write(|w| w.psc().bits(psc));
+                            (*$TIMX::ptr()).arr.write(|w| w.arr().bits(arr));
+                        }
+                }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C1> {
+            impl hal::PwmPin for PwmChannel<$TIMX, C1> {
                 type Duty = u16;
 
                 fn disable(&mut self) {
@@ -285,7 +395,7 @@ macro_rules! hal {
                 }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C2> {
+            impl hal::PwmPin for PwmChannel<$TIMX, C2> {
                 type Duty = u16;
 
                 fn disable(&mut self) {
@@ -309,7 +419,7 @@ macro_rules! hal {
                 }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C3> {
+            impl hal::PwmPin for PwmChannel<$TIMX, C3> {
                 type Duty = u16;
 
                 fn disable(&mut self) {
@@ -333,7 +443,7 @@ macro_rules! hal {
                 }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C4> {
+            impl hal::PwmPin for PwmChannel<$TIMX, C4> {
                 type Duty = u16;
 
                 fn disable(&mut self) {
@@ -360,11 +470,7 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 hal! {
     TIM1: (tim1),
 }
