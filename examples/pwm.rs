@@ -11,6 +11,8 @@ use stm32f1xx_hal::{
     prelude::*,
     pac,
     timer::{Tim2NoRemap, Timer},
+    time::U32Ext,
+    pwm::Channel
 };
 use cortex_m_rt::entry;
 
@@ -49,25 +51,56 @@ fn main() -> ! {
     // let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
     let mut pwm = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1)
-        .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz())
-        .2;
+        .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz());
+
+    //// Operations affecting all defined channels on the Timer
+
+    // Adjust period to 0.5 seconds
+    pwm.set_period(500.ms());
+
+    asm::bkpt();
+
+    // Return to the original frequency
+    pwm.set_period(1.khz());
+
+    asm::bkpt();
 
     let max = pwm.get_max_duty();
 
-    pwm.enable();
+    //// Operations affecting single channels can be accessed through
+    //// the Pwm object or via dereferencing to the pin.
 
-    // full
-    pwm.set_duty(max);
-
-    asm::bkpt();
-
-    // dim
-    pwm.set_duty(max / 4);
+    // Use the Pwm object to set C3 to full strength
+    pwm.set_duty(Channel::C3, max);
 
     asm::bkpt();
 
-    // zero
-    pwm.set_duty(0);
+    // Use the Pwm object to set C3 to be dim
+    pwm.set_duty(Channel::C3, max / 4);
+
+    asm::bkpt();
+
+    // Use the Pwm object to set C3 to be zero
+    pwm.set_duty(Channel::C3, 0);
+
+    asm::bkpt();
+
+
+    // Extract the PwmChannel for C3
+    let mut pwm_channel = pwm.split().2;
+
+    // Use the PwmChannel object to set C3 to be full strength
+    pwm_channel.set_duty(max);
+
+    asm::bkpt();
+
+    // Use the PwmChannel object to set C3 to be dim
+    pwm_channel.set_duty(max / 4);
+
+    asm::bkpt();
+
+    // Use the PwmChannel object to set C3 to be zero
+    pwm_channel.set_duty(0);
 
     asm::bkpt();
 
