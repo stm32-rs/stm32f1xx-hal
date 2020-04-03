@@ -15,7 +15,7 @@ use stm32f1xx_hal as hal;
 use crate::hal::{
     gpio::*,
     prelude::*,
-    stm32::{interrupt, Interrupt, Peripherals, TIM2},
+    pac::{interrupt, Interrupt, Peripherals, TIM2},
     timer::*,
 };
 

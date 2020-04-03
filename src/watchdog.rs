@@ -1,7 +1,7 @@
 //! Watchdog peripherals
 
 use crate::{
-    stm32::{IWDG, DBGMCU as DBG},
+    pac::{IWDG, DBGMCU as DBG},
     hal::watchdog::{Watchdog, WatchdogEnable},
     time::MilliSeconds,
 };

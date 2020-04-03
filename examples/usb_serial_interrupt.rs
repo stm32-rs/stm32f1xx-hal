@@ -8,7 +8,7 @@ extern crate panic_semihosting;
 use cortex_m::asm::{delay, wfi};
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
-use stm32f1xx_hal::stm32::{interrupt, Interrupt};
+use stm32f1xx_hal::pac::{interrupt, Interrupt};
 use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
 use stm32f1xx_hal::{prelude::*, stm32};
 use usb_device::{bus::UsbBusAllocator, prelude::*};
@@ -21,7 +21,7 @@ static mut USB_DEVICE: Option<UsbDevice<UsbBusType>> = None;
 #[entry]
 fn main() -> ! {
     let p = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32::Peripherals::take().unwrap();
+    let dp = pac::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();

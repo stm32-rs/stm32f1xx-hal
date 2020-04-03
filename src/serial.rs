@@ -193,7 +193,7 @@ pub struct Tx<USART> {
 }
 
 /// Internal trait for the serial read / write logic.
-trait UsartReadWrite: Deref<Target=crate::stm32::usart1::RegisterBlock> {
+trait UsartReadWrite: Deref<Target=crate::pac::usart1::RegisterBlock> {
     fn read(&self) -> nb::Result<u8, Error> {
         let sr = self.sr.read();
 
@@ -259,7 +259,7 @@ trait UsartReadWrite: Deref<Target=crate::stm32::usart1::RegisterBlock> {
         }
     }
 }
-impl UsartReadWrite for &crate::stm32::usart1::RegisterBlock {}
+impl UsartReadWrite for &crate::pac::usart1::RegisterBlock {}
 
 macro_rules! hal {
     ($(

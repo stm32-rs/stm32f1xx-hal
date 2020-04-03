@@ -17,7 +17,7 @@
 use core::marker::PhantomData;
 
 use crate::rcc::APB2;
-use crate::stm32::EXTI;
+use crate::pac::EXTI;
 use crate::afio;
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
@@ -108,7 +108,7 @@ macro_rules! gpio {
 
             use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, toggleable};
             use crate::pac::{$gpioy, $GPIOX};
-            use crate::stm32::EXTI;
+            use crate::pac::EXTI;
             use crate::afio;
 
             use crate::rcc::{APB2, Enable, Reset};
