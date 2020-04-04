@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Consistently use PAC as `pac` and mark `device` and `stm32` informally as deprecated
 - Replace default blocking spi Write implementation with an optimized one
 - Use `Deref` for SPI generic implementations instead of macros
 

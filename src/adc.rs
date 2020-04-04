@@ -10,14 +10,14 @@ use crate::dma::{Receive, TransferPayload, dma1::C1, CircBuffer, Transfer, W, Rx
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 
-use crate::stm32::ADC1;
+use crate::pac::ADC1;
 #[cfg(feature = "stm32f103")]
-use crate::stm32::ADC2;
+use crate::pac::ADC2;
 #[cfg(all(
     feature = "stm32f103",
     feature = "high",
 ))]
-use crate::stm32::ADC3;
+use crate::pac::ADC3;
 
 /// Continuous mode
 pub struct Continuous;
