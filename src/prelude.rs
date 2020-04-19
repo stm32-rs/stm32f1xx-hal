@@ -1,5 +1,6 @@
 pub use crate::adc::ChannelTimeSequence as _stm32_hal_adc_ChannelTimeSequence;
 pub use crate::afio::AfioExt as _stm32_hal_afio_AfioExt;
+pub use crate::crc::CrcExt as _stm32_hal_crc_CrcExt;
 pub use crate::dma::CircReadDma as _stm32_hal_dma_CircReadDma;
 pub use crate::dma::DmaExt as _stm32_hal_dma_DmaExt;
 pub use crate::dma::ReadDma as _stm32_hal_dma_ReadDma;
