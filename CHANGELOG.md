@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 
 - Fix PWM on `TIM1`
+- Fix ADC race condition causing incorrect reads at certain frequencies
 
 ## [v0.5.3] - 2020-01-20
 
