@@ -349,13 +349,34 @@ macro_rules! adc_hal {
                     self.rb.sqr1.modify(|_, w| w.l().bits((len-1) as u8));
                 }
 
+                /**
+                  Performs an ADC conversion
+
+                  NOTE: Conversions can be started by writing a 1 to the ADON
+                  bit in the `CR2` while it is already 1, and no other bits
+                  are being written in the same operation. This means that
+                  the EOC bit *might* be set already when entering this function
+                  which can cause a read of stale values
+
+                  The check for `cr2.swstart.bit_is_set` *should* fix it, but
+                  does not. Therefore, ensure you do not do any no-op modifications
+                  to `cr2` just before calling this function
+                */
                 fn convert(&mut self, chan: u8) -> u16 {
-                    self.rb.cr2.modify(|_, w| w.align().bit(self.align.into()));
+                    // Dummy read in case something accidentally triggered
+                    // a conversion by writing to CR2 without changing any
+                    // of the bits
+                    self.rb.dr.read().data().bits();
+
                     self.set_channel_sample_time(chan, self.sample_time);
                     self.rb.sqr3.modify(|_, w| unsafe { w.sq1().bits(chan) });
 
                     // ADC start conversion of regular sequence
-                    self.rb.cr2.modify(|_, w| w.swstart().set_bit());
+                    self.rb.cr2.modify(|_, w|
+                        w
+                            .swstart().set_bit()
+                            .align().bit(self.align.into())
+                    );
                     while self.rb.cr2.read().swstart().bit_is_set() {}
                     // ADC wait for conversion results
                     while self.rb.sr.read().eoc().bit_is_clear() {}
