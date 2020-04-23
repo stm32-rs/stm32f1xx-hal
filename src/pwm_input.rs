@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use core::mem;
 
 use crate::pac::DBGMCU as DBG;
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
@@ -82,7 +82,7 @@ where
     RawValues { arr: u16, presc: u16 },
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 impl Timer<TIM1> {
     pub fn pwm_input<REMAP, PINS, T>(
         mut self,
@@ -305,7 +305,7 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 hal! {
     TIM1: (tim1),
 }

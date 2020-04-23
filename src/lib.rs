@@ -16,6 +16,8 @@
 //! - stm32f103
 //! - stm32f101
 //! - stm32f100
+//! - stm32f105
+//! - stm32f107
 //!
 //! ## Usage
 //!
@@ -30,6 +32,8 @@
 //! - `stm32f100`
 //! - `stm32f101`
 //! - `stm32f103`
+//! - `stm32f105`
+//! - `stm32f107`
 //!
 //! You may also need to specify the density of the device with `medium`, `high` or `xl`
 //! to enable certain peripherals. Generally the density can be determined by the 2nd character
@@ -66,14 +70,27 @@
 #![deny(intra_doc_link_resolution_failure)]
 
 // If no target specified, print error message.
-#[cfg(not(any(feature = "stm32f100", feature = "stm32f101", feature = "stm32f103")))]
+#[cfg(not(any(
+    feature = "stm32f100",
+    feature = "stm32f101",
+    feature = "stm32f103",
+    feature = "stm32f105",
+    feature = "stm32f107",
+)))]
 compile_error!("Target not found. A `--features <target-name>` is required.");
 
 // If any two or more targets are specified, print error message.
 #[cfg(any(
     all(feature = "stm32f100", feature = "stm32f101"),
     all(feature = "stm32f100", feature = "stm32f103"),
+    all(feature = "stm32f100", feature = "stm32f105"),
+    all(feature = "stm32f100", feature = "stm32f107"),
     all(feature = "stm32f101", feature = "stm32f103"),
+    all(feature = "stm32f101", feature = "stm32f105"),
+    all(feature = "stm32f101", feature = "stm32f107"),
+    all(feature = "stm32f103", feature = "stm32f105"),
+    all(feature = "stm32f103", feature = "stm32f107"),
+    all(feature = "stm32f105", feature = "stm32f107"),
 ))]
 compile_error!(
     "Multiple targets specified. Only a single `--features <target-name>` can be specified."
@@ -90,6 +107,9 @@ pub use stm32f1::stm32f101 as pac;
 
 #[cfg(feature = "stm32f103")]
 pub use stm32f1::stm32f103 as pac;
+
+#[cfg(any(feature = "stm32f105", feature = "stm32f107"))]
+pub use stm32f1::stm32f107 as pac;
 
 #[cfg(feature = "device-selected")]
 #[deprecated(since = "0.6.0", note = "please use `pac` instead")]

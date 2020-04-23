@@ -34,7 +34,7 @@ use core::ops::Deref;
 use core::ptr;
 
 pub use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
-#[cfg(feature = "high")]
+#[cfg(any(feature = "high", feature = "connectivity"))]
 use crate::pac::SPI3;
 use crate::pac::{SPI1, SPI2};
 
@@ -43,6 +43,8 @@ use crate::dma::dma1::{C3, C5};
 use crate::dma::{Static, Transfer, TransferPayload, Transmit, TxDma, R};
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
+#[cfg(feature = "connectivity")]
+use crate::gpio::gpioc::{PC10, PC11, PC12};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
 use crate::time::Hertz;
@@ -141,7 +143,7 @@ remap!(Spi1Remap, SPI1, true, PB3, PB4, PB5);
 remap!(Spi2NoRemap, SPI2, false, PB13, PB14, PB15);
 #[cfg(feature = "high")]
 remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
-#[cfg(feature = "stm32f105")]
+#[cfg(feature = "connectivity")]
 remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
 
 impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
@@ -182,7 +184,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
     }
 }
 
-#[cfg(feature = "high")]
+#[cfg(any(feature = "high", feature = "connectivity"))]
 impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
     pub fn spi3<F, POS>(
         spi: SPI3,

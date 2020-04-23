@@ -48,20 +48,17 @@
 */
 
 use crate::hal::timer::{CountDown, Periodic};
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
-#[cfg(feature = "high")]
+#[cfg(any(feature = "high", feature = "connectivity"))]
 use crate::pac::TIM5;
-#[cfg(any(feature = "stm32f100", feature = "stm32f105", feature = "high",))]
+#[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity",))]
 use crate::pac::TIM6;
 #[cfg(any(
-    all(
-        feature = "high",
-        any(feature = "stm32f101", feature = "stm32f103", feature = "stm32f107",),
-    ),
-    any(feature = "stm32f100", feature = "stm32f105",)
+    all(feature = "high", any(feature = "stm32f101", feature = "stm32f103",),),
+    any(feature = "stm32f100", feature = "connectivity",)
 ))]
 use crate::pac::TIM7;
 #[cfg(all(feature = "stm32f103", feature = "high",))]
@@ -125,12 +122,12 @@ use crate::gpio::gpioa::{PA0, PA1, PA15, PA2, PA3, PA6, PA7};
 use crate::gpio::gpiob::{PB0, PB1, PB10, PB11, PB3, PB4, PB5};
 use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::gpio::{
     gpioa::{PA10, PA11, PA8, PA9},
     gpioe::{PE11, PE13, PE14, PE9},
 };
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 remap!(
     Tim1NoRemap: (TIM1, 0b00, PA8, PA9, PA10, PA11),
     //Tim1PartialRemap: (TIM1, 0b01, PA8, PA9, PA10, PA11),
@@ -426,22 +423,19 @@ hal! {
     TIM3: (tim3, dbg_tim3_stop, tim2),
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 hal! {
     TIM1: (tim1, dbg_tim1_stop, tim1),
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f105", feature = "high",))]
+#[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity",))]
 hal! {
     TIM6: (tim6, dbg_tim6_stop, tim6),
 }
 
 #[cfg(any(
-    all(
-        feature = "high",
-        any(feature = "stm32f101", feature = "stm32f103", feature = "stm32f107",),
-    ),
-    any(feature = "stm32f100", feature = "stm32f105",)
+    all(feature = "high", any(feature = "stm32f101", feature = "stm32f103",),),
+    any(feature = "stm32f100", feature = "connectivity",)
 ))]
 hal! {
     TIM7: (tim7, dbg_tim7_stop, tim6),
@@ -459,7 +453,7 @@ hal! {
     TIM4: (tim4, dbg_tim4_stop, tim2),
 }
 
-#[cfg(feature = "high")]
+#[cfg(any(feature = "high", feature = "connectivity"))]
 hal! {
     TIM5: (tim5, dbg_tim5_stop, tim2),
 }

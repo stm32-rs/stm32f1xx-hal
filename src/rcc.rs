@@ -173,11 +173,16 @@ impl CFGR {
         let pllsrcclk = self.hse.unwrap_or(HSI / 2);
 
         let pllmul = self.sysclk.unwrap_or(pllsrcclk) / pllsrcclk;
-        let pllmul = cmp::min(cmp::max(pllmul, 1), 16);
 
         let (pllmul_bits, sysclk) = if pllmul == 1 {
             (None, self.hse.unwrap_or(HSI))
         } else {
+            #[cfg(not(feature = "connectivity"))]
+            let pllmul = cmp::min(cmp::max(pllmul, 1), 16);
+
+            #[cfg(feature = "connectivity")]
+            let pllmul = cmp::min(cmp::max(pllmul, 4), 9);
+
             (Some(pllmul as u8 - 2), pllsrcclk * pllmul)
         };
 
@@ -242,7 +247,7 @@ impl CFGR {
         assert!(pclk2 <= 72_000_000);
 
         // adjust flash wait states
-        #[cfg(feature = "stm32f103")]
+        #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         unsafe {
             acr.acr().write(|w| {
                 w.latency().bits(if sysclk <= 24_000_000 {
@@ -292,7 +297,8 @@ impl CFGR {
         if let Some(pllmul_bits) = pllmul_bits {
             // enable PLL and wait for it to be ready
 
-            rcc.cfgr.modify(|_, w| {
+            #[allow(unused_unsafe)]
+            rcc.cfgr.modify(|_, w| unsafe {
                 w.pllmul()
                     .bits(pllmul_bits)
                     .pllsrc()
@@ -305,6 +311,30 @@ impl CFGR {
         }
 
         // set prescalers and clock source
+        #[cfg(feature = "connectivity")]
+        rcc.cfgr.modify(|_, w| unsafe {
+            w.adcpre().bits(apre_bits);
+            w.ppre2()
+                .bits(ppre2_bits)
+                .ppre1()
+                .bits(ppre1_bits)
+                .hpre()
+                .bits(hpre_bits)
+                .otgfspre()
+                .bit(usbpre)
+                .sw()
+                .bits(if pllmul_bits.is_some() {
+                    // PLL
+                    0b10
+                } else if self.hse.is_some() {
+                    // HSE
+                    0b1
+                } else {
+                    // HSI
+                    0b0
+                })
+        });
+
         #[cfg(feature = "stm32f103")]
         rcc.cfgr.modify(|_, w| unsafe {
             w.adcpre().bits(apre_bits);
@@ -574,7 +604,7 @@ bus! {
     WWDG => (APB1, wwdgen, wwdgrst),
 }
 
-#[cfg(feature = "high")]
+#[cfg(any(feature = "high", feature = "connectivity"))]
 bus! {
     SPI3 => (APB1, spi3en, spi3rst),
 }
@@ -595,22 +625,19 @@ bus! {
     TIM3 => (APB1, tim3en, tim3rst),
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
 bus! {
     TIM1 => (APB2, tim1en, tim1rst),
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f105", feature = "high",))]
+#[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity"))]
 bus! {
     TIM6 => (APB1, tim6en, tim6rst),
 }
 
 #[cfg(any(
-    all(
-        feature = "high",
-        any(feature = "stm32f101", feature = "stm32f103", feature = "stm32f107",)
-    ),
-    any(feature = "stm32f100", feature = "stm32f105",)
+    all(feature = "high", any(feature = "stm32f101", feature = "stm32f103")),
+    any(feature = "stm32f100", feature = "connectivity")
 ))]
 bus! {
     TIM7 => (APB1, tim7en, tim7rst),
@@ -628,7 +655,7 @@ bus! {
     TIM4 => (APB1, tim4en, tim4rst),
 }
 
-#[cfg(feature = "high")]
+#[cfg(any(feature = "high", feature = "connectivity"))]
 bus! {
     TIM5 => (APB1, tim5en, tim5rst),
 }
