@@ -6,8 +6,8 @@
 
 use panic_semihosting as _;
 
-use stm32f1xx_hal as _;
 use cortex_m_semihosting::hprintln;
+use stm32f1xx_hal as _;
 
 use cortex_m_rt::entry;
 

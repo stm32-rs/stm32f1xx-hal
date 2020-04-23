@@ -12,17 +12,16 @@
   See examples/rtc.rs and examples/blinky_rtc.rs for usage examples.
 */
 
-use crate::pac::{RTC, RCC};
+use crate::pac::{RCC, RTC};
 
 use crate::backup_domain::BackupDomain;
 use crate::time::Hertz;
 
-use nb;
 use core::convert::Infallible;
+use nb;
 
 // The LSE runs at at 32 768 hertz unless an external clock is provided
 const LSE_HERTZ: u32 = 32_768;
-
 
 /**
   Interface to the real time clock
@@ -37,9 +36,7 @@ impl Rtc {
       `Rcc.bkp.constrain()`.
     */
     pub fn rtc(regs: RTC, bkp: &mut BackupDomain) -> Self {
-        let mut result = Rtc {
-            regs,
-        };
+        let mut result = Rtc { regs };
 
         Rtc::enable_rtc(bkp);
 
@@ -62,11 +59,14 @@ impl Rtc {
         rcc.bdcr.modify(|_, w| {
             w
                 // start the LSE oscillator
-                .lseon().set_bit()
+                .lseon()
+                .set_bit()
                 // Enable the RTC
-                .rtcen().set_bit()
+                .rtcen()
+                .set_bit()
                 // Set the source of the RTC to LSE
-                .rtcsel().lse()
+                .rtcsel()
+                .lse()
         })
     }
 
@@ -80,17 +80,23 @@ impl Rtc {
         assert!(frequency <= LSE_HERTZ / 2);
 
         let prescaler = LSE_HERTZ / frequency - 1;
-        self.perform_write( |s| {
+        self.perform_write(|s| {
             s.regs.prlh.write(|w| unsafe { w.bits(prescaler >> 16) });
-            s.regs.prll.write(|w| unsafe { w.bits(prescaler as u16 as u32) });
+            s.regs
+                .prll
+                .write(|w| unsafe { w.bits(prescaler as u16 as u32) });
         });
     }
 
     /// Set the current RTC counter value to the specified amount
     pub fn set_time(&mut self, counter_value: u32) {
         self.perform_write(|s| {
-            s.regs.cnth.write(|w| unsafe{w.bits(counter_value >> 16)});
-            s.regs.cntl.write(|w| unsafe{w.bits(counter_value as u16 as u32)});
+            s.regs
+                .cnth
+                .write(|w| unsafe { w.bits(counter_value >> 16) });
+            s.regs
+                .cntl
+                .write(|w| unsafe { w.bits(counter_value as u16 as u32) });
         });
     }
 
@@ -103,12 +109,16 @@ impl Rtc {
         // Set alarm time
         // See section 18.3.5 for explanation
         let alarm_value = counter_value - 1;
-        
+
         // TODO: Remove this `allow` once these fields are made safe for stm32f100
-        #[allow(unused_unsafe)]                    
+        #[allow(unused_unsafe)]
         self.perform_write(|s| {
-            s.regs.alrh.write(|w| unsafe{w.alrh().bits((alarm_value >> 16) as u16)});
-            s.regs.alrl.write(|w| unsafe{w.alrl().bits(alarm_value as u16)});
+            s.regs
+                .alrh
+                .write(|w| unsafe { w.alrh().bits((alarm_value >> 16) as u16) });
+            s.regs
+                .alrl
+                .write(|w| unsafe { w.alrl().bits(alarm_value as u16) });
         });
 
         self.clear_alarm_flag();
@@ -140,30 +150,22 @@ impl Rtc {
 
     /// Enables the RTC second interrupt
     pub fn listen_seconds(&mut self) {
-        self.perform_write(|s| {
-            s.regs.crh.modify(|_, w| w.secie().set_bit())
-        })
+        self.perform_write(|s| s.regs.crh.modify(|_, w| w.secie().set_bit()))
     }
 
     /// Disables the RTC second interrupt
     pub fn unlisten_seconds(&mut self) {
-        self.perform_write(|s| {
-            s.regs.crh.modify(|_, w| w.secie().clear_bit())
-        })
+        self.perform_write(|s| s.regs.crh.modify(|_, w| w.secie().clear_bit()))
     }
 
     /// Clears the RTC second interrupt flag
     pub fn clear_second_flag(&mut self) {
-        self.perform_write(|s| {
-            s.regs.crl.modify(|_, w| w.secf().clear_bit())
-        })
+        self.perform_write(|s| s.regs.crl.modify(|_, w| w.secf().clear_bit()))
     }
 
     /// Clears the RTC alarm interrupt flag
     pub fn clear_alarm_flag(&mut self) {
-        self.perform_write(|s| {
-            s.regs.crl.modify(|_, w| w.alrf().clear_bit())
-        })
+        self.perform_write(|s| s.regs.crl.modify(|_, w| w.alrf().clear_bit()))
     }
 
     /**
@@ -181,12 +183,10 @@ impl Rtc {
         if self.regs.crl.read().alrf().bit() == true {
             self.regs.crl.modify(|_, w| w.alrf().clear_bit());
             Ok(())
-        }
-        else {
+        } else {
             Err(nb::Error::WouldBlock)
         }
     }
-
 
     /**
       The RTC registers can not be written to at any time as documented on page

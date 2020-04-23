@@ -16,9 +16,9 @@
 
 use core::marker::PhantomData;
 
-use crate::rcc::APB2;
-use crate::pac::EXTI;
 use crate::afio;
+use crate::pac::EXTI;
+use crate::rcc::APB2;
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
@@ -28,7 +28,6 @@ pub trait GpioExt {
     /// Splits the GPIO block into independent pins and registers
     fn split(self, apb2: &mut APB2) -> Self::Parts;
 }
-
 
 /// Marker trait for pin mode detection.
 pub trait Mode<MODE> {}
@@ -786,7 +785,7 @@ macro_rules! impl_pxx {
     }
 }
 
-impl_pxx!{
+impl_pxx! {
     (gpioa::PAx),
     (gpiob::PBx),
     (gpioc::PCx),

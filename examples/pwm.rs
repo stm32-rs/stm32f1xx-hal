@@ -7,14 +7,14 @@
 use panic_halt as _;
 
 use cortex_m::asm;
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    timer::{Tim2NoRemap, Timer},
-    time::U32Ext,
-    pwm::Channel
-};
 use cortex_m_rt::entry;
+use stm32f1xx_hal::{
+    pac,
+    prelude::*,
+    pwm::Channel,
+    time::U32Ext,
+    timer::{Tim2NoRemap, Timer},
+};
 
 #[entry]
 fn main() -> ! {
@@ -50,8 +50,11 @@ fn main() -> ! {
     // let c3 = gpiob.pb8.into_alternate_push_pull(&mut gpiob.crh);
     // let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
-    let mut pwm = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1)
-        .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz());
+    let mut pwm = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1).pwm::<Tim2NoRemap, _, _, _>(
+        pins,
+        &mut afio.mapr,
+        1.khz(),
+    );
 
     //// Operations affecting all defined channels on the Timer
 
@@ -84,7 +87,6 @@ fn main() -> ! {
     pwm.set_duty(Channel::C3, 0);
 
     asm::bkpt();
-
 
     // Extract the PwmChannel for C3
     let mut pwm_channel = pwm.split().2;

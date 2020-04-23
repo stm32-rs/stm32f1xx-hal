@@ -4,12 +4,8 @@
 
 use panic_semihosting as _;
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    adc,
-};
 use cortex_m_rt::entry;
+use stm32f1xx_hal::{adc, pac, prelude::*};
 
 use cortex_m_semihosting::hprintln;
 
@@ -20,7 +16,13 @@ fn main() -> ! {
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
 
-    let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(56.mhz()).pclk1(28.mhz()).adcclk(14.mhz()).freeze(&mut flash.acr);
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.mhz())
+        .sysclk(56.mhz())
+        .pclk1(28.mhz())
+        .adcclk(14.mhz())
+        .freeze(&mut flash.acr);
     hprintln!("sysclk freq: {}", clocks.sysclk().0).unwrap();
     hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
 

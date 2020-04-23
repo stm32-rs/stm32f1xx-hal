@@ -12,12 +12,12 @@ use cortex_m::asm;
 
 use nb::block;
 
+use cortex_m_rt::entry;
 use stm32f1xx_hal::{
-    prelude::*,
     pac,
+    prelude::*,
     serial::{Config, Serial},
 };
-use cortex_m_rt::entry;
 
 #[entry]
 fn main() -> ! {
@@ -68,7 +68,6 @@ fn main() -> ! {
         &mut rcc.apb1,
     );
 
-
     // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';
     block!(serial.write(sent)).ok();
@@ -82,7 +81,6 @@ fn main() -> ! {
     // Trigger a breakpoint to allow us to inspect the values
     asm::bkpt();
 
-
     // You can also split the serial struct into a receiving and a transmitting part
     let (mut tx, mut rx) = serial.split();
     let sent = b'Y';
@@ -90,7 +88,6 @@ fn main() -> ! {
     let received = block!(rx.read()).unwrap();
     assert_eq!(received, sent);
     asm::bkpt();
-
 
     loop {}
 }

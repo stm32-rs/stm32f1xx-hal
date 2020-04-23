@@ -38,24 +38,24 @@
 //!  ```
 
 use core::marker::PhantomData;
+use core::ops::Deref;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
-use core::ops::Deref;
 
-use nb;
 use crate::pac::{USART1, USART2, USART3};
 use core::convert::Infallible;
 use embedded_hal::serial::Write;
+use nb;
 
 use crate::afio::MAPR;
-use crate::dma::{dma1, CircBuffer, Static, Transfer, R, W, RxDma, TxDma};
+use crate::dma::{dma1, CircBuffer, RxDma, Static, Transfer, TxDma, R, W};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{sealed::RccBus, Clocks, Enable, Reset, GetBusFreq};
-use crate::time::{U32Ext, Bps};
+use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
+use crate::time::{Bps, U32Ext};
 
 /// Interrupt event
 pub enum Event {
@@ -79,7 +79,6 @@ pub enum Error {
     #[doc(hidden)]
     _Extensible,
 }
-
 
 // USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
 // Section 9.3.8
@@ -193,7 +192,7 @@ pub struct Tx<USART> {
 }
 
 /// Internal trait for the serial read / write logic.
-trait UsartReadWrite: Deref<Target=crate::pac::usart1::RegisterBlock> {
+trait UsartReadWrite: Deref<Target = crate::pac::usart1::RegisterBlock> {
     fn read(&self) -> nb::Result<u8, Error> {
         let sr = self.sr.read();
 
@@ -225,9 +224,7 @@ trait UsartReadWrite: Deref<Target=crate::pac::usart1::RegisterBlock> {
             if sr.rxne().bit_is_set() {
                 // Read the received byte
                 // NOTE(read_volatile) see `write_volatile` below
-                Ok(unsafe {
-                    ptr::read_volatile(&self.dr as *const _ as *const _)
-                })
+                Ok(unsafe { ptr::read_volatile(&self.dr as *const _ as *const _) })
             } else {
                 Err(nb::Error::WouldBlock)
             }
@@ -240,9 +237,7 @@ trait UsartReadWrite: Deref<Target=crate::pac::usart1::RegisterBlock> {
         if sr.txe().bit_is_set() {
             // NOTE(unsafe) atomic write to stateless register
             // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-            unsafe {
-                ptr::write_volatile(&self.dr as *const _ as *mut _, byte)
-            }
+            unsafe { ptr::write_volatile(&self.dr as *const _ as *mut _, byte) }
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -503,7 +498,7 @@ pub type Tx2 = Tx<USART2>;
 pub type Rx3 = Rx<USART3>;
 pub type Tx3 = Tx<USART3>;
 
-use crate::dma::{Transmit, Receive, TransferPayload};
+use crate::dma::{Receive, TransferPayload, Transmit};
 
 macro_rules! serialdma {
     ($(

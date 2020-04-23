@@ -48,51 +48,34 @@
 */
 
 use crate::hal::timer::{CountDown, Periodic};
-use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
 #[cfg(feature = "high")]
 use crate::pac::TIM5;
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f105",
-    feature = "high",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f105", feature = "high",))]
 use crate::pac::TIM6;
 #[cfg(any(
     all(
         feature = "high",
-        any(
-            feature = "stm32f101",
-            feature = "stm32f103",
-            feature = "stm32f107",
-        ),
+        any(feature = "stm32f101", feature = "stm32f103", feature = "stm32f107",),
     ),
-    any(
-        feature = "stm32f100",
-        feature = "stm32f105",
-)))]
-use crate::pac::TIM7;
-#[cfg(all(
-    feature = "stm32f103",
-    feature = "high",
+    any(feature = "stm32f100", feature = "stm32f105",)
 ))]
+use crate::pac::TIM7;
+#[cfg(all(feature = "stm32f103", feature = "high",))]
 use crate::pac::TIM8;
+use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
 #[cfg(feature = "stm32f100")]
 use crate::pac::{TIM15, TIM16, TIM17};
 
+use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
 use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use nb;
 use void::Void;
-use crate::rcc::{sealed::RccBus, Clocks, Enable, Reset, GetBusFreq};
 
 use crate::time::Hertz;
 
@@ -111,7 +94,6 @@ pub struct CountDownTimer<TIM> {
     tim: TIM,
     clk: Hertz,
 }
-
 
 pub(crate) mod sealed {
     pub trait Remap {
@@ -140,25 +122,16 @@ macro_rules! remap {
     }
 }
 
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA6, PA7, PA15};
-use crate::gpio::gpiob::{PB0, PB1, PB3, PB4, PB5, PB10, PB11};
+use crate::gpio::gpioa::{PA0, PA1, PA15, PA2, PA3, PA6, PA7};
+use crate::gpio::gpiob::{PB0, PB1, PB10, PB11, PB3, PB4, PB5};
 use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
 
-
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 use crate::gpio::{
-    gpioa::{PA8, PA9, PA10, PA11},
-    gpioe::{PE9, PE11, PE13, PE14},
+    gpioa::{PA10, PA11, PA8, PA9},
+    gpioe::{PE11, PE13, PE14, PE9},
 };
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 remap!(
     Tim1NoRemap: (TIM1, 0b00, PA8, PA9, PA10, PA11),
     //Tim1PartialRemap: (TIM1, 0b01, PA8, PA9, PA10, PA11),
@@ -170,7 +143,7 @@ remap!(
     Tim2PartialRemap1: (TIM2, 0b01, PA15, PB3, PA2, PA3),
     Tim2PartialRemap2: (TIM2, 0b10, PA0, PA1, PB10, PB11),
     Tim2FullRemap: (TIM2, 0b11, PA15, PB3, PB10, PB11),
-    
+
     Tim3NoRemap: (TIM3, 0b00, PA6, PA7, PB0, PB1),
     Tim3PartialRemap: (TIM3, 0b10, PB4, PB5, PB0, PB1),
     Tim3FullRemap: (TIM3, 0b11, PC6, PC7, PC8, PC9),
@@ -179,7 +152,7 @@ remap!(
 #[cfg(feature = "medium")]
 use crate::gpio::{
     gpiob::{PB6, PB7, PB8, PB9},
-    gpiod::{PD12, PD13, PD14, PD15}
+    gpiod::{PD12, PD13, PD14, PD15},
 };
 #[cfg(feature = "medium")]
 remap!(
@@ -190,7 +163,10 @@ remap!(
 impl Timer<SYST> {
     pub fn syst(mut syst: SYST, clocks: &Clocks) -> Self {
         syst.set_clock_source(SystClkSource::Core);
-        Self { tim: syst, clk: clocks.sysclk() }
+        Self {
+            tim: syst,
+            clk: clocks.sysclk(),
+        }
     }
 
     pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<SYST>
@@ -246,8 +222,8 @@ impl CountDownTimer<SYST> {
     /// Stops the timer
     pub fn stop(mut self) -> Timer<SYST> {
         self.tim.disable_counter();
-        let Self {tim, clk} = self;
-        Timer {tim, clk}
+        let Self { tim, clk } = self;
+        Timer { tim, clk }
     }
 
     /// Releases the SYST
@@ -377,12 +353,12 @@ macro_rules! hal {
                 pub fn micros_since(&self) -> u32 {
                     let timer_clock = self.clk.0;
                     let psc = u32(self.tim.psc.read().psc().bits());
-                    
+
                     // freq_divider is always bigger than 0, since (psc + 1) is always less than
                     // timer_clock
                     let freq_divider = u64(timer_clock / (psc + 1));
                     let cnt = u64(self.tim.cnt.read().cnt().bits());
-                    
+
                     // It is safe to make this cast, because the maximum timer period in this HAL is
                     // 1s (1Hz), then 1 second < (2^32 - 1) microseconds
                     u32(1_000_000 * cnt / freq_divider).unwrap()
@@ -411,7 +387,7 @@ macro_rules! hal {
 
                     let (psc, arr) = compute_arr_presc(timeout.into().0, self.clk.0);
                     self.tim.psc.write(|w| w.psc().bits(psc) );
-                    
+
                     // TODO: Remove this `allow` once this field is made safe for stm32f100
                     #[allow(unused_unsafe)]
                     self.tim.arr.write(|w| unsafe { w.arr().bits(arr) });
@@ -451,20 +427,12 @@ hal! {
     TIM3: (tim3, dbg_tim3_stop, tim2),
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 hal! {
     TIM1: (tim1, dbg_tim1_stop, tim1),
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f105",
-    feature = "high",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f105", feature = "high",))]
 hal! {
     TIM6: (tim6, dbg_tim6_stop, tim6),
 }
@@ -472,16 +440,10 @@ hal! {
 #[cfg(any(
     all(
         feature = "high",
-        any(
-            feature = "stm32f101", 
-            feature = "stm32f103", 
-            feature = "stm32f107",
-        ),
+        any(feature = "stm32f101", feature = "stm32f103", feature = "stm32f107",),
     ),
-    any(
-        feature = "stm32f100",
-        feature = "stm32f105",
-)))]
+    any(feature = "stm32f100", feature = "stm32f105",)
+))]
 hal! {
     TIM7: (tim7, dbg_tim7_stop, tim6),
 }
@@ -503,10 +465,7 @@ hal! {
     TIM5: (tim5, dbg_tim5_stop, tim2),
 }
 
-#[cfg(all(
-    feature = "stm32f103", 
-    feature = "high",
-))]
+#[cfg(all(feature = "stm32f103", feature = "high",))]
 hal! {
     TIM8: (tim8, dbg_tim8_stop, tim1),
 }

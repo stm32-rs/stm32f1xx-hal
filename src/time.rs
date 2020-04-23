@@ -218,7 +218,7 @@ macro_rules! impl_arithmetic {
                 self.0 /= rhs;
             }
         }
-    }
+    };
 }
 
 impl_arithmetic!(Hertz, u32);

@@ -1,14 +1,12 @@
 //! # Alternate Function I/Os
 use crate::pac::{afio, AFIO};
 
-use crate::rcc::{APB2, Enable, Reset};
+use crate::rcc::{Enable, Reset, APB2};
 
 use crate::gpio::{
-    Debugger,
-    Input,
-    Floating,
     gpioa::PA15,
     gpiob::{PB3, PB4},
+    Debugger, Floating, Input,
 };
 
 pub trait AfioExt {
@@ -22,7 +20,10 @@ impl AfioExt for AFIO {
 
         Parts {
             evcr: EVCR { _0: () },
-            mapr: MAPR { _0: (), jtag_enabled: true },
+            mapr: MAPR {
+                _0: (),
+                jtag_enabled: true,
+            },
             exticr1: EXTICR1 { _0: () },
             exticr2: EXTICR2 { _0: () },
             exticr3: EXTICR3 { _0: () },
@@ -63,10 +64,12 @@ impl MAPR {
     }
 
     pub fn modify_mapr<F>(&mut self, mod_fn: F)
-        where F: for<'w> FnOnce(&afio::mapr::R, &'w mut afio::mapr::W) -> &'w mut afio::mapr::W
+    where
+        F: for<'w> FnOnce(&afio::mapr::R, &'w mut afio::mapr::W) -> &'w mut afio::mapr::W,
     {
-        let debug_bits = if self.jtag_enabled {0b000} else {0b010};
-        self.mapr().modify(unsafe{ |r, w| mod_fn(r, w).swj_cfg().bits(debug_bits) });
+        let debug_bits = if self.jtag_enabled { 0b000 } else { 0b010 };
+        self.mapr()
+            .modify(unsafe { |r, w| mod_fn(r, w).swj_cfg().bits(debug_bits) });
     }
 
     /// Disables the JTAG to free up pa15, pb3 and pb4 for normal use
@@ -74,7 +77,7 @@ impl MAPR {
         &mut self,
         pa15: PA15<Debugger>,
         pb3: PB3<Debugger>,
-        pb4: PB4<Debugger>
+        pb4: PB4<Debugger>,
     ) -> (
         PA15<Input<Floating>>,
         PB3<Input<Floating>>,

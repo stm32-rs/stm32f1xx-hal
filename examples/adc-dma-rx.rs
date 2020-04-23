@@ -7,12 +7,8 @@ use panic_halt as _;
 
 use cortex_m::{asm, singleton};
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    adc,
-};
 use cortex_m_rt::entry;
+use stm32f1xx_hal::{adc, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -48,7 +44,7 @@ fn main() -> ! {
     // one can call the is_done method of RxDma and only call wait after that method returns true.
     let (_buf, adc_dma) = adc_dma.read(buf).wait();
     asm::bkpt();
-    
+
     // Consumes the AdcDma struct, restores adc configuration to previous state and returns the
     // Adc struct in normal mode.
     let (_adc1, _adc_ch0, _dma_ch1) = adc_dma.split();

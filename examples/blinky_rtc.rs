@@ -12,15 +12,11 @@
 
 use panic_halt as _;
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    rtc::Rtc,
-};
+use stm32f1xx_hal::{pac, prelude::*, rtc::Rtc};
 
-use nb::block;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
+use nb::block;
 
 #[entry]
 fn main() -> ! {
@@ -49,8 +45,7 @@ fn main() -> ! {
         if led_on {
             led.set_low().unwrap();
             led_on = false;
-        }
-        else {
+        } else {
             led.set_high().unwrap();
             led_on = true;
         }
