@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Breaking changes
 
-- Bump `stm32f1` dependency (`0.10.0`)
+- Bump `stm32f1` dependency (`0.11.0`)
 - Make traits `rcc::Enable` and `rcc::Reset` public, but `RccBus` sealed
 
 ### Added
