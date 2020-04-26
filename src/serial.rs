@@ -45,7 +45,6 @@ use core::sync::atomic::{self, Ordering};
 use crate::pac::{USART1, USART2, USART3};
 use core::convert::Infallible;
 use embedded_hal::serial::Write;
-use nb;
 
 use crate::afio::MAPR;
 use crate::dma::{dma1, CircBuffer, RxDma, Static, Transfer, TxDma, R, W};

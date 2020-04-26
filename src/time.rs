@@ -246,12 +246,12 @@ impl MonoTimer {
     }
 
     /// Returns the frequency at which the monotonic timer is operating at
-    pub fn frequency(&self) -> Hertz {
+    pub fn frequency(self) -> Hertz {
         self.frequency
     }
 
     /// Returns an `Instant` corresponding to "now"
-    pub fn now(&self) -> Instant {
+    pub fn now(self) -> Instant {
         Instant {
             now: DWT::get_cycle_count(),
         }
@@ -266,7 +266,7 @@ pub struct Instant {
 
 impl Instant {
     /// Ticks elapsed since the `Instant` was created
-    pub fn elapsed(&self) -> u32 {
+    pub fn elapsed(self) -> u32 {
         DWT::get_cycle_count().wrapping_sub(self.now)
     }
 }

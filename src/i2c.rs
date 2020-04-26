@@ -64,9 +64,9 @@ impl Mode {
     }
 
     pub fn get_frequency(&self) -> Hertz {
-        match self {
-            &Mode::Standard { frequency } => frequency,
-            &Mode::Fast { frequency, .. } => frequency,
+        match *self {
+            Mode::Standard { frequency } => frequency,
+            Mode::Fast { frequency, .. } => frequency,
         }
     }
 }
@@ -211,13 +211,13 @@ fn blocking_i2c<I2C, PINS>(
     data_timeout_us: u32,
 ) -> BlockingI2c<I2C, PINS> {
     let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
-    return BlockingI2c {
+    BlockingI2c {
         nb: i2c,
         start_timeout: start_timeout_us * sysclk_mhz,
         start_retries,
         addr_timeout: addr_timeout_us * sysclk_mhz,
         data_timeout: data_timeout_us * sysclk_mhz,
-    };
+    }
 }
 
 macro_rules! wait_for_flag {
@@ -317,8 +317,8 @@ macro_rules! hal {
 
                             self.i2c.ccr.write(|w| {
                                 let (freq, duty) = match duty_cycle {
-                                    &DutyCycle::Ratio2to1 => (((self.pclk1 / (freq.0* 3)) as u16).max(1), false),
-                                    &DutyCycle::Ratio16to9 => (((self.pclk1 / (freq.0 * 25)) as u16).max(1), true)
+                                    DutyCycle::Ratio2to1 => (((self.pclk1 / (freq.0* 3)) as u16).max(1), false),
+                                    DutyCycle::Ratio16to9 => (((self.pclk1 / (freq.0 * 25)) as u16).max(1), true)
                                 };
 
                                 unsafe {
@@ -403,7 +403,7 @@ macro_rules! hal {
                     while retries_left > 0 {
                         self.nb.send_start();
                         last_ret = busy_wait_cycles!(self.nb.wait_after_sent_start(), self.start_timeout);
-                        if let Err(_) = last_ret {
+                        if last_ret.is_err() {
                             self.nb.reset();
                         } else {
                             break;

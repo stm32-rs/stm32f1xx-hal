@@ -74,7 +74,6 @@ use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
 use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
-use nb;
 use void::Void;
 
 use crate::time::Hertz;

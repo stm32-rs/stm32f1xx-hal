@@ -18,7 +18,6 @@ use crate::backup_domain::BackupDomain;
 use crate::time::Hertz;
 
 use core::convert::Infallible;
-use nb;
 
 // The LSE runs at at 32 768 hertz unless an external clock is provided
 const LSE_HERTZ: u32 = 32_768;
@@ -143,7 +142,7 @@ impl Rtc {
     /// Reads the current counter
     pub fn current_time(&self) -> u32 {
         // Wait for the APB1 interface to be ready
-        while self.regs.crl.read().rsf().bit() == false {}
+        while !self.regs.crl.read().rsf().bit() {}
 
         self.regs.cnth.read().bits() << 16 | self.regs.cntl.read().bits()
     }
@@ -180,7 +179,7 @@ impl Rtc {
       ```
     */
     pub fn wait_alarm(&mut self) -> nb::Result<(), Infallible> {
-        if self.regs.crl.read().alrf().bit() == true {
+        if self.regs.crl.read().alrf().bit() {
             self.regs.crl.modify(|_, w| w.alrf().clear_bit());
             Ok(())
         } else {
@@ -195,7 +194,7 @@ impl Rtc {
     */
     fn perform_write(&mut self, func: impl Fn(&mut Self)) {
         // Wait for the last write operation to be done
-        while self.regs.crl.read().rtoff().bit() == false {}
+        while !self.regs.crl.read().rtoff().bit() {}
         // Put the clock into config mode
         self.regs.crl.modify(|_, w| w.cnf().set_bit());
 
