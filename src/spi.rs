@@ -33,8 +33,6 @@
 use core::ops::Deref;
 use core::ptr;
 
-use nb;
-
 pub use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 #[cfg(feature = "high")]
 use crate::pac::SPI3;

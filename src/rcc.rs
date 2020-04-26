@@ -296,7 +296,7 @@ impl CFGR {
                 w.pllmul()
                     .bits(pllmul_bits)
                     .pllsrc()
-                    .bit(if self.hse.is_some() { true } else { false })
+                    .bit(self.hse.is_some())
             });
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());

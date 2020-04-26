@@ -249,9 +249,8 @@ macro_rules! hal {
             {
                 /// Return the frequency sampled by the timer
                 pub fn read_frequency(&self, mode : ReadMode, clocks : &Clocks) -> Result<Hertz,Error> {
-                    match mode {
-                        ReadMode::WaitForNextCapture => self.wait_for_capture(),
-                        _ => (),
+                    if let ReadMode::WaitForNextCapture = mode {
+                        self.wait_for_capture();
                     }
 
                     let presc = unsafe { (*$TIMX::ptr()).psc.read().bits() as u16};
@@ -281,9 +280,8 @@ macro_rules! hal {
 
                 /// Return the duty in the form of a fraction : (duty_cycle/period)
                 pub fn read_duty(&self, mode : ReadMode) -> Result<(u16,u16),Error> {
-                    match mode {
-                        ReadMode::WaitForNextCapture => self.wait_for_capture(),
-                        _ => (),
+                    if let ReadMode::WaitForNextCapture = mode {
+                        self.wait_for_capture();
                     }
 
                     // Formulas :
