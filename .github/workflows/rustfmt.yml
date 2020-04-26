@@ -2,6 +2,7 @@ on: [push, pull_request]
 
 name: Code formatting check
 
+jobs:
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
