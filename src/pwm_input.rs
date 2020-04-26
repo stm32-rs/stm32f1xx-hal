@@ -5,31 +5,29 @@ use core::marker::PhantomData;
 use core::mem;
 
 use crate::pac::DBGMCU as DBG;
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 use crate::pac::TIM1;
-use crate::pac::{TIM2, TIM3};
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
+use crate::pac::{TIM2, TIM3};
 
 use crate::afio::MAPR;
 use crate::gpio::{self, Floating, Input};
-use crate::rcc::{Clocks, GetBusFreq, sealed::RccBus};
+use crate::rcc::{sealed::RccBus, Clocks, GetBusFreq};
 use crate::time::Hertz;
 use crate::timer::Timer;
 
 pub trait Pins<REMAP> {}
 
-use crate::timer::sealed::{Remap, Ch1, Ch2};
+use crate::timer::sealed::{Ch1, Ch2, Remap};
 
 impl<TIM, REMAP, P1, P2> Pins<REMAP> for (P1, P2)
 where
     REMAP: Remap<Periph = TIM>,
     P1: Ch1<REMAP> + gpio::Mode<Input<Floating>>,
-    P2: Ch2<REMAP> + gpio::Mode<Input<Floating>> {}
+    P2: Ch2<REMAP> + gpio::Mode<Input<Floating>>,
+{
+}
 
 /// PWM Input
 pub struct PwmInput<TIM, REMAP, PINS> {
@@ -84,11 +82,7 @@ where
     RawValues { arr: u16, presc: u16 },
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 impl Timer<TIM1> {
     pub fn pwm_input<REMAP, PINS, T>(
         mut self,
@@ -259,7 +253,7 @@ macro_rules! hal {
                         ReadMode::WaitForNextCapture => self.wait_for_capture(),
                         _ => (),
                     }
-                    
+
                     let presc = unsafe { (*$TIMX::ptr()).psc.read().bits() as u16};
                     let ccr1 = unsafe { (*$TIMX::ptr()).ccr1.read().bits() as u16};
 
@@ -313,11 +307,7 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(
-    feature = "stm32f100",
-    feature = "stm32f103",
-    feature = "stm32f105",
-))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
 hal! {
     TIM1: (tim1),
 }

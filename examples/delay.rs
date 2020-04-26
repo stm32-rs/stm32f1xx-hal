@@ -6,13 +6,9 @@
 
 use panic_halt as _;
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    delay::Delay,
-};
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
+use stm32f1xx_hal::{delay::Delay, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {

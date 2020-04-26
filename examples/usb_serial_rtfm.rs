@@ -68,10 +68,7 @@ const APP: () = {
             .device_class(USB_CLASS_CDC)
             .build();
 
-        init::LateResources {
-            usb_dev,
-            serial,
-        }
+        init::LateResources { usb_dev, serial }
     }
 
     #[task(binds = USB_HP_CAN_TX, resources = [usb_dev, serial])]

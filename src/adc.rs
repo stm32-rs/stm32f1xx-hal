@@ -1,22 +1,19 @@
 //! # API for the Analog to Digital converter
 
-use embedded_hal::adc::{Channel, OneShot};
 use core::marker::PhantomData;
+use embedded_hal::adc::{Channel, OneShot};
 
+use crate::dma::{dma1::C1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
-use crate::rcc::{APB2, Clocks, Enable, Reset};
-use crate::dma::{Receive, TransferPayload, dma1::C1, CircBuffer, Transfer, W, RxDma};
+use crate::rcc::{Clocks, Enable, Reset, APB2};
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 
 use crate::pac::ADC1;
 #[cfg(feature = "stm32f103")]
 use crate::pac::ADC2;
-#[cfg(all(
-    feature = "stm32f103",
-    feature = "high",
-))]
+#[cfg(all(feature = "stm32f103", feature = "high",))]
 use crate::pac::ADC3;
 
 /// Continuous mode
@@ -135,9 +132,7 @@ adc_pins!(ADC1,
     gpioc::PC5<Analog> => 15_u8,
 );
 
-#[cfg(any(
-    feature = "stm32f103",
-))]
+#[cfg(any(feature = "stm32f103",))]
 adc_pins!(ADC2,
     gpioa::PA0<Analog> => 0_u8,
     gpioa::PA1<Analog> => 1_u8,
@@ -471,13 +466,13 @@ impl Adc<ADC1> {
         // so use the following approximate settings
         // to support all ADC frequencies
         let sample_time = match self.clocks.adcclk().0 {
-            0 ..= 1_200_000 => SampleTime::T_1,
-            1_200_001 ..= 1_500_000 => SampleTime::T_7,
-            1_500_001 ..= 2_400_000 => SampleTime::T_13,
-            2_400_001 ..= 3_100_000 => SampleTime::T_28,
-            3_100_001 ..= 4_000_000 => SampleTime::T_41,
-            4_000_001 ..= 5_000_000 => SampleTime::T_55,
-            5_000_001 ..= 14_000_000 => SampleTime::T_71,
+            0..=1_200_000 => SampleTime::T_1,
+            1_200_001..=1_500_000 => SampleTime::T_7,
+            1_500_001..=2_400_000 => SampleTime::T_13,
+            2_400_001..=3_100_000 => SampleTime::T_28,
+            3_100_001..=4_000_000 => SampleTime::T_41,
+            4_000_001..=5_000_000 => SampleTime::T_55,
+            5_000_001..=14_000_000 => SampleTime::T_71,
             _ => SampleTime::T_239,
         };
 
@@ -513,10 +508,7 @@ adc_hal! {
     ADC2: (adc2),
 }
 
-#[cfg(all(
-    feature = "stm32f103",
-    feature = "high",
-))]
+#[cfg(all(feature = "stm32f103", feature = "high",))]
 adc_hal! {
     ADC3: (adc3),
 }
@@ -533,7 +525,7 @@ pub trait ChannelTimeSequence {
     /// ADC Set a Regular Channel Conversion Sequence
     ///
     /// Define a sequence of channels to be converted as a regular group.
-    fn set_regular_sequence (&mut self, channels: &[u8]);
+    fn set_regular_sequence(&mut self, channels: &[u8]);
 }
 
 /// Set channel sequence and sample times for custom pins
@@ -593,7 +585,9 @@ impl Adc<ADC1> {
         self.rb.cr1.modify(|_, w| w.discen().clear_bit());
         self.rb.cr2.modify(|_, w| w.align().bit(self.align.into()));
         self.set_channel_sample_time(PIN::channel(), self.sample_time);
-        self.rb.sqr3.modify(|_, w| unsafe { w.sq1().bits(PIN::channel()) });
+        self.rb
+            .sqr3
+            .modify(|_, w| unsafe { w.sq1().bits(PIN::channel()) });
         self.rb.cr2.modify(|_, w| w.dma().set_bit());
 
         let payload = AdcPayload {
@@ -609,24 +603,26 @@ impl Adc<ADC1> {
 
     pub fn with_scan_dma<PINS>(mut self, pins: PINS, dma_ch: C1) -> AdcDma<PINS, Scan>
     where
-        Self:SetChannels<PINS>
+        Self: SetChannels<PINS>,
     {
-        self.rb.cr2.modify(|_, w| w
-            .adon().clear_bit()
-            .dma().clear_bit()
-            .cont().clear_bit()
-            .align().bit(self.align.into())
-        );
-        self.rb.cr1.modify(|_, w| w
-            .scan().set_bit()
-            .discen().clear_bit()
-        );
+        self.rb.cr2.modify(|_, w| {
+            w.adon()
+                .clear_bit()
+                .dma()
+                .clear_bit()
+                .cont()
+                .clear_bit()
+                .align()
+                .bit(self.align.into())
+        });
+        self.rb
+            .cr1
+            .modify(|_, w| w.scan().set_bit().discen().clear_bit());
         self.set_samples();
         self.set_sequence();
-        self.rb.cr2.modify(|_, w| w
-            .dma().set_bit()
-            .adon().set_bit()
-        );
+        self.rb
+            .cr2
+            .modify(|_, w| w.dma().set_bit().adon().set_bit());
 
         let payload = AdcPayload {
             adc: self,
@@ -642,12 +638,12 @@ impl Adc<ADC1> {
 
 impl<PINS> AdcDma<PINS, Continuous>
 where
-    Self: TransferPayload
+    Self: TransferPayload,
 {
     pub fn split(mut self) -> (Adc<ADC1>, PINS, C1) {
         self.stop();
 
-        let AdcDma {payload, channel} = self;
+        let AdcDma { payload, channel } = self;
         payload.adc.rb.cr2.modify(|_, w| w.dma().clear_bit());
         payload.adc.rb.cr1.modify(|_, w| w.discen().set_bit());
 
@@ -657,12 +653,12 @@ where
 
 impl<PINS> AdcDma<PINS, Scan>
 where
-    Self: TransferPayload
+    Self: TransferPayload,
 {
     pub fn split(mut self) -> (Adc<ADC1>, PINS, C1) {
         self.stop();
 
-        let AdcDma {payload, channel} = self;
+        let AdcDma { payload, channel } = self;
         payload.adc.rb.cr2.modify(|_, w| w.dma().clear_bit());
         payload.adc.rb.cr1.modify(|_, w| w.discen().set_bit());
         payload.adc.rb.cr1.modify(|_, w| w.scan().clear_bit());
@@ -674,24 +670,32 @@ where
 impl<B, PINS, MODE> crate::dma::CircReadDma<B, u16> for AdcDma<PINS, MODE>
 where
     Self: TransferPayload,
-    B: as_slice::AsMutSlice<Element=u16>,
+    B: as_slice::AsMutSlice<Element = u16>,
 {
     fn circ_read(mut self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
         {
             let buffer = buffer[0].as_mut_slice();
-            self.channel.set_peripheral_address(unsafe{ &(*ADC1::ptr()).dr as *const _ as u32 }, false);
-            self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+            self.channel
+                .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
+            self.channel
+                .set_memory_address(buffer.as_ptr() as u32, true);
             self.channel.set_transfer_length(buffer.len() * 2);
 
             atomic::compiler_fence(Ordering::Release);
 
-            self.channel.ch().cr.modify(|_, w| { w
-                .mem2mem() .clear_bit()
-                .pl()      .medium()
-                .msize()   .bits16()
-                .psize()   .bits16()
-                .circ()    .set_bit()
-                .dir()     .clear_bit()
+            self.channel.ch().cr.modify(|_, w| {
+                w.mem2mem()
+                    .clear_bit()
+                    .pl()
+                    .medium()
+                    .msize()
+                    .bits16()
+                    .psize()
+                    .bits16()
+                    .circ()
+                    .set_bit()
+                    .dir()
+                    .clear_bit()
             });
         }
 
@@ -704,23 +708,31 @@ where
 impl<B, PINS, MODE> crate::dma::ReadDma<B, u16> for AdcDma<PINS, MODE>
 where
     Self: TransferPayload,
-    B: as_slice::AsMutSlice<Element=u16>,
+    B: as_slice::AsMutSlice<Element = u16>,
 {
     fn read(mut self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self> {
         {
             let buffer = buffer.as_mut_slice();
-            self.channel.set_peripheral_address(unsafe{ &(*ADC1::ptr()).dr as *const _ as u32 }, false);
-            self.channel.set_memory_address(buffer.as_ptr() as u32, true);
+            self.channel
+                .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
+            self.channel
+                .set_memory_address(buffer.as_ptr() as u32, true);
             self.channel.set_transfer_length(buffer.len());
         }
         atomic::compiler_fence(Ordering::Release);
-        self.channel.ch().cr.modify(|_, w| { w
-            .mem2mem() .clear_bit()
-            .pl()      .medium()
-            .msize()   .bits16()
-            .psize()   .bits16()
-            .circ()    .clear_bit()
-            .dir()     .clear_bit()
+        self.channel.ch().cr.modify(|_, w| {
+            w.mem2mem()
+                .clear_bit()
+                .pl()
+                .medium()
+                .msize()
+                .bits16()
+                .psize()
+                .bits16()
+                .circ()
+                .clear_bit()
+                .dir()
+                .clear_bit()
         });
         self.start();
 

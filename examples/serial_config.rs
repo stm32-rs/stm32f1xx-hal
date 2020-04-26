@@ -10,12 +10,12 @@ use panic_halt as _;
 
 use nb::block;
 
+use cortex_m_rt::entry;
 use stm32f1xx_hal::{
-    prelude::*,
     pac,
+    prelude::*,
     serial::{self, Serial},
 };
-use cortex_m_rt::entry;
 
 #[entry]
 fn main() -> ! {
@@ -75,7 +75,6 @@ fn main() -> ! {
     let sent = b'U';
     block!(tx.write(sent)).ok();
     block!(tx.write(sent)).ok();
-
 
     loop {}
 }

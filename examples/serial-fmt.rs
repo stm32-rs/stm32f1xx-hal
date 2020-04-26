@@ -9,12 +9,12 @@
 
 use panic_halt as _;
 
+use cortex_m_rt::entry;
 use stm32f1xx_hal::{
-    prelude::*,
     pac,
+    prelude::*,
     serial::{Config, Serial},
 };
-use cortex_m_rt::entry;
 
 use core::fmt::Write;
 

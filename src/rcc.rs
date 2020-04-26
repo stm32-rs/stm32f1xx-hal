@@ -2,14 +2,13 @@
 
 use core::cmp;
 
+use crate::pac::{rcc, PWR, RCC};
 use cast::u32;
-use crate::pac::{rcc, RCC, PWR};
 
 use crate::flash::ACR;
 use crate::time::Hertz;
 
 use crate::backup_domain::BackupDomain;
-
 
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
@@ -67,7 +66,6 @@ pub struct APB1 {
     _0: (),
 }
 
-
 impl APB1 {
     pub(crate) fn enr(&mut self) -> &rcc::APB1ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
@@ -80,13 +78,10 @@ impl APB1 {
     }
 }
 
-
 impl APB1 {
     /// Set power interface clock (PWREN) bit in RCC_APB1ENR
     pub fn set_pwren(&mut self) {
-        self.enr().modify(|_r, w| {
-            w.pwren().set_bit()
-        })
+        self.enr().modify(|_r, w| w.pwren().set_bit())
     }
 }
 
@@ -297,12 +292,12 @@ impl CFGR {
         if let Some(pllmul_bits) = pllmul_bits {
             // enable PLL and wait for it to be ready
 
-            rcc.cfgr.modify(|_, w|
+            rcc.cfgr.modify(|_, w| {
                 w.pllmul()
                     .bits(pllmul_bits)
                     .pllsrc()
                     .bit(if self.hse.is_some() { true } else { false })
-            );
+            });
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
 
@@ -334,10 +329,7 @@ impl CFGR {
                 })
         });
 
-        #[cfg(any(
-                feature = "stm32f100",
-                feature = "stm32f101"
-        ))]
+        #[cfg(any(feature = "stm32f100", feature = "stm32f101"))]
         rcc.cfgr.modify(|_, w| unsafe {
             w.adcpre().bits(apre_bits);
             w.ppre2()
@@ -373,28 +365,20 @@ impl CFGR {
 }
 
 pub struct BKP {
-    _0: ()
+    _0: (),
 }
 
 impl BKP {
     /// Enables write access to the registers in the backup domain
     pub fn constrain(self, bkp: crate::pac::BKP, apb1: &mut APB1, pwr: &mut PWR) -> BackupDomain {
         // Enable the backup interface by setting PWREN and BKPEN
-        apb1.enr().modify(|_r, w| {
-            w
-                .bkpen().set_bit()
-                .pwren().set_bit()
-        });
+        apb1.enr()
+            .modify(|_r, w| w.bkpen().set_bit().pwren().set_bit());
 
         // Enable access to the backup registers
-        pwr.cr.modify(|_r, w| {
-            w
-                .dbp().set_bit()
-        });
+        pwr.cr.modify(|_r, w| w.dbp().set_bit());
 
-        BackupDomain {
-            _regs: bkp,
-        }
+        BackupDomain { _regs: bkp }
     }
 }
 

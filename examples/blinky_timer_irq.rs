@@ -14,16 +14,13 @@ use stm32f1xx_hal as hal;
 
 use crate::hal::{
     gpio::*,
-    prelude::*,
     pac::{interrupt, Interrupt, Peripherals, TIM2},
+    prelude::*,
     timer::*,
 };
 
 use core::cell::RefCell;
-use cortex_m::{
-    asm::wfi,
-    interrupt::Mutex,
-    peripheral::Peripherals as c_m_Peripherals};
+use cortex_m::{asm::wfi, interrupt::Mutex, peripheral::Peripherals as c_m_Peripherals};
 use cortex_m_rt::entry;
 
 // NOTE You can uncomment 'hprintln' here and in the code below for a bit more

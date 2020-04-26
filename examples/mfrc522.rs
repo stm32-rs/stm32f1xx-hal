@@ -6,14 +6,10 @@ use panic_itm as _;
 
 use cortex_m::iprintln;
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    spi::Spi,
-};
-use mfrc522::Mfrc522;
 use cortex_m_rt::entry;
 use embedded_hal::digital::{v1_compat::OldOutputPin, v2::OutputPin};
+use mfrc522::Mfrc522;
+use stm32f1xx_hal::{pac, prelude::*, spi::Spi};
 
 #[entry]
 fn main() -> ! {

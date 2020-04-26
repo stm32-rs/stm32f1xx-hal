@@ -2,8 +2,8 @@
 #![no_main]
 #![no_std]
 
-use panic_itm as _;
 use cortex_m::iprintln;
+use panic_itm as _;
 use stm32f1xx_hal as _;
 
 use cortex_m_rt::entry;

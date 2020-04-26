@@ -8,12 +8,8 @@ use panic_semihosting as _;
 
 use cortex_m_semihosting::hprintln;
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    rtc::Rtc,
-};
 use cortex_m_rt::entry;
+use stm32f1xx_hal::{pac, prelude::*, rtc::Rtc};
 
 #[entry]
 fn main() -> ! {

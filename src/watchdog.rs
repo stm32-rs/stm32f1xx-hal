@@ -1,8 +1,8 @@
 //! Watchdog peripherals
 
 use crate::{
-    pac::{IWDG, DBGMCU as DBG},
     hal::watchdog::{Watchdog, WatchdogEnable},
+    pac::{DBGMCU as DBG, IWDG},
     time::MilliSeconds,
 };
 
@@ -17,7 +17,6 @@ const MAX_RL: u16 = 0xFFF;
 const KR_ACCESS: u16 = 0x5555;
 const KR_RELOAD: u16 = 0xAAAA;
 const KR_START: u16 = 0xCCCC;
-
 
 impl IndependentWatchdog {
     /// Wrap and start the watchdog
@@ -41,7 +40,7 @@ impl IndependentWatchdog {
         let rl = (timeout_ms * max_rl / max_period).min(max_rl) as u16;
 
         self.access_registers(|iwdg| {
-            iwdg.pr.modify(|_,w| w.pr().bits(pr));
+            iwdg.pr.modify(|_, w| w.pr().bits(pr));
             iwdg.rlr.modify(|_, w| w.rl().bits(rl));
         });
     }

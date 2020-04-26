@@ -4,12 +4,8 @@
 
 use panic_semihosting as _;
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    adc,
-};
 use cortex_m_rt::entry;
+use stm32f1xx_hal::{adc, pac, prelude::*};
 
 use cortex_m_semihosting::hprintln;
 

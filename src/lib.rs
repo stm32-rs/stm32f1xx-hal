@@ -31,8 +31,8 @@
 //! - `stm32f101`
 //! - `stm32f103`
 //!
-//! You may also need to specify the density of the device with `medium`, `high` or `xl` 
-//! to enable certain peripherals. Generally the density can be determined by the 2nd character 
+//! You may also need to specify the density of the device with `medium`, `high` or `xl`
+//! to enable certain peripherals. Generally the density can be determined by the 2nd character
 //! after the number in the device name (i.e. For STM32F103C6U, the 6 indicates a low-density
 //! device) but check the datasheet or CubeMX to be sure.
 //! * 4, 6 => low density, no feature required
@@ -40,7 +40,7 @@
 //! * C, D, E => `high` feature
 //! * F, G => `xl` feature
 //!
-//! 
+//!
 //!
 //! [cortex-m-quickstart]: https://docs.rs/cortex-m-quickstart/0.3.1
 //!
@@ -75,7 +75,9 @@ compile_error!("Target not found. A `--features <target-name>` is required.");
     all(feature = "stm32f100", feature = "stm32f103"),
     all(feature = "stm32f101", feature = "stm32f103"),
 ))]
-compile_error!("Multiple targets specified. Only a single `--features <target-name>` can be specified.");
+compile_error!(
+    "Multiple targets specified. Only a single `--features <target-name>` can be specified."
+);
 
 #[cfg(feature = "device-selected")]
 use embedded_hal as hal;
@@ -90,11 +92,11 @@ pub use stm32f1::stm32f101 as pac;
 pub use stm32f1::stm32f103 as pac;
 
 #[cfg(feature = "device-selected")]
-#[deprecated(since="0.6.0", note="please use `pac` instead")]
+#[deprecated(since = "0.6.0", note = "please use `pac` instead")]
 pub use crate::pac as device;
 
 #[cfg(feature = "device-selected")]
-#[deprecated(since="0.6.0", note="please use `pac` instead")]
+#[deprecated(since = "0.6.0", note = "please use `pac` instead")]
 pub use crate::pac as stm32;
 
 #[cfg(feature = "device-selected")]

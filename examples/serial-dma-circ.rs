@@ -8,13 +8,13 @@ use panic_halt as _;
 
 use cortex_m::{asm, singleton};
 
-use stm32f1xx_hal::{
-    prelude::*,
-    pac,
-    serial::{Config, Serial},
-    dma::Half,
-};
 use cortex_m_rt::entry;
+use stm32f1xx_hal::{
+    dma::Half,
+    pac,
+    prelude::*,
+    serial::{Config, Serial},
+};
 
 #[entry]
 fn main() -> ! {
