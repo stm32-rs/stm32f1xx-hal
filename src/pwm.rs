@@ -58,7 +58,7 @@ use core::marker::PhantomData;
 use core::mem;
 
 use crate::hal;
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
@@ -135,7 +135,7 @@ pins_impl!(
     (P4), (Ch4), (C4);
 );
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 impl Timer<TIM1> {
     pub fn pwm<REMAP, P, PINS, T>(
         self,
@@ -490,7 +490,7 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 hal! {
     TIM1: (tim1),
 }

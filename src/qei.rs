@@ -9,7 +9,7 @@ use core::u16;
 use core::marker::PhantomData;
 
 use crate::hal::{self, Direction};
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
@@ -71,7 +71,7 @@ pub struct Qei<TIM, REMAP, PINS> {
     _remap: PhantomData<REMAP>,
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 impl Timer<TIM1> {
     pub fn qei<REMAP, PINS>(
         self,
@@ -199,7 +199,7 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "stm32f105",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 hal! {
     TIM1: (_tim1, tim1en, tim1rst),
 }

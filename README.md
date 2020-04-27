@@ -137,12 +137,16 @@ device) but check the datasheet or CubeMX to be sure.
 * C, D, E => `high` feature
 * F, G => `xl` feature
 
+For microcontrollers of the `connectivity line` (`stm32f105` and `stm32f107`) no
+density feature must be specified.
+
 ### Supported Microcontrollers
 
 * `stm32f100`
 * `stm32f101`
 * `stm32f103`
-
+* `stm32f105`
+* `stm32f107`
 
 ## Trying out the examples
 

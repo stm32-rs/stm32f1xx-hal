@@ -86,6 +86,8 @@ rt = ["stm32f1/rt"]
 stm32f100 = ["stm32f1/stm32f100", "device-selected"]
 stm32f101 = ["stm32f1/stm32f101", "device-selected"]
 stm32f103 = ["stm32f1/stm32f103", "device-selected"]
+stm32f105 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
+stm32f107 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
 
 # Devices with 64 or 128 Kb ROM
 medium = []
@@ -93,6 +95,8 @@ medium = []
 high = ["medium"]
 # Devices with 768 Kb ROM or more
 xl = ["high"]
+# Connectivity line devices (`stm32f105xx` and `stm32f107xx`)
+connectivity = ["medium"]
 
 [profile.dev]
 incremental = false
