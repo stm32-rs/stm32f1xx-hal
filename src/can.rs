@@ -33,7 +33,7 @@ use crate::pac::CAN2;
 #[cfg(not(feature = "connectivity"))]
 use crate::pac::USB;
 use crate::rcc::sealed::RccBus;
-use core::marker::PhantomData;
+use core::{convert::Infallible, marker::PhantomData};
 
 /// Identifier of a CAN message.
 ///
@@ -179,14 +179,14 @@ mod traits {
 }
 
 impl traits::Instance for CAN1 {
-    const REGISTERS: *const crate::pac::can1::RegisterBlock = Self::ptr();
+    const REGISTERS: *const crate::pac::can1::RegisterBlock = CAN1::ptr();
 }
 
 #[cfg(feature = "connectivity")]
 impl traits::Instance for CAN2 {
     // Register blocks are the same except for the filter registers.
     // Those are only available on CAN1.
-    const REGISTERS: *const crate::pac::can1::RegisterBlock = Self::ptr() as *const _;
+    const REGISTERS: *const crate::pac::can1::RegisterBlock = CAN2::ptr() as *const _;
 }
 
 impl traits::Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
@@ -275,5 +275,46 @@ where
     fn new_internal(apb: &mut <Instance as RccBus>::Bus) -> Can<Instance> {
         Instance::enable(apb);
         Can { _can: PhantomData }
+    }
+
+    /// Configures the bit timings.
+    ///
+    /// Use http://www.bittiming.can-wiki.info/ to calculate a safe parameter
+    /// value. Puts the peripheral in sleep mode. `Can::enable()` must be called
+    /// afterwards to start reception and transmission.
+    pub unsafe fn set_bit_timing(&mut self, btr: u32) {
+        let can = &*Instance::REGISTERS;
+
+        can.mcr.modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
+        while can.msr.read().inak().bit_is_clear() {}
+        can.btr.write(|w| w.bits(btr));
+        self.sleep();
+    }
+
+    /// Start reception and transmission.
+    ///
+    /// Waits for 11 consecutive recessive bits to sync to the CAN bus.
+    /// When automatic wakup functionality is not used this function must be
+    /// called to enable the peripheral after a wakeup interrupt.
+    pub fn enable(&mut self) -> nb::Result<(), Infallible> {
+        let can = unsafe { &*Instance::REGISTERS };
+        let msr = can.msr.read();
+        if msr.slak().bit_is_set() {
+            // TODO: Make automatic bus-off management configurable.
+            // TODO: Make automatic wakeup configurable.
+            can.mcr.modify(|_, w| w.abom().set_bit().sleep().clear_bit());
+            Err(nb::Error::WouldBlock)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Puts the peripheral in a sleep mode to save power.
+    ///
+    /// Reception and transmission is disabled.
+    pub fn sleep(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.mcr.modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
+        while can.msr.read().slak().bit_is_clear() {}
     }
 }
