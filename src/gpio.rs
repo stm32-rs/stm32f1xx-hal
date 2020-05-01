@@ -1,10 +1,68 @@
 //! # General Purpose I/Os
 //!
+//! The GPIO pins are organised into groups of 16 pins which can be accessed through the
+//! `gpioa`, `gpiob`... modules. To get access to the pins, you first need to convert them into a
+//! HAL designed struct from the `pac` struct using the `spilit` function.
+//! ```rust
+//! // Acquire the GPIOC peripheral
+//! // NOTE: `dp` is the device peripherals from the `PAC` crate
+//! let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
+//! ```
+//!
+//! This gives you a struct containing two control registers `crl` and `crh`, and all the pins
+//! `px0..px15`. These structs are what you use to interract with the pins to change their modes,
+//! or their inputs or outputs. For example, to set `pa5` high, you would call
+//!
+//! ```rust
+//! let output = gpioa.pa5.into_push_pull_output(&mut gpioa.crl);
+//! output.set_high();
+//! ```
+//!
+//! Each GPIO pin can be set to various modes:
+//!
+//! - **Alternate**: Pin mode required when the pin is driven by other peripherals
+//! - **Dynamic**: Pin mode is selected at runtime. See changing configurations for more details
+//! - Input
+//!     - **PullUp**: Input connected to high with a weak pull up resistor. Will be high when nothing
+//!     is connected
+//!     - **PullDown**: Input connected to high with a weak pull up resistor. Will be low when nothing
+//!     is connected
+//!     - **Floating**: Input not pulled to high or low. Will be undefined when nothing is connected
+//! - Output
+//!     - **PushPull**: Output which either drives the pin high or low
+//!     - **OpenDrain**: Output which leaves the gate floating, or pulls it do ground in drain
+//!     mode. Can be used as an input in the `open` configuration
+//! - **Debugger**: Some pins start out being used by the debugger. A pin in this mode can only be
+//! used if the [JTAG peripheral has been turned off](#accessing-pa15-pb3-and-pb14).
+//!
+//! ## Changing modes
+//! The simplest way to change the pin mode is to use the `into_<mode>` functions. These return a
+//! new struct with the correct mode that you can use the input or output functions on.
+//!
+//! If you need a more temporary mode change, and can not use the `into_<mode>` functions for
+//! ownership reasons, you can use the `as_<mode>` functions to temporarily change the pin type, do
+//! some output or input, and then have it change back once done.
+//!
+//! ### Dynamic Mode Change
+//! The above mode change methods guarantee that you can only call input functions when the pin is
+//! in input mode, and output when in output modes, but can lead to some issues. Therefore, there
+//! is also a mode where the state is kept track of at runtime, allowing you to change the mode
+//! often, and without problems with ownership, or references, at the cost of some performance and
+//! the risk of runtime errors.
+//!
+//! To make a pin dynamic, use the `into_dynamic` function, and then use the `make_<mode>` functions to
+//! change the mode
+//!
+//! ## Accessing PA15, PB3, and PB14
+//!
+//! These pins are used by the JTAG peripheral by default. To use them in your program, you need to
+//! disable that peripheral. This is done using the [afio::MAPR::disable_jtag](../afio/struct.MAPR.html#method.disable_jtag) function
+//!
 //! # Interfacing with v1 traits
 //!
-//! `embedded-hal` has two versions of the digital traits, `v2` which is used
-//! by this crate and `v1` which is deprecated but still used by a lot of drivers.
-//! If you want to use such a driver with this crate, you need to convert the digital pins to the `v1` type.
+//! `embedded-hal` has two versions of the digital traits, `v2` which is used by this crate and
+//! `v1` which is deprecated but still used by a lot of drivers.  If you want to use such a driver
+//! with this crate, you need to convert the digital pins to the `v1` type.
 //!
 //! This is done using `embedded-hal::digital::v1_compat::OldOutputPin`. For example:
 //!
@@ -12,7 +70,6 @@
 //! let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
 //! let mut mfrc522 = Mfrc522::new(spi, OldOutputPin::from(nss)).unwrap();
 //! ```
-//!
 
 use core::marker::PhantomData;
 
@@ -96,6 +153,7 @@ pub trait ExtiPin {
     fn check_interrupt(&mut self) -> bool;
 }
 
+/// Tracks the current pin state for dynamic pins
 pub enum Dynamic {
     InputFloating,
     InputPullUp,
@@ -103,6 +161,8 @@ pub enum Dynamic {
     OutputPushPull,
     OutputOpenDrain,
 }
+
+impl Active for Dynamic {}
 
 #[derive(Debug, PartialEq)]
 pub enum PinModeError {
@@ -134,22 +194,22 @@ pub trait PinMode<CR> {
 
 // These impls are needed because a macro can not brace initialise a ty token
 impl<MODE> Input<MODE> {
-    fn _new() -> Self {
+    const fn _new() -> Self {
         Self { _mode: PhantomData }
     }
 }
 impl<MODE> Output<MODE> {
-    fn _new() -> Self {
+    const fn _new() -> Self {
         Self { _mode: PhantomData }
     }
 }
 impl<MODE> Alternate<MODE> {
-    fn _new() -> Self {
+    const fn _new() -> Self {
         Self { _mode: PhantomData }
     }
 }
 impl Debugger {
-    fn _new() -> Self {
+    const fn _new() -> Self {
         Self {}
     }
 }
@@ -516,7 +576,6 @@ macro_rules! gpio {
                         }
                     }
 
-
                     /// Configures the pin to operate as an analog input pin
                     pub fn into_analog(self, cr: &mut $CR) -> $PXi<Analog> {
                         unsafe {
@@ -533,6 +592,8 @@ macro_rules! gpio {
                     }
                 }
 
+                // These macros are defined here instead of at the top level in order
+                // to be able to refer to macro variables from the outer layers.
                 macro_rules! impl_temp_output {
                     (
                         $fn_name:ident,
@@ -625,7 +686,6 @@ macro_rules! gpio {
                         Input<PullDown>
                     );
                 }
-
 
                 impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Erases the pin number from the type
