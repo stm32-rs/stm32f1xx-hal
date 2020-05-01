@@ -42,7 +42,7 @@ use core::{
 ///
 /// Can be either a standard identifier (11bit, Range: 0..0x3FF)
 /// or a extendended identifier (29bit , Range: 0..0x1FFFFFFF).
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Id(u32);
 
 impl Id {
@@ -65,6 +65,10 @@ impl Id {
     pub fn new_extended(id: u32) -> Id {
         assert!(id < 0x1FFF_FFFF);
         Self(id << Self::EXTENDED_SHIFT | Self::EID_MASK)
+    }
+
+    fn from_register(reg_bits: u32) -> Id {
+        Self(reg_bits & 0xFFFF_FFFE)
     }
 
     /// Sets the remote transmission (RTR) flag. This marks the identifier as
@@ -101,6 +105,7 @@ impl Id {
 }
 
 /// A CAN data or remote frame.
+#[derive(Clone, Debug)]
 pub struct Frame {
     id: Id,
     dlc: usize,
@@ -342,28 +347,102 @@ pub struct Tx<Instance> {
     _can: PhantomData<Instance>,
 }
 
+const fn ok_mask(idx: usize) -> u32 {
+    0x02 << (8 * idx)
+}
+
+const fn abort_mask(idx: usize) -> u32 {
+    0x80 << (8 * idx)
+}
+
 impl<Instance> Tx<Instance>
 where
     Instance: traits::Instance,
 {
-    // TODO: Use more than just the first mailbox.
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
         let can = unsafe { &*Instance::REGISTERS };
 
         let tsr = can.tsr.read();
-        if tsr.tme0().bit_is_clear() {
-            return Err(nb::Error::WouldBlock)
+
+        // Get a free mailbox or the one with the lowest priority.
+        let idx = tsr.code().bits() as usize;
+        let tx = &can.tx[idx];
+
+        // Check for a free mailbox.
+        if tsr.tme0().bit_is_set() || tsr.tme1().bit_is_set() || tsr.tme2().bit_is_set() {
+            Self::write_tx_mailbox(tx, frame);
+            return Ok(None);
         }
 
-        let tx = &can.tx[0];
-        tx.tdtr.write(|w| unsafe { w.dlc().bits(frame.dlc as u8) });
-        tx.tdlr
+        // Read the pending frame's id to check its priority.
+        let tir = tx.tir.read();
+        if tir.txrq().bit_is_clear() {
+            // All pending frames where transmitted in the meantime and all
+            // mailboxes are free. This can only happen when a higher priority
+            // interrupt routine is running preemtively. Otherwise this routine
+            // always executes faster than a pending frames can be sent.
+            Self::write_tx_mailbox(tx, frame);
+            return Ok(None);
+        }
+
+        // Check priority by comparing the identifiers including the EID and RTR
+        // bits: Standard frames have a higher priority than extended frames and
+        // data frames have a higher priority than remote frames.
+        if frame.id < Id::from_register(tir.bits()) {
+            // The new frame has a higher priority (lower identifier value).
+
+            // Abort the pending transfer.
+            can.tsr.write(|w| unsafe { w.bits(abort_mask(idx)) });
+
+            // Wait for the transfer to be finished either because it was
+            // aborted or because it was successfull in the meantime.
+            let aborted = loop {
+                let tsr = can.tsr.read().bits();
+                if tsr & abort_mask(idx) == 0 {
+                    break tsr & ok_mask(idx) == 0;
+                }
+            };
+
+            if !aborted {
+                // An abort was requested while the frame was already being sent
+                // on the bus. The transfer finished successfully and all
+                // mailboxes are free. This can happen for small prescaler
+                // values (e.g. 1MBit/s bit timing with a source clock of 8MHz)
+                // or when a higher priority ISR runs.
+                Self::write_tx_mailbox(tx, frame);
+                return Ok(None);
+            }
+
+            // Read the prending frame.
+            let tir = tx.tir.read();
+            let mut pending_frame = Frame {
+                id: Id(tir.bits()),
+                dlc: tx.tdtr.read().dlc().bits() as usize,
+                data: [0; 8],
+            };
+            pending_frame.data[0..4].copy_from_slice(&tx.tdlr.read().bits().to_ne_bytes());
+            pending_frame.data[4..8].copy_from_slice(&tx.tdhr.read().bits().to_ne_bytes());
+
+            Self::write_tx_mailbox(tx, frame);
+            Ok(Some(pending_frame))
+        } else {
+            // All mailboxes filled with messages of higher priority.
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    fn write_tx_mailbox(tx_mb: &crate::pac::can1::TX, frame: &Frame) {
+        tx_mb
+            .tdtr
+            .write(|w| unsafe { w.dlc().bits(frame.dlc as u8) });
+        tx_mb
+            .tdlr
             .write(|w| unsafe { w.bits(u32::from_ne_bytes(frame.data[0..4].try_into().unwrap())) });
-        tx.tdhr
+        tx_mb
+            .tdhr
             .write(|w| unsafe { w.bits(u32::from_ne_bytes(frame.data[4..8].try_into().unwrap())) });
-        tx.tir
+        tx_mb
+            .tir
             .write(|w| unsafe { w.bits(frame.id.0).txrq().set_bit() });
-        
-        Ok(None)
     }
 }
