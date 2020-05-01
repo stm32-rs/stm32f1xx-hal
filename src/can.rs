@@ -19,6 +19,22 @@
 //! | TX       | PB6     | PB13  |
 //! | RX       | PB5     | PB12  |
 
+use crate::afio::MAPR;
+#[cfg(feature = "connectivity")]
+use crate::gpio::gpiob::{PB12, PB13, PB5, PB6};
+use crate::gpio::{
+    gpioa::{PA11, PA12},
+    gpiob::{PB8, PB9},
+    Alternate, Floating, Input, PushPull,
+};
+use crate::pac::CAN1;
+#[cfg(feature = "connectivity")]
+use crate::pac::CAN2;
+#[cfg(not(feature = "connectivity"))]
+use crate::pac::USB;
+use crate::rcc::sealed::RccBus;
+use core::marker::PhantomData;
+
 /// Identifier of a CAN message.
 ///
 /// Can be either a standard identifier (11bit, Range: 0..0x3FF)
@@ -147,5 +163,117 @@ impl Frame {
     // Returns the frame data.
     pub fn data(&self) -> &[u8] {
         &self.data[0..self.dlc]
+    }
+}
+
+// Seal the traits so that they cannot be implemented outside side this crate.
+mod traits {
+    pub trait Instance: crate::rcc::Enable {
+        const REGISTERS: *const crate::pac::can1::RegisterBlock;
+    }
+
+    pub trait Pins {
+        type CAN: Instance;
+        fn remap(mapr: &mut super::MAPR);
+    }
+}
+
+impl traits::Instance for CAN1 {
+    const REGISTERS: *const crate::pac::can1::RegisterBlock = Self::ptr();
+}
+
+#[cfg(feature = "connectivity")]
+impl traits::Instance for CAN2 {
+    // Register blocks are the same except for the filter registers.
+    // Those are only available on CAN1.
+    const REGISTERS: *const crate::pac::can1::RegisterBlock = Self::ptr() as *const _;
+}
+
+impl traits::Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
+    type CAN = CAN1;
+
+    fn remap(mapr: &mut MAPR) {
+        #[cfg(not(feature = "connectivity"))]
+        mapr.modify_mapr(|_, w| unsafe { w.can_remap().bits(0) });
+        #[cfg(feature = "connectivity")]
+        mapr.modify_mapr(|_, w| unsafe { w.can1_remap().bits(0) });
+    }
+}
+
+impl traits::Pins for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {
+    type CAN = CAN1;
+
+    fn remap(mapr: &mut MAPR) {
+        #[cfg(not(feature = "connectivity"))]
+        mapr.modify_mapr(|_, w| unsafe { w.can_remap().bits(0x10) });
+        #[cfg(feature = "connectivity")]
+        mapr.modify_mapr(|_, w| unsafe { w.can1_remap().bits(0x10) });
+    }
+}
+
+#[cfg(feature = "connectivity")]
+impl traits::Pins for (PB13<Alternate<PushPull>>, PB12<Input<Floating>>) {
+    type CAN = CAN2;
+
+    fn remap(mapr: &mut MAPR) {
+        mapr.modify_mapr(|_, w| w.can2_remap().clear_bit());
+    }
+}
+
+#[cfg(feature = "connectivity")]
+impl traits::Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
+    type CAN = CAN2;
+
+    fn remap(mapr: &mut MAPR) {
+        mapr.modify_mapr(|_, w| w.can2_remap().set_bit());
+    }
+}
+
+/// Interface to the CAN peripheral.
+pub struct Can<Instance> {
+    _can: PhantomData<Instance>,
+}
+
+impl<Instance> Can<Instance>
+where
+    Instance: traits::Instance,
+{
+    /// Creates a CAN interaface.
+    ///
+    /// CAN shares SRAM with the USB peripheral. Take ownership of USB to
+    /// prevent accidental shared usage.
+    #[cfg(not(feature = "connectivity"))]
+    pub fn new<Pins>(
+        _can: Instance,
+        _pins: Pins,
+        mapr: &mut MAPR,
+        apb: &mut <Instance as RccBus>::Bus,
+        _usb: USB,
+    ) -> Can<Instance>
+    where
+        Pins: traits::Pins<CAN = Instance>,
+    {
+        Pins::remap(mapr);
+        Self::new_internal(apb)
+    }
+
+    /// Creates a CAN interaface.
+    #[cfg(feature = "connectivity")]
+    pub fn new<Pins>(
+        _can: Instance,
+        _pins: Pins,
+        mapr: &mut MAPR,
+        apb: &mut <Instance as RccBus>::Bus,
+    ) -> Can<Instance>
+    where
+        Pins: traits::Pins<CAN = Instance>,
+    {
+        Pins::remap(mapr);
+        Self::new_internal(apb)
+    }
+
+    fn new_internal(apb: &mut <Instance as RccBus>::Bus) -> Can<Instance> {
+        Instance::enable(apb);
+        Can { _can: PhantomData }
     }
 }
