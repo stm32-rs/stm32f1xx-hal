@@ -33,7 +33,10 @@ use crate::pac::CAN2;
 #[cfg(not(feature = "connectivity"))]
 use crate::pac::USB;
 use crate::rcc::sealed::RccBus;
-use core::{convert::Infallible, marker::PhantomData};
+use core::{
+    convert::{Infallible, TryInto},
+    marker::PhantomData,
+};
 
 /// Identifier of a CAN message.
 ///
@@ -232,6 +235,7 @@ impl traits::Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
 /// Interface to the CAN peripheral.
 pub struct Can<Instance> {
     _can: PhantomData<Instance>,
+    tx: Option<Tx<Instance>>,
 }
 
 impl<Instance> Can<Instance>
@@ -274,7 +278,10 @@ where
 
     fn new_internal(apb: &mut <Instance as RccBus>::Bus) -> Can<Instance> {
         Instance::enable(apb);
-        Can { _can: PhantomData }
+        Can {
+            _can: PhantomData,
+            tx: Some(Tx { _can: PhantomData }),
+        }
     }
 
     /// Configures the bit timings.
@@ -285,7 +292,8 @@ where
     pub unsafe fn set_bit_timing(&mut self, btr: u32) {
         let can = &*Instance::REGISTERS;
 
-        can.mcr.modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
+        can.mcr
+            .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
         while can.msr.read().inak().bit_is_clear() {}
         can.btr.write(|w| w.bits(btr));
         self.sleep();
@@ -302,7 +310,8 @@ where
         if msr.slak().bit_is_set() {
             // TODO: Make automatic bus-off management configurable.
             // TODO: Make automatic wakeup configurable.
-            can.mcr.modify(|_, w| w.abom().set_bit().sleep().clear_bit());
+            can.mcr
+                .modify(|_, w| w.abom().set_bit().sleep().clear_bit());
             Err(nb::Error::WouldBlock)
         } else {
             Ok(())
@@ -314,7 +323,47 @@ where
     /// Reception and transmission is disabled.
     pub fn sleep(&mut self) {
         let can = unsafe { &*Instance::REGISTERS };
-        can.mcr.modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
+        can.mcr
+            .modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
         while can.msr.read().slak().bit_is_clear() {}
+    }
+
+    /// Returns the transmitter interface.
+    ///
+    /// Only the first calls returns a valid transmitter. Subsequent calls
+    /// return `None`.
+    pub fn take_tx(&mut self) -> Option<Tx<Instance>> {
+        self.tx.take()
+    }
+}
+
+/// Interface to the CAN transmitter.
+pub struct Tx<Instance> {
+    _can: PhantomData<Instance>,
+}
+
+impl<Instance> Tx<Instance>
+where
+    Instance: traits::Instance,
+{
+    // TODO: Use more than just the first mailbox.
+    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
+        let can = unsafe { &*Instance::REGISTERS };
+
+        let tsr = can.tsr.read();
+        if tsr.tme0().bit_is_clear() {
+            return Err(nb::Error::WouldBlock)
+        }
+
+        let tx = &can.tx[0];
+        tx.tdtr.write(|w| unsafe { w.dlc().bits(frame.dlc as u8) });
+        tx.tdlr
+            .write(|w| unsafe { w.bits(u32::from_ne_bytes(frame.data[0..4].try_into().unwrap())) });
+        tx.tdhr
+            .write(|w| unsafe { w.bits(u32::from_ne_bytes(frame.data[4..8].try_into().unwrap())) });
+        tx.tir
+            .write(|w| unsafe { w.bits(frame.id.0).txrq().set_bit() });
+        
+        Ok(None)
     }
 }
