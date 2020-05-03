@@ -40,9 +40,16 @@ use core::{
 
 /// Identifier of a CAN message.
 ///
-/// Can be either a standard identifier (11bit, Range: 0..0x3FF)
-/// or a extendended identifier (29bit , Range: 0..0x1FFFFFFF).
-#[derive(Clone, Copy, Debug)]
+/// Can be either a standard identifier (11bit, Range: 0..0x3FF) or a
+/// extendended identifier (29bit , Range: 0..0x1FFFFFFF).
+///
+/// The `Ord` trait is can be used to determine the frame’s priority this ID
+/// belongs to. This works because the EID and RTR flags are included in the
+/// underlying integer representaiton.
+/// Lower identifier values mean higher priority. Additionally standard frames
+/// have a higher priority than extended frames and data frames have a higher
+/// priority than remote frames.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Id(u32);
 
 impl Id {
@@ -67,6 +74,10 @@ impl Id {
         Self(id << Self::EXTENDED_SHIFT | Self::EID_MASK)
     }
 
+    fn from_register(reg: u32) -> Id {
+        Self(reg & 0xFFFF_FFFE)
+    }
+
     /// Sets the remote transmission (RTR) flag. This marks the identifier as
     /// being part of a remote frame.
     fn with_rtr(self) -> Id {
@@ -76,7 +87,7 @@ impl Id {
     /// Returns the identifier.
     ///
     /// It is up to the user to check if it is an standard or extended id.
-    pub fn id(self) -> u32 {
+    pub fn as_u32(self) -> u32 {
         if self.is_extended() {
             self.0 >> Self::EXTENDED_SHIFT
         } else {
@@ -160,8 +171,8 @@ impl Frame {
     }
 
     /// Returns the frame identifier.
-    pub fn id(&self) -> u32 {
-        self.id.id()
+    pub fn id(&self) -> Id {
+        self.id
     }
 
     // Returns the frame data.
@@ -439,11 +450,9 @@ where
         // Read the pending frame's id to check its priority.
         let tir = mb.tir.read();
 
-        // Check the priority by comparing the identifiers including the EID and RTR
-        // bits: Standard frames have a higher priority than extended frames and data
-        // frames have a higher priority than remote frames.
-        // Also make sure the frame has not finished transmission in the meantime.
-        if tir.txrq().bit_is_set() && id.0 >= tir.bits() & 0xFFFF_FFFE {
+        // Check the priority by comparing the identifiers. But first make sure the
+        // frame has not finished transmission (`TXRQ` == 0) in the meantime.
+        if tir.txrq().bit_is_set() && id >= Id::from_register(tir.bits()) {
             // There's a mailbox whose priority is higher or equal
             // the priority of the new frame.
             return Err(nb::Error::WouldBlock);
