@@ -69,14 +69,14 @@ impl Id {
 
     /// Sets the remote transmission (RTR) flag. This marks the identifier as
     /// being part of a remote frame.
-    fn with_rtr(&self) -> Id {
+    fn with_rtr(self) -> Id {
         Self(self.0 | Self::RTR_MASK)
     }
 
     /// Returns the identifier.
     ///
     /// It is up to the user to check if it is an standard or extended id.
-    pub fn id(&self) -> u32 {
+    pub fn id(self) -> u32 {
         if self.is_extended() {
             self.0 >> Self::EXTENDED_SHIFT
         } else {
@@ -85,17 +85,17 @@ impl Id {
     }
 
     /// Returns `true` if the identifier is an extended identifier.
-    pub fn is_extended(&self) -> bool {
+    pub fn is_extended(self) -> bool {
         self.0 & Self::EID_MASK != 0
     }
 
     /// Returns `true` if the identifier is a standard identifier.
-    pub fn is_standard(&self) -> bool {
+    pub fn is_standard(self) -> bool {
         !self.is_extended()
     }
 
     /// Returns `true` if the identifer is part of a remote frame (RTR bit set).
-    fn rtr(&self) -> bool {
+    fn rtr(self) -> bool {
         self.0 & Self::RTR_MASK != 0
     }
 }
@@ -287,9 +287,11 @@ where
 
     /// Configures the bit timings.
     ///
-    /// Use http://www.bittiming.can-wiki.info/ to calculate a safe parameter
-    /// value. Puts the peripheral in sleep mode. `Can::enable()` must be called
-    /// afterwards to start reception and transmission.
+    /// Puts the peripheral in sleep mode. `Can::enable()` must be called afterwards
+    /// to start reception and transmission.
+    ///
+    /// # Safety
+    /// Use http://www.bittiming.can-wiki.info/ to calculate a safe parameter value.
     pub unsafe fn set_bit_timing(&mut self, btr: u32) {
         let can = &*Instance::REGISTERS;
 
