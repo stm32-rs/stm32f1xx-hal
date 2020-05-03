@@ -355,6 +355,12 @@ impl<Instance> Tx<Instance>
 where
     Instance: traits::Instance,
 {
+    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
+    ///
+    /// Frames are transmitted to the bus based on their priority (identifier).
+    /// Transmit order is preserved for frames with identical identifiers.
+    /// If all transmit mailboxes are full a higher priority frame replaces the
+    /// lowest priority frame which is returned as `Ok(Some(frame))`.
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
         let can = unsafe { &*Instance::REGISTERS };
 
