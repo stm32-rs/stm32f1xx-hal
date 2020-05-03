@@ -40,7 +40,7 @@ fn main() -> ! {
         .set_high()
         .unwrap();
 
-    #[cfg(feature = "stm32f103")]
+    #[cfg(any(feature = "stm32f103", feature = "stm32f105", feature = "stm32f107"))]
     gpioc
         .pc13
         .into_push_pull_output(&mut gpioc.crh)

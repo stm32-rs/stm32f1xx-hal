@@ -1,4 +1,7 @@
-on: [push, pull_request]
+on:
+  push:
+    branches: [ staging, trying, master ]
+  pull_request:
 
 name: Continuous integration
 
@@ -7,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        mcu: 
+        mcu:
           - stm32f100
           - stm32f101
           - stm32f103
@@ -30,5 +33,5 @@ jobs:
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --features=${{ matrix.mcu }}
+          command: check
+          args: --features=${{ matrix.mcu }},rt --examples
