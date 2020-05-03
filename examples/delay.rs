@@ -28,7 +28,7 @@ fn main() -> ! {
     #[cfg(feature = "stm32f101")]
     let mut led = gpioc.pc9.into_push_pull_output(&mut gpioc.crh);
 
-    #[cfg(feature = "stm32f103")]
+    #[cfg(any(feature = "stm32f103", feature = "stm32f105", feature = "stm32f107"))]
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 
     let mut delay = Delay::new(cp.SYST, clocks);

@@ -15,13 +15,6 @@ version = "0.5.3"
 features = ["stm32f103", "rt", "stm32-usbd"]
 default-target = "x86_64-unknown-linux-gnu"
 
-[[example]]
-name = "timer-interrupt-rtfm"
-required-features = ["rt"]
-[[example]]
-name = "exti"
-required-features = ["rt"]
-
 [dependencies]
 cortex-m = "0.6.0"
 nb = "0.1.2"
@@ -109,17 +102,28 @@ lto = true
 
 [[example]]
 name = "usb_serial"
-required-features = ["rt", "stm32f103", "stm32-usbd"]
+required-features = ["rt", "stm32-usbd"]
 
 [[example]]
 name = "usb_serial_interrupt"
-required-features = ["rt", "stm32f103", "stm32-usbd"]
+required-features = ["rt", "stm32-usbd"]
 
 [[example]]
 name = "usb_serial_rtfm"
-required-features = ["rt", "stm32f103", "stm32-usbd"]
+required-features = ["rt", "stm32-usbd"]
 
 [[example]]
 name = "blinky_timer_irq"
-required-features = ["medium", "rt", "stm32f103"]
+required-features = ["rt"]
 
+[[example]]
+name = "qei"
+required-features = ["medium"]
+
+[[example]]
+name = "timer-interrupt-rtfm"
+required-features = ["rt", "medium"]
+
+[[example]]
+name = "exti"
+required-features = ["rt"]
