@@ -18,8 +18,8 @@ use crate::pac::ADC3;
 
 /// Continuous mode
 pub struct Continuous;
-/// Scan mode
-pub struct Scan;
+/// Single conversion mode
+pub struct Single;
 
 /// ADC configuration
 pub struct Adc<ADC> {
@@ -567,7 +567,7 @@ impl<PINS> TransferPayload for AdcDma<PINS, Continuous> {
     }
 }
 
-impl<PINS> TransferPayload for AdcDma<PINS, Scan> {
+impl<PINS> TransferPayload for AdcDma<PINS, Single> {
     fn start(&mut self) {
         self.channel.start();
         self.payload.adc.rb.cr2.modify(|_, w| w.adon().set_bit());
@@ -601,7 +601,7 @@ impl Adc<ADC1> {
         }
     }
 
-    pub fn with_scan_dma<PINS>(mut self, pins: PINS, dma_ch: C1) -> AdcDma<PINS, Scan>
+    pub fn with_scan_dma<PINS, T>(mut self, pins: PINS, dma_ch: C1) -> AdcDma<PINS, T>
     where
         Self: SetChannels<PINS>,
     {
@@ -651,7 +651,7 @@ where
     }
 }
 
-impl<PINS> AdcDma<PINS, Scan>
+impl<PINS> AdcDma<PINS, Single>
 where
     Self: TransferPayload,
 {
