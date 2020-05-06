@@ -369,6 +369,20 @@ where
     pub fn take_tx(&mut self) -> Option<Tx<Instance>> {
         self.tx.take()
     }
+
+    /// Enables the transmit interrupt.
+    ///
+    /// The interrupt flags must be cleared with `Tx::clear_interrupt_flags()`.
+    pub fn enable_tx_interrupt(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.ier.modify(|_, w| w.tmeie().set_bit());
+    }
+
+    /// Disables the transmit interrupt.
+    pub fn disable_tx_interrupt(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.ier.modify(|_, w| w.tmeie().clear_bit());
+    }
 }
 
 /// Interface to the CAN transmitter.
@@ -494,5 +508,12 @@ where
         tx_mb
             .tir
             .write(|w| unsafe { w.bits(frame.id.0).txrq().set_bit() });
+    }
+
+    /// Clears the request complete flag for all mailboxes.
+    pub fn clear_interrupt_flags(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.tsr
+            .write(|w| w.rqcp2().set_bit().rqcp1().set_bit().rqcp0().set_bit());
     }
 }
