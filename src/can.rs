@@ -181,6 +181,26 @@ impl Frame {
     }
 }
 
+impl core::cmp::Ord for Frame {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.id().cmp(&other.id())
+    }
+}
+
+impl core::cmp::PartialOrd for Frame {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl core::cmp::PartialEq for Frame {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+
+impl core::cmp::Eq for Frame {}
+
 // Seal the traits so that they cannot be implemented outside side this crate.
 mod traits {
     pub trait Instance: crate::rcc::Enable {
