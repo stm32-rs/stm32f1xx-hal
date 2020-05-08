@@ -21,6 +21,7 @@ nb = "0.1.2"
 cortex-m-rt = "0.6.8"
 stm32f1 = "0.11.0"
 as-slice = "0.1"
+typenum = "1.12.0"
 
 [dependencies.void]
 default-features = false

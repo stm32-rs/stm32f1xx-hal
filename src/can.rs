@@ -20,6 +20,7 @@
 //! | RX       | PB5     | PB12  |
 
 use crate::afio::MAPR;
+use crate::bb;
 #[cfg(feature = "connectivity")]
 use crate::gpio::gpiob::{PB12, PB13, PB5, PB6};
 use crate::gpio::{
@@ -37,6 +38,7 @@ use core::{
     convert::{Infallible, TryInto},
     marker::PhantomData,
 };
+pub use typenum::{U0, U1};
 
 /// Identifier of a CAN message.
 ///
@@ -205,6 +207,8 @@ impl core::cmp::Eq for Frame {}
 mod traits {
     pub trait Instance: crate::rcc::Enable {
         const REGISTERS: *const crate::pac::can1::RegisterBlock;
+        const FILTER_BANK_START: usize;
+        const FILTER_BANK_STOP: usize;
     }
 
     pub trait Pins {
@@ -215,6 +219,8 @@ mod traits {
 
 impl traits::Instance for CAN1 {
     const REGISTERS: *const crate::pac::can1::RegisterBlock = CAN1::ptr();
+    const FILTER_BANK_START: usize = 0;
+    const FILTER_BANK_STOP: usize = 14;
 }
 
 #[cfg(feature = "connectivity")]
@@ -222,6 +228,8 @@ impl traits::Instance for CAN2 {
     // Register blocks are the same except for the filter registers.
     // Those are only available on CAN1.
     const REGISTERS: *const crate::pac::can1::RegisterBlock = CAN2::ptr() as *const _;
+    const FILTER_BANK_START: usize = CAN1::FILTER_BANK_STOP;
+    const FILTER_BANK_STOP: usize = 28;
 }
 
 impl traits::Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
@@ -268,6 +276,7 @@ impl traits::Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
 pub struct Can<Instance> {
     _can: PhantomData<Instance>,
     tx: Option<Tx<Instance>>,
+    rx: Option<(Rx<Instance, U0>, Rx<Instance, U1>)>,
 }
 
 impl<Instance> Can<Instance>
@@ -291,9 +300,20 @@ where
 
     fn new_internal(apb: &mut APB1) -> Can<Instance> {
         Instance::enable(apb);
+
         Can {
             _can: PhantomData,
             tx: Some(Tx { _can: PhantomData }),
+            rx: Some((
+                Rx {
+                    _can: PhantomData,
+                    _fifo: PhantomData,
+                },
+                Rx {
+                    _can: PhantomData,
+                    _fifo: PhantomData,
+                },
+            )),
         }
     }
 
@@ -371,6 +391,76 @@ where
     pub fn disable_tx_interrupt(&mut self) {
         let can = unsafe { &*Instance::REGISTERS };
         can.ier.modify(|_, w| w.tmeie().clear_bit());
+    }
+
+    pub fn take_rx(
+        &mut self,
+        _filters: Filters<Instance>,
+    ) -> Option<(Rx<Instance, U0>, Rx<Instance, U1>)> {
+        self.rx.take()
+    }
+}
+
+impl Can<CAN1> {
+    /// Returns the filter part of the CAN peripheral.
+    #[cfg(not(feature = "connectivity"))]
+    pub fn split_filters(&mut self) -> Option<Filters<CAN1>> {
+        self.split_filters_internal()?;
+        Some(Filters(PhantomData))
+    }
+
+    /// Returns the filter part of the CAN peripheral.
+    #[cfg(feature = "connectivity")]
+    pub fn split_filters(&mut self) -> Option<(Filters<CAN1>, Filters<CAN2>)> {
+        self.split_filters_internal()?;
+        Some((Filters(PhantomData), Filters(PhantomData)))
+    }
+
+    fn split_filters_internal(&mut self) -> Option<()> {
+        let can = unsafe { &*CAN1::ptr() };
+
+        if can.fmr.read().finit().bit_is_clear() {
+            return None;
+        }
+
+        // Same configuration for all filters banks.
+        can.fm1r.write(|w| unsafe { w.bits(0x0000_0000) }); // Mask mode
+        can.fs1r.write(|w| unsafe { w.bits(0xFFFF_FFFF) }); // 32bit scale
+
+        // Filters are alternating between between the FIFO0 and FIFO1.
+        can.ffa1r.write(|w| unsafe { w.bits(0xAAAA_AAAA) });
+
+        // Init filter banks. Each used filter must still be enabled individually.
+        #[allow(unused_unsafe)]
+        can.fmr.modify(|_, w| unsafe {
+            #[cfg(feature = "connectivity")]
+            w.can2sb()
+                .bits(<CAN1 as traits::Instance>::FILTER_BANK_STOP as u8);
+            w.finit().clear_bit()
+        });
+
+        Some(())
+    }
+}
+
+pub struct Filters<Instance>(PhantomData<Instance>);
+
+impl<Instance> Filters<Instance>
+where
+    Instance: traits::Instance,
+{
+    /// Enables a filter that accepts all messages.
+    pub fn accept_all(&mut self, fifo_nr: usize) {
+        let can = unsafe { &*CAN1::ptr() };
+
+        assert!(fifo_nr == 0 || fifo_nr == 1);
+        let fb_idx = Instance::FILTER_BANK_START + fifo_nr;
+
+        // For more details on the quirks of bxCAN see:
+        // https://github.com/UAVCAN/libcanard/blob/8ee343c4edae0e0e4e1c040852aa3d8430f7bf76/drivers/stm32/canard_stm32.c#L471-L513
+        can.fb[fb_idx].fr1.write(|w| unsafe { w.bits(0xFFFF_FFFE) });
+        can.fb[fb_idx].fr2.write(|w| unsafe { w.bits(0) });
+        bb::set(&can.fa1r, fb_idx as u8);
     }
 }
 
@@ -504,5 +594,42 @@ where
         let can = unsafe { &*Instance::REGISTERS };
         can.tsr
             .write(|w| w.rqcp2().set_bit().rqcp1().set_bit().rqcp0().set_bit());
+    }
+}
+
+/// Interface to a CAN receiver.
+pub struct Rx<Instance, FifoNr> {
+    _can: PhantomData<Instance>,
+    _fifo: PhantomData<FifoNr>,
+}
+
+impl<Instance, FifoNr> Rx<Instance, FifoNr>
+where
+    Instance: traits::Instance,
+    FifoNr: typenum::marker_traits::Unsigned,
+{
+    /// Return a received frame if available.
+    pub fn receive(&mut self) -> nb::Result<Frame, Infallible> {
+        let rfr = &(unsafe { &*Instance::REGISTERS }.rfr[FifoNr::to_usize()]);
+        let rx = &(unsafe { &*Instance::REGISTERS }.rx[FifoNr::to_usize()]);
+
+        // Check if a frame is available in the mailbox.
+        if rfr.read().fmp().bits() == 0 {
+            return Err(nb::Error::WouldBlock);
+        }
+
+        // Read the frame.
+        let mut frame = Frame {
+            id: Id(rx.rir.read().bits()),
+            dlc: rx.rdtr.read().dlc().bits() as usize,
+            data: [0; 8],
+        };
+        frame.data[0..4].copy_from_slice(&rx.rdlr.read().bits().to_ne_bytes());
+        frame.data[4..8].copy_from_slice(&rx.rdhr.read().bits().to_ne_bytes());
+
+        // Release the mailbox.
+        rfr.write(|w| w.rfom().set_bit());
+
+        Ok(frame)
     }
 }
