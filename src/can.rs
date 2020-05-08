@@ -32,7 +32,7 @@ use crate::pac::CAN2;
 #[cfg(not(feature = "connectivity"))]
 use crate::pac::USB;
 use crate::pac::{can1::TX, CAN1};
-use crate::rcc::sealed::RccBus;
+use crate::rcc::APB1;
 use core::{
     convert::{Infallible, TryInto},
     marker::PhantomData,
@@ -272,48 +272,37 @@ pub struct Can<Instance> {
 
 impl<Instance> Can<Instance>
 where
-    Instance: traits::Instance,
+    Instance: traits::Instance<Bus = APB1>,
 {
     /// Creates a CAN interaface.
     ///
     /// CAN shares SRAM with the USB peripheral. Take ownership of USB to
     /// prevent accidental shared usage.
     #[cfg(not(feature = "connectivity"))]
-    pub fn new<Pins>(
-        _can: Instance,
-        _pins: Pins,
-        mapr: &mut MAPR,
-        apb: &mut <Instance as RccBus>::Bus,
-        _usb: USB,
-    ) -> Can<Instance>
-    where
-        Pins: traits::Pins<CAN = Instance>,
-    {
-        Pins::remap(mapr);
+    pub fn new(_can: Instance, apb: &mut APB1, _usb: USB) -> Can<Instance> {
         Self::new_internal(apb)
     }
 
     /// Creates a CAN interaface.
     #[cfg(feature = "connectivity")]
-    pub fn new<Pins>(
-        _can: Instance,
-        _pins: Pins,
-        mapr: &mut MAPR,
-        apb: &mut <Instance as RccBus>::Bus,
-    ) -> Can<Instance>
-    where
-        Pins: traits::Pins<CAN = Instance>,
-    {
-        Pins::remap(mapr);
+    pub fn new(_can: Instance, apb: &mut APB1) -> Can<Instance> {
         Self::new_internal(apb)
     }
 
-    fn new_internal(apb: &mut <Instance as RccBus>::Bus) -> Can<Instance> {
+    fn new_internal(apb: &mut APB1) -> Can<Instance> {
         Instance::enable(apb);
         Can {
             _can: PhantomData,
             tx: Some(Tx { _can: PhantomData }),
         }
+    }
+
+    /// Routes CAN TX signals and RX signals to pins.
+    pub fn assign_pins<Pins>(&self, _pins: Pins, mapr: &mut MAPR)
+    where
+        Pins: traits::Pins<CAN = Instance>,
+    {
+        Pins::remap(mapr);
     }
 
     /// Configures the bit timings.
