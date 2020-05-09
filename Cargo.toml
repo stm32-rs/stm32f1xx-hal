@@ -134,5 +134,9 @@ name = "exti"
 required-features = ["rt"]
 
 [[example]]
+name = "can-echo"
+required-features = ["connectivity"]
+
+[[example]]
 name = "can-rtfm"
-required-features = ["rt"]
+required-features = ["connectivity", "rt"]

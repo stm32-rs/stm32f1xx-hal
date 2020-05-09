@@ -5,8 +5,13 @@
 //! interrupt has to be triggered manually once. With each successful
 //! transmission the interrupt is reentered and more data is fetched from the
 //! queue.
+//! Received frames are simply echoed back. In contrast to the naive `can-echo`
+//! example the echo messages are also correctly prioritized by the transmit
+//! queue.
 #![no_main]
 #![no_std]
+// This should be inside the pool!() macro of heapless.
+#![allow(non_upper_case_globals)]
 
 use heapless::{
     binary_heap::{BinaryHeap, Min},
@@ -20,7 +25,7 @@ use heapless::{
 use panic_halt as _;
 use rtfm::app;
 use stm32f1xx_hal::{
-    can::{Can, Frame, Tx},
+    can::{Can, Frame, Rx, Tx},
     pac::{Interrupt, CAN2},
     prelude::*,
 };
@@ -38,51 +43,66 @@ const APP: () = {
         can_tx: Tx<CAN2>,
         can_tx_queue: BinaryHeap<Box<CanFramePool>, U8, Min>,
         tx_count: usize,
+        can_rx: Rx<CAN2>,
     }
 
     #[init]
     fn init(cx: init::Context) -> init::LateResources {
         static mut CAN_POOL_MEMORY: [u8; 256] = [0; 256];
 
+        unsafe { cx.core.SCB.vtor.write(0x0800_0000) };
+
         let mut flash = cx.device.FLASH.constrain();
         let mut rcc = cx.device.RCC.constrain();
 
-        let _clocks = rcc.cfgr.use_hse(8.mhz()).freeze(&mut flash.acr);
+        rcc.cfgr
+            .use_hse(8.mhz())
+            .sysclk(72.mhz())
+            .hclk(72.mhz())
+            .pclk1(36.mhz())
+            .pclk2(72.mhz())
+            .freeze(&mut flash.acr);
 
         let mut gpiob = cx.device.GPIOB.split(&mut rcc.apb2);
         let mut afio = cx.device.AFIO.constrain(&mut rcc.apb2);
 
-        let canrx = gpiob.pb5.into_floating_input(&mut gpiob.crl);
-        let cantx = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
-        let mut can = Can::new(
-            cx.device.CAN2,
-            (cantx, canrx),
-            &mut afio.mapr,
-            &mut rcc.apb1,
-        );
-        // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
-        // Value was calculated with http://www.bittiming.can-wiki.info/
-        unsafe { can.set_bit_timing(0x001c_0003) };
-        can.enable_tx_interrupt();
-        can.enable().ok();
+        let can_rx_pin = gpiob.pb5.into_floating_input(&mut gpiob.crl);
+        let can_tx_pin = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
 
-        let can_tx = can.take_tx().unwrap();
+        let mut can2 = Can::new(cx.device.CAN2, &mut rcc.apb1);
+        can2.assign_pins((can_tx_pin, can_rx_pin), &mut afio.mapr);
+
+        // APB1 (PCLK1): 36MHz, Bit rate: 125kBit/s, Sample Point 87.5%
+        // Value was calculated with http://www.bittiming.can-wiki.info/
+        unsafe { can2.set_bit_timing(0x001c0011) };
+        can2.enable().ok();
+
+        let mut can_tx = can2.take_tx().unwrap();
+        can_tx.enable_interrupt();
         let can_tx_queue = BinaryHeap::new();
         CanFramePool::grow(CAN_POOL_MEMORY);
+
+        let mut can1 = Can::new(cx.device.CAN1, &mut rcc.apb1);
+        let (_, mut filters) = can1.split_filters().unwrap();
+        filters.accept_all();
+
+        let mut can_rx = can2.take_rx(filters).unwrap();
+        can_rx.enable_interrupts();
 
         init::LateResources {
             can_tx,
             can_tx_queue,
             tx_count: 0,
+            can_rx,
         }
     }
 
     #[idle(resources = [can_tx_queue, tx_count])]
     fn idle(mut cx: idle::Context) -> ! {
-        static mut HIGH_PRIORITY_MESSAGES_PENDING: bool = true;
+        let mut tx_queue = cx.resources.can_tx_queue;
 
         // Enqueue some messages. Higher ID means lower priority.
-        cx.resources.can_tx_queue.lock(|tx_queue| {
+        tx_queue.lock(|tx_queue| {
             tx_queue.push(alloc_frame(9, &[0, 1, 2, 4])).unwrap();
             tx_queue.push(alloc_frame(9, &[0, 1, 2, 4])).unwrap();
             tx_queue.push(alloc_frame(8, &[0, 1, 2, 4])).unwrap();
@@ -94,20 +114,18 @@ const APP: () = {
         // Manually trigger the tx interrupt to start the transmission.
         rtfm::pend(Interrupt::CAN2_TX);
 
+        // Add some higher priority messages when 3 messages have been sent.
         loop {
             let tx_count = cx.resources.tx_count.lock(|tx_count| *tx_count);
 
-            // Add some higher priority messages when 3 messages have been sent.
-            if *HIGH_PRIORITY_MESSAGES_PENDING && tx_count >= 3 {
-                *HIGH_PRIORITY_MESSAGES_PENDING = false;
-
-                cx.resources.can_tx_queue.lock(|tx_queue| {
+            if tx_count >= 3 {
+                tx_queue.lock(|tx_queue| {
                     tx_queue.push(alloc_frame(3, &[0, 1, 2, 4])).unwrap();
                     tx_queue.push(alloc_frame(2, &[0, 1, 2, 4])).unwrap();
                     tx_queue.push(alloc_frame(1, &[0, 1, 2, 4])).unwrap();
                 });
+                break;
             }
-            cortex_m::asm::wfi();
         }
 
         // Expected bus traffic:
@@ -122,8 +140,11 @@ const APP: () = {
         // 8. ID: 9 DATA: 00 01 02 04
         // 9. ID: 9 DATA: 00 01 02 04
         //
-        // The output can look different if there are other nodes on the bus that send
-        // higher priority messages at the same time.
+        // The output can look different if there are other nodes on bus the sending messages.
+
+        loop {
+            cortex_m::asm::wfi();
+        }
     }
 
     // This ISR is triggered by each finished frame transmission.
@@ -156,5 +177,25 @@ const APP: () = {
                 _ => unreachable!(),
             }
         }
+    }
+
+    #[task(binds = CAN2_RX0, resources = [can_rx, can_tx_queue])]
+    fn can2_rx0(cx: can2_rx0::Context) {
+        // Echo back received packages with correct priority ordering.
+        while let Ok(frame) = cx.resources.can_rx.receive() {
+            cx.resources
+                .can_tx_queue
+                .push(CanFramePool::alloc().unwrap().init(frame))
+                .ok();
+        }
+
+        // Start transmission of the newly queue frames.
+        rtfm::pend(Interrupt::CAN2_TX);
+    }
+
+    #[task(binds = CAN2_RX1)]
+    fn can2_rx1(_: can2_rx1::Context) {
+        // Jump to the other interrupt handler which handles both RX fifos.
+        rtfm::pend(Interrupt::CAN2_RX0);
     }
 };
