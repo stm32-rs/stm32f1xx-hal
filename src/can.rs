@@ -372,37 +372,8 @@ where
         self.tx.take()
     }
 
-    /// Enables the transmit interrupt CANn_TX.
-    ///
-    /// The interrupt flags must be cleared with `Tx::clear_interrupt_flags()`.
-    pub fn enable_tx_interrupt(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        can.ier.modify(|_, w| w.tmeie().set_bit());
-    }
-
-    /// Disables the transmit interrupt.
-    pub fn disable_tx_interrupt(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        can.ier.modify(|_, w| w.tmeie().clear_bit());
-    }
-
     pub fn take_rx(&mut self, _filters: Filters<Instance>) -> Option<Rx<Instance>> {
         self.rx.take()
-    }
-
-    /// Enables the receive interrupts CANn_RX0 and CANn_RX1.
-    ///
-    /// Make sure to register interrupt handlers for both.
-    /// The interrupt flags are cleared by reading frames with `RX::receive()`.
-    pub fn enable_rx_interrupts(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        can.ier.modify(|_, w| w.fmpie1().set_bit().fmpie0().set_bit());
-    }
-
-    /// Disables the receive interrupts.
-    pub fn disable_rx_interrupts(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        can.ier.modify(|_, w| w.fmpie1().clear_bit().fmpie0().clear_bit());
     }
 }
 
@@ -592,6 +563,20 @@ where
             .write(|w| unsafe { w.bits(frame.id.0).txrq().set_bit() });
     }
 
+    /// Enables the transmit interrupt CANn_TX.
+    ///
+    /// The interrupt flags must be cleared with `Tx::clear_interrupt_flags()`.
+    pub fn enable_interrupt(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        bb::set(&can.ier, 0); // TMEIE
+    }
+
+    /// Disables the transmit interrupt.
+    pub fn disable_interrupt(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        bb::clear(&can.ier, 0); // TMEIE
+    }
+
     /// Clears the request complete flag for all mailboxes.
     pub fn clear_interrupt_flags(&mut self) {
         let can = unsafe { &*Instance::REGISTERS };
@@ -636,5 +621,22 @@ where
         rfr.write(|w| w.rfom().set_bit());
 
         Ok(frame)
+    }
+
+    /// Enables the receive interrupts CANn_RX0 and CANn_RX1.
+    ///
+    /// Make sure to register interrupt handlers for both.
+    /// The interrupt flags are cleared by reading frames with `Rx::receive()`.
+    pub fn enable_interrupts(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        bb::set(&can.ier, 1); // FMPIE0
+        bb::set(&can.ier, 4); // FMPIE1
+    }
+
+    /// Disables the receive interrupts.
+    pub fn disable_interrupts(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        bb::clear(&can.ier, 1); // FMPIE0
+        bb::clear(&can.ier, 4); // FMPIE1
     }
 }
