@@ -32,13 +32,15 @@ use crate::gpio::{
 use crate::pac::CAN2;
 #[cfg(not(feature = "connectivity"))]
 use crate::pac::USB;
-use crate::pac::{can1::TX, CAN1};
+use crate::pac::{
+    can1::{RFR, RX, TX},
+    CAN1,
+};
 use crate::rcc::APB1;
 use core::{
     convert::{Infallible, TryInto},
     marker::PhantomData,
 };
-pub use typenum::{U0, U1};
 
 /// Identifier of a CAN message.
 ///
@@ -276,7 +278,7 @@ impl traits::Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
 pub struct Can<Instance> {
     _can: PhantomData<Instance>,
     tx: Option<Tx<Instance>>,
-    rx: Option<(Rx<Instance, U0>, Rx<Instance, U1>)>,
+    rx: Option<Rx<Instance>>,
 }
 
 impl<Instance> Can<Instance>
@@ -304,16 +306,7 @@ where
         Can {
             _can: PhantomData,
             tx: Some(Tx { _can: PhantomData }),
-            rx: Some((
-                Rx {
-                    _can: PhantomData,
-                    _fifo: PhantomData,
-                },
-                Rx {
-                    _can: PhantomData,
-                    _fifo: PhantomData,
-                },
-            )),
+            rx: Some(Rx { _can: PhantomData }),
         }
     }
 
@@ -379,7 +372,7 @@ where
         self.tx.take()
     }
 
-    /// Enables the transmit interrupt.
+    /// Enables the transmit interrupt CANn_TX.
     ///
     /// The interrupt flags must be cleared with `Tx::clear_interrupt_flags()`.
     pub fn enable_tx_interrupt(&mut self) {
@@ -393,11 +386,23 @@ where
         can.ier.modify(|_, w| w.tmeie().clear_bit());
     }
 
-    pub fn take_rx(
-        &mut self,
-        _filters: Filters<Instance>,
-    ) -> Option<(Rx<Instance, U0>, Rx<Instance, U1>)> {
+    pub fn take_rx(&mut self, _filters: Filters<Instance>) -> Option<Rx<Instance>> {
         self.rx.take()
+    }
+
+    /// Enables the receive interrupts CANn_RX0 and CANn_RX1.
+    ///
+    /// Make sure to register interrupt handlers for both.
+    /// The interrupt flags are cleared by reading frames with `RX::receive()`.
+    pub fn enable_rx_interrupts(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.ier.modify(|_, w| w.fmpie1().set_bit().fmpie0().set_bit());
+    }
+
+    /// Disables the receive interrupts.
+    pub fn disable_rx_interrupts(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.ier.modify(|_, w| w.fmpie1().clear_bit().fmpie0().clear_bit());
     }
 }
 
@@ -450,17 +455,15 @@ where
     Instance: traits::Instance,
 {
     /// Enables a filter that accepts all messages.
-    pub fn accept_all(&mut self, fifo_nr: usize) {
+    pub fn accept_all(&mut self) {
         let can = unsafe { &*CAN1::ptr() };
-
-        assert!(fifo_nr == 0 || fifo_nr == 1);
-        let fb_idx = Instance::FILTER_BANK_START + fifo_nr;
 
         // For more details on the quirks of bxCAN see:
         // https://github.com/UAVCAN/libcanard/blob/8ee343c4edae0e0e4e1c040852aa3d8430f7bf76/drivers/stm32/canard_stm32.c#L471-L513
-        can.fb[fb_idx].fr1.write(|w| unsafe { w.bits(0xFFFF_FFFE) });
-        can.fb[fb_idx].fr2.write(|w| unsafe { w.bits(0) });
-        bb::set(&can.fa1r, fb_idx as u8);
+        let idx = Instance::FILTER_BANK_START;
+        can.fb[idx].fr1.write(|w| unsafe { w.bits(0xFFFF_FFFE) });
+        can.fb[idx].fr2.write(|w| unsafe { w.bits(0) });
+        bb::set(&can.fa1r, idx as u8);
     }
 }
 
@@ -598,21 +601,23 @@ where
 }
 
 /// Interface to a CAN receiver.
-pub struct Rx<Instance, FifoNr> {
+pub struct Rx<Instance> {
     _can: PhantomData<Instance>,
-    _fifo: PhantomData<FifoNr>,
 }
 
-impl<Instance, FifoNr> Rx<Instance, FifoNr>
+impl<Instance> Rx<Instance>
 where
     Instance: traits::Instance,
-    FifoNr: typenum::marker_traits::Unsigned,
 {
-    /// Return a received frame if available.
+    /// Returns a received frame if available.
     pub fn receive(&mut self) -> nb::Result<Frame, Infallible> {
-        let rfr = &(unsafe { &*Instance::REGISTERS }.rfr[FifoNr::to_usize()]);
-        let rx = &(unsafe { &*Instance::REGISTERS }.rx[FifoNr::to_usize()]);
+        let can = unsafe { &*Instance::REGISTERS };
 
+        Self::receive_fifo(&can.rfr[0], &can.rx[0])
+            .or_else(|_| Self::receive_fifo(&can.rfr[1], &can.rx[1]))
+    }
+
+    fn receive_fifo(rfr: &RFR, rx: &RX) -> nb::Result<Frame, Infallible> {
         // Check if a frame is available in the mailbox.
         if rfr.read().fmp().bits() == 0 {
             return Err(nb::Error::WouldBlock);
