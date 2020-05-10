@@ -25,16 +25,16 @@ use heapless::{
 use panic_halt as _;
 use rtfm::app;
 use stm32f1xx_hal::{
-    can::{Can, Frame, Rx, Tx},
+    can::{Can, Frame, Id, Rx, Tx},
     pac::{Interrupt, CAN2},
     prelude::*,
 };
 
 pool!(CanFramePool: Frame);
 
-fn alloc_frame(id: u32, data: &[u8]) -> Box<CanFramePool, Init> {
+fn alloc_frame(id: Id, data: &[u8]) -> Box<CanFramePool, Init> {
     let frame_box = CanFramePool::alloc().unwrap();
-    frame_box.init(Frame::new_standard(id, data))
+    frame_box.init(Frame::new(id, data))
 }
 
 #[app(device = stm32f1xx_hal::pac, peripherals = true)]
@@ -103,12 +103,27 @@ const APP: () = {
 
         // Enqueue some messages. Higher ID means lower priority.
         tx_queue.lock(|tx_queue| {
-            tx_queue.push(alloc_frame(9, &[0, 1, 2, 4])).unwrap();
-            tx_queue.push(alloc_frame(9, &[0, 1, 2, 4])).unwrap();
-            tx_queue.push(alloc_frame(8, &[0, 1, 2, 4])).unwrap();
-            tx_queue.push(alloc_frame(8, &[0, 1, 2, 4])).unwrap();
-            tx_queue.push(alloc_frame(7, &[0, 1, 2, 4])).unwrap();
-            tx_queue.push(alloc_frame(7, &[0, 1, 2, 4])).unwrap();
+            tx_queue
+                .push(alloc_frame(Id::new_standard(9), &[0, 1, 2, 4]))
+                .unwrap();
+            tx_queue
+                .push(alloc_frame(Id::new_standard(9), &[0, 1, 2, 4]))
+                .unwrap();
+            tx_queue
+                .push(alloc_frame(Id::new_standard(8), &[0, 1, 2, 4]))
+                .unwrap();
+
+            // Extended frames have lower priority than standard frames.
+            tx_queue
+                .push(alloc_frame(Id::new_extended(8), &[0, 1, 2, 4]))
+                .unwrap();
+            tx_queue
+                .push(alloc_frame(Id::new_extended(7), &[0, 1, 2, 4]))
+                .unwrap();
+
+            tx_queue
+                .push(alloc_frame(Id::new_standard(7), &[0, 1, 2, 4]))
+                .unwrap();
         });
 
         // Manually trigger the tx interrupt to start the transmission.
@@ -120,9 +135,15 @@ const APP: () = {
 
             if tx_count >= 3 {
                 tx_queue.lock(|tx_queue| {
-                    tx_queue.push(alloc_frame(3, &[0, 1, 2, 4])).unwrap();
-                    tx_queue.push(alloc_frame(2, &[0, 1, 2, 4])).unwrap();
-                    tx_queue.push(alloc_frame(1, &[0, 1, 2, 4])).unwrap();
+                    tx_queue
+                        .push(alloc_frame(Id::new_standard(3), &[0, 1, 2, 4]))
+                        .unwrap();
+                    tx_queue
+                        .push(alloc_frame(Id::new_standard(2), &[0, 1, 2, 4]))
+                        .unwrap();
+                    tx_queue
+                        .push(alloc_frame(Id::new_standard(1), &[0, 1, 2, 4]))
+                        .unwrap();
                 });
                 break;
             }
@@ -130,15 +151,15 @@ const APP: () = {
 
         // Expected bus traffic:
         //
-        // 1. ID: 7 DATA: 00 01 02 04
-        // 2. ID: 7 DATA: 00 01 02 04
-        // 3. ID: 8 DATA: 00 01 02 04
-        // 4. ID: 1 DATA: 00 01 02 04
-        // 5. ID: 2 DATA: 00 01 02 04
-        // 6. ID: 3 DATA: 00 01 02 04
-        // 7. ID: 8 DATA: 00 01 02 04
-        // 8. ID: 9 DATA: 00 01 02 04
-        // 9. ID: 9 DATA: 00 01 02 04
+        // 1. ID:      007 DATA: 00 01 02 04 <- proper reordering happens
+        // 2. ID:      008 DATA: 00 01 02 04
+        // 3. ID:      009 DATA: 00 01 02 04
+        // 4. ID:      001 DATA: 00 01 02 04 <- higher priority messages incoming
+        // 5. ID:      002 DATA: 00 01 02 04
+        // 6. ID:      003 DATA: 00 01 02 04
+        // 7. ID:      009 DATA: 00 01 02 04
+        // 8. ID: 00000007 DATA: 00 01 02 04 <- extended frames have the lowest priority
+        // 9. ID: 00000008 DATA: 00 01 02 04    and reach the bus last
         //
         // The output can look different if there are other nodes on bus the sending messages.
 

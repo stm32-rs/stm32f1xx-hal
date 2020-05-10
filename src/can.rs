@@ -38,6 +38,7 @@ use crate::pac::{
 };
 use crate::rcc::APB1;
 use core::{
+    cmp::{Ord, Ordering},
     convert::{Infallible, TryInto},
     marker::PhantomData,
 };
@@ -53,7 +54,7 @@ use core::{
 /// Lower identifier values mean higher priority. Additionally standard frames
 /// have a higher priority than extended frames and data frames have a higher
 /// priority than remote frames.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Id(u32);
 
 impl Id {
@@ -112,6 +113,23 @@ impl Id {
     /// Returns `true` if the identifer is part of a remote frame (RTR bit set).
     fn rtr(self) -> bool {
         self.0 & Self::RTR_MASK != 0
+    }
+}
+
+impl Ord for Id {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self.is_standard(), other.is_standard()) {
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
+            // Ordering of the data/remote frames implicitly gives by the bit layout.
+            _ => self.0.cmp(&other.0),
+        }
+    }
+}
+
+impl PartialOrd for Id {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -185,25 +203,25 @@ impl Frame {
     }
 }
 
-impl core::cmp::Ord for Frame {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+impl Ord for Frame {
+    fn cmp(&self, other: &Self) -> Ordering {
         self.id().cmp(&other.id())
     }
 }
 
-impl core::cmp::PartialOrd for Frame {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+impl PartialOrd for Frame {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl core::cmp::PartialEq for Frame {
+impl PartialEq for Frame {
     fn eq(&self, other: &Self) -> bool {
         self.id() == other.id()
     }
 }
 
-impl core::cmp::Eq for Frame {}
+impl Eq for Frame {}
 
 // Seal the traits so that they cannot be implemented outside side this crate.
 mod traits {
