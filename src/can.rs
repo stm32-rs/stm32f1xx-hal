@@ -348,17 +348,20 @@ where
         self.sleep();
     }
 
+    /// Configures the automatic wake-up feature.
+    pub fn set_automatic_wakeup(&mut self, enabled: bool) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.mcr.modify(|_, w| w.awum().bit(enabled));
+    }
+
     /// Start reception and transmission.
     ///
     /// Waits for 11 consecutive recessive bits to sync to the CAN bus.
-    /// When automatic wakup functionality is not used this function must be
-    /// called to enable the peripheral after a wakeup interrupt.
     pub fn enable(&mut self) -> nb::Result<(), Infallible> {
         let can = unsafe { &*Instance::REGISTERS };
         let msr = can.msr.read();
         if msr.slak().bit_is_set() {
             // TODO: Make automatic bus-off management configurable.
-            // TODO: Make automatic wakeup configurable.
             can.mcr
                 .modify(|_, w| w.abom().set_bit().sleep().clear_bit());
             Err(nb::Error::WouldBlock)
@@ -375,6 +378,20 @@ where
         can.mcr
             .modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
         while can.msr.read().slak().bit_is_clear() {}
+    }
+
+    /// Enables the wake-up state change interrupt (CANn_SCE).
+    ///
+    /// Call `Can::enable()` in the ISR when the automatic wake-up is not enabled.
+    pub fn enable_wakeup_interrupt(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        bb::set(&can.ier, 16); // WKUIE
+    }
+
+    /// Clears all state-change interrupt flags.
+    pub fn clear_interrupt_flags(&mut self) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.msr.write(|w| w.wkui().set_bit());
     }
 
     /// Returns the transmitter interface.
@@ -597,6 +614,13 @@ where
                 break tsr & ok_mask(idx) == 0;
             }
         }
+    }
+
+    /// Returns `true` if no frame is pending for transmission.
+    pub fn is_idle(&self) -> bool {
+        let can = unsafe { &*Instance::REGISTERS };
+        let tsr = can.tsr.read();
+        tsr.tme0().bit_is_set() && tsr.tme1().bit_is_set() && tsr.tme2().bit_is_set()
     }
 
     /// Enables the transmit interrupt CANn_TX.
