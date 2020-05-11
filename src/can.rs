@@ -28,14 +28,11 @@ use crate::gpio::{
     gpiob::{PB8, PB9},
     Alternate, Floating, Input, PushPull,
 };
+use crate::pac::CAN1;
 #[cfg(feature = "connectivity")]
 use crate::pac::CAN2;
 #[cfg(not(feature = "connectivity"))]
 use crate::pac::USB;
-use crate::pac::{
-    can1::{RFR, RX, TX},
-    CAN1,
-};
 use crate::rcc::APB1;
 use core::{
     cmp::{Ord, Ordering},
@@ -489,78 +486,51 @@ where
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
         let can = unsafe { &*Instance::REGISTERS };
 
-        // Get the index of free mailbox or of one with the lowest priority.
+        // Get the index of the next free mailbox or the one with the lowest priority.
         let tsr = can.tsr.read();
         let idx = tsr.code().bits() as usize;
-        let mb = unsafe { &can.tx.get_unchecked(idx) };
 
-        let empty_flags = (tsr.bits() >> 26) & 0b111;
-        let pending_frame = if empty_flags == 0b111 {
-            // All mailboxes are available: Send frame without performing any checks.
-            None
-        } else {
+        let frame_is_pending =
+            tsr.tme0().bit_is_clear() || tsr.tme1().bit_is_clear() || tsr.tme2().bit_is_clear();
+        let pending_frame = if frame_is_pending {
             // High priority frames are transmitted first by the mailbox system.
             // Frames with identical identifier shall be transmitted in FIFO order.
             // The controller schedules pending frames of same priority based on the
             // mailbox index instead. As a workaround check all pending mailboxes
             // and only accept higher priority frames.
-            Self::check_priority(&can.tx[0], frame.id)?;
-            Self::check_priority(&can.tx[1], frame.id)?;
-            Self::check_priority(&can.tx[2], frame.id)?;
+            self.check_priority(0, frame.id)?;
+            self.check_priority(1, frame.id)?;
+            self.check_priority(2, frame.id)?;
 
-            if empty_flags != 0b000 {
-                // There was a free mailbox.
-                None
-            } else {
+            let all_frames_are_pending =
+                tsr.tme0().bit_is_clear() && tsr.tme1().bit_is_clear() && tsr.tme2().bit_is_clear();
+            if all_frames_are_pending {
                 // No free mailbox is available. This can only happen when three frames with
                 // descending priority were requested for transmission and all of them are
                 // blocked by bus traffic with even higher priority.
                 // To prevent a priority inversion abort and replace the lowest priority frame.
-                if Self::abort(idx) {
-                    // Read back the pending frame.
-                    let mut pending_frame = Frame {
-                        id: Id(mb.tir.read().bits()),
-                        dlc: mb.tdtr.read().dlc().bits() as usize,
-                        data: [0; 8],
-                    };
-                    pending_frame.data[0..4].copy_from_slice(&mb.tdlr.read().bits().to_ne_bytes());
-                    pending_frame.data[4..8].copy_from_slice(&mb.tdhr.read().bits().to_ne_bytes());
-
-                    Some(pending_frame)
-                } else {
-                    // Abort request failed because the frame was already sent (or being sent) on
-                    // the bus. All mailboxes are now free. This can happen for small prescaler
-                    // values (e.g. 1MBit/s bit timing with a source clock of 8MHz) or when an ISR
-                    // has preemted the execution.
-                    None
-                }
+                self.read_pending_mailbox(idx)
+            } else {
+                // There was a free mailbox.
+                None
             }
+        } else {
+            // All mailboxes are available: Send frame without performing any checks.
+            None
         };
 
-        Self::write_tx_mailbox(mb, frame);
+        self.write_mailbox(idx, frame);
         Ok(pending_frame)
-    }
-
-    /// Tries to abort a pending frame. Returns `true` when aborted.
-    fn abort(idx: usize) -> bool {
-        let can = unsafe { &*Instance::REGISTERS };
-
-        can.tsr.write(|w| unsafe { w.bits(abort_mask(idx)) });
-
-        // Wait for the abort request to be finished.
-        loop {
-            let tsr = can.tsr.read().bits();
-            if tsr & abort_mask(idx) == 0 {
-                break tsr & ok_mask(idx) == 0;
-            }
-        }
     }
 
     /// Returns `Ok` when the mailbox is free or has a lower priority than
     /// identifier than `id`.
-    fn check_priority(mb: &TX, id: Id) -> nb::Result<(), Infallible> {
+    fn check_priority(&self, idx: usize, id: Id) -> nb::Result<(), Infallible> {
+        let can = unsafe { &*Instance::REGISTERS };
+
         // Read the pending frame's id to check its priority.
-        let tir = mb.tir.read();
+        assert!(idx < 3);
+        let tir = &can.tx[idx].tir.read();
 
         // Check the priority by comparing the identifiers. But first make sure the
         // frame has not finished transmission (`TXRQ` == 0) in the meantime.
@@ -573,19 +543,60 @@ where
         Ok(())
     }
 
-    fn write_tx_mailbox(tx_mb: &crate::pac::can1::TX, frame: &Frame) {
-        tx_mb
-            .tdtr
-            .write(|w| unsafe { w.dlc().bits(frame.dlc as u8) });
-        tx_mb
-            .tdlr
+    fn write_mailbox(&mut self, idx: usize, frame: &Frame) {
+        let can = unsafe { &*Instance::REGISTERS };
+
+        debug_assert!(idx < 3);
+        let mb = unsafe { &can.tx.get_unchecked(idx) };
+
+        mb.tdtr.write(|w| unsafe { w.dlc().bits(frame.dlc as u8) });
+        mb.tdlr
             .write(|w| unsafe { w.bits(u32::from_ne_bytes(frame.data[0..4].try_into().unwrap())) });
-        tx_mb
-            .tdhr
+        mb.tdhr
             .write(|w| unsafe { w.bits(u32::from_ne_bytes(frame.data[4..8].try_into().unwrap())) });
-        tx_mb
-            .tir
+        mb.tir
             .write(|w| unsafe { w.bits(frame.id.0).txrq().set_bit() });
+    }
+
+    fn read_pending_mailbox(&mut self, idx: usize) -> Option<Frame> {
+        let can = unsafe { &*Instance::REGISTERS };
+
+        debug_assert!(idx < 3);
+        let mb = unsafe { &can.tx.get_unchecked(idx) };
+
+        if self.abort(idx) {
+            // Read back the pending frame.
+            let mut pending_frame = Frame {
+                id: Id(mb.tir.read().bits()),
+                dlc: mb.tdtr.read().dlc().bits() as usize,
+                data: [0; 8],
+            };
+            pending_frame.data[0..4].copy_from_slice(&mb.tdlr.read().bits().to_ne_bytes());
+            pending_frame.data[4..8].copy_from_slice(&mb.tdhr.read().bits().to_ne_bytes());
+
+            Some(pending_frame)
+        } else {
+            // Abort request failed because the frame was already sent (or being sent) on
+            // the bus. All mailboxes are now free. This can happen for small prescaler
+            // values (e.g. 1MBit/s bit timing with a source clock of 8MHz) or when an ISR
+            // has preemted the execution.
+            None
+        }
+    }
+
+    /// Tries to abort a pending frame. Returns `true` when aborted.
+    fn abort(&mut self, idx: usize) -> bool {
+        let can = unsafe { &*Instance::REGISTERS };
+
+        can.tsr.write(|w| unsafe { w.bits(abort_mask(idx)) });
+
+        // Wait for the abort request to be finished.
+        loop {
+            let tsr = can.tsr.read().bits();
+            if tsr & abort_mask(idx) == 0 {
+                break tsr & ok_mask(idx) == 0;
+            }
+        }
     }
 
     /// Enables the transmit interrupt CANn_TX.
@@ -621,13 +632,19 @@ where
 {
     /// Returns a received frame if available.
     pub fn receive(&mut self) -> nb::Result<Frame, Infallible> {
-        let can = unsafe { &*Instance::REGISTERS };
-
-        Self::receive_fifo(&can.rfr[0], &can.rx[0])
-            .or_else(|_| Self::receive_fifo(&can.rfr[1], &can.rx[1]))
+        match self.receive_fifo(0) {
+            Err(nb::Error::WouldBlock) => self.receive_fifo(1),
+            result => result,
+        }
     }
 
-    fn receive_fifo(rfr: &RFR, rx: &RX) -> nb::Result<Frame, Infallible> {
+    fn receive_fifo(&mut self, fifo_nr: usize) -> nb::Result<Frame, Infallible> {
+        let can = unsafe { &*Instance::REGISTERS };
+
+        assert!(fifo_nr < 2);
+        let rfr = &can.rfr[fifo_nr];
+        let rx = &can.rx[fifo_nr];
+
         // Check if a frame is available in the mailbox.
         if rfr.read().fmp().bits() == 0 {
             return Err(nb::Error::WouldBlock);
