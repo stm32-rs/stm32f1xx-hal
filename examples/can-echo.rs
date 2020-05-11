@@ -30,7 +30,7 @@ fn main() -> ! {
 
     // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
     // Value was calculated with http://www.bittiming.can-wiki.info/
-    unsafe { can2.set_bit_timing(0x001c_0003) };
+    can2.set_bit_timing(0x001c_0003);
 
     // Get the transmitter part.
     let mut tx = can2.take_tx().unwrap();

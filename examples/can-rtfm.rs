@@ -74,7 +74,7 @@ const APP: () = {
 
         // APB1 (PCLK1): 36MHz, Bit rate: 125kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
-        unsafe { can2.set_bit_timing(0x001c0011) };
+        can2.set_bit_timing(0x001c0011);
         can2.enable().ok();
 
         let mut can_tx = can2.take_tx().unwrap();

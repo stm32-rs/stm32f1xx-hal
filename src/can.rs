@@ -338,18 +338,16 @@ where
 
     /// Configures the bit timings.
     ///
+    /// Use http://www.bittiming.can-wiki.info/ to calculate the `btr` parameter.
     /// Puts the peripheral in sleep mode. `Can::enable()` must be called afterwards
     /// to start reception and transmission.
-    ///
-    /// # Safety
-    /// Use http://www.bittiming.can-wiki.info/ to calculate a safe parameter value.
-    pub unsafe fn set_bit_timing(&mut self, btr: u32) {
-        let can = &*Instance::REGISTERS;
+    pub fn set_bit_timing(&mut self, btr: u32) {
+        let can = unsafe { &*Instance::REGISTERS };
 
         can.mcr
             .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
         while can.msr.read().inak().bit_is_clear() {}
-        can.btr.write(|w| w.bits(btr));
+        can.btr.write(|w| unsafe { w.bits(btr) });
         self.sleep();
     }
 
