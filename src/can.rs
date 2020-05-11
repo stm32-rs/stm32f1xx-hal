@@ -197,7 +197,7 @@ impl Frame {
         self.id
     }
 
-    // Returns the frame data.
+    /// Returns the frame data (0..8 bytes in length).
     pub fn data(&self) -> &[u8] {
         &self.data[0..self.dlc]
     }
@@ -390,6 +390,10 @@ where
         self.tx.take()
     }
 
+    /// Returns the receiver interface.
+    ///
+    /// Takes ownership of filters which must be otained by `Can::split_filters()`.
+    /// Only the first calls returns a valid receiver. Subsequent calls return `None`.
     pub fn take_rx(&mut self, _filters: Filters<Instance>) -> Option<Rx<Instance>> {
         self.rx.take()
     }
@@ -397,6 +401,8 @@ where
 
 impl Can<CAN1> {
     /// Returns the filter part of the CAN peripheral.
+    ///
+    /// Filters are required for the receiver to accept any messages at all.
     #[cfg(not(feature = "connectivity"))]
     pub fn split_filters(&mut self) -> Option<Filters<CAN1>> {
         self.split_filters_internal()?;
@@ -404,6 +410,8 @@ impl Can<CAN1> {
     }
 
     /// Returns the filter part of the CAN peripheral.
+    ///
+    /// Filters are required for the receiver to accept any messages at all.
     #[cfg(feature = "connectivity")]
     pub fn split_filters(&mut self) -> Option<(Filters<CAN1>, Filters<CAN2>)> {
         self.split_filters_internal()?;
@@ -437,6 +445,7 @@ impl Can<CAN1> {
     }
 }
 
+/// Interface to the filter banks of a CAN peripheral.
 pub struct Filters<Instance>(PhantomData<Instance>);
 
 impl<Instance> Filters<Instance>
@@ -456,7 +465,7 @@ where
     }
 }
 
-/// Interface to the CAN transmitter.
+/// Interface to the CAN transmitter part.
 pub struct Tx<Instance> {
     _can: PhantomData<Instance>,
 }
@@ -603,7 +612,7 @@ where
     }
 }
 
-/// Interface to a CAN receiver.
+/// Interface to the CAN receiver part.
 pub struct Rx<Instance> {
     _can: PhantomData<Instance>,
 }
