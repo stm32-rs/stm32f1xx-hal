@@ -25,7 +25,7 @@ use heapless::{
 use panic_halt as _;
 use rtfm::app;
 use stm32f1xx_hal::{
-    can::{Can, Frame, Id, Rx, Tx},
+    can::{Can, Filter, Frame, Id, Rx, Tx},
     pac::{Interrupt, CAN2},
     prelude::*,
 };
@@ -75,7 +75,6 @@ const APP: () = {
         // APB1 (PCLK1): 36MHz, Bit rate: 125kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
         can2.set_bit_timing(0x001c0011);
-        can2.enable().ok();
 
         let mut can_tx = can2.take_tx().unwrap();
         can_tx.enable_interrupt();
@@ -84,10 +83,21 @@ const APP: () = {
 
         let mut can1 = Can::new(cx.device.CAN1, &mut rcc.apb1);
         let (_, mut filters) = can1.split_filters().unwrap();
-        filters.accept_all();
+
+        // To share load between FIFOs use one filter for standard messages and another
+        // for extended messages. Accept all IDs by setting the mask to 0. Only accept
+        // data frames (no remote frames).
+        filters
+            .add(Filter::new_standard(0).with_mask(0).with_rtr(false))
+            .unwrap();
+        filters
+            .add(Filter::new_extended(0).with_mask(0).with_rtr(false))
+            .unwrap();
 
         let mut can_rx = can2.take_rx(filters).unwrap();
         can_rx.enable_interrupts();
+
+        can2.enable().ok();
 
         init::LateResources {
             can_tx,

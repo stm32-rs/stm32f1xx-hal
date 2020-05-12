@@ -5,7 +5,11 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use nb::block;
-use stm32f1xx_hal::{can::Can, pac, prelude::*};
+use stm32f1xx_hal::{
+    can::{Can, Filter},
+    pac,
+    prelude::*,
+};
 
 #[entry]
 fn main() -> ! {
@@ -40,7 +44,7 @@ fn main() -> ! {
     // and split the filters between the peripherals to use them for CAN2.
     let mut can1 = Can::new(dp.CAN1, &mut rcc.apb1);
     let (_filters1, mut filters2) = can1.split_filters().unwrap();
-    filters2.accept_all(); // Receive all messages.
+    filters2.add(Filter::accept_all()).unwrap(); // Receive all messages.
     let mut rx = can2.take_rx(filters2).unwrap();
 
     // Sync to the bus and start normal operation.

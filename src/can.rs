@@ -55,9 +55,14 @@ use core::{
 pub struct Id(u32);
 
 impl Id {
-    const STANDARD_SHIFT: u32 = 21; // 11 valid bits. Mask: 0xFFE0_0000
-    const EXTENDED_SHIFT: u32 = 3; // 29 valid bits. Mask: 0xFFFF_FFF8
+    const STANDARD_SHIFT: u32 = 21;
+    const STANDARD_MASK: u32 = 0x7FF << Self::STANDARD_SHIFT;
+
+    const EXTENDED_SHIFT: u32 = 3;
+    const EXTENDED_MASK: u32 = 0x1FFF_FFFF << Self::EXTENDED_SHIFT;
+
     const EID_MASK: u32 = 0x0000_0004;
+
     const RTR_MASK: u32 = 0x0000_0002;
 
     /// Creates a new standard identifier (11bit, Range: 0..0x7FF)
@@ -427,7 +432,7 @@ impl Can<CAN1> {
     #[cfg(feature = "connectivity")]
     pub fn split_filters(&mut self) -> Option<(Filters<CAN1>, Filters<CAN2>)> {
         self.split_filters_internal()?;
-        Some((Filters(PhantomData), Filters(PhantomData)))
+        Some((Filters::new(), Filters::new()))
     }
 
     fn split_filters_internal(&mut self) -> Option<()> {
@@ -457,23 +462,106 @@ impl Can<CAN1> {
     }
 }
 
+/// A masked filter configuration.
+pub struct Filter {
+    id: u32,
+    mask: u32,
+}
+
+/// bxCAN filters have some quirks:
+/// https://github.com/UAVCAN/libcanard/blob/8ee343c4edae0e0e4e1c040852aa3d8430f7bf76/drivers/stm32/canard_stm32.c#L471-L513
+impl Filter {
+    /// Creates a filter that accepts all messages.
+    pub fn accept_all() -> Self {
+        Self {
+            id: Id::EID_MASK | Id::RTR_MASK,
+            mask: 0,
+        }
+    }
+
+    /// Creates a filter that accepts frames with the specified standard identifier.
+    pub fn new_standard(id: u32) -> Self {
+        Self {
+            id: id << Id::STANDARD_SHIFT | Id::RTR_MASK,
+            mask: Id::STANDARD_MASK | Id::EID_MASK,
+        }
+    }
+
+    /// Creates a filter that accepts frames with the extended standard identifier.
+    pub fn new_extended(id: u32) -> Self {
+        Self {
+            id: id << Id::EXTENDED_SHIFT | Id::RTR_MASK | Id::EID_MASK,
+            mask: Id::EXTENDED_MASK | Id::EID_MASK,
+        }
+    }
+
+    /// Only look at the bits of the indentifier which are set to 1 in the mask.
+    ///
+    /// A mask of 0 accepts all identifiers.
+    pub fn with_mask(mut self, mask: u32) -> Self {
+        if self.id & Id::EID_MASK != 0 {
+            self.mask = (self.mask & !Id::EXTENDED_MASK) | (mask << Id::EXTENDED_SHIFT);
+        } else {
+            self.mask = (self.mask & !Id::STANDARD_MASK) | (mask << Id::STANDARD_SHIFT);
+        }
+        self
+    }
+
+    /// Select if only remote (`rtr = true`) frames or only data (`rtr = false`) shall be received.
+    pub fn with_rtr(mut self, rtr: bool) -> Self {
+        if rtr {
+            self.id |= Id::RTR_MASK;
+        } else {
+            self.id &= !Id::RTR_MASK;
+        }
+        self.mask |= Id::RTR_MASK;
+        self
+    }
+}
+
 /// Interface to the filter banks of a CAN peripheral.
-pub struct Filters<Instance>(PhantomData<Instance>);
+pub struct Filters<Instance> {
+    count: usize,
+    _can: PhantomData<Instance>,
+}
 
 impl<Instance> Filters<Instance>
 where
     Instance: traits::Instance,
 {
-    /// Enables a filter that accepts all messages.
-    pub fn accept_all(&mut self) {
+    fn new() -> Self {
+        Self {
+            count: 0,
+            _can: PhantomData,
+        }
+    }
+
+    /// Adds a filter. Returns `Err` if the maximum number of filters was reached.
+    pub fn add(&mut self, filter: Filter) -> Result<(), ()> {
         let can = unsafe { &*CAN1::ptr() };
 
-        // For more details on the quirks of bxCAN see:
-        // https://github.com/UAVCAN/libcanard/blob/8ee343c4edae0e0e4e1c040852aa3d8430f7bf76/drivers/stm32/canard_stm32.c#L471-L513
-        let idx = Instance::FILTER_BANK_START;
-        can.fb[idx].fr1.write(|w| unsafe { w.bits(0xFFFF_FFFE) });
-        can.fb[idx].fr2.write(|w| unsafe { w.bits(0) });
-        bb::set(&can.fa1r, idx as u8);
+        let idx = Instance::FILTER_BANK_START + self.count;
+        if idx < Instance::FILTER_BANK_STOP {
+            let filter_bank = &can.fb[idx];
+            filter_bank.fr1.write(|w| unsafe { w.bits(filter.id) });
+            filter_bank.fr2.write(|w| unsafe { w.bits(filter.mask) });
+            bb::set(&can.fa1r, idx as u8);  // Enable filter
+            self.count += 1;
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    /// Disables all enabled filters.
+    pub fn clear(&mut self) {
+        let can = unsafe { &*CAN1::ptr() };
+
+        // Bitbanding required because the filters are shared between CAN1 and CAN2
+        for i in Instance::FILTER_BANK_START..(Instance::FILTER_BANK_START + self.count) {
+            bb::clear(&can.fa1r, i as u8);
+        }
+        self.count = 0;
     }
 }
 
