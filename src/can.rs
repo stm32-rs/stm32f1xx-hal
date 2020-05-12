@@ -423,7 +423,7 @@ impl Can<CAN1> {
     #[cfg(not(feature = "connectivity"))]
     pub fn split_filters(&mut self) -> Option<Filters<CAN1>> {
         self.split_filters_internal()?;
-        Some(Filters(PhantomData))
+        Some(Filters::new())
     }
 
     /// Returns the filter part of the CAN peripheral.
@@ -545,7 +545,7 @@ where
             let filter_bank = &can.fb[idx];
             filter_bank.fr1.write(|w| unsafe { w.bits(filter.id) });
             filter_bank.fr2.write(|w| unsafe { w.bits(filter.mask) });
-            bb::set(&can.fa1r, idx as u8);  // Enable filter
+            bb::set(&can.fa1r, idx as u8); // Enable filter
             self.count += 1;
             Ok(())
         } else {
