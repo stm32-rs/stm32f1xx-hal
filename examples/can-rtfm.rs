@@ -72,9 +72,11 @@ const APP: () = {
         let mut can2 = Can::new(cx.device.CAN2, &mut rcc.apb1);
         can2.assign_pins((can_tx_pin, can_rx_pin), &mut afio.mapr);
 
-        // APB1 (PCLK1): 36MHz, Bit rate: 125kBit/s, Sample Point 87.5%
-        // Value was calculated with http://www.bittiming.can-wiki.info/
-        can2.set_bit_timing(0x001c0011);
+        can2.configure(|config| {
+            // APB1 (PCLK1): 36MHz, Bit rate: 125kBit/s, Sample Point 87.5%
+            // Value was calculated with http://www.bittiming.can-wiki.info/
+            config.set_bit_timing(0x001c0011);
+        });
 
         let mut can_tx = can2.take_tx().unwrap();
         can_tx.enable_interrupt();

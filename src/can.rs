@@ -294,6 +294,39 @@ impl traits::Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
     }
 }
 
+/// Configuration proxy to be used with `Can::configure()`.
+pub struct CanConfig<Instance> {
+    _can: PhantomData<Instance>,
+}
+
+impl<Instance> CanConfig<Instance>
+where
+    Instance: traits::Instance<Bus = APB1>,
+{
+    /// Configures the bit timings.
+    ///
+    /// Use http://www.bittiming.can-wiki.info/ to calculate the `btr` parameter.
+    pub fn set_bit_timing(&mut self, btr: u32) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.btr.modify(|r, w| unsafe {
+            let mode_bits = r.bits() & 0xC000_0000;
+            w.bits(mode_bits | btr)
+        });
+    }
+
+    /// Enables or disables loopback mode: Internally connects the TX to RX.
+    pub fn set_loopback(&mut self, enabled: bool) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.btr.modify(|_, w| w.lbkm().bit(enabled));
+    }
+
+    /// Enables or disables silent mode: Disconnects TX from the pin.
+    pub fn set_silent(&mut self, enabled: bool) {
+        let can = unsafe { &*Instance::REGISTERS };
+        can.btr.modify(|_, w| w.silm().bit(enabled));
+    }
+}
+
 /// Interface to the CAN peripheral.
 pub struct Can<Instance> {
     _can: PhantomData<Instance>,
@@ -338,18 +371,28 @@ where
         Pins::remap(mapr);
     }
 
-    /// Configures the bit timings.
+    /// Configure bit timings and silent/loop-back mode.
     ///
-    /// Use http://www.bittiming.can-wiki.info/ to calculate the `btr` parameter.
-    /// Puts the peripheral in sleep mode. `Can::enable()` must be called afterwards
-    /// to start reception and transmission.
-    pub fn set_bit_timing(&mut self, btr: u32) {
+    /// Acutal configuration happens on the `CanConfig` that is passed to the
+    /// closure. It must be done this way because those configuration bits can
+    /// only be set if the CAN controller is in a special init mode.
+    /// Puts the peripheral in sleep mode afterwards. `Can::enable()` must be
+    /// called to exit sleep mode and start reception and transmission.
+    pub fn configure<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut CanConfig<Instance>),
+    {
         let can = unsafe { &*Instance::REGISTERS };
 
+        // Enter init mode.
         can.mcr
             .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
         while can.msr.read().inak().bit_is_clear() {}
-        can.btr.write(|w| unsafe { w.bits(btr) });
+
+        let mut config = CanConfig { _can: PhantomData };
+        f(&mut config);
+
+        // Leave init mode: go back to sleep.
         self.sleep();
     }
 
