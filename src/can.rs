@@ -776,6 +776,12 @@ where
     }
 }
 
+
+#[derive(Debug)]
+pub enum RxError {
+    Overrun,
+}
+
 /// Interface to the CAN receiver part.
 pub struct Rx<Instance> {
     _can: PhantomData<Instance>,
@@ -786,14 +792,16 @@ where
     Instance: traits::Instance,
 {
     /// Returns a received frame if available.
-    pub fn receive(&mut self) -> nb::Result<Frame, Infallible> {
+    ///
+    /// Returns `Err` when a frame was lost due to buffer overrun.
+    pub fn receive(&mut self) -> nb::Result<Frame, RxError> {
         match self.receive_fifo(0) {
             Err(nb::Error::WouldBlock) => self.receive_fifo(1),
             result => result,
         }
     }
 
-    fn receive_fifo(&mut self, fifo_nr: usize) -> nb::Result<Frame, Infallible> {
+    fn receive_fifo(&mut self, fifo_nr: usize) -> nb::Result<Frame, RxError> {
         let can = unsafe { &*Instance::REGISTERS };
 
         assert!(fifo_nr < 2);
@@ -801,8 +809,15 @@ where
         let rx = &can.rx[fifo_nr];
 
         // Check if a frame is available in the mailbox.
-        if rfr.read().fmp().bits() == 0 {
+        let rfr_read = rfr.read();
+        if rfr_read.fmp().bits() == 0 {
             return Err(nb::Error::WouldBlock);
+        }
+
+        // Check for RX FIFO overrun.
+        if rfr_read.fovr().bit_is_set() {
+            rfr.write(|w| w.fovr().set_bit());
+            return Err(nb::Error::Other(RxError::Overrun));
         }
 
         // Read the frame.

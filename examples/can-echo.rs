@@ -56,7 +56,8 @@ fn main() -> ! {
     // See the `can-rtfm` example for an echo implementation that adheres to
     // correct frame ordering based on the transfer id.
     loop {
-        let frame = block!(rx.receive()).unwrap();
-        block!(tx.transmit(&frame)).unwrap();
+        if let Ok(frame) = block!(rx.receive()) {
+            block!(tx.transmit(&frame)).unwrap();
+        }
     }
 }

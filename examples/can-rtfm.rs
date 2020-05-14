@@ -10,8 +10,6 @@
 //! queue.
 #![no_main]
 #![no_std]
-// This should be inside the pool!() macro of heapless.
-#![allow(non_upper_case_globals)]
 
 use heapless::{
     binary_heap::{BinaryHeap, Min},
@@ -30,7 +28,10 @@ use stm32f1xx_hal::{
     prelude::*,
 };
 
-pool!(CanFramePool: Frame);
+pool!(
+    #[allow(non_upper_case_globals)]
+    CanFramePool: Frame
+);
 
 fn alloc_frame(id: Id, data: &[u8]) -> Box<CanFramePool, Init> {
     let frame_box = CanFramePool::alloc().unwrap();
@@ -215,11 +216,17 @@ const APP: () = {
     #[task(binds = CAN2_RX0, resources = [can_rx, can_tx_queue])]
     fn can2_rx0(cx: can2_rx0::Context) {
         // Echo back received packages with correct priority ordering.
-        while let Ok(frame) = cx.resources.can_rx.receive() {
-            cx.resources
-                .can_tx_queue
-                .push(CanFramePool::alloc().unwrap().init(frame))
-                .ok();
+        loop {
+            match cx.resources.can_rx.receive() {
+                Ok(frame) => {
+                    cx.resources
+                        .can_tx_queue
+                        .push(CanFramePool::alloc().unwrap().init(frame))
+                        .ok();
+                }
+                Err(nb::Error::WouldBlock) => break,
+                Err(nb::Error::Other(_)) => {} // Ignore overrun errors.
+            }
         }
 
         // Start transmission of the newly queue frames.
