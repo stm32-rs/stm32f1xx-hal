@@ -385,11 +385,27 @@ where
 
 // DMA
 
+use crate::dma::WriteDma;
+
 pub struct SpiPayload<SPI, REMAP, PINS> {
     spi: Spi<SPI, REMAP, PINS>,
 }
 
 pub type SpiTxDma<SPI, REMAP, PINS, CHANNEL> = TxDma<SpiPayload<SPI, REMAP, PINS>, CHANNEL>;
+
+
+pub struct BufferedDma<SPI, REMAP, PINS, CHANNEL>
+{
+    inner: Option<SpiTxDma<SPI, REMAP, PINS, CHANNEL>>,
+    buffer: Option<&'static mut &'static mut [u8]>
+}
+impl<SPI, REMAP, PINS, CHANNEL> SpiTxDma<SPI, REMAP, PINS, CHANNEL> {
+    pub fn into_buffered(self, buffer: &'static mut &'static mut [u8]) ->
+        BufferedDma<SPI, REMAP, PINS, CHANNEL>
+    {
+        BufferedDma {inner: Some(self), buffer: Some(buffer)}
+    }
+}
 
 macro_rules! spi_dma {
     ($SPIi:ident, $TCi:ident) => {
@@ -465,6 +481,31 @@ macro_rules! spi_dma {
                 self.start();
 
                 Transfer::r(buffer, self)
+            }
+        }
+
+        impl<REMAP, PINS> crate::hal::blocking::spi::Write<u8>
+            for BufferedDma<$SPIi, REMAP, PINS, $TCi>
+        {
+            // TODO: We probably should handle SPI errors in DMA transfers...
+            type Error = ();
+            fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
+                // Copy as much as we can of what we want to transmit into the buffer
+                let mut remaining = &words[..];
+                while remaining.len() > 0 {
+                    let buffer = self.buffer.take().unwrap();
+                    let inner = self.inner.take().unwrap();
+                    let count = remaining.len().min(buffer.len());
+                    for i in 0..count {
+                        buffer[i] = remaining[i]
+                    }
+                    let transfer = inner.write(buffer);
+                    let (buffer, dma) = transfer.wait();
+                    self.buffer = Some(buffer);
+                    self.inner = Some(dma);
+                    remaining = &remaining[count..]
+                }
+                Ok(())
             }
         }
     };
