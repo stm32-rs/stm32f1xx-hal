@@ -238,8 +238,6 @@ impl Eq for Frame {}
 mod traits {
     pub trait Instance: crate::rcc::Enable {
         const REGISTERS: *const crate::pac::can1::RegisterBlock;
-        const FILTER_BANK_START: usize;
-        const FILTER_BANK_STOP: usize;
     }
 
     pub trait Pins {
@@ -250,8 +248,6 @@ mod traits {
 
 impl traits::Instance for CAN1 {
     const REGISTERS: *const crate::pac::can1::RegisterBlock = CAN1::ptr();
-    const FILTER_BANK_START: usize = 0;
-    const FILTER_BANK_STOP: usize = 14;
 }
 
 #[cfg(feature = "connectivity")]
@@ -259,8 +255,6 @@ impl traits::Instance for CAN2 {
     // Register blocks are the same except for the filter registers.
     // Those are only available on CAN1.
     const REGISTERS: *const crate::pac::can1::RegisterBlock = CAN2::ptr() as *const _;
-    const FILTER_BANK_START: usize = CAN1::FILTER_BANK_STOP;
-    const FILTER_BANK_STOP: usize = 28;
 }
 
 impl traits::Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
@@ -302,6 +296,11 @@ impl traits::Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
         mapr.modify_mapr(|_, w| w.can2_remap().set_bit());
     }
 }
+
+#[cfg(not(feature = "connectivity"))]
+pub const NUM_FILTER_BANKS: usize = 14;
+#[cfg(feature = "connectivity")]
+pub const NUM_FILTER_BANKS: usize = 28;
 
 /// Configuration proxy to be used with `Can::configure()`.
 pub struct CanConfig<Instance> {
@@ -474,20 +473,27 @@ impl Can<CAN1> {
     /// Filters are required for the receiver to accept any messages at all.
     #[cfg(not(feature = "connectivity"))]
     pub fn split_filters(&mut self) -> Option<Filters<CAN1>> {
-        self.split_filters_internal()?;
-        Some(Filters::new())
+        self.split_filters_internal(NUM_FILTER_BANKS)?;
+        Some(Filters::new(0, NUM_FILTER_BANKS))
     }
 
     /// Returns the filter part of the CAN peripheral.
     ///
     /// Filters are required for the receiver to accept any messages at all.
+    /// `split_idx` can be in the range `0..NUM_FILTER_BANKS` and decides the number
+    /// of filters assigned to each peripheral. A value of `0` means all filter
+    /// banks are used for CAN2 while `NUM_FILTER_BANKS` reserves all filter banks
+    /// for CAN2.
     #[cfg(feature = "connectivity")]
-    pub fn split_filters(&mut self) -> Option<(Filters<CAN1>, Filters<CAN2>)> {
-        self.split_filters_internal()?;
-        Some((Filters::new(), Filters::new()))
+    pub fn split_filters(&mut self, split_idx: usize) -> Option<(Filters<CAN1>, Filters<CAN2>)> {
+        self.split_filters_internal(split_idx)?;
+        Some((
+            Filters::new(0, split_idx),
+            Filters::new(split_idx, NUM_FILTER_BANKS),
+        ))
     }
 
-    fn split_filters_internal(&mut self) -> Option<()> {
+    fn split_filters_internal(&mut self, split_idx: usize) -> Option<()> {
         let can = unsafe { &*CAN1::ptr() };
 
         if can.fmr.read().finit().bit_is_clear() {
@@ -498,15 +504,15 @@ impl Can<CAN1> {
         can.fm1r.write(|w| unsafe { w.bits(0x0000_0000) }); // Mask mode
         can.fs1r.write(|w| unsafe { w.bits(0xFFFF_FFFF) }); // 32bit scale
 
-        // Filters are alternating between between the FIFO0 and FIFO1.
+        // Filters are alternating between between the FIFO0 and FIFO1 to share the
+        // load equally.
         can.ffa1r.write(|w| unsafe { w.bits(0xAAAA_AAAA) });
 
         // Init filter banks. Each used filter must still be enabled individually.
         #[allow(unused_unsafe)]
         can.fmr.modify(|_, w| unsafe {
             #[cfg(feature = "connectivity")]
-            w.can2sb()
-                .bits(<CAN1 as traits::Instance>::FILTER_BANK_STOP as u8);
+            w.can2sb().bits(split_idx as u8);
             w.finit().clear_bit()
         });
 
@@ -574,6 +580,8 @@ impl Filter {
 
 /// Interface to the filter banks of a CAN peripheral.
 pub struct Filters<Instance> {
+    start_idx: usize,
+    stop_idx: usize,
     count: usize,
     _can: PhantomData<Instance>,
 }
@@ -582,19 +590,25 @@ impl<Instance> Filters<Instance>
 where
     Instance: traits::Instance,
 {
-    fn new() -> Self {
+    fn new(start_idx: usize, stop_idx: usize) -> Self {
         Self {
+            start_idx,
+            stop_idx,
             count: 0,
             _can: PhantomData,
         }
+    }
+
+    pub fn num_filters(&self) -> usize {
+        self.stop_idx - self.start_idx
     }
 
     /// Adds a filter. Returns `Err` if the maximum number of filters was reached.
     pub fn add(&mut self, filter: Filter) -> Result<(), ()> {
         let can = unsafe { &*CAN1::ptr() };
 
-        let idx = Instance::FILTER_BANK_START + self.count;
-        if idx < Instance::FILTER_BANK_STOP {
+        let idx = self.start_idx + self.count;
+        if idx < self.stop_idx {
             let filter_bank = &can.fb[idx];
             filter_bank.fr1.write(|w| unsafe { w.bits(filter.id) });
             filter_bank.fr2.write(|w| unsafe { w.bits(filter.mask) });
@@ -610,8 +624,9 @@ where
     pub fn clear(&mut self) {
         let can = unsafe { &*CAN1::ptr() };
 
-        // Bitbanding required because the filters are shared between CAN1 and CAN2
-        for i in Instance::FILTER_BANK_START..(Instance::FILTER_BANK_START + self.count) {
+        assert!(self.start_idx + self.count <= self.stop_idx);
+        for i in self.start_idx..(self.start_idx + self.count) {
+            // Bitbanding required because the filters are shared between CAN1 and CAN2
             bb::clear(&can.fa1r, i as u8);
         }
         self.count = 0;

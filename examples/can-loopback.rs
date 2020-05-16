@@ -6,7 +6,7 @@ use panic_halt as _;
 use cortex_m_rt::entry;
 use nb::block;
 use stm32f1xx_hal::{
-    can::{Can, Filter, Frame},
+    can::{Can, Filter, Frame, NUM_FILTER_BANKS},
     pac,
     prelude::*,
 };
@@ -44,7 +44,7 @@ fn main() -> ! {
     #[cfg(not(feature = "connectivity"))]
     let mut filters = can.split_filters().unwrap();
     #[cfg(feature = "connectivity")]
-    let (mut filters, _) = can.split_filters().unwrap();
+    let (mut filters, _) = can.split_filters(NUM_FILTER_BANKS / 2).unwrap();
     filters.add(Filter::accept_all()).unwrap();
     let mut rx = can.take_rx(filters).unwrap();
 

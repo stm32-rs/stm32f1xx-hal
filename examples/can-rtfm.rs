@@ -85,7 +85,7 @@ const APP: () = {
         CanFramePool::grow(CAN_POOL_MEMORY);
 
         let mut can1 = Can::new(cx.device.CAN1, &mut rcc.apb1);
-        let (_, mut filters) = can1.split_filters().unwrap();
+        let (_, mut filters) = can1.split_filters(0).unwrap();
 
         // To share load between FIFOs use one filter for standard messages and another
         // for extended messages. Accept all IDs by setting the mask to 0. Only accept

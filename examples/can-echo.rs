@@ -45,7 +45,10 @@ fn main() -> ! {
     // Because the filter banks are part of CAN1 we first need to enable CAN1
     // and split the filters between the peripherals to use them for CAN2.
     let mut can1 = Can::new(dp.CAN1, &mut rcc.apb1);
-    let (_filters1, mut filters2) = can1.split_filters().unwrap();
+
+    // Split the filters at index 0: No filters for CAN1 (unused), 28 filters
+    // for CAN2.
+    let (_filters1, mut filters2) = can1.split_filters(0).unwrap();
     filters2.add(Filter::accept_all()).unwrap(); // Receive all messages.
     let mut rx = can2.take_rx(filters2).unwrap();
 
