@@ -473,7 +473,10 @@ impl Can<CAN1> {
     /// Filters are required for the receiver to accept any messages at all.
     #[cfg(not(feature = "connectivity"))]
     pub fn split_filters(&mut self) -> Option<Filters<CAN1>> {
-        self.split_filters_internal(NUM_FILTER_BANKS)?;
+        // Set all filter banks to 32bit scale and mask mode.
+        // Filters are alternating between between the FIFO0 and FIFO1 to share the
+        // load equally.
+        self.split_filters_internal(0x0000_0000, 0xFFFF_FFFF, 0xAAAA_AAAA, NUM_FILTER_BANKS)?;
         Some(Filters::new(0, NUM_FILTER_BANKS))
     }
 
@@ -486,33 +489,80 @@ impl Can<CAN1> {
     /// for CAN2.
     #[cfg(feature = "connectivity")]
     pub fn split_filters(&mut self, split_idx: usize) -> Option<(Filters<CAN1>, Filters<CAN2>)> {
-        self.split_filters_internal(split_idx)?;
+        // Set all filter banks to 32bit scale and mask mode.
+        // Filters are alternating between between the FIFO0 and FIFO1 to share the
+        // load equally.
+        self.split_filters_internal(0x0000_0000, 0xFFFF_FFFF, 0xAAAA_AAAA, split_idx)?;
         Some((
             Filters::new(0, split_idx),
             Filters::new(split_idx, NUM_FILTER_BANKS),
         ))
     }
 
-    fn split_filters_internal(&mut self, split_idx: usize) -> Option<()> {
+    /// Advanced version of `Can::split_filters()`.
+    ///
+    /// The additional parameters are bitmasks configure the filter banks.
+    /// Bit 0 for filter bank 0, bit 1 for filter bank 1 and so on.
+    /// `fm1r` in combination with `fs1r` sets the filter bank layout. The correct
+    /// `Filters::add_*()` function must be used.
+    /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
+    /// More details can be found in the reference manual of the device.
+    #[cfg(not(feature = "connectivity"))]
+    pub fn split_filters_advanced(
+        &mut self,
+        fm1r: u32,
+        fs1r: u32,
+        ffa1r: u32,
+    ) -> Option<Filters<CAN1>> {
+        self.split_filters_internal(fm1r, fs1r, ffa1r, NUM_FILTER_BANKS)?;
+        Some(Filters::new(0, NUM_FILTER_BANKS))
+    }
+
+    /// Advanced version of `Can::split_filters()`.
+    ///
+    /// The additional parameters are bitmasks to configure the filter banks.
+    /// Bit 0 for filter bank 0, bit 1 for filter bank 1 and so on.
+    /// `fm1r` in combination with `fs1r` sets the filter bank layout. The correct
+    /// `Filters::add_*()` function must be used.
+    /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
+    /// More details can be found in the reference manual of the device.
+    #[cfg(feature = "connectivity")]
+    pub fn split_filters_advanced(
+        &mut self,
+        fm1r: u32,
+        fs1r: u32,
+        ffa1r: u32,
+        split_idx: usize,
+    ) -> Option<(Filters<CAN1>, Filters<CAN2>)> {
+        self.split_filters_internal(fm1r, fs1r, ffa1r, split_idx)?;
+        Some((
+            Filters::new(0, split_idx),
+            Filters::new(split_idx, NUM_FILTER_BANKS),
+        ))
+    }
+
+    fn split_filters_internal(
+        &mut self,
+        fm1r: u32,
+        fs1r: u32,
+        ffa1r: u32,
+        _split_idx: usize,
+    ) -> Option<()> {
         let can = unsafe { &*CAN1::ptr() };
 
         if can.fmr.read().finit().bit_is_clear() {
             return None;
         }
 
-        // Same configuration for all filters banks.
-        can.fm1r.write(|w| unsafe { w.bits(0x0000_0000) }); // Mask mode
-        can.fs1r.write(|w| unsafe { w.bits(0xFFFF_FFFF) }); // 32bit scale
-
-        // Filters are alternating between between the FIFO0 and FIFO1 to share the
-        // load equally.
-        can.ffa1r.write(|w| unsafe { w.bits(0xAAAA_AAAA) });
+        can.fm1r.write(|w| unsafe { w.bits(fm1r) });
+        can.fs1r.write(|w| unsafe { w.bits(fs1r) });
+        can.ffa1r.write(|w| unsafe { w.bits(ffa1r) });
 
         // Init filter banks. Each used filter must still be enabled individually.
         #[allow(unused_unsafe)]
         can.fmr.modify(|_, w| unsafe {
             #[cfg(feature = "connectivity")]
-            w.can2sb().bits(split_idx as u8);
+            w.can2sb().bits(_split_idx as u8);
             w.finit().clear_bit()
         });
 
@@ -578,6 +628,16 @@ impl Filter {
     }
 
     fn matches_single_id(&self) -> bool {
+        ((self.mask & (Id::IDE_MASK | Id::RTR_MASK)) == (Id::IDE_MASK | Id::RTR_MASK))
+            && if self.is_extended() {
+                (self.mask & Id::EXTENDED_MASK) == Id::EXTENDED_MASK
+            } else {
+                (self.mask & Id::STANDARD_MASK) == Id::STANDARD_MASK
+            }
+    }
+
+    fn as_16bit_filter(reg: u32) -> u32 {
+        (reg & Id::STANDARD_MASK) >> 16 | (reg & Id::IDE_MASK) << 1 | (reg & Id::RTR_MASK) << 3
     }
 }
 
@@ -602,31 +662,114 @@ where
         }
     }
 
-    pub fn num_filters(&self) -> usize {
-        self.stop_idx - self.start_idx
+    /// Returns the number of available filters.
+    pub fn num_available(&self) -> usize {
+        let can = unsafe { &*CAN1::ptr() };
+
+        let mut filter_count = self.stop_idx - self.start_idx;
+
+        let owned_bits = ((1 << filter_count) - 1) << self.start_idx;
+        let mode_list = can.fm1r.read().bits() & owned_bits;
+        let scale_16bit = !can.fs1r.read().bits() & owned_bits;
+
+        filter_count += mode_list.count_ones() as usize;
+        filter_count += scale_16bit.count_ones() as usize;
+        filter_count += (mode_list & scale_16bit).count_ones() as usize;
+        filter_count
     }
 
     /// Adds a filter. Returns `Err` if the maximum number of filters was reached.
     pub fn add(&mut self, filter: &Filter) -> Result<(), ()> {
-        let can = unsafe { &*CAN1::ptr() };
+        let idx = self.next_idx()?;
+        self.check_config(idx, false, true)?;
+        self.write_filter_bank(idx, filter.id, filter.mask);
+        Ok(())
+    }
 
-        let idx = self.start_idx + self.count;
-        if idx >= self.stop_idx {
+    /// Adds two filters, each filtering for a single ID.
+    ///
+    /// The filter bank must to be configured to `fm1r.fbm = 1` and `fs1r.fsc = 1` by
+    /// `Can::split_filters_advanced()`.
+    pub fn add_list(&mut self, filters: [&Filter; 2]) -> Result<(), ()> {
+        if !filters[0].matches_single_id() || !filters[1].matches_single_id() {
             return Err(());
         }
 
-        let list_mode = (can.fm1r.read().bits() & (1 << idx)) != 0;
-        let scale_32bit = (can.fs1r.read().bits() & (1 << idx)) != 0;
-        if !list_mode && scale_32bit {
-            let filter_bank = &can.fb[idx];
-            filter_bank.fr1.write(|w| unsafe { w.bits(filter.id) });
-            filter_bank.fr2.write(|w| unsafe { w.bits(filter.mask) });
-            bb::set(&can.fa1r, idx as u8); // Enable filter
-            self.count += 1;
+        let idx = self.next_idx()?;
+        self.check_config(idx, true, true)?;
+        self.write_filter_bank(idx, filters[0].id, filters[1].id);
+        Ok(())
+    }
+
+    /// Adds two standard ID filters with mask support.
+    ///
+    /// The filter bank must to be configured to `fm1r.fbm = 0` and `fs1r.fsc = 0` by
+    /// `Can::split_filters_advanced()`.
+    pub fn add_standard(&mut self, filters: [&Filter; 2]) -> Result<(), ()> {
+        if filters[0].is_extended() || filters[1].is_extended() {
+            return Err(());
+        }
+
+        let idx = self.next_idx()?;
+        self.check_config(idx, false, false)?;
+        self.write_filter_bank(
+            idx,
+            Filter::as_16bit_filter(filters[0].mask) << 16 | Filter::as_16bit_filter(filters[0].id),
+            Filter::as_16bit_filter(filters[1].mask) << 16 | Filter::as_16bit_filter(filters[1].id),
+        );
+        Ok(())
+    }
+
+    /// Adds four filters, each filtering for a single standard ID.
+    ///
+    /// The filter bank must to be configured to `fm1r.fbm = 1` and `fs1r.fsc = 0` by
+    /// `Can::split_filters_advanced()`.
+    pub fn add_standard_list(&mut self, filters: [&Filter; 4]) -> Result<(), ()> {
+        for filter in &filters {
+            if !filter.matches_single_id() {
+                return Err(());
+            }
+        }
+
+        let idx = self.next_idx()?;
+        self.check_config(idx, true, false)?;
+        self.write_filter_bank(
+            idx,
+            Filter::as_16bit_filter(filters[1].id) << 16 | Filter::as_16bit_filter(filters[0].id),
+            Filter::as_16bit_filter(filters[3].id) << 16 | Filter::as_16bit_filter(filters[2].id),
+        );
+        Ok(())
+    }
+
+    fn next_idx(&self) -> Result<usize, ()> {
+        let idx = self.start_idx + self.count;
+        if idx < self.stop_idx {
+            Ok(idx)
+        } else {
+            Err(())
+        }
+    }
+
+    fn check_config(&self, idx: usize, mode_list: bool, scale_32bit: bool) -> Result<(), ()> {
+        let can = unsafe { &*CAN1::ptr() };
+
+        if mode_list == ((can.fm1r.read().bits() & (1 << idx)) != 0)
+            && scale_32bit == ((can.fs1r.read().bits() & (1 << idx)) != 0)
+        {
             Ok(())
         } else {
             Err(())
         }
+    }
+
+    fn write_filter_bank(&mut self, idx: usize, fr1: u32, fr2: u32) {
+        let can = unsafe { &*CAN1::ptr() };
+
+        let filter_bank = &can.fb[idx];
+        filter_bank.fr1.write(|w| unsafe { w.bits(fr1) });
+        filter_bank.fr2.write(|w| unsafe { w.bits(fr2) });
+        bb::set(&can.fa1r, idx as u8); // Enable filter
+        self.count += 1;
     }
 
     /// Disables all enabled filters.

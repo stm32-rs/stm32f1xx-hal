@@ -6,7 +6,7 @@ use panic_halt as _;
 use cortex_m_rt::entry;
 use nb::block;
 use stm32f1xx_hal::{
-    can::{Can, Filter},
+    can::{Can, Filter, NUM_FILTER_BANKS},
     pac,
     prelude::*,
 };
@@ -49,6 +49,7 @@ fn main() -> ! {
     // Split the filters at index 0: No filters for CAN1 (unused), 28 filters
     // for CAN2.
     let (_filters1, mut filters2) = can1.split_filters(0).unwrap();
+    assert_eq!(filters2.num_available(), NUM_FILTER_BANKS);
     filters2.add(&Filter::accept_all()).unwrap(); // Receive all messages.
     let mut rx = can2.take_rx(filters2).unwrap();
 
