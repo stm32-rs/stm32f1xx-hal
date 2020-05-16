@@ -61,7 +61,7 @@ impl Id {
     const EXTENDED_SHIFT: u32 = 3;
     const EXTENDED_MASK: u32 = 0x1FFF_FFFF << Self::EXTENDED_SHIFT;
 
-    const EID_MASK: u32 = 0x0000_0004;
+    const IDE_MASK: u32 = 0x0000_0004;
 
     const RTR_MASK: u32 = 0x0000_0002;
 
@@ -78,7 +78,7 @@ impl Id {
     /// Ids outside the allowed range are silently truncated.
     pub fn new_extended(id: u32) -> Id {
         assert!(id < 0x1FFF_FFFF);
-        Self(id << Self::EXTENDED_SHIFT | Self::EID_MASK)
+        Self(id << Self::EXTENDED_SHIFT | Self::IDE_MASK)
     }
 
     fn from_register(reg: u32) -> Id {
@@ -108,7 +108,7 @@ impl Id {
 
     /// Returns `true` if the identifier is an extended identifier.
     pub fn is_extended(self) -> bool {
-        self.0 & Self::EID_MASK != 0
+        self.0 & Self::IDE_MASK != 0
     }
 
     /// Returns `true` if the identifier is a standard identifier.
@@ -526,38 +526,33 @@ pub struct Filter {
     mask: u32,
 }
 
-/// bxCAN filters have some quirks:
-/// https://github.com/UAVCAN/libcanard/blob/8ee343c4edae0e0e4e1c040852aa3d8430f7bf76/drivers/stm32/canard_stm32.c#L471-L513
 impl Filter {
     /// Creates a filter that accepts all messages.
     pub fn accept_all() -> Self {
-        Self {
-            id: Id::EID_MASK | Id::RTR_MASK,
-            mask: 0,
-        }
+        Self { id: 0, mask: 0 }
     }
 
     /// Creates a filter that accepts frames with the specified standard identifier.
     pub fn new_standard(id: u32) -> Self {
         Self {
-            id: id << Id::STANDARD_SHIFT | Id::RTR_MASK,
-            mask: Id::STANDARD_MASK | Id::EID_MASK,
+            id: id << Id::STANDARD_SHIFT,
+            mask: Id::STANDARD_MASK | Id::IDE_MASK | Id::RTR_MASK,
         }
     }
 
     /// Creates a filter that accepts frames with the extended standard identifier.
     pub fn new_extended(id: u32) -> Self {
         Self {
-            id: id << Id::EXTENDED_SHIFT | Id::RTR_MASK | Id::EID_MASK,
-            mask: Id::EXTENDED_MASK | Id::EID_MASK,
+            id: id << Id::EXTENDED_SHIFT | Id::IDE_MASK,
+            mask: Id::EXTENDED_MASK | Id::IDE_MASK | Id::RTR_MASK,
         }
     }
 
     /// Only look at the bits of the indentifier which are set to 1 in the mask.
     ///
     /// A mask of 0 accepts all identifiers.
-    pub fn with_mask(mut self, mask: u32) -> Self {
-        if self.id & Id::EID_MASK != 0 {
+    pub fn with_mask(&mut self, mask: u32) -> &mut Self {
+        if self.is_extended() {
             self.mask = (self.mask & !Id::EXTENDED_MASK) | (mask << Id::EXTENDED_SHIFT);
         } else {
             self.mask = (self.mask & !Id::STANDARD_MASK) | (mask << Id::STANDARD_SHIFT);
@@ -565,16 +560,24 @@ impl Filter {
         self
     }
 
-    /// Select if only remote (`rtr = true`) frames or only data (`rtr = false`)
-    /// shall be received.
-    pub fn with_rtr(mut self, rtr: bool) -> Self {
-        if rtr {
-            self.id |= Id::RTR_MASK;
-        } else {
-            self.id &= !Id::RTR_MASK;
-        }
+    /// Makes this filter accept both data and remote frames.
+    pub fn allow_remote(&mut self) -> &mut Self {
+        self.mask &= !Id::RTR_MASK;
+        self
+    }
+
+    /// Makes this filter accept only remote frames.
+    pub fn only_remote(&mut self) -> &mut Self {
+        self.id |= Id::RTR_MASK;
         self.mask |= Id::RTR_MASK;
         self
+    }
+
+    fn is_extended(&self) -> bool {
+        self.id & Id::IDE_MASK != 0
+    }
+
+    fn matches_single_id(&self) -> bool {
     }
 }
 
@@ -604,11 +607,17 @@ where
     }
 
     /// Adds a filter. Returns `Err` if the maximum number of filters was reached.
-    pub fn add(&mut self, filter: Filter) -> Result<(), ()> {
+    pub fn add(&mut self, filter: &Filter) -> Result<(), ()> {
         let can = unsafe { &*CAN1::ptr() };
 
         let idx = self.start_idx + self.count;
-        if idx < self.stop_idx {
+        if idx >= self.stop_idx {
+            return Err(());
+        }
+
+        let list_mode = (can.fm1r.read().bits() & (1 << idx)) != 0;
+        let scale_32bit = (can.fs1r.read().bits() & (1 << idx)) != 0;
+        if !list_mode && scale_32bit {
             let filter_bank = &can.fb[idx];
             filter_bank.fr1.write(|w| unsafe { w.bits(filter.id) });
             filter_bank.fr2.write(|w| unsafe { w.bits(filter.mask) });

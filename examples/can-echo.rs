@@ -49,7 +49,7 @@ fn main() -> ! {
     // Split the filters at index 0: No filters for CAN1 (unused), 28 filters
     // for CAN2.
     let (_filters1, mut filters2) = can1.split_filters(0).unwrap();
-    filters2.add(Filter::accept_all()).unwrap(); // Receive all messages.
+    filters2.add(&Filter::accept_all()).unwrap(); // Receive all messages.
     let mut rx = can2.take_rx(filters2).unwrap();
 
     // Sync to the bus and start normal operation.

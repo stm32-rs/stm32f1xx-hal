@@ -45,7 +45,7 @@ fn main() -> ! {
     let mut filters = can.split_filters().unwrap();
     #[cfg(feature = "connectivity")]
     let (mut filters, _) = can.split_filters(NUM_FILTER_BANKS / 2).unwrap();
-    filters.add(Filter::accept_all()).unwrap();
+    filters.add(&Filter::accept_all()).unwrap();
     let mut rx = can.take_rx(filters).unwrap();
 
     // Sync to the bus and start normal operation.

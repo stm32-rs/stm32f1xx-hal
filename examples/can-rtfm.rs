@@ -88,13 +88,13 @@ const APP: () = {
         let (_, mut filters) = can1.split_filters(0).unwrap();
 
         // To share load between FIFOs use one filter for standard messages and another
-        // for extended messages. Accept all IDs by setting the mask to 0. Only accept
-        // data frames (no remote frames).
+        // for extended messages. Accept all IDs by setting the mask to 0. Explicitly
+        // allow to receive remote frames.
         filters
-            .add(Filter::new_standard(0).with_mask(0).with_rtr(false))
+            .add(&Filter::new_standard(0).with_mask(0).allow_remote())
             .unwrap();
         filters
-            .add(Filter::new_extended(0).with_mask(0).with_rtr(false))
+            .add(&Filter::new_extended(0).with_mask(0).allow_remote())
             .unwrap();
 
         let mut can_rx = can2.take_rx(filters).unwrap();
