@@ -212,6 +212,7 @@ impl Frame {
     }
 }
 
+// Ordering is based on the ID and can be used to sort frames by priority.
 impl Ord for Frame {
     fn cmp(&self, other: &Self) -> Ordering {
         self.id().cmp(&other.id())
@@ -224,9 +225,10 @@ impl PartialOrd for Frame {
     }
 }
 
+// The Equality traits compare the identifier and the data.
 impl PartialEq for Frame {
     fn eq(&self, other: &Self) -> bool {
-        self.id() == other.id()
+        self.id() == other.id() && self.data[0..self.dlc] == other.data[0..other.dlc]
     }
 }
 

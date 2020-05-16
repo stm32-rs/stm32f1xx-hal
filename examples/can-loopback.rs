@@ -58,8 +58,7 @@ fn main() -> ! {
 
         let frame_rx = block!(rx.receive()).unwrap();
 
-        assert_eq!(frame_tx, frame_rx); // Only compares the identifier.
-        assert_eq!(frame_tx.data(), frame_rx.data());
+        assert_eq!(frame_tx, frame_rx);
     }
 
     loop {}
