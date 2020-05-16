@@ -87,8 +87,12 @@ impl Id {
 
     /// Sets the remote transmission (RTR) flag. This marks the identifier as
     /// being part of a remote frame.
-    fn with_rtr(self) -> Id {
-        Self(self.0 | Self::RTR_MASK)
+    fn with_rtr(self, rtr: bool) -> Id {
+        if rtr {
+            Self(self.0 | Self::RTR_MASK)
+        } else {
+            Self(self.0 & !Self::RTR_MASK)
+        }
     }
 
     /// Returns the identifier.
@@ -167,9 +171,12 @@ impl Frame {
         Self::new(Id::new_extended(id), data)
     }
 
-    /// Marks this frame as a remote frame.
-    pub fn set_remote(&mut self) -> &mut Self {
-        self.id = self.id.with_rtr();
+    /// Sets the remote transmission (RTR) flag. Marks the frame as a remote frame.
+    ///
+    /// Remote frames do not contain any data, even if the frame was created with a
+    /// non-empty data buffer.
+    pub fn with_rtr(&mut self, rtr: bool) -> &mut Self {
+        self.id = self.id.with_rtr(rtr);
         self.dlc = 0;
         self
     }
@@ -550,7 +557,8 @@ impl Filter {
         self
     }
 
-    /// Select if only remote (`rtr = true`) frames or only data (`rtr = false`) shall be received.
+    /// Select if only remote (`rtr = true`) frames or only data (`rtr = false`)
+    /// shall be received.
     pub fn with_rtr(mut self, rtr: bool) -> Self {
         if rtr {
             self.id |= Id::RTR_MASK;
