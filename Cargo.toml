@@ -117,6 +117,10 @@ name = "blinky_timer_irq"
 required-features = ["rt"]
 
 [[example]]
+name = "blinky_rtcalarm_irq"
+required-features = ["rt"]
+
+[[example]]
 name = "qei"
 required-features = ["medium"]
 
