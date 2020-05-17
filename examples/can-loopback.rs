@@ -1,9 +1,13 @@
+//! Showcases advanced CAN filter capabilities.
+//! Does not require additional transceiver hardware.
+
 #![no_main]
 #![no_std]
 
 use panic_halt as _;
 
 use cortex_m_rt::entry;
+use embedded_hal::digital::v2::OutputPin;
 use nb::block;
 use stm32f1xx_hal::{
     can::{Can, Filter, Frame},
@@ -37,10 +41,8 @@ fn main() -> ! {
         config.set_silent(true);
     });
 
-    // Get the transmitter part.
-    let mut tx = can.take_tx().unwrap();
-
     // Use advanced configurations for the first three filter banks.
+    // More details can be found in the reference manual of the device.
     #[cfg(not(feature = "connectivity"))]
     let mut filters = can
         .split_filters_advanced(0x0000_0006, 0xFFFF_FFFA, 0x0000_0007)
@@ -51,6 +53,9 @@ fn main() -> ! {
         .unwrap();
 
     assert_eq!(filters.num_available(), 8);
+
+    // The order of the added filters is important: it must match configuration
+    // of the `split_filters_advanced()` method.
 
     // Matches 0, 1, 2
     filters
@@ -75,7 +80,9 @@ fn main() -> ! {
         ])
         .unwrap();
 
+    // Split the peripheral into transmitter and receiver parts.
     let mut rx = can.take_rx(filters).unwrap();
+    let mut tx = can.take_tx().unwrap();
 
     // Sync to the bus and start normal operation.
     block!(can.enable()).ok();
@@ -94,6 +101,10 @@ fn main() -> ! {
         block!(tx.transmit(&frame_tx)).unwrap();
         assert!(rx.receive().is_err());
     }
+
+    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+    let mut led = gpiob.pb9.into_push_pull_output(&mut gpiob.crh);
+    led.set_high().unwrap();
 
     loop {}
 }

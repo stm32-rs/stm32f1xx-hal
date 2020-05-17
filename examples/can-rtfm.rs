@@ -6,8 +6,8 @@
 //! transmission the interrupt is reentered and more data is fetched from the
 //! queue.
 //! Received frames are simply echoed back. In contrast to the naive `can-echo`
-//! example the echo messages are also correctly prioritized by the transmit
-//! queue.
+//! example all messages are also correctly prioritized by the transmit queue.
+
 #![no_main]
 #![no_std]
 
@@ -64,26 +64,24 @@ const APP: () = {
             .pclk2(72.mhz())
             .freeze(&mut flash.acr);
 
-        let mut gpiob = cx.device.GPIOB.split(&mut rcc.apb2);
-        let mut afio = cx.device.AFIO.constrain(&mut rcc.apb2);
+        let mut can2 = Can::new(cx.device.CAN2, &mut rcc.apb1);
 
+        // Select pins for CAN2.
+        let mut gpiob = cx.device.GPIOB.split(&mut rcc.apb2);
         let can_rx_pin = gpiob.pb5.into_floating_input(&mut gpiob.crl);
         let can_tx_pin = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
-
-        let mut can2 = Can::new(cx.device.CAN2, &mut rcc.apb1);
+        let mut afio = cx.device.AFIO.constrain(&mut rcc.apb2);
         can2.assign_pins((can_tx_pin, can_rx_pin), &mut afio.mapr);
 
         can2.configure(|config| {
             // APB1 (PCLK1): 36MHz, Bit rate: 125kBit/s, Sample Point 87.5%
             // Value was calculated with http://www.bittiming.can-wiki.info/
-            config.set_bit_timing(0x001c0011);
+            config.set_bit_timing(0x001c_0011);
         });
 
-        let mut can_tx = can2.take_tx().unwrap();
-        can_tx.enable_interrupt();
-        let can_tx_queue = BinaryHeap::new();
-        CanFramePool::grow(CAN_POOL_MEMORY);
-
+        // Filters are required to use the receiver part of CAN2.
+        // Because the filter banks are part of CAN1 we first need to enable CAN1
+        // and split the filters between the peripherals to use them for CAN2.
         let mut can1 = Can::new(cx.device.CAN1, &mut rcc.apb1);
         let (_, mut filters) = can1.split_filters(0).unwrap();
 
@@ -100,6 +98,13 @@ const APP: () = {
         let mut can_rx = can2.take_rx(filters).unwrap();
         can_rx.enable_interrupts();
 
+        let mut can_tx = can2.take_tx().unwrap();
+        can_tx.enable_interrupt();
+
+        let can_tx_queue = BinaryHeap::new();
+        CanFramePool::grow(CAN_POOL_MEMORY);
+
+        // Sync to the bus and start normal operation.
         can2.enable().ok();
 
         init::LateResources {

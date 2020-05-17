@@ -98,7 +98,6 @@ codegen-units = 1
 [profile.release]
 codegen-units = 1
 debug = true
-opt-level = "s"
 lto = true
 
 [[example]]

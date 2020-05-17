@@ -45,10 +45,9 @@ use core::{
 /// Can be either a standard identifier (11bit, Range: 0..0x3FF) or a
 /// extendended identifier (29bit , Range: 0..0x1FFFFFFF).
 ///
-/// The `Ord` trait is can be used to determine the frame’s priority this ID
-/// belongs to. This works because the EID and RTR flags are included in the
-/// underlying integer representaiton.
-/// Lower identifier values mean higher priority. Additionally standard frames
+/// The `Ord` trait can be used to determine the frame’s priority this ID
+/// belongs to.
+/// Lower identifier values have a higher priority. Additionally standard frames
 /// have a higher priority than extended frames and data frames have a higher
 /// priority than remote frames.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -67,7 +66,7 @@ impl Id {
 
     /// Creates a new standard identifier (11bit, Range: 0..0x7FF)
     ///
-    /// Ids outside the allowed range are silently truncated.
+    /// IDs outside the allowed range are silently truncated.
     pub fn new_standard(id: u32) -> Self {
         assert!(id < 0x7FF);
         Self(id << Self::STANDARD_SHIFT)
@@ -75,7 +74,7 @@ impl Id {
 
     /// Creates a new extendended identifier (29bit , Range: 0..0x1FFFFFFF).
     ///
-    /// Ids outside the allowed range are silently truncated.
+    /// IDs outside the allowed range are silently truncated.
     pub fn new_extended(id: u32) -> Id {
         assert!(id < 0x1FFF_FFFF);
         Self(id << Self::EXTENDED_SHIFT | Self::IDE_MASK)
@@ -161,12 +160,12 @@ impl Frame {
         frame
     }
 
-    /// Creates ane new frame with a standard identifier.
+    /// Creates a new frame with a standard identifier.
     pub fn new_standard(id: u32, data: &[u8]) -> Self {
         Self::new(Id::new_standard(id), data)
     }
 
-    /// Creates ane new frame with an extended identifier.
+    /// Creates a new frame with an extended identifier.
     pub fn new_extended(id: u32, data: &[u8]) -> Self {
         Self::new(Id::new_extended(id), data)
     }
@@ -181,22 +180,22 @@ impl Frame {
         self
     }
 
-    /// Returns true if this `Frame` is a extended frame
+    /// Returns true if this frame is an extended frame
     pub fn is_extended(&self) -> bool {
         self.id.is_extended()
     }
 
-    /// Returns true if this `Frame` is a standard frame
+    /// Returns true if this frame is a standard frame
     pub fn is_standard(&self) -> bool {
         self.id.is_standard()
     }
 
-    /// Returns true if this `Frame` is a remote frame
+    /// Returns true if this frame is a remote frame
     pub fn is_remote_frame(&self) -> bool {
         self.id.rtr()
     }
 
-    /// Returns true if this `Frame` is a data frame
+    /// Returns true if this frame is a data frame
     pub fn is_data_frame(&self) -> bool {
         !self.is_remote_frame()
     }
@@ -297,8 +296,11 @@ impl traits::Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
     }
 }
 
+/// Number of supported filter banks.
 #[cfg(not(feature = "connectivity"))]
 pub const NUM_FILTER_BANKS: usize = 14;
+
+/// Number of supported filter banks.
 #[cfg(feature = "connectivity")]
 pub const NUM_FILTER_BANKS: usize = 28;
 
@@ -309,7 +311,7 @@ pub struct CanConfig<Instance> {
 
 impl<Instance> CanConfig<Instance>
 where
-    Instance: traits::Instance<Bus = APB1>,
+    Instance: traits::Instance,
 {
     /// Configures the bit timings.
     ///
@@ -322,13 +324,14 @@ where
         });
     }
 
-    /// Enables or disables loopback mode: Internally connects the TX to RX.
+    /// Enables or disables loopback mode: Internally connects the TX and RX
+    /// signals together.
     pub fn set_loopback(&mut self, enabled: bool) {
         let can = unsafe { &*Instance::REGISTERS };
         can.btr.modify(|_, w| w.lbkm().bit(enabled));
     }
 
-    /// Enables or disables silent mode: Disconnects TX from the pin.
+    /// Enables or disables silent mode: Disconnects the TX signal from the pin.
     pub fn set_silent(&mut self, enabled: bool) {
         let can = unsafe { &*Instance::REGISTERS };
         can.btr.modify(|_, w| w.silm().bit(enabled));
@@ -417,7 +420,6 @@ where
         let can = unsafe { &*Instance::REGISTERS };
         let msr = can.msr.read();
         if msr.slak().bit_is_set() {
-            // TODO: Make automatic bus-off management configurable.
             can.mcr
                 .modify(|_, w| w.abom().set_bit().sleep().clear_bit());
             Err(nb::Error::WouldBlock)
@@ -486,7 +488,7 @@ impl Can<CAN1> {
     /// `split_idx` can be in the range `0..NUM_FILTER_BANKS` and decides the number
     /// of filters assigned to each peripheral. A value of `0` means all filter
     /// banks are used for CAN2 while `NUM_FILTER_BANKS` reserves all filter banks
-    /// for CAN2.
+    /// for CAN1.
     #[cfg(feature = "connectivity")]
     pub fn split_filters(&mut self, split_idx: usize) -> Option<(Filters<CAN1>, Filters<CAN2>)> {
         // Set all filter banks to 32bit scale and mask mode.
@@ -570,7 +572,7 @@ impl Can<CAN1> {
     }
 }
 
-/// A masked filter configuration.
+/// Filter with an optional mask.
 pub struct Filter {
     id: u32,
     mask: u32,
@@ -636,8 +638,16 @@ impl Filter {
             }
     }
 
-    fn as_16bit_filter(reg: u32) -> u32 {
+    fn reg_to_16bit(reg: u32) -> u32 {
         (reg & Id::STANDARD_MASK) >> 16 | (reg & Id::IDE_MASK) << 1 | (reg & Id::RTR_MASK) << 3
+    }
+
+    fn id_to_16bit(&self) -> u32 {
+        Self::reg_to_16bit(self.id)
+    }
+
+    fn mask_to_16bit(&self) -> u32 {
+        Self::reg_to_16bit(self.mask)
     }
 }
 
@@ -663,6 +673,9 @@ where
     }
 
     /// Returns the number of available filters.
+    ///
+    /// This can number can be larger than the number of filter banks if
+    /// `Can::split_filters_advanced()` was used.
     pub fn num_available(&self) -> usize {
         let can = unsafe { &*CAN1::ptr() };
 
@@ -714,8 +727,8 @@ where
         self.check_config(idx, false, false)?;
         self.write_filter_bank(
             idx,
-            Filter::as_16bit_filter(filters[0].mask) << 16 | Filter::as_16bit_filter(filters[0].id),
-            Filter::as_16bit_filter(filters[1].mask) << 16 | Filter::as_16bit_filter(filters[1].id),
+            filters[0].mask_to_16bit() << 16 | filters[0].id_to_16bit(),
+            filters[1].mask_to_16bit() << 16 | filters[1].id_to_16bit(),
         );
         Ok(())
     }
@@ -735,8 +748,8 @@ where
         self.check_config(idx, true, false)?;
         self.write_filter_bank(
             idx,
-            Filter::as_16bit_filter(filters[1].id) << 16 | Filter::as_16bit_filter(filters[0].id),
-            Filter::as_16bit_filter(filters[3].id) << 16 | Filter::as_16bit_filter(filters[2].id),
+            filters[1].id_to_16bit() << 16 | filters[0].id_to_16bit(),
+            filters[3].id_to_16bit() << 16 | filters[2].id_to_16bit(),
         );
         Ok(())
     }
@@ -772,7 +785,7 @@ where
         self.count += 1;
     }
 
-    /// Disables all enabled filters.
+    /// Disables all enabled filter banks.
     pub fn clear(&mut self) {
         let can = unsafe { &*CAN1::ptr() };
 
@@ -805,9 +818,9 @@ where
     /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
     ///
     /// Frames are transmitted to the bus based on their priority (identifier).
-    /// Transmit order is preserved for frames with identical identifiers.
-    /// If all transmit mailboxes are full a higher priority frame replaces the
-    /// lowest priority frame which is returned as `Ok(Some(frame))`.
+    /// Transmit order is preserved for frames with of identifiers.
+    /// If all transmit mailboxes are full, a higher priority frame replaces the
+    /// lowest priority frame, which is returned as `Ok(Some(frame))`.
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
         let can = unsafe { &*Instance::REGISTERS };
 
