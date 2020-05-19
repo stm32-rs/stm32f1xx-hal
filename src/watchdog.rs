@@ -12,7 +12,7 @@ pub struct IndependentWatchdog {
 }
 
 const LSI_KHZ: u32 = 40;
-const MAX_PR: u8 = 4;
+const MAX_PR: u8 = 8;
 const MAX_RL: u16 = 0xFFF;
 const KR_ACCESS: u16 = 0x5555;
 const KR_RELOAD: u16 = 0xAAAA;
@@ -69,6 +69,9 @@ impl IndependentWatchdog {
             0b010 => 16,
             0b011 => 32,
             0b100 => 64,
+            0b101 => 128,
+            0b110 => 256,
+            0b111 => 256,
             _ => panic!("Invalid IWDG prescaler divider"),
         };
         (u32::from(rl) + 1) * divider / LSI_KHZ
