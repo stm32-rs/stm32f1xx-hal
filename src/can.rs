@@ -170,13 +170,13 @@ impl Frame {
         Self::new(Id::new_extended(id), data)
     }
 
-    /// Sets the remote transmission (RTR) flag. Marks the frame as a remote frame.
+    /// Marks the frame as a remote frame with configurable data length code (DLC).
     ///
     /// Remote frames do not contain any data, even if the frame was created with a
     /// non-empty data buffer.
-    pub fn with_rtr(&mut self, rtr: bool) -> &mut Self {
-        self.id = self.id.with_rtr(rtr);
-        self.dlc = 0;
+    pub fn with_rtr(&mut self, dlc: usize) -> &mut Self {
+        self.id = self.id.with_rtr(true);
+        self.dlc = dlc;
         self
     }
 
@@ -205,9 +205,21 @@ impl Frame {
         self.id
     }
 
+    /// Returns the data length code (DLC) which is in the range 0..8.
+    ///
+    /// For data frames the DLC value always matches the lenght of the data.
+    /// Remote frames no not carry any data, yet the DLC can be greater than 0.
+    pub fn dlc(&self) -> usize {
+        self.dlc
+    }
+
     /// Returns the frame data (0..8 bytes in length).
     pub fn data(&self) -> &[u8] {
-        &self.data[0..self.dlc]
+        if self.is_data_frame() {
+            &self.data[0..self.dlc]
+        } else {
+            &[]
+        }
     }
 }
 
