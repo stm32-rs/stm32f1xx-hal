@@ -705,96 +705,77 @@ where
 
     /// Adds a filter. Returns `Err` if the maximum number of filters was reached.
     pub fn add(&mut self, filter: &Filter) -> Result<(), ()> {
-        let idx = self.next_idx()?;
-        self.check_config(idx, false, true)?;
-        self.write_filter_bank(idx, filter.id, filter.mask);
-        Ok(())
-    }
+        let can = unsafe { &*CAN1::ptr() };
 
-    /// Adds two filters, each filtering for a single ID.
-    ///
-    /// The filter bank must to be configured to `fm1r.fbm = 1` and `fs1r.fsc = 1` by
-    /// `Can::split_filters_advanced()`.
-    pub fn add_list(&mut self, filters: [&Filter; 2]) -> Result<(), ()> {
-        if !filters[0].matches_single_id() || !filters[1].matches_single_id() {
-            return Err(());
-        }
-
-        let idx = self.next_idx()?;
-        self.check_config(idx, true, true)?;
-        self.write_filter_bank(idx, filters[0].id, filters[1].id);
-        Ok(())
-    }
-
-    /// Adds two standard ID filters with mask support.
-    ///
-    /// The filter bank must to be configured to `fm1r.fbm = 0` and `fs1r.fsc = 0` by
-    /// `Can::split_filters_advanced()`.
-    pub fn add_standard(&mut self, filters: [&Filter; 2]) -> Result<(), ()> {
-        if filters[0].is_extended() || filters[1].is_extended() {
-            return Err(());
-        }
-
-        let idx = self.next_idx()?;
-        self.check_config(idx, false, false)?;
-        self.write_filter_bank(
-            idx,
-            filters[0].mask_to_16bit() << 16 | filters[0].id_to_16bit(),
-            filters[1].mask_to_16bit() << 16 | filters[1].id_to_16bit(),
-        );
-        Ok(())
-    }
-
-    /// Adds four filters, each filtering for a single standard ID.
-    ///
-    /// The filter bank must to be configured to `fm1r.fbm = 1` and `fs1r.fsc = 0` by
-    /// `Can::split_filters_advanced()`.
-    pub fn add_standard_list(&mut self, filters: [&Filter; 4]) -> Result<(), ()> {
-        for filter in &filters {
-            if !filter.matches_single_id() {
-                return Err(());
-            }
-        }
-
-        let idx = self.next_idx()?;
-        self.check_config(idx, true, false)?;
-        self.write_filter_bank(
-            idx,
-            filters[1].id_to_16bit() << 16 | filters[0].id_to_16bit(),
-            filters[3].id_to_16bit() << 16 | filters[2].id_to_16bit(),
-        );
-        Ok(())
-    }
-
-    fn next_idx(&self) -> Result<usize, ()> {
         let idx = self.start_idx + self.count;
-        if idx < self.stop_idx {
-            Ok(idx)
-        } else {
-            Err(())
+        if idx >= self.stop_idx {
+            return Err(());
         }
-    }
 
-    fn check_config(&self, idx: usize, mode_list: bool, scale_32bit: bool) -> Result<(), ()> {
-        let can = unsafe { &*CAN1::ptr() };
+        let mode_list = (can.fm1r.read().bits() & (1 << idx)) != 0;
+        let scale_16bit = (can.fs1r.read().bits() & (1 << idx)) == 0;
+        let bank_enabled = (can.fa1r.read().bits() & (1 << idx)) != 0;
 
-        if mode_list == ((can.fm1r.read().bits() & (1 << idx)) != 0)
-            && scale_32bit == ((can.fs1r.read().bits() & (1 << idx)) != 0)
-        {
-            Ok(())
-        } else {
-            Err(())
+        // Make sure the filter is supported by the filter bank configuration.
+        if (mode_list && !filter.matches_single_id()) || (scale_16bit && filter.is_extended()) {
+            return Err(());
         }
-    }
 
-    fn write_filter_bank(&mut self, idx: usize, fr1: u32, fr2: u32) {
-        let can = unsafe { &*CAN1::ptr() };
+        // Disable the filter bank so it can be modified.
+        bb::clear(&can.fa1r, idx as u8);
 
         let filter_bank = &can.fb[idx];
+        let fr1 = filter_bank.fr1.read().bits();
+        let fr2 = filter_bank.fr2.read().bits();
+        let (fr1, fr2) = match (mode_list, scale_16bit, bank_enabled) {
+            // 29bit id + mask
+            (false, false, _) => {
+                self.count += 1;
+                (filter.id, filter.mask)
+            }
+            // 2x 29bit id
+            (true, false, false) => (filter.id, filter.id),
+            (true, false, true) => {
+                self.count += 1;
+                (fr1, filter.id)
+            }
+            // 2x 11bit id + mask
+            (false, true, false) => (
+                filter.mask_to_16bit() << 16 | filter.id_to_16bit(),
+                filter.mask_to_16bit() << 16 | filter.id_to_16bit(),
+            ),
+            (false, true, true) => {
+                self.count += 1;
+                (fr1, filter.mask_to_16bit() << 16 | filter.id_to_16bit())
+            }
+            // 4x 11bit id
+            (true, true, false) => (
+                filter.id_to_16bit() << 16 | filter.id_to_16bit(),
+                filter.id_to_16bit() << 16 | filter.id_to_16bit(),
+            ),
+            (true, true, true) => {
+                let f = [fr1 & 0xFFFF, fr1 >> 16, fr2 & 0xFFFF, fr2 >> 16];
+
+                if f[0] == f[1] {
+                    // One filter available, add the second.
+                    (filter.id_to_16bit() << 16 | f[0], fr2)
+                } else if f[0] == f[2] {
+                    // Two filters available, add the third.
+                    (fr1, f[0] << 16 | filter.id_to_16bit())
+                } else if f[0] == f[3] {
+                    // Three filters available, add the fourth.
+                    self.count += 1;
+                    (fr1, filter.id_to_16bit() << 16 | f[2])
+                } else {
+                    unreachable!()
+                }
+            }
+        };
+
         filter_bank.fr1.write(|w| unsafe { w.bits(fr1) });
         filter_bank.fr2.write(|w| unsafe { w.bits(fr2) });
-        bb::set(&can.fa1r, idx as u8); // Enable filter
-        self.count += 1;
+        bb::set(&can.fa1r, idx as u8); // Enable the filter bank
+        Ok(())
     }
 
     /// Disables all enabled filter banks.

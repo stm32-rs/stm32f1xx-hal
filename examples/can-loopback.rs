@@ -57,28 +57,23 @@ fn main() -> ! {
     // The order of the added filters is important: it must match configuration
     // of the `split_filters_advanced()` method.
 
-    // Matches 0, 1, 2
+    // 2x 11bit id + mask filter bank: Matches 0, 1, 2
     filters
-        .add_standard([
-            &Filter::new_standard(0).with_mask(!0b1),
-            &Filter::new_standard(0).with_mask(!0b10),
-        ])
+        .add(&Filter::new_standard(0).with_mask(!0b1))
+        .unwrap();
+    filters
+        .add(&Filter::new_standard(0).with_mask(!0b10))
         .unwrap();
 
-    // Matches 4, 5
-    filters
-        .add_list([&Filter::new_standard(4), &Filter::new_standard(5)])
-        .unwrap();
+    // 2x 29bit id filter bank: Matches 4, 5
+    filters.add(&Filter::new_standard(4)).unwrap();
+    filters.add(&Filter::new_standard(5)).unwrap();
 
-    // Matches 8, 9, 10, 11
-    filters
-        .add_standard_list([
-            &Filter::new_standard(8),
-            &Filter::new_standard(9),
-            &Filter::new_standard(10),
-            &Filter::new_standard(11),
-        ])
-        .unwrap();
+    // 4x 11bit id filter bank: Matches 8, 9, 10, 11
+    filters.add(&Filter::new_standard(8)).unwrap();
+    filters.add(&Filter::new_standard(9)).unwrap();
+    filters.add(&Filter::new_standard(10)).unwrap();
+    filters.add(&Filter::new_standard(11)).unwrap();
 
     // Split the peripheral into transmitter and receiver parts.
     let mut rx = can.take_rx(filters).unwrap();
