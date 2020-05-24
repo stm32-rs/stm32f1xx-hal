@@ -1,9 +1,11 @@
-// blinky timer using interrupts on TIM2
-//
-// This demo based off of the following demo:
-// - https://github.com/stm32-rs/stm32f0xx-hal/blob/master/examples/blinky_timer_irq.rs
-// with some information about STM32F1 interrupts/peripherals from:
-// - https://github.com/geomatsi/rust-blue-pill-tests/blob/master/src/bin/blink-timer-irq-safe.rs
+//! blinky timer using interrupts on TIM2
+//!
+//! This assumes that a LED is connected to pc13 as is the case on the blue pill board.
+//!
+//! Please note according to RM0008:
+//! "Due to the fact that the switch only sinks a limited amount of current (3 mA), the use of
+//! GPIOs PC13 to PC15 in output mode is restricted: the speed has to be limited to 2MHz with
+//! a maximum load of 30pF and these IOs must not be used as a current source (e.g. to drive a LED)"
 
 #![no_main]
 #![no_std]
@@ -13,15 +15,16 @@ use panic_halt as _;
 use stm32f1xx_hal as hal;
 
 use crate::hal::{
-    gpio::*,
+    gpio::{gpioc, Output, PushPull},
     pac::{interrupt, Interrupt, Peripherals, TIM2},
     prelude::*,
-    timer::*,
+    timer::{CountDownTimer, Event, Timer},
 };
 
 use core::cell::RefCell;
-use cortex_m::{asm::wfi, interrupt::Mutex, peripheral::Peripherals as c_m_Peripherals};
+use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
+use embedded_hal::digital::v2::OutputPin;
 
 // NOTE You can uncomment 'hprintln' here and in the code below for a bit more
 // verbosity at runtime, at the cost of throwing off the timing of the blink
@@ -59,55 +62,44 @@ fn TIM2() {
         })
     });
 
-    //hprintln!("TIM2 IRQ fired").unwrap();
-    led.toggle().ok();
-    tim.wait().ok();
+    let _ = led.toggle();
+    let _ = tim.wait();
 }
 
 #[entry]
 fn main() -> ! {
-    if let (Some(dp), Some(cp)) = (Peripherals::take(), c_m_Peripherals::take()) {
-        cortex_m::interrupt::free(move |cs| {
-            let mut rcc = dp.RCC.constrain();
-            let mut flash = dp.FLASH.constrain();
-            let clocks = rcc
-                .cfgr
-                .sysclk(8.mhz())
-                .pclk1(8.mhz())
-                .freeze(&mut flash.acr);
+    let dp = Peripherals::take().unwrap();
 
-            // Configure PC13 pin to blink LED
-            let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
-            let led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+    let mut rcc = dp.RCC.constrain();
+    let mut flash = dp.FLASH.constrain();
+    let clocks = rcc
+        .cfgr
+        .sysclk(8.mhz())
+        .pclk1(8.mhz())
+        .freeze(&mut flash.acr);
 
-            // Move the pin into our global storage
-            *G_LED.borrow(cs).borrow_mut() = Some(led);
+    // Configure PC13 pin to blink LED
+    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
+    let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+    let _ = led.set_high(); // Turn off
 
-            // Set up a timer expiring after 1s
-            let mut timer = Timer::tim2(dp.TIM2, &clocks, &mut rcc.apb1).start_count_down(1.hz());
+    // Move the pin into our global storage
+    cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 
-            // Generate an interrupt when the timer expires
-            timer.listen(Event::Update);
+    // Set up a timer expiring after 1s
+    let mut timer = Timer::tim2(dp.TIM2, &clocks, &mut rcc.apb1).start_count_down(1.hz());
 
-            // Move the timer into our global storage
-            *G_TIM.borrow(cs).borrow_mut() = Some(timer);
+    // Generate an interrupt when the timer expires
+    timer.listen(Event::Update);
 
-            // Enable TIM2 IRQ, set prio 1 and clear any pending IRQs
-            let mut nvic = cp.NVIC;
-            // Calling 'set_priority()' and 'unmask()' requires 'unsafe {}'
-            // - https://docs.rs/stm32f1xx-hal/0.5.3/stm32f1xx_hal/stm32/struct.NVIC.html#method.set_priority
-            unsafe {
-                nvic.set_priority(Interrupt::TIM2, 1);
-                cortex_m::peripheral::NVIC::unmask(Interrupt::TIM2);
-            }
-            // Clear the interrupt state
-            cortex_m::peripheral::NVIC::unpend(Interrupt::TIM2);
-        });
+    // Move the timer into our global storage
+    cortex_m::interrupt::free(|cs| *G_TIM.borrow(cs).borrow_mut() = Some(timer));
+
+    unsafe {
+        cortex_m::peripheral::NVIC::unmask(Interrupt::TIM2);
     }
 
-    //hprintln!("Entering main loop...").unwrap();
     loop {
-        // From 'cortex_m::asm::wfi'
         wfi();
     }
 }
