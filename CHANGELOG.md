@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add `QeiOptions` struct to configure slave mode and auto reload value of QEI interface
 - Implement multiplication and division for frequency wrappers (#193)
 - Add support for CRC
+- ADC multichannel continuous conversion
 
 ### Changed
 

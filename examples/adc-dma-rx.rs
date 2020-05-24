@@ -3,7 +3,7 @@
 #![no_main]
 #![no_std]
 
-use panic_halt as _;
+use panic_semihosting as _;
 
 use cortex_m::singleton;
 use cortex_m_semihosting::hprintln;
@@ -72,11 +72,21 @@ fn main() -> ! {
         let pins = AdcPins(adc_ch0, adc_ch2);
         let adc_dma = adc1.with_scan_dma::<_, adc::Single>(pins, dma_ch1);
 
-        // TODO: should match with # of conversions specified by AdcPins
         let buf = singleton!(: [u16; 4] = [0; 4]).unwrap();
-
         let (_buf, adc_dma) = adc_dma.read(buf).wait();
-        hprintln!("multi-channel single-shot conversion={:?}", _buf).ok();
+        hprintln!(
+            "multi-channel single-shot conversion, exact buffer={:?}",
+            _buf
+        )
+        .ok();
+
+        let buf = singleton!(: [u16; 8] = [0; 8]).unwrap();
+        let (_buf, adc_dma) = adc_dma.read(buf).wait();
+        hprintln!(
+            "multi-channel single-shot conversion, larger buffer={:?}",
+            _buf
+        )
+        .ok();
 
         adc_dma.split()
     };
