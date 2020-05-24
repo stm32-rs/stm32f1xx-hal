@@ -2,9 +2,10 @@
 //!
 //! This assumes that a LED is connected to pc13 as is the case on the blue pill board.
 //!
-//! Note: Without additional hardware, PC13 should not be used to drive a LED, see
-//! section 5.1.2 of the reference manual for an explanation.
-//! This is not an issue on the blue pill.
+//! Please note according to RM0008:
+//! "Due to the fact that the switch only sinks a limited amount of current (3 mA), the use of
+//! GPIOs PC13 to PC15 in output mode is restricted: the speed has to be limited to 2MHz with
+//! a maximum load of 30pF and these IOs must not be used as a current source (e.g. to drive a LED)"
 
 #![no_std]
 #![no_main]
@@ -14,14 +15,14 @@ use panic_halt as _;
 use stm32f1xx_hal as hal;
 
 use crate::hal::{
-    gpio::*,
+    gpio::{gpioc, Output, PushPull},
     pac::{interrupt, Interrupt, Peripherals, EXTI},
     prelude::*,
-    rtc::*,
+    rtc::Rtc,
 };
 
 use core::cell::RefCell;
-use cortex_m::{asm::wfi, interrupt::Mutex, peripheral::Peripherals as c_m_Peripherals};
+use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
 
@@ -45,10 +46,7 @@ fn RTCALARM() {
     static mut EXTI: Option<EXTI> = None;
 
     let led = LED.get_or_insert_with(|| {
-        cortex_m::interrupt::free(|cs| {
-            // Move LED pin here, leaving a None in its place
-            G_LED.borrow(cs).replace(None).unwrap()
-        })
+        cortex_m::interrupt::free(|cs| G_LED.borrow(cs).replace(None).unwrap())
     });
     let rtc = RTC.get_or_insert_with(|| {
         cortex_m::interrupt::free(|cs| G_RTC.borrow(cs).replace(None).unwrap())
@@ -65,48 +63,38 @@ fn RTCALARM() {
 
 #[entry]
 fn main() -> ! {
-    if let (Some(dp), Some(cp)) = (Peripherals::take(), c_m_Peripherals::take()) {
-        cortex_m::interrupt::free(move |cs| {
-            let mut pwr = dp.PWR;
-            let mut rcc = dp.RCC.constrain();
+    let dp = Peripherals::take().unwrap();
 
-            // Set up the GPIO pin
-            let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
-            let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-            let _ = led.set_high(); // Turn off
+    let mut pwr = dp.PWR;
+    let mut rcc = dp.RCC.constrain();
 
-            *G_LED.borrow(cs).borrow_mut() = Some(led);
+    // Set up the GPIO pin
+    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
+    let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+    let _ = led.set_high(); // Turn off
 
-            // Set up the EXTI (see notes in section 18.4.2 of reference manual)
-            let exti = dp.EXTI;
-            exti.ftsr.write(|w| w.tr17().set_bit());
-            exti.imr.write(|w| w.mr17().set_bit());
+    cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 
-            *G_EXTI.borrow(cs).borrow_mut() = Some(exti);
+    // Set up the EXTI (see notes in section 18.4.2 of reference manual)
+    let exti = dp.EXTI;
+    exti.ftsr.write(|w| w.tr17().set_bit());
+    exti.imr.write(|w| w.mr17().set_bit());
 
-            // Set up the RTC
-            // Enable writes to the backup domain
-            let mut backup_domain = rcc.bkp.constrain(dp.BKP, &mut rcc.apb1, &mut pwr);
-            // Start the RTC
-            let mut rtc = Rtc::rtc(dp.RTC, &mut backup_domain);
-            rtc.set_time(0);
-            rtc.set_alarm(0);
-            rtc.listen_alarm();
+    cortex_m::interrupt::free(|cs| *G_EXTI.borrow(cs).borrow_mut() = Some(exti));
 
-            *G_RTC.borrow(cs).borrow_mut() = Some(rtc);
+    // Set up the RTC
+    // Enable writes to the backup domain
+    let mut backup_domain = rcc.bkp.constrain(dp.BKP, &mut rcc.apb1, &mut pwr);
+    // Start the RTC
+    let mut rtc = Rtc::rtc(dp.RTC, &mut backup_domain);
+    rtc.set_time(0);
+    rtc.set_alarm(TOGGLE_INTERVAL_SECONDS);
+    rtc.listen_alarm();
 
-            // Enable RTCALARM IRQ, set prio 1 and clear any pending IRQs
-            let mut nvic = cp.NVIC;
-            // Calling 'set_priority()' and 'unmask()' requires 'unsafe {}'
-            // - https://docs.rs/stm32f1xx-hal/0.5.3/stm32f1xx_hal/stm32/struct.NVIC.html#method.set_priority
-            unsafe {
-                nvic.set_priority(Interrupt::RTCALARM, 1);
-                cortex_m::peripheral::NVIC::unmask(Interrupt::RTCALARM);
-            }
-            // Mark as pending
-            cortex_m::peripheral::NVIC::pend(Interrupt::RTCALARM);
-        });
-    }
+    cortex_m::interrupt::free(|cs| *G_RTC.borrow(cs).borrow_mut() = Some(rtc));
+
+    // Enable RTCALARM IRQ
+    unsafe { cortex_m::peripheral::NVIC::unmask(Interrupt::RTCALARM) };
 
     loop {
         wfi();
