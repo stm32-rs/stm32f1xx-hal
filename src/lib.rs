@@ -63,8 +63,8 @@
 //! panic-halt = "0.2.0"
 //! ```
 //!
-//! [examples]: https://github.com/stm32-rs/stm32f1xx-hal/tree/v0.5.3/examples
-//! [README]: https://github.com/stm32-rs/stm32f1xx-hal/tree/v0.5.3
+//! [examples]: https://github.com/stm32-rs/stm32f1xx-hal/tree/v0.6.0/examples
+//! [README]: https://github.com/stm32-rs/stm32f1xx-hal/tree/v0.6.0
 
 #![no_std]
 #![deny(intra_doc_link_resolution_failure)]

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.6.0] - 2020-06-06
+
 ### Breaking changes
 
 - Bump `stm32f1` dependency (`0.11.0`)
@@ -188,7 +190,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.3...v0.6.0
 [v0.5.3]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.2...v0.5.3
 [v0.5.2]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.1...v0.5.2
 [v0.5.1]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.0...v0.5.1
