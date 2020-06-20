@@ -46,7 +46,7 @@ use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
 use crate::gpio::gpioc::{PC10, PC11, PC12};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
+use crate::rcc::{Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
@@ -154,7 +154,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
         mode: Mode,
         freq: F,
         clocks: Clocks,
-        apb: &mut <SPI1 as RccBus>::Bus,
+        apb: &mut APB2,
     ) -> Self
     where
         F: Into<Hertz>,
@@ -173,7 +173,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
         mode: Mode,
         freq: F,
         clocks: Clocks,
-        apb: &mut <SPI2 as RccBus>::Bus,
+        apb: &mut APB1,
     ) -> Self
     where
         F: Into<Hertz>,
@@ -192,7 +192,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
         mode: Mode,
         freq: F,
         clocks: Clocks,
-        apb: &mut <SPI3 as RccBus>::Bus,
+        apb: &mut APB1,
     ) -> Self
     where
         F: Into<Hertz>,

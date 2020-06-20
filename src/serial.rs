@@ -53,7 +53,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
+use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
 use crate::time::{Bps, U32Ext};
 
 /// Interrupt event
@@ -263,6 +263,7 @@ macro_rules! hal {
             $usartX_remap:ident,
             $bit:ident,
             $closure:expr,
+            $APBx:ident,
         ),
     )+) => {
         $(
@@ -292,7 +293,7 @@ macro_rules! hal {
                     mapr: &mut MAPR,
                     config: Config,
                     clocks: Clocks,
-                    apb: &mut <$USARTX as RccBus>::Bus,
+                    apb: &mut $APBx,
                 ) -> Self
                 where
                     PINS: Pins<$USARTX>,
@@ -473,6 +474,7 @@ hal! {
         usart1_remap,
         bit,
         |remap| remap == 1,
+        APB2,
     ),
     /// # USART2 functions
     USART2: (
@@ -480,6 +482,7 @@ hal! {
         usart2_remap,
         bit,
         |remap| remap == 1,
+        APB1,
     ),
     /// # USART3 functions
     USART3: (
@@ -487,6 +490,7 @@ hal! {
         usart3_remap,
         bits,
         |remap| remap,
+        APB1,
     ),
 }
 

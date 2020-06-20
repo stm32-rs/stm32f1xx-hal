@@ -67,7 +67,7 @@ use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
 #[cfg(feature = "stm32f100")]
 use crate::pac::{TIM15, TIM16, TIM17};
 
-use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
+use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
 use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
@@ -256,11 +256,11 @@ impl CountDown for CountDownTimer<SYST> {
 impl Periodic for CountDownTimer<SYST> {}
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
+    ($($TIMX:ident: ($timX:ident, $APBx:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
         $(
             impl Timer<$TIMX> {
                 /// Initialize timer
-                pub fn $timX(tim: $TIMX, clocks: &Clocks, apb: &mut <$TIMX as RccBus>::Bus) -> Self {
+                pub fn $timX(tim: $TIMX, clocks: &Clocks, apb: &mut $APBx) -> Self {
                     // enable and reset peripheral to a clean slate state
                     $TIMX::enable(apb);
                     $TIMX::reset(apb);
@@ -419,18 +419,18 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
 }
 
 hal! {
-    TIM2: (tim2, dbg_tim2_stop, tim2),
-    TIM3: (tim3, dbg_tim3_stop, tim2),
+    TIM2: (tim2, APB1, dbg_tim2_stop, tim2),
+    TIM3: (tim3, APB1, dbg_tim3_stop, tim2),
 }
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 hal! {
-    TIM1: (tim1, dbg_tim1_stop, tim1),
+    TIM1: (tim1, APB2, dbg_tim1_stop, tim1),
 }
 
 #[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity",))]
 hal! {
-    TIM6: (tim6, dbg_tim6_stop, tim6),
+    TIM6: (tim6, APB1, dbg_tim6_stop, tim6),
 }
 
 #[cfg(any(
@@ -438,29 +438,29 @@ hal! {
     any(feature = "stm32f100", feature = "connectivity",)
 ))]
 hal! {
-    TIM7: (tim7, dbg_tim7_stop, tim6),
+    TIM7: (tim7, APB1, dbg_tim7_stop, tim6),
 }
 
 #[cfg(feature = "stm32f100")]
 hal! {
-    TIM15: (tim15, dbg_tim15_stop),
-    TIM16: (tim16, dbg_tim16_stop),
-    TIM17: (tim17, dbg_tim17_stop),
+    TIM15: (tim15, APB2, dbg_tim15_stop),
+    TIM16: (tim16, APB2, dbg_tim16_stop),
+    TIM17: (tim17, APB2, dbg_tim17_stop),
 }
 
 #[cfg(feature = "medium")]
 hal! {
-    TIM4: (tim4, dbg_tim4_stop, tim2),
+    TIM4: (tim4, APB1, dbg_tim4_stop, tim2),
 }
 
 #[cfg(any(feature = "high", feature = "connectivity"))]
 hal! {
-    TIM5: (tim5, dbg_tim5_stop, tim2),
+    TIM5: (tim5, APB1, dbg_tim5_stop, tim2),
 }
 
 #[cfg(all(feature = "stm32f103", feature = "high",))]
 hal! {
-    TIM8: (tim8, dbg_tim8_stop, tim1),
+    TIM8: (tim8, APB2, dbg_tim8_stop, tim1),
 }
 
 //TODO: restore these timers once stm32-rs has been updated
