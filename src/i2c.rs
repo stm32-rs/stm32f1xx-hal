@@ -100,7 +100,7 @@ pub struct I2c<I2C, PINS> {
 pub struct BlockingI2c<I2C, PINS> {
     nb: I2c<I2C, PINS>,
     start_timeout: u32,
-    start_retries: u8,
+    start_attempts: u8,
     addr_timeout: u32,
     data_timeout: u32,
 }
@@ -123,19 +123,54 @@ impl<PINS> I2c<I2C1, PINS> {
     }
 }
 
+/// Timeouts for different stages of the communication
+pub struct BlockingTimeouts {
+    /// How many times to attempt starting the transmission before giving up
+    pub start_attempts: u8,
+    pub start_us: u32,
+    pub addr_us: u32,
+    pub data_us: u32
+}
+
+impl Default for BlockingTimeouts {
+    // TODO: Are these sane defaults
+    /// Default timeouts, waits 1 ms for all stages, and does not make multiple
+    /// attempts to start the transmission
+    fn default() -> Self {
+        Self {
+            start_attempts: 1,
+            start_us: 1000,
+            addr_us: 1000,
+            data_us: 1000,
+        }
+    }
+}
+
+impl BlockingTimeouts {
+    pub fn start_timeout_us(self, start_us: u32) -> Self {
+        Self {start_us, .. self}
+    }
+    pub fn addr_timeout_us(self, addr_us: u32) -> Self {
+        Self {addr_us, .. self}
+    }
+    pub fn data_timeout_us(self, data_us: u32) -> Self {
+        Self {data_us, .. self}
+    }
+    pub fn start_attempts(self, start_attempts: u8) -> Self {
+        Self {start_attempts, .. self}
+    }
+}
+
 impl<PINS> BlockingI2c<I2C1, PINS> {
     /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 using the embedded-hal `BlockingI2c` trait.
     pub fn i2c1(
         i2c: I2C1,
         pins: PINS,
-        mapr: &mut MAPR,
         mode: Mode,
         clocks: Clocks,
+        mapr: &mut MAPR,
         apb: &mut <I2C1 as RccBus>::Bus,
-        start_timeout_us: u32,
-        start_retries: u8,
-        addr_timeout_us: u32,
-        data_timeout_us: u32,
+        timeouts: BlockingTimeouts
     ) -> Self
     where
         PINS: Pins<I2C1>,
@@ -147,10 +182,10 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
             mode,
             clocks,
             apb,
-            start_timeout_us,
-            start_retries,
-            addr_timeout_us,
-            data_timeout_us,
+            timeouts.start_us,
+            timeouts.start_attempts,
+            timeouts.addr_us,
+            timeouts.data_us,
         )
     }
 }
@@ -179,10 +214,7 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
         mode: Mode,
         clocks: Clocks,
         apb: &mut <I2C2 as RccBus>::Bus,
-        start_timeout_us: u32,
-        start_retries: u8,
-        addr_timeout_us: u32,
-        data_timeout_us: u32,
+        timeouts: BlockingTimeouts
     ) -> Self
     where
         PINS: Pins<I2C2>,
@@ -193,10 +225,10 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
             mode,
             clocks,
             apb,
-            start_timeout_us,
-            start_retries,
-            addr_timeout_us,
-            data_timeout_us,
+            timeouts.start_us,
+            timeouts.start_attempts,
+            timeouts.addr_us,
+            timeouts.data_us,
         )
     }
 }
@@ -206,7 +238,7 @@ fn blocking_i2c<I2C, PINS>(
     i2c: I2c<I2C, PINS>,
     clocks: Clocks,
     start_timeout_us: u32,
-    start_retries: u8,
+    start_attempts: u8,
     addr_timeout_us: u32,
     data_timeout_us: u32,
 ) -> BlockingI2c<I2C, PINS> {
@@ -214,7 +246,7 @@ fn blocking_i2c<I2C, PINS>(
     BlockingI2c {
         nb: i2c,
         start_timeout: start_timeout_us * sysclk_mhz,
-        start_retries,
+        start_attempts,
         addr_timeout: addr_timeout_us * sysclk_mhz,
         data_timeout: data_timeout_us * sysclk_mhz,
     }
@@ -386,21 +418,21 @@ macro_rules! hal {
                     clocks: Clocks,
                     apb: &mut <$I2CX as RccBus>::Bus,
                     start_timeout_us: u32,
-                    start_retries: u8,
+                    start_attempts: u8,
                     addr_timeout_us: u32,
                     data_timeout_us: u32
                 ) -> Self {
                     blocking_i2c(I2c::$i2cX(i2c, pins, mode, clocks, apb),
-                        clocks, start_timeout_us, start_retries,
+                        clocks, start_timeout_us, start_attempts,
                         addr_timeout_us, data_timeout_us)
                 }
 
                 fn send_start_and_wait(&mut self) -> NbResult<(), Error> {
                     // According to http://www.st.com/content/ccc/resource/technical/document/errata_sheet/f5/50/c9/46/56/db/4a/f6/CD00197763.pdf/files/CD00197763.pdf/jcr:content/translations/en.CD00197763.pdf
                     // 2.14.4 Wrong behavior of I2C peripheral in master mode after a misplaced STOP
-                    let mut retries_left = self.start_retries;
+                    let mut attempts_left = self.start_attempts;
                     let mut last_ret: NbResult<(), Error> = Err(WouldBlock);
-                    while retries_left > 0 {
+                    while attempts_left > 0 {
                         self.nb.send_start();
                         last_ret = busy_wait_cycles!(self.nb.wait_after_sent_start(), self.start_timeout);
                         if last_ret.is_err() {
@@ -408,7 +440,7 @@ macro_rules! hal {
                         } else {
                             break;
                         }
-                        retries_left -= 1;
+                        attempts_left -= 1;
                     }
                     last_ret
                 }
