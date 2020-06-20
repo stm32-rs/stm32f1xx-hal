@@ -129,7 +129,7 @@ pub struct BlockingTimeouts {
     pub start_attempts: u8,
     pub start_us: u32,
     pub addr_us: u32,
-    pub data_us: u32
+    pub data_us: u32,
 }
 
 impl Default for BlockingTimeouts {
@@ -148,16 +148,19 @@ impl Default for BlockingTimeouts {
 
 impl BlockingTimeouts {
     pub fn start_timeout_us(self, start_us: u32) -> Self {
-        Self {start_us, .. self}
+        Self { start_us, ..self }
     }
     pub fn addr_timeout_us(self, addr_us: u32) -> Self {
-        Self {addr_us, .. self}
+        Self { addr_us, ..self }
     }
     pub fn data_timeout_us(self, data_us: u32) -> Self {
-        Self {data_us, .. self}
+        Self { data_us, ..self }
     }
     pub fn start_attempts(self, start_attempts: u8) -> Self {
-        Self {start_attempts, .. self}
+        Self {
+            start_attempts,
+            ..self
+        }
     }
 }
 
