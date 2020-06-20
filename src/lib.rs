@@ -45,9 +45,6 @@
 //! * F, G => `xl` feature
 //!
 //!
-//!
-//! [cortex-m-quickstart]: https://docs.rs/cortex-m-quickstart/0.3.1
-//!
 //! ## Usage examples
 //!
 //! See the [examples] folder.
