@@ -67,7 +67,9 @@ use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
 #[cfg(feature = "stm32f100")]
 use crate::pac::{TIM15, TIM16, TIM17};
 
-use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
+#[cfg(not(feature = "stm32f101"))]
+use crate::rcc::APB2;
+use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset, APB1};
 use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
