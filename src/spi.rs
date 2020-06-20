@@ -1,33 +1,34 @@
 /*!
   # Serial Peripheral Interface
+  To construct the SPI instances, use the `Spi::spiX` functions.
 
-  ## Alternate function remapping
+  The pin parameter is a tuple containing `(sck, miso, mosi)` which should be configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
 
-  ### SPI1
+  You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
 
-  | Function | Spi1NoRemap | Spi1Remap |
-  |:----:|:-----------:|:---------:|
-  | SCK  |     PA5     |    PB3   |
-  | MISO |     PA6     |    PB4   |
-  | MOSI |     PA7     |    PB5   |
+  - `SPI1` can use `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)`.
+  - `SPI2` can use `(PB13, PB14, PB15)`
+  - `SPI3` can use `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)`
 
-  ### SPI2
 
-  | Function | Spi2NoRemap |
-  |:----:|:-----------:|
-  | SCK  |     PB13     |
-  | MISO |     PB14     |
-  | MOSI |     PB15     |
+  ## Initialisation example
 
-  ### SPI3
+  ```rust
+    // Acquire the GPIOB peripheral
+    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
 
-  Available only on high density devices.
+    let pins = (
+        gpiob.pb13.into_alternate_push_pull(&mut gpiob.crh),
+        gpiob.pb14.into_floating_input(&mut gpiob.crh),
+        gpiob.pb15.into_alternate_push_pull(&mut gpiob.crh),
+    );
 
-  | Function | Spi3NoRemap | Spi3Remap |
-  |:----:|:-----------:|:---------:|
-  | SCK  |     PB3     |    PC10   |
-  | MISO |     PB4     |    PC11   |
-  | MOSI |     PB5     |    PC12   |
+    let spi_mode = Mode {
+        polarity: Polarity::IdleLow,
+        phase: Phase::CaptureOnFirstTransition,
+    };
+    let spi = Spi::spi2(dp.SPI2, pins, spi_mode, 100.khz(), clocks, &mut rcc.apb1);
+  ```
 */
 
 use core::ops::Deref;
@@ -147,6 +148,13 @@ remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
 remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
 
 impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
+    /**
+      Constructs an SPI instance using SPI1.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+
+      You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
     pub fn spi1<F, POS>(
         spi: SPI1,
         pins: PINS,
@@ -167,6 +175,13 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
 }
 
 impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
+    /**
+      Constructs an SPI instance using SPI1.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PB13, PB14, PB15)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+
+      You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
     pub fn spi2<F, POS>(
         spi: SPI2,
         pins: PINS,
@@ -186,6 +201,13 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
 
 #[cfg(any(feature = "high", feature = "connectivity"))]
 impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
+    /**
+      Constructs an SPI instance using SPI1.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+
+      You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
     pub fn spi3<F, POS>(
         spi: SPI3,
         pins: PINS,
