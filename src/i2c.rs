@@ -1,16 +1,17 @@
-//! Inter-Integrated Circuit (I2C) bus
-
+/**
+Inter-Integrated Circuit (I2C) bus
+*/
 // This document describes a correct i2c implementation and is what
 // parts of this code is based on
 // https://www.st.com/content/ccc/resource/technical/document/application_note/5d/ae/a3/6f/08/69/4e/9b/CD00209826.pdf/files/CD00209826.pdf/jcr:content/translations/en.CD00209826.pdf
-
 use crate::afio::MAPR;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2};
+use crate::prelude::*;
 use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
-use crate::time::Hertz;
+use crate::time::{Hertz, Microseconds};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 
@@ -127,9 +128,9 @@ impl<PINS> I2c<I2C1, PINS> {
 pub struct BlockingTimeouts {
     /// How many times to attempt starting the transmission before giving up
     pub start_attempts: u8,
-    pub start_us: u32,
-    pub addr_us: u32,
-    pub data_us: u32,
+    pub start: Microseconds,
+    pub addr: Microseconds,
+    pub data: Microseconds,
 }
 
 impl Default for BlockingTimeouts {
@@ -139,22 +140,22 @@ impl Default for BlockingTimeouts {
     fn default() -> Self {
         Self {
             start_attempts: 1,
-            start_us: 1000,
-            addr_us: 1000,
-            data_us: 1000,
+            start: 1000.us(),
+            addr: 1000.us(),
+            data: 1000.us(),
         }
     }
 }
 
 impl BlockingTimeouts {
-    pub fn start_timeout_us(self, start_us: u32) -> Self {
-        Self { start_us, ..self }
+    pub fn start_timeout(self, start: Microseconds) -> Self {
+        Self { start, ..self }
     }
-    pub fn addr_timeout_us(self, addr_us: u32) -> Self {
-        Self { addr_us, ..self }
+    pub fn addr_timeout(self, addr: Microseconds) -> Self {
+        Self { addr, ..self }
     }
-    pub fn data_timeout_us(self, data_us: u32) -> Self {
-        Self { data_us, ..self }
+    pub fn data_timeout(self, data: Microseconds) -> Self {
+        Self { data, ..self }
     }
     pub fn start_attempts(self, start_attempts: u8) -> Self {
         Self {
@@ -185,10 +186,10 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
             mode,
             clocks,
             apb,
-            timeouts.start_us,
+            timeouts.start,
             timeouts.start_attempts,
-            timeouts.addr_us,
-            timeouts.data_us,
+            timeouts.addr,
+            timeouts.data,
         )
     }
 }
@@ -228,10 +229,10 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
             mode,
             clocks,
             apb,
-            timeouts.start_us,
+            timeouts.start,
             timeouts.start_attempts,
-            timeouts.addr_us,
-            timeouts.data_us,
+            timeouts.addr,
+            timeouts.data,
         )
     }
 }
@@ -240,18 +241,18 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
 fn blocking_i2c<I2C, PINS>(
     i2c: I2c<I2C, PINS>,
     clocks: Clocks,
-    start_timeout_us: u32,
+    start_timeout: Microseconds,
     start_attempts: u8,
-    addr_timeout_us: u32,
-    data_timeout_us: u32,
+    addr_timeout: Microseconds,
+    data_timeout: Microseconds,
 ) -> BlockingI2c<I2C, PINS> {
     let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
     BlockingI2c {
         nb: i2c,
-        start_timeout: start_timeout_us * sysclk_mhz,
+        start_timeout: start_timeout.0 * sysclk_mhz,
         start_attempts,
-        addr_timeout: addr_timeout_us * sysclk_mhz,
-        data_timeout: data_timeout_us * sysclk_mhz,
+        addr_timeout: addr_timeout.0 * sysclk_mhz,
+        data_timeout: data_timeout.0 * sysclk_mhz,
     }
 }
 
@@ -420,14 +421,14 @@ macro_rules! hal {
                     mode: Mode,
                     clocks: Clocks,
                     apb: &mut <$I2CX as RccBus>::Bus,
-                    start_timeout_us: u32,
+                    start_timeout: Microseconds,
                     start_attempts: u8,
-                    addr_timeout_us: u32,
-                    data_timeout_us: u32
+                    addr_timeout: Microseconds,
+                    data_timeout: Microseconds
                 ) -> Self {
                     blocking_i2c(I2c::$i2cX(i2c, pins, mode, clocks, apb),
-                        clocks, start_timeout_us, start_attempts,
-                        addr_timeout_us, data_timeout_us)
+                        clocks, start_timeout, start_attempts,
+                        addr_timeout, data_timeout)
                 }
 
                 fn send_start_and_wait(&mut self) -> NbResult<(), Error> {
