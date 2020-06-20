@@ -168,9 +168,9 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
         pins: PINS,
         mode: Mode,
         clocks: Clocks,
+        timeouts: BlockingTimeouts,
         mapr: &mut MAPR,
         apb: &mut <I2C1 as RccBus>::Bus,
-        timeouts: BlockingTimeouts
     ) -> Self
     where
         PINS: Pins<I2C1>,
@@ -213,8 +213,8 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
         pins: PINS,
         mode: Mode,
         clocks: Clocks,
+        timeouts: BlockingTimeouts,
         apb: &mut <I2C2 as RccBus>::Bus,
-        timeouts: BlockingTimeouts
     ) -> Self
     where
         PINS: Pins<I2C2>,
