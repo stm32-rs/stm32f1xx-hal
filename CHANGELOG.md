@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- Use a struct for `BlockingI2C` timeout specification
+- Rename `MicroSeconds` and `MilliSeconds` to `Microseconds` and `Milliseconds`
+- Replace functions taking `u32` with time units by the corresponding `Microseconds` or `Millisecond` structs
+
 ## [v0.6.0] - 2020-06-06
 
 ### Breaking changes
