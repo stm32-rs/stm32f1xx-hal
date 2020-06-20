@@ -459,6 +459,7 @@ macro_rules! gpio {
                 impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Configures the pin to operate as an alternate function push-pull output
                     /// pin.
+                    #[inline]
                     pub fn into_alternate_push_pull(
                         self,
                         cr: &mut $CR,
@@ -482,6 +483,7 @@ macro_rules! gpio {
 
                     /// Configures the pin to operate as an alternate function open-drain output
                     /// pin.
+                    #[inline]
                     pub fn into_alternate_open_drain(
                         self,
                         cr: &mut $CR,
@@ -504,6 +506,7 @@ macro_rules! gpio {
                     }
 
                     /// Configures the pin to operate as a floating input pin
+                    #[inline]
                     pub fn into_floating_input(
                         self,
                         cr: &mut $CR,
@@ -514,6 +517,7 @@ macro_rules! gpio {
                     }
 
                     /// Configures the pin to operate as a pulled down input pin
+                    #[inline]
                     pub fn into_pull_down_input(
                         self,
                         cr: &mut $CR,
@@ -524,6 +528,7 @@ macro_rules! gpio {
                     }
 
                     /// Configures the pin to operate as a pulled up input pin
+                    #[inline]
                     pub fn into_pull_up_input(
                         self,
                         cr: &mut $CR,
@@ -535,6 +540,7 @@ macro_rules! gpio {
 
                     /// Configures the pin to operate as an open-drain output pin.
                     /// Initial state will be low.
+                    #[inline]
                     pub fn into_open_drain_output(
                         self,
                         cr: &mut $CR,
@@ -544,6 +550,7 @@ macro_rules! gpio {
 
                     /// Configures the pin to operate as an open-drain output pin.
                     /// `initial_state` specifies whether the pin should be initially high or low.
+                    #[inline]
                     pub fn into_open_drain_output_with_state(
                         mut self,
                         cr: &mut $CR,
@@ -556,6 +563,7 @@ macro_rules! gpio {
                     }
                     /// Configures the pin to operate as an push-pull output pin.
                     /// Initial state will be low.
+                    #[inline]
                     pub fn into_push_pull_output(
                         self,
                         cr: &mut $CR,
@@ -565,6 +573,7 @@ macro_rules! gpio {
 
                     /// Configures the pin to operate as an push-pull output pin.
                     /// `initial_state` specifies whether the pin should be initially high or low.
+                    #[inline]
                     pub fn into_push_pull_output_with_state(
                         mut self,
                         cr: &mut $CR,
@@ -577,6 +586,7 @@ macro_rules! gpio {
                     }
 
                     /// Configures the pin to operate as an analog input pin
+                    #[inline]
                     pub fn into_analog(self, cr: &mut $CR) -> $PXi<Analog> {
                         unsafe {
                             $PXi::<Analog>::set_mode(cr)
@@ -586,6 +596,7 @@ macro_rules! gpio {
                     /// Configures the pin as a pin that can change between input
                     /// and output without changing the type. It starts out
                     /// as a floating input
+                    #[inline]
                     pub fn into_dynamic(self, cr: &mut $CR) -> $PXi<Dynamic> {
                         self.into_floating_input(cr);
                         $PXi::<Dynamic>{mode: Dynamic::InputFloating}
@@ -606,6 +617,7 @@ macro_rules! gpio {
                           The value of the pin after conversion is undefined. If you
                           want to control it, use `$stateful_fn_name`
                         */
+                        #[inline]
                         pub fn $fn_name(
                             &mut self,
                             cr: &mut $CR,
@@ -625,6 +637,7 @@ macro_rules! gpio {
                           happens. This can cause a short output glitch if switching
                           between output modes
                         */
+                        #[inline]
                         pub fn $stateful_fn_name(
                             &mut self,
                             cr: &mut $CR,
@@ -648,6 +661,7 @@ macro_rules! gpio {
                         /**
                           Temporarily change the mode of the pin.
                         */
+                        #[inline]
                         pub fn $fn_name(
                             &mut self,
                             cr: &mut $CR,
@@ -689,6 +703,7 @@ macro_rules! gpio {
 
                 impl<MODE> $PXi<MODE> where MODE: Active {
                     /// Erases the pin number from the type
+                    #[inline]
                     fn into_generic(self) -> Generic<MODE> {
                         Generic {
                             i: $i,
@@ -709,11 +724,13 @@ macro_rules! gpio {
 
                 impl<MODE> OutputPin for $PXi<Output<MODE>> {
                     type Error = Infallible;
+                    #[inline]
                     fn set_high(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
                         Ok(self.set_state(State::High))
                     }
 
+                    #[inline]
                     fn set_low(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
                         Ok(self.set_state(State::Low))
@@ -721,10 +738,12 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> StatefulOutputPin for $PXi<Output<MODE>> {
+                    #[inline]
                     fn is_set_high(&self) -> Result<bool, Self::Error> {
                         self.is_set_low().map(|b| !b)
                     }
 
+                    #[inline]
                     fn is_set_low(&self) -> Result<bool, Self::Error> {
                         Ok(self._is_set_low())
                     }
@@ -734,10 +753,12 @@ macro_rules! gpio {
 
                 impl<MODE> InputPin for $PXi<Input<MODE>> {
                     type Error = Infallible;
+                    #[inline]
                     fn is_high(&self) -> Result<bool, Self::Error> {
                         self.is_low().map(|b| !b)
                     }
 
+                    #[inline]
                     fn is_low(&self) -> Result<bool, Self::Error> {
                         // NOTE(unsafe) atomic read with no side effects
                         Ok(self._is_low())
@@ -746,10 +767,12 @@ macro_rules! gpio {
 
                 impl InputPin for $PXi<Output<OpenDrain>> {
                     type Error = Infallible;
+                    #[inline]
                     fn is_high(&self) -> Result<bool, Self::Error> {
                         self.is_low().map(|b| !b)
                     }
 
+                    #[inline]
                     fn is_low(&self) -> Result<bool, Self::Error> {
                         Ok(self._is_low())
                     }
@@ -759,26 +782,31 @@ macro_rules! gpio {
                 // Dynamic pin
 
                 impl $PXi<Dynamic> {
+                    #[inline]
                     pub fn make_pull_up_input(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
                         unsafe { $PXi::<Input<PullUp>>::set_mode(cr) };
                         self.mode = Dynamic::InputPullUp;
                     }
+                    #[inline]
                     pub fn make_pull_down_input(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
                         unsafe { $PXi::<Input<PullDown>>::set_mode(cr) };
                         self.mode = Dynamic::InputPullDown;
                     }
+                    #[inline]
                     pub fn make_floating_input(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
                         unsafe { $PXi::<Input<Floating>>::set_mode(cr) };
                         self.mode = Dynamic::InputFloating;
                     }
+                    #[inline]
                     pub fn make_push_pull_output(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
                         unsafe { $PXi::<Output<PushPull>>::set_mode(cr) };
                         self.mode = Dynamic::OutputPushPull;
                     }
+                    #[inline]
                     pub fn make_open_drain_output(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
                         unsafe { $PXi::<Output<OpenDrain>>::set_mode(cr) };
@@ -856,21 +884,25 @@ macro_rules! gpio {
                     }
 
                     /// Enable external interrupts from this pin.
+                    #[inline]
                     fn enable_interrupt(&mut self, exti: &EXTI) {
                         exti.imr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                     }
 
                     /// Disable external interrupts from this pin
+                    #[inline]
                     fn disable_interrupt(&mut self, exti: &EXTI) {
                         exti.imr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                     }
 
                     /// Clear the interrupt pending bit for this pin
+                    #[inline]
                     fn clear_interrupt_pending_bit(&mut self) {
                         unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << $i) ) };
                     }
 
                     /// Reads the interrupt pending bit for this pin
+                    #[inline]
                     fn check_interrupt(&mut self) -> bool {
                         unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << $i)) != 0 }
                     }
