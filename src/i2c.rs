@@ -9,7 +9,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2};
-use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset};
+use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset, APB1};
 use crate::time::Hertz;
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
@@ -113,7 +113,7 @@ impl<PINS> I2c<I2C1, PINS> {
         mapr: &mut MAPR,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut <I2C1 as RccBus>::Bus,
+        apb: &mut APB1,
     ) -> Self
     where
         PINS: Pins<I2C1>,
@@ -131,7 +131,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
         mapr: &mut MAPR,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut <I2C1 as RccBus>::Bus,
+        apb: &mut APB1,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
@@ -157,13 +157,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
 
 impl<PINS> I2c<I2C2, PINS> {
     /// Creates a generic I2C2 object on pins PB10 and PB11 using the embedded-hal `BlockingI2c` trait.
-    pub fn i2c2(
-        i2c: I2C2,
-        pins: PINS,
-        mode: Mode,
-        clocks: Clocks,
-        apb: &mut <I2C2 as RccBus>::Bus,
-    ) -> Self
+    pub fn i2c2(i2c: I2C2, pins: PINS, mode: Mode, clocks: Clocks, apb: &mut APB1) -> Self
     where
         PINS: Pins<I2C2>,
     {
@@ -178,7 +172,7 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
         pins: PINS,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut <I2C2 as RccBus>::Bus,
+        apb: &mut APB1,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
