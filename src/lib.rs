@@ -44,6 +44,26 @@
 //! * C, D, E => `high` feature
 //! * F, G => `xl` feature
 //!
+//! ## Commonly used setup
+//! Almost all peripherals require references to some registers in `RCC` and `AFIO`. The following
+//! code shows how to set up those registers
+//!
+//! ```rust
+//! // Get access to the device specific peripherals from the peripheral access crate
+//! let dp = pac::Peripherals::take().unwrap();
+//!
+//! // Take ownership over the raw flash and rcc devices and convert them into the corresponding
+//! // HAL structs
+//! let mut flash = dp.FLASH.constrain();
+//! let mut rcc = dp.RCC.constrain();
+//!
+//! // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
+//! // `clocks`
+//! let clocks = rcc.cfgr.freeze(&mut flash.acr);
+//!
+//! // Prepare the alternate function I/O registers
+//! let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+//! ```
 //!
 //! ## Usage examples
 //!
