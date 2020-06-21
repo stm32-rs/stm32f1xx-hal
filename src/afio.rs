@@ -33,6 +33,15 @@ impl AfioExt for AFIO {
     }
 }
 
+/// HAL wrapper around the AFIO registers
+///
+/// Aquired by calling [constrain](trait.AfioExt.html#constrain) on the [AFIO
+/// registers](../pac/struct.AFIO.html)
+///
+/// ```rust
+/// let p = pac::Peripherals::take().unwrap();
+/// let mut rcc = p.RCC.constrain();
+/// let mut afio = p.AFIO.constrain(&mut rcc.apb2);
 pub struct Parts {
     pub evcr: EVCR,
     pub mapr: MAPR,
@@ -53,6 +62,16 @@ impl EVCR {
     }
 }
 
+/// AF remap and debug I/O configuration register (MAPR)
+///
+/// Aquired through the [Parts](struct.Parts.html) struct.
+///
+/// ```rust
+/// let dp = pac::Peripherals::take().unwrap();
+/// let mut rcc = dp.RCC.constrain();
+/// let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+/// function_using_mapr(&mut afio.mapr);
+/// ```
 pub struct MAPR {
     _0: (),
     jtag_enabled: bool,
