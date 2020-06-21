@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - Use `Deref` for I2C generic implementations instead of macros
+- Deprecate `Spi::free` and rename it to `Spi::release`
+- Improve `SPI` documentation
 
 ## [v0.6.0] - 2020-06-06
 

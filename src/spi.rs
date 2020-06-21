@@ -303,8 +303,12 @@ where
         }
     }
 
+    #[deprecated(since = "0.6.0", note = "Please use release instead")]
     pub fn free(self) -> (SPI, PINS) {
         (self.spi, self.pins)
+    }
+    pub fn release(self) -> (SPI, PINS) {
+        self.free()
     }
 }
 
