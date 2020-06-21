@@ -203,6 +203,19 @@ impl CFGR {
         self
     }
 
+    /// Applies the clock configuration and returns a `Clocks` struct that signifies that the
+    /// clocks are frozen, and contains the frequencies used. After this function is called,
+    /// the clocks can not change
+    ///
+    /// Usage:
+    ///
+    /// ```rust
+    /// let dp = pac::Peripherals::take().unwrap();
+    /// let mut flash = dp.FLASH.constrain();
+    /// let mut rcc = dp.RCC.constrain();
+    /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    /// ```
+
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
         let pllsrcclk = self.hse.unwrap_or(HSI / 2);
 
@@ -456,6 +469,7 @@ impl BKP {
 /// ```rust
 /// let dp = pac::Peripherals::take().unwrap();
 /// let mut rcc = dp.RCC.constrain();
+/// let mut flash = dp.FLASH.constrain();
 ///
 /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
 /// ```
