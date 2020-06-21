@@ -48,6 +48,14 @@ pub struct Rcc {
 }
 
 /// AMBA High-performance Bus (AHB) registers
+///
+/// Aquired through the `Rcc` registers:
+///
+/// ```rust
+/// let dp = pac::Peripherals::take().unwrap();
+/// let mut rcc = dp.RCC.constrain();
+/// function_that_uses_ahb(&mut rcc.ahb)
+/// ```
 pub struct AHB {
     _0: (),
 }
@@ -62,6 +70,14 @@ impl AHB {
 }
 
 /// Advanced Peripheral Bus 1 (APB1) registers
+///
+/// Aquired through the `Rcc` registers:
+///
+/// ```rust
+/// let dp = pac::Peripherals::take().unwrap();
+/// let mut rcc = dp.RCC.constrain();
+/// function_that_uses_apb1(&mut rcc.apb1)
+/// ```
 pub struct APB1 {
     _0: (),
 }
@@ -86,6 +102,14 @@ impl APB1 {
 }
 
 /// Advanced Peripheral Bus 2 (APB2) registers
+///
+/// Aquired through the `Rcc` registers:
+///
+/// ```rust
+/// let dp = pac::Peripherals::take().unwrap();
+/// let mut rcc = dp.RCC.constrain();
+/// function_that_uses_apb2(&mut rcc.apb2);
+/// ```
 pub struct APB2 {
     _0: (),
 }
@@ -104,6 +128,15 @@ impl APB2 {
 
 const HSI: u32 = 8_000_000; // Hz
 
+/// Clock configuration register (CFGR)
+///
+/// Used to configure the frequencies of the clocks present in the processor.
+///
+/// After setting all frequencies, call the [freeze](#method.freeze) function to
+/// apply the configuration.
+///
+/// **NOTE**: Currently, it is not guaranteed that the exact frequencies selected will be
+/// used, only frequencies close to it.
 pub struct CFGR {
     hse: Option<u32>,
     hclk: Option<u32>,
@@ -116,6 +149,7 @@ pub struct CFGR {
 impl CFGR {
     /// Uses HSE (external oscillator) instead of HSI (internal RC oscillator) as the clock source.
     /// Will result in a hang if an external oscillator is not connected or it fails to start.
+    /// The frequency specified must be the frequency of the external oscillator
     pub fn use_hse<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -415,6 +449,16 @@ impl BKP {
 /// Frozen clock frequencies
 ///
 /// The existence of this value indicates that the clock configuration can no longer be changed
+///
+/// To acquire it, use the freeze function on the `rcc.cfgr` register. If desired, you can adjust
+/// the frequencies using the methods on [cfgr](struct.CFGR.html) before calling freeze.
+///
+/// ```rust
+/// let dp = pac::Peripherals::take().unwrap();
+/// let mut rcc = dp.RCC.constrain();
+///
+/// let clocks = rcc.cfgr.freeze(&mut flash.acr);
+/// ```
 #[derive(Clone, Copy)]
 pub struct Clocks {
     hclk: Hertz,
