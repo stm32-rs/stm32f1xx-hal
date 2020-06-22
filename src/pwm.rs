@@ -371,7 +371,7 @@ macro_rules! hal {
                 fn get_period(&self) -> Self::Time {
                     let clk = self.clk;
                     let psc: u16 = unsafe{(*$TIMX::ptr()).psc.read().psc().bits()};
-                    let arr: u16 = unsafe{(*$TIMX::ptr()).psc.read().psc().bits()};
+                    let arr: u16 = unsafe{(*$TIMX::ptr()).arr.read().arr().bits()};
 
                     // Length in ms of an internal clock pulse
                     (clk.0 / u32(psc * arr)).hz()

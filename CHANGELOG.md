@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix period retrival for timers
+
 ## [v0.6.0] - 2020-06-06
 
 ### Breaking changes
