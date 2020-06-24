@@ -19,7 +19,7 @@ it.
 
 You will also need a debug probe, for example an [stlink v3
 mini](https://www.st.com/en/development-tools/stlink-v3mini.html) for programming and debugging.
-(There are many different STLink probes out there, all of them _should_ work fine with this instructions given here, other JTAG or SWD debug probes will work as well but will need different software or configuration).
+(There are many different STLink probes out there, all of them _should_ work fine with the instructions given here, other JTAG or SWD debug probes will work as well but will need different software or configuration).
 
 ### Installing software
 
