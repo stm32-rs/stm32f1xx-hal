@@ -305,10 +305,10 @@ where
 
     #[deprecated(since = "0.6.0", note = "Please use release instead")]
     pub fn free(self) -> (SPI, PINS) {
-        (self.spi, self.pins)
+        self.release()
     }
     pub fn release(self) -> (SPI, PINS) {
-        self.free()
+        (self.spi, self.pins)
     }
 }
 
