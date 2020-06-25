@@ -163,7 +163,7 @@ impl Timer<SYST> {
         syst.set_clock_source(SystClkSource::Core);
         Self {
             tim: syst,
-            clk: clocks.sysclk(),
+            clk: clocks.hclk(),
         }
     }
 
