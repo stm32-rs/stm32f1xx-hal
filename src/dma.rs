@@ -4,6 +4,8 @@
 use core::marker::PhantomData;
 use core::ops;
 
+use stable_deref_trait::StableDeref;
+
 use crate::rcc::AHB;
 
 #[derive(Debug)]
@@ -505,6 +507,7 @@ pub trait WriteDma<B, TS>: Transmit
 where
     B: core::ops::Deref + 'static,
     B::Target: as_slice::AsSlice<Element=TS> + Unpin,
+    B: StableDeref,
     Self: core::marker::Sized,
 {
     fn write(self, buffer: B) -> Transfer<R, B, Self>;

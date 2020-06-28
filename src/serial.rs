@@ -46,6 +46,7 @@ use crate::pac::{USART1, USART2, USART3};
 use core::convert::Infallible;
 
 use as_slice::AsSlice;
+use stable_deref_trait::StableDeref;
 
 use embedded_hal::serial::Write;
 
@@ -642,7 +643,7 @@ macro_rules! serialdma {
 
             impl<B> crate::dma::WriteDma<B, u8> for $txdma
             where
-                B: core::ops::Deref + 'static,
+                B: StableDeref + core::ops::Deref + 'static,
                 B::Target: AsSlice<Element = u8> + Unpin,
             {
                 fn write(mut self, buffer: B

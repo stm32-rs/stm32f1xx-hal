@@ -53,6 +53,7 @@ use crate::time::Hertz;
 use core::sync::atomic::{self, Ordering};
 
 use as_slice::AsSlice;
+use stable_deref_trait::StableDeref;
 
 /// SPI error
 #[derive(Debug)]
@@ -452,7 +453,7 @@ macro_rules! spi_dma {
 
         impl<B, REMAP, PIN> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
         where
-            B: core::ops::Deref + 'static,
+            B: StableDeref + core::ops::Deref + 'static,
             B::Target: as_slice::AsSlice<Element = u8> + Unpin,
         {
             fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
