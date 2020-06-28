@@ -506,7 +506,7 @@ where
 pub trait WriteDma<B, TS>: Transmit
 where
     B: core::ops::Deref + 'static,
-    B::Target: as_slice::AsSlice<Element=TS> + Unpin,
+    B::Target: as_slice::AsSlice<Element = TS> + Unpin,
     B: StableDeref,
     Self: core::marker::Sized,
 {
