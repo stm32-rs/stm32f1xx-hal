@@ -25,7 +25,7 @@ mini](https://www.st.com/en/development-tools/stlink-v3mini.html) for programmin
 
 To program your microcontroller, you need to install:
 - [openocd](http://openocd.org/)
-- `arm-none-eabi-gdb`
+- `gdb`
 
 Finally, you need to install arm target support for the Rust compiler. To do
 so, run
