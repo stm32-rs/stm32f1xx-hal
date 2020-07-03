@@ -4,6 +4,8 @@
 use core::marker::PhantomData;
 use core::ops;
 
+use stable_deref_trait::StableDeref;
+
 use crate::rcc::AHB;
 
 #[derive(Debug)]
@@ -70,6 +72,11 @@ pub trait TransferPayload {
     fn stop(&mut self);
 }
 
+pub trait Transferable<BUFFER, DMA> {
+    fn is_done(&self) -> bool;
+    fn wait(self) -> (BUFFER, DMA);
+}
+
 pub struct Transfer<MODE, BUFFER, PAYLOAD> {
     _mode: PhantomData<MODE>,
     buffer: BUFFER,
@@ -128,7 +135,7 @@ macro_rules! dma {
 
                 use crate::pac::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload, Transferable};
                 use crate::rcc::{AHB, Enable};
 
                 pub struct Channels((), $(pub $CX),+);
@@ -294,15 +301,15 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD, MODE> Transferable<BUFFER, RxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
-                        pub fn is_done(&self) -> bool {
+                        fn is_done(&self) -> bool {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
+                        fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
                             atomic::compiler_fence(Ordering::Acquire);
@@ -320,15 +327,15 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD, MODE> Transferable<BUFFER, TxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
                     where
                         TxDma<PAYLOAD, $CX>: TransferPayload,
                     {
-                        pub fn is_done(&self) -> bool {
+                        fn is_done(&self) -> bool {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
+                        fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
                             atomic::compiler_fence(Ordering::Acquire);
@@ -496,10 +503,11 @@ where
     fn read(self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self>;
 }
 
-pub trait WriteDma<A, B, TS>: Transmit
+pub trait WriteDma<B, TS>: Transmit
 where
-    A: as_slice::AsSlice<Element = TS>,
-    B: Static<A>,
+    B: core::ops::Deref + 'static,
+    B::Target: as_slice::AsSlice<Element = TS> + Unpin,
+    B: StableDeref,
     Self: core::marker::Sized,
 {
     fn write(self, buffer: B) -> Transfer<R, B, Self>;

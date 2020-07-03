@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- Replace DMA buffer types with `Deref` ans `Unpin`
+
 ## [v0.6.1] - 2020-06-25
 
 ### Added

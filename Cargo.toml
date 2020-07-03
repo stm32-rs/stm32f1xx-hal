@@ -34,6 +34,10 @@ version = "0.2.2"
 version = "0.2.3"
 features = ["unproven"]
 
+[dependencies.stable_deref_trait]
+default-features = false
+version = "1.1"
+
 [dependencies.stm32-usbd]
 version = "0.5.0"
 features = ["ram_access_1x16"]
