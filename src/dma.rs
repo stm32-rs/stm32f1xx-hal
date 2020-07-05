@@ -26,6 +26,28 @@ pub enum Half {
     Second,
 }
 
+type DataSize = crate::stm32::dma1::ch::cr::PSIZE_A;
+pub type Priority = crate::stm32::dma1::ch::cr::PL_A;
+
+pub struct CircBufferLen<EL, PAYLOAD>
+where
+    EL : 'static,
+{
+    buffer: &'static mut [EL],
+    payload: PAYLOAD,
+    position: usize,
+}
+
+impl<EL, PAYLOAD> CircBufferLen<EL, PAYLOAD> {
+    pub(crate) fn new(buf: &'static mut [EL], payload: PAYLOAD) -> Self {
+        CircBufferLen {
+            buffer: buf,
+            payload,
+            position: 0,
+        }
+    }
+}
+
 pub struct CircBuffer<BUFFER, PAYLOAD>
 where
     BUFFER: 'static,
@@ -130,12 +152,28 @@ macro_rules! dma {
     }),)+) => {
         $(
             pub mod $dmaX {
+                use core::marker::Copy;
+                use core::mem::size_of;
                 use core::sync::atomic::{self, Ordering};
                 use core::ptr;
 
                 use crate::pac::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload, Transferable};
+                use crate::dma::{
+                    CircBuffer,
+                    CircBufferLen,
+                    DataSize,
+                    DmaExt,
+                    Error,
+                    Event,
+                    Half,
+                    Priority,
+                    Transfer,
+                    W,
+                    RxDma,
+                    TxDma,
+                    TransferPayload,
+                    Transferable};
                 use crate::rcc::{AHB, Enable};
 
                 pub struct Channels((), $(pub $CX),+);
@@ -222,6 +260,79 @@ macro_rules! dma {
                         pub fn get_ndtr(&self) -> u32 {
                             // NOTE(unsafe) atomic read with no side effects
                             unsafe { &(*$DMAX::ptr())}.$chX.ndtr.read().bits()
+                        }
+                    }
+
+                    impl<EL, PAYLOAD> CircBufferLen<EL, RxDma<PAYLOAD, $CX>>
+                    where
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
+                        EL: Copy,
+                    {
+                        pub unsafe fn setup(&mut self, peripheral_address : u32, priority: Priority) {
+                            self.payload.channel.set_peripheral_address(peripheral_address, false);
+                            self.payload.channel.set_memory_address(self.buffer.as_ptr() as u32, true);
+                            self.payload.channel.set_transfer_length(self.buffer.len());
+
+                            atomic::compiler_fence(Ordering::Release);
+
+                            let bits = match size_of::<EL>() {
+                                1 => DataSize::BITS8,
+                                2 => DataSize::BITS16,
+                                4 => DataSize::BITS32,
+                                _ => panic!("Unsupported element size.")
+                            };
+
+                            self.payload.channel.ch().cr.modify(|_, w| {
+                                w.mem2mem().clear_bit()
+                                .pl()      .variant(priority)
+                                .circ()    .set_bit()
+                                .dir()     .clear_bit()
+                                .msize()   .variant(bits)
+                                .psize()   .variant(bits)
+                            });
+
+                            self.payload.start();
+                        }
+
+
+                        /// Return the number of elements available to read
+                        pub fn len(&mut self) -> usize {
+                            let blen = self.buffer.len();
+                            let ndtr = self.payload.channel.get_ndtr() as usize;
+                            let pos_at = self.position;
+
+                            // the position the DMA would write to next
+                            let pos_to = blen - ndtr;
+
+                            if pos_at > pos_to {
+                                // the buffer wraps around
+                                blen + pos_to - pos_at
+                            } else {
+                                // the buffer does not wrap around
+                                pos_to - pos_at
+                            }
+                        }
+
+                        pub fn read(&mut self, dat: &mut [EL]) -> usize {
+                            let blen = self.buffer.len();
+                            let len = self.len();
+                            let pos = self.position;
+                            let read = if dat.len() > len { len } else { dat.len() };
+
+                            if pos + read <= blen {
+                                dat[0..read].copy_from_slice(&self.buffer[pos..pos + read]);
+                                self.position = pos + read;
+                            } else {
+                                let left = blen - pos;
+                                // copy until the end of the buffer
+                                dat[0..left].copy_from_slice(&self.buffer[pos..blen]);
+                                // copy from the beginning of the buffer until the amount to read
+                                dat[left..read].copy_from_slice(&self.buffer[0..read - left]);
+                                self.position = read - left;
+                            }
+
+
+                            read
                         }
                     }
 
@@ -485,6 +596,14 @@ pub trait Receive {
 pub trait Transmit {
     type TxChannel;
     type ReceivedWord;
+}
+
+pub trait CircReadDmaLen<B, RS>: Receive
+where
+    B: as_slice::AsMutSlice<Element = RS>,
+    Self: core::marker::Sized,
+{
+    fn circ_read_len(self, buffer: &'static mut B) -> CircBufferLen<RS, Self>;
 }
 
 pub trait CircReadDma<B, RS>: Receive
