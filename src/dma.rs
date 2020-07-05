@@ -156,6 +156,7 @@ macro_rules! dma {
                 use core::mem::size_of;
                 use core::sync::atomic::{self, Ordering};
                 use core::ptr;
+                use core::cmp::min;
 
                 use crate::pac::{$DMAX, dma1};
 
@@ -317,12 +318,18 @@ macro_rules! dma {
                             let blen = self.buffer.len();
                             let len = self.len();
                             let pos = self.position;
-                            let read = if dat.len() > len { len } else { dat.len() };
+                            let read = min(dat.len(), len);
 
                             if pos + read <= blen {
+                                // the read operation does not wrap around the
+                                // circular buffer, perform a single read
                                 dat[0..read].copy_from_slice(&self.buffer[pos..pos + read]);
                                 self.position = pos + read;
+                                if self.position >= blen {
+                                    self.position = 0;
+                                }
                             } else {
+                                // the read operation wraps around the circular buffer,
                                 let left = blen - pos;
                                 // copy until the end of the buffer
                                 dat[0..left].copy_from_slice(&self.buffer[pos..blen]);
@@ -331,7 +338,7 @@ macro_rules! dma {
                                 self.position = read - left;
                             }
 
-
+                            // return the number of bytes read
                             read
                         }
                     }

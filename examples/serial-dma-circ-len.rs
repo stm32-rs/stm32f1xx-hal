@@ -6,7 +6,7 @@
 
 use panic_semihosting as _;
 
-use cortex_m::{asm, singleton};
+use cortex_m::{singleton};
 use cortex_m_semihosting::{hprint, hprintln};
 
 use cortex_m_rt::entry;
