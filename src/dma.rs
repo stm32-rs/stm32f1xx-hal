@@ -29,7 +29,7 @@ pub enum Half {
 type DataSize = crate::stm32::dma1::ch::cr::PSIZE_A;
 pub type Priority = crate::stm32::dma1::ch::cr::PL_A;
 
-pub struct CircBufferLen<EL, PAYLOAD>
+pub struct CircBuffer<EL, PAYLOAD>
 where
     EL: 'static,
 {
@@ -38,9 +38,9 @@ where
     position: usize,
 }
 
-impl<EL, PAYLOAD> CircBufferLen<EL, PAYLOAD> {
+impl<EL, PAYLOAD> CircBuffer<EL, PAYLOAD> {
     pub(crate) fn new(buf: &'static mut [EL], payload: PAYLOAD) -> Self {
-        CircBufferLen {
+        CircBuffer {
             buffer: buf,
             payload,
             position: 0,
@@ -161,7 +161,7 @@ macro_rules! dma {
                 use crate::pac::{$DMAX, dma1};
 
                 use crate::dma::{
-                    CircBufferLen,
+                    CircBuffer,
                     CircDoubleBuffer,
                     DataSize,
                     DmaExt,
@@ -264,7 +264,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<EL, PAYLOAD> CircBufferLen<EL, RxDma<PAYLOAD, $CX>>
+                    impl<EL, PAYLOAD> CircBuffer<EL, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                         EL: Copy,
@@ -605,15 +605,15 @@ pub trait Transmit {
     type ReceivedWord;
 }
 
-pub trait CircReadDmaLen<B, RS>: Receive
+pub trait CircReadDma<B, RS>: Receive
 where
     B: as_slice::AsMutSlice<Element = RS>,
     Self: core::marker::Sized,
 {
-    fn circ_read_len(self, buffer: &'static mut B) -> CircBufferLen<RS, Self>;
+    fn circ_read(self, buffer: &'static mut B) -> CircBuffer<RS, Self>;
 }
 
-pub trait CircReadDma<B, RS>: Receive
+pub trait CircDoubleReadDma<B, RS>: Receive
 where
     B: as_slice::AsMutSlice<Element = RS>,
     Self: core::marker::Sized,

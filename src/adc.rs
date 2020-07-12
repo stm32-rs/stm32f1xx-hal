@@ -667,7 +667,7 @@ where
     }
 }
 
-impl<B, PINS, MODE> crate::dma::CircReadDma<B, u16> for AdcDma<PINS, MODE>
+impl<B, PINS, MODE> crate::dma::CircDoubleReadDma<B, u16> for AdcDma<PINS, MODE>
 where
     Self: TransferPayload,
     B: as_slice::AsMutSlice<Element = u16>,
