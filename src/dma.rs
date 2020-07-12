@@ -4,6 +4,8 @@
 use core::marker::PhantomData;
 use core::ops;
 
+use stable_deref_trait::StableDeref;
+
 use crate::rcc::AHB;
 
 #[derive(Debug)]
@@ -24,7 +26,29 @@ pub enum Half {
     Second,
 }
 
-pub struct CircBuffer<BUFFER, PAYLOAD>
+type DataSize = crate::stm32::dma1::ch::cr::PSIZE_A;
+pub type Priority = crate::stm32::dma1::ch::cr::PL_A;
+
+pub struct CircBuffer<EL, PAYLOAD>
+where
+    EL: 'static,
+{
+    buffer: &'static mut [EL],
+    payload: PAYLOAD,
+    position: usize,
+}
+
+impl<EL, PAYLOAD> CircBuffer<EL, PAYLOAD> {
+    pub(crate) fn new(buf: &'static mut [EL], payload: PAYLOAD) -> Self {
+        CircBuffer {
+            buffer: buf,
+            payload,
+            position: 0,
+        }
+    }
+}
+
+pub struct CircDoubleBuffer<BUFFER, PAYLOAD>
 where
     BUFFER: 'static,
 {
@@ -33,9 +57,9 @@ where
     readable_half: Half,
 }
 
-impl<BUFFER, PAYLOAD> CircBuffer<BUFFER, PAYLOAD> {
+impl<BUFFER, PAYLOAD> CircDoubleBuffer<BUFFER, PAYLOAD> {
     pub(crate) fn new(buf: &'static mut [BUFFER; 2], payload: PAYLOAD) -> Self {
-        CircBuffer {
+        CircDoubleBuffer {
             buffer: buf,
             payload,
             readable_half: Half::Second,
@@ -68,6 +92,11 @@ pub trait DmaExt {
 pub trait TransferPayload {
     fn start(&mut self);
     fn stop(&mut self);
+}
+
+pub trait Transferable<BUFFER, DMA> {
+    fn is_done(&self) -> bool;
+    fn wait(self) -> (BUFFER, DMA);
 }
 
 pub struct Transfer<MODE, BUFFER, PAYLOAD> {
@@ -123,12 +152,29 @@ macro_rules! dma {
     }),)+) => {
         $(
             pub mod $dmaX {
+                use core::marker::Copy;
+                use core::mem::size_of;
                 use core::sync::atomic::{self, Ordering};
                 use core::ptr;
+                use core::cmp::min;
 
                 use crate::pac::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
+                use crate::dma::{
+                    CircBuffer,
+                    CircDoubleBuffer,
+                    DataSize,
+                    DmaExt,
+                    Error,
+                    Event,
+                    Half,
+                    Priority,
+                    Transfer,
+                    W,
+                    RxDma,
+                    TxDma,
+                    TransferPayload,
+                    Transferable};
                 use crate::rcc::{AHB, Enable};
 
                 pub struct Channels((), $(pub $CX),+);
@@ -218,7 +264,86 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<B, PAYLOAD> CircBuffer<B, RxDma<PAYLOAD, $CX>>
+                    impl<EL, PAYLOAD> CircBuffer<EL, RxDma<PAYLOAD, $CX>>
+                    where
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
+                        EL: Copy,
+                    {
+                        pub unsafe fn setup(&mut self, peripheral_address : u32, priority: Priority) {
+                            self.payload.channel.set_peripheral_address(peripheral_address, false);
+                            self.payload.channel.set_memory_address(self.buffer.as_ptr() as u32, true);
+                            self.payload.channel.set_transfer_length(self.buffer.len());
+
+                            atomic::compiler_fence(Ordering::Release);
+
+                            let bits = match size_of::<EL>() {
+                                1 => DataSize::BITS8,
+                                2 => DataSize::BITS16,
+                                4 => DataSize::BITS32,
+                                _ => panic!("Unsupported element size.")
+                            };
+
+                            self.payload.channel.ch().cr.modify(|_, w| {
+                                w.mem2mem().clear_bit()
+                                .pl()      .variant(priority)
+                                .circ()    .set_bit()
+                                .dir()     .clear_bit()
+                                .msize()   .variant(bits)
+                                .psize()   .variant(bits)
+                            });
+
+                            self.payload.start();
+                        }
+
+
+                        /// Return the number of elements available to read
+                        pub fn len(&mut self) -> usize {
+                            let blen = self.buffer.len();
+                            let ndtr = self.payload.channel.get_ndtr() as usize;
+                            let pos_at = self.position;
+
+                            // the position the DMA would write to next
+                            let pos_to = blen - ndtr;
+
+                            if pos_at > pos_to {
+                                // the buffer wraps around
+                                blen + pos_to - pos_at
+                            } else {
+                                // the buffer does not wrap around
+                                pos_to - pos_at
+                            }
+                        }
+
+                        pub fn read(&mut self, dat: &mut [EL]) -> usize {
+                            let blen = self.buffer.len();
+                            let len = self.len();
+                            let pos = self.position;
+                            let read = min(dat.len(), len);
+
+                            if pos + read <= blen {
+                                // the read operation does not wrap around the
+                                // circular buffer, perform a single read
+                                dat[0..read].copy_from_slice(&self.buffer[pos..pos + read]);
+                                self.position = pos + read;
+                                if self.position >= blen {
+                                    self.position = 0;
+                                }
+                            } else {
+                                // the read operation wraps around the circular buffer,
+                                let left = blen - pos;
+                                // copy until the end of the buffer
+                                dat[0..left].copy_from_slice(&self.buffer[pos..blen]);
+                                // copy from the beginning of the buffer until the amount to read
+                                dat[left..read].copy_from_slice(&self.buffer[0..read - left]);
+                                self.position = read - left;
+                            }
+
+                            // return the number of bytes read
+                            read
+                        }
+                    }
+
+                    impl<B, PAYLOAD> CircDoubleBuffer<B, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -294,15 +419,15 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD, MODE> Transferable<BUFFER, RxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
-                        pub fn is_done(&self) -> bool {
+                        fn is_done(&self) -> bool {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
+                        fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
                             atomic::compiler_fence(Ordering::Acquire);
@@ -320,15 +445,15 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD, MODE> Transferable<BUFFER, TxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
                     where
                         TxDma<PAYLOAD, $CX>: TransferPayload,
                     {
-                        pub fn is_done(&self) -> bool {
+                        fn is_done(&self) -> bool {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
+                        fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
                             atomic::compiler_fence(Ordering::Acquire);
@@ -485,7 +610,15 @@ where
     B: as_slice::AsMutSlice<Element = RS>,
     Self: core::marker::Sized,
 {
-    fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self>;
+    fn circ_read(self, buffer: &'static mut B) -> CircBuffer<RS, Self>;
+}
+
+pub trait CircDoubleReadDma<B, RS>: Receive
+where
+    B: as_slice::AsMutSlice<Element = RS>,
+    Self: core::marker::Sized,
+{
+    fn circ_double_read(self, buffer: &'static mut [B; 2]) -> CircDoubleBuffer<B, Self>;
 }
 
 pub trait ReadDma<B, RS>: Receive
@@ -496,10 +629,11 @@ where
     fn read(self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self>;
 }
 
-pub trait WriteDma<A, B, TS>: Transmit
+pub trait WriteDma<B, TS>: Transmit
 where
-    A: as_slice::AsSlice<Element = TS>,
-    B: Static<A>,
+    B: core::ops::Deref + 'static,
+    B::Target: as_slice::AsSlice<Element = TS> + Unpin,
+    B: StableDeref,
     Self: core::marker::Sized,
 {
     fn write(self, buffer: B) -> Transfer<R, B, Self>;

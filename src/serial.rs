@@ -44,10 +44,14 @@ use core::sync::atomic::{self, Ordering};
 
 use crate::pac::{USART1, USART2, USART3};
 use core::convert::Infallible;
+
+use as_slice::AsSlice;
+use stable_deref_trait::StableDeref;
+
 use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
-use crate::dma::{dma1, CircBuffer, RxDma, Static, Transfer, TxDma, R, W};
+use crate::dma::{dma1, CircBuffer, CircDoubleBuffer, Priority, RxDma, Transfer, TxDma, R, W};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
@@ -585,8 +589,19 @@ macro_rules! serialdma {
             }
 
             impl<B> crate::dma::CircReadDma<B, u8> for $rxdma where B: as_slice::AsMutSlice<Element=u8> {
-                fn circ_read(mut self, buffer: &'static mut [B; 2],
-                ) -> CircBuffer<B, Self>
+                fn circ_read(self, buffer: &'static mut B) -> CircBuffer<u8, Self>{
+                    let buffer = buffer.as_mut_slice();
+                    let paddr = unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 };
+
+                    let mut buf = CircBuffer::new(buffer, self);
+                    unsafe { buf.setup(paddr, Priority::MEDIUM) };
+                    buf
+                }
+            }
+
+            impl<B> crate::dma::CircDoubleReadDma<B, u8> for $rxdma where B: as_slice::AsMutSlice<Element=u8> {
+                fn circ_double_read(mut self, buffer: &'static mut [B; 2],
+                ) -> CircDoubleBuffer<B, Self>
                 {
                     {
                         let buffer = buffer[0].as_mut_slice();
@@ -608,7 +623,7 @@ macro_rules! serialdma {
 
                     self.start();
 
-                    CircBuffer::new(buffer, self)
+                    CircDoubleBuffer::new(buffer, self)
                 }
             }
 
@@ -637,12 +652,16 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<A, B> crate::dma::WriteDma<A, B, u8> for $txdma where A: as_slice::AsSlice<Element=u8>, B: Static<A> {
+            impl<B> crate::dma::WriteDma<B, u8> for $txdma
+            where
+                B: StableDeref + core::ops::Deref + 'static,
+                B::Target: AsSlice<Element = u8> + Unpin,
+            {
                 fn write(mut self, buffer: B
                 ) -> Transfer<R, B, Self>
                 {
                     {
-                        let buffer = buffer.borrow().as_slice();
+                        let buffer = (*buffer).as_slice();
 
                         self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
 

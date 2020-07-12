@@ -41,7 +41,7 @@ use crate::pac::{SPI1, SPI2};
 
 use crate::afio::MAPR;
 use crate::dma::dma1::{C3, C5};
-use crate::dma::{Static, Transfer, TransferPayload, Transmit, TxDma, R};
+use crate::dma::{Transfer, TransferPayload, Transmit, TxDma, R};
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
@@ -53,6 +53,7 @@ use crate::time::Hertz;
 use core::sync::atomic::{self, Ordering};
 
 use as_slice::AsSlice;
+use stable_deref_trait::StableDeref;
 
 /// SPI error
 #[derive(Debug)]
@@ -450,14 +451,14 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<A, B, REMAP, PIN> crate::dma::WriteDma<A, B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
+        impl<B, REMAP, PIN> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
         where
-            A: AsSlice<Element = u8>,
-            B: Static<A>,
+            B: StableDeref + core::ops::Deref + 'static,
+            B::Target: as_slice::AsSlice<Element = u8> + Unpin,
         {
             fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
                 {
-                    let buffer = buffer.borrow().as_slice();
+                    let buffer = buffer.as_slice();
                     self.channel.set_peripheral_address(
                         unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
                         false,

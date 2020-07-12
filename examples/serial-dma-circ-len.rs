@@ -4,13 +4,14 @@
 #![no_std]
 #![no_main]
 
-use panic_halt as _;
+use panic_semihosting as _;
 
-use cortex_m::{asm, singleton};
+use cortex_m::singleton;
+use cortex_m_semihosting::{hprint, hprintln};
 
 use cortex_m_rt::entry;
 use stm32f1xx_hal::{
-    dma::Half,
+    dma::CircReadDmaLen,
     pac,
     prelude::*,
     serial::{Config, Serial},
@@ -56,20 +57,43 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
+    hprintln!("waiting for 5 bytes").unwrap();
+
     let rx = serial.split().1.with_dma(channels.5);
-    let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
+    // increase to reasonable size (e.g. 64, 128 etc.) for actual applications
+    let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
 
-    let mut circ_buffer = rx.circ_double_read(buf);
+    let mut circ_buffer = rx.circ_read_len(buf);
 
-    while circ_buffer.readable_half().unwrap() != Half::First {}
+    // wait until we have 5 bytes
+    while circ_buffer.len() < 5 {}
 
-    let _first_half = circ_buffer.peek(|half, _| *half).unwrap();
+    let mut dat = [0 as u8; 4];
+    assert!(circ_buffer.read(&mut dat[..]) == 4);
 
-    while circ_buffer.readable_half().unwrap() != Half::Second {}
+    hprintln!("[{}, {}, {}, {}]", dat[0], dat[1], dat[2], dat[3]).unwrap();
 
-    let _second_half = circ_buffer.peek(|half, _| *half).unwrap();
+    // try to read again, now only one byte is returned
+    hprintln!("read {}", circ_buffer.read(&mut dat)).unwrap();
 
-    asm::bkpt();
+    hprintln!("[{}]", dat[0]).unwrap();
 
-    loop {}
+    // wait for the buffer to have 4 bytes again
+    while circ_buffer.len() < 4 {}
+
+    // all four bytes should be read in one go
+    assert!(circ_buffer.read(&mut dat) == 4);
+
+    hprintln!("[{}, {}, {}, {}]", dat[0], dat[1], dat[2], dat[3]).unwrap();
+
+    loop {
+        let read = circ_buffer.read(&mut dat);
+
+        if read > 0 {
+            for c in &dat[..read] {
+                hprint!("{}", *c as char).unwrap();
+            }
+            hprintln!("").unwrap();
+        }
+    }
 }
