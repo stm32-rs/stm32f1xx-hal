@@ -6,7 +6,7 @@
 
 use panic_semihosting as _;
 
-use cortex_m::{singleton};
+use cortex_m::singleton;
 use cortex_m_semihosting::{hprint, hprintln};
 
 use cortex_m_rt::entry;
@@ -90,7 +90,7 @@ fn main() -> ! {
         let read = circ_buffer.read(&mut dat);
 
         if read > 0 {
-            for c in &dat[..read]{
+            for c in &dat[..read] {
                 hprint!("{}", *c as char).unwrap();
             }
             hprintln!("").unwrap();

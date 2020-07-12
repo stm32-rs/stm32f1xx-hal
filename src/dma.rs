@@ -31,7 +31,7 @@ pub type Priority = crate::stm32::dma1::ch::cr::PL_A;
 
 pub struct CircBufferLen<EL, PAYLOAD>
 where
-    EL : 'static,
+    EL: 'static,
 {
     buffer: &'static mut [EL],
     payload: PAYLOAD,
@@ -48,7 +48,7 @@ impl<EL, PAYLOAD> CircBufferLen<EL, PAYLOAD> {
     }
 }
 
-pub struct CircBuffer<BUFFER, PAYLOAD>
+pub struct CircDoubleBuffer<BUFFER, PAYLOAD>
 where
     BUFFER: 'static,
 {
@@ -57,9 +57,9 @@ where
     readable_half: Half,
 }
 
-impl<BUFFER, PAYLOAD> CircBuffer<BUFFER, PAYLOAD> {
+impl<BUFFER, PAYLOAD> CircDoubleBuffer<BUFFER, PAYLOAD> {
     pub(crate) fn new(buf: &'static mut [BUFFER; 2], payload: PAYLOAD) -> Self {
-        CircBuffer {
+        CircDoubleBuffer {
             buffer: buf,
             payload,
             readable_half: Half::Second,
@@ -161,8 +161,8 @@ macro_rules! dma {
                 use crate::pac::{$DMAX, dma1};
 
                 use crate::dma::{
-                    CircBuffer,
                     CircBufferLen,
+                    CircDoubleBuffer,
                     DataSize,
                     DmaExt,
                     Error,
@@ -343,7 +343,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<B, PAYLOAD> CircBuffer<B, RxDma<PAYLOAD, $CX>>
+                    impl<B, PAYLOAD> CircDoubleBuffer<B, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -618,7 +618,7 @@ where
     B: as_slice::AsMutSlice<Element = RS>,
     Self: core::marker::Sized,
 {
-    fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self>;
+    fn circ_double_read(self, buffer: &'static mut [B; 2]) -> CircDoubleBuffer<B, Self>;
 }
 
 pub trait ReadDma<B, RS>: Receive

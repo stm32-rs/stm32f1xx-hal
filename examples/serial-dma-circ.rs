@@ -59,7 +59,7 @@ fn main() -> ! {
     let rx = serial.split().1.with_dma(channels.5);
     let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
 
-    let mut circ_buffer = rx.circ_read(buf);
+    let mut circ_buffer = rx.circ_double_read(buf);
 
     while circ_buffer.readable_half().unwrap() != Half::First {}
 

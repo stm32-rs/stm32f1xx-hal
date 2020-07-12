@@ -38,7 +38,7 @@ fn main() -> ! {
     let adc_dma = adc1.with_dma(adc_ch0, dma_ch1);
     let buf = singleton!(: [[u16; 8]; 2] = [[0; 8]; 2]).unwrap();
 
-    let mut circ_buffer = adc_dma.circ_read(buf);
+    let mut circ_buffer = adc_dma.circ_double_read(buf);
 
     while circ_buffer.readable_half().unwrap() != Half::First {}
 

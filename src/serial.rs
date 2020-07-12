@@ -51,7 +51,7 @@ use stable_deref_trait::StableDeref;
 use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
-use crate::dma::{dma1, CircBuffer, CircBufferLen, Priority, RxDma, Transfer, TxDma, R, W};
+use crate::dma::{dma1, CircBufferLen, CircDoubleBuffer, Priority, RxDma, Transfer, TxDma, R, W};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
@@ -600,8 +600,8 @@ macro_rules! serialdma {
             }
 
             impl<B> crate::dma::CircReadDma<B, u8> for $rxdma where B: as_slice::AsMutSlice<Element=u8> {
-                fn circ_read(mut self, buffer: &'static mut [B; 2],
-                ) -> CircBuffer<B, Self>
+                fn circ_double_read(mut self, buffer: &'static mut [B; 2],
+                ) -> CircDoubleBuffer<B, Self>
                 {
                     {
                         let buffer = buffer[0].as_mut_slice();
@@ -623,7 +623,7 @@ macro_rules! serialdma {
 
                     self.start();
 
-                    CircBuffer::new(buffer, self)
+                    CircDoubleBuffer::new(buffer, self)
                 }
             }
 

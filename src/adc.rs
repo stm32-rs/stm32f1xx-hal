@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 use embedded_hal::adc::{Channel, OneShot};
 
-use crate::dma::{dma1::C1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
+use crate::dma::{dma1::C1, CircDoubleBuffer, Receive, RxDma, Transfer, TransferPayload, W};
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
 use crate::rcc::{Clocks, Enable, Reset, APB2};
@@ -672,7 +672,7 @@ where
     Self: TransferPayload,
     B: as_slice::AsMutSlice<Element = u16>,
 {
-    fn circ_read(mut self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
+    fn circ_double_read(mut self, buffer: &'static mut [B; 2]) -> CircDoubleBuffer<B, Self> {
         {
             let buffer = buffer[0].as_mut_slice();
             self.channel
@@ -701,7 +701,7 @@ where
 
         self.start();
 
-        CircBuffer::new(buffer, self)
+        CircDoubleBuffer::new(buffer, self)
     }
 }
 
