@@ -16,7 +16,7 @@
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use stm32f1xx_hal::{pac, prelude::*};
 
 #[entry]
@@ -30,21 +30,21 @@ fn main() -> ! {
     gpioc
         .pc9
         .into_push_pull_output(&mut gpioc.crh)
-        .set_high()
+        .try_set_high()
         .unwrap();
 
     #[cfg(feature = "stm32f101")]
     gpioc
         .pc9
         .into_push_pull_output(&mut gpioc.crh)
-        .set_high()
+        .try_set_high()
         .unwrap();
 
     #[cfg(any(feature = "stm32f103", feature = "stm32f105", feature = "stm32f107"))]
     gpioc
         .pc13
         .into_push_pull_output(&mut gpioc.crh)
-        .set_low()
+        .try_set_low()
         .unwrap();
 
     loop {}

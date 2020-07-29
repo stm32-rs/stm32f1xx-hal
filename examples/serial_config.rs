@@ -73,8 +73,8 @@ fn main() -> ! {
     let (mut tx, _rx) = serial.split();
 
     let sent = b'U';
-    block!(tx.write(sent)).ok();
-    block!(tx.write(sent)).ok();
+    block!(tx.try_write(sent)).ok();
+    block!(tx.try_write(sent)).ok();
 
     loop {}
 }

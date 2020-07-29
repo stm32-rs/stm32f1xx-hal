@@ -25,9 +25,9 @@ fn main() -> ! {
     let mut pb4 = pb4.into_push_pull_output(&mut gpiob.crl);
 
     loop {
-        pa15.toggle().unwrap();
-        pb3.toggle().unwrap();
-        pb4.toggle().unwrap();
+        pa15.try_toggle().unwrap();
+        pb3.try_toggle().unwrap();
+        pb4.try_toggle().unwrap();
         cortex_m::asm::delay(8_000_000);
     }
 }

@@ -40,12 +40,12 @@ fn main() -> ! {
     let mut ch1 = gpiob.pb1.into_analog(&mut gpiob.crl);
 
     loop {
-        let data: u16 = adc1.read(&mut ch0).unwrap();
+        let data: u16 = adc1.try_read(&mut ch0).unwrap();
         hprintln!("adc1: {}", data).unwrap();
 
         #[cfg(feature = "stm32f103")]
         {
-            let data1: u16 = adc2.read(&mut ch1).unwrap();
+            let data1: u16 = adc2.try_read(&mut ch1).unwrap();
             hprintln!("adc2: {}", data1).unwrap();
         }
     }
