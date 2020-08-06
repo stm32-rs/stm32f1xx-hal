@@ -137,5 +137,9 @@ name = "can-echo"
 required-features = ["connectivity"]
 
 [[example]]
+name = "can-loopback"
+required-features = ["stm32f103", "stm32f105", "stm32f107"]
+
+[[example]]
 name = "can-rtfm"
 required-features = ["connectivity", "rt"]
