@@ -176,7 +176,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
 
 impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
     /**
-      Constructs an SPI instance using SPI1.
+      Constructs an SPI instance using SPI2.
 
       The pin parameter tuple (sck, miso, mosi) should be `(PB13, PB14, PB15)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
 
@@ -202,7 +202,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
 #[cfg(any(feature = "high", feature = "connectivity"))]
 impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
     /**
-      Constructs an SPI instance using SPI1.
+      Constructs an SPI instance using SPI3.
 
       The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
 
@@ -400,7 +400,7 @@ where
             }
         }
         // Clear OVR set due to dropped received values
-        // NOTE(read_volatile) see note aboev
+        // NOTE(read_volatile) see note above
         unsafe {
             let _ = ptr::read_volatile(&self.spi.dr as *const _ as *const u8);
         }
