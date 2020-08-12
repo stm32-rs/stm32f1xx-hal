@@ -28,7 +28,7 @@
 //! ```
 
 use core::ops;
-use cortex_m::peripheral::{DWT, DCB};
+use cortex_m::peripheral::{DCB, DWT};
 
 use crate::rcc::Clocks;
 
@@ -227,6 +227,11 @@ impl_arithmetic!(MegaHertz, u32);
 impl_arithmetic!(Bps, u32);
 
 /// A monotonic non-decreasing timer
+///
+/// This uses the timer in the debug watch trace peripheral. This means, that if the
+/// core is stopped, the timer does not count up. This may be relevant if you are using
+/// cortex_m_semihosting::hprintln for debugging in which case the timer will be stopped
+/// while printing
 #[derive(Clone, Copy)]
 pub struct MonoTimer {
     frequency: Hertz,
