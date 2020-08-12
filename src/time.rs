@@ -28,7 +28,7 @@
 //! ```
 
 use core::ops;
-use cortex_m::peripheral::DWT;
+use cortex_m::peripheral::{DWT, DCB};
 
 use crate::rcc::Clocks;
 
@@ -234,7 +234,8 @@ pub struct MonoTimer {
 
 impl MonoTimer {
     /// Creates a new `Monotonic` timer
-    pub fn new(mut dwt: DWT, clocks: Clocks) -> Self {
+    pub fn new(mut dwt: DWT, mut dcb: DCB, clocks: Clocks) -> Self {
+        dcb.enable_trace();
         dwt.enable_cycle_counter();
 
         // now the CYCCNT counter can't be stopped or reset
