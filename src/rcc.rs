@@ -36,6 +36,14 @@ impl RccExt for RCC {
 }
 
 /// Constrained RCC peripheral
+///
+/// Aquired by calling the [constrain](../trait.RccExt.html#tymethod.constrain) method
+/// on the Rcc struct from the `PAC`
+///
+/// ```rust
+/// let dp = pac::Peripherals::take().unwrap();
+/// let mut rcc = dp.RCC.constrain();
+/// ```
 pub struct Rcc {
     /// AMBA High-performance Bus (AHB) registers
     pub ahb: AHB,
