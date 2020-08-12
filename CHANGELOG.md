@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+MonoTimer now takes ownership of the DCB register
+
+### Fixed
+
+- Fix MonoTimer not working in debug mode. 
+
 ## [v0.6.1] - 2020-06-25
 
 ### Added
