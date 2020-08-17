@@ -148,17 +148,6 @@ remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
 #[cfg(feature = "connectivity")]
 remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
 
-// pub trait DataFrameSize<T> {}
-
-// impl DataFrameSize<u8> for SPI1 {}
-// impl DataFrameSize<u16> for SPI1 {}
-// impl DataFrameSize<u8> for SPI2 {}
-// impl DataFrameSize<u16> for SPI2 {}
-// #[cfg(any(feature = "high", feature = "connectivity"))]
-// impl DataFrameSize<u8> for SPI3 {}
-// #[cfg(any(feature = "high", feature = "connectivity"))]
-// impl DataFrameSize<u16> for SPI3 {}
-
 impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI1.
