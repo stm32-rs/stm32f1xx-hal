@@ -109,10 +109,11 @@ pins_impl!(
     (MISO, SCK, MOSI), (Miso, Sck, Mosi), (_Miso, _Sck, _Mosi);
 );
 
-pub struct Spi<SPI, REMAP, PINS> {
+pub struct Spi<SPI, REMAP, PINS, FRAMESIZE> {
     spi: SPI,
     pins: PINS,
     _remap: PhantomData<REMAP>,
+    _framesize: PhantomData<FRAMESIZE>,
 }
 
 /// A filler type for when the SCK pin is unnecessary
@@ -147,7 +148,18 @@ remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
 #[cfg(feature = "connectivity")]
 remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
 
-impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
+// pub trait DataFrameSize<T> {}
+
+// impl DataFrameSize<u8> for SPI1 {}
+// impl DataFrameSize<u16> for SPI1 {}
+// impl DataFrameSize<u8> for SPI2 {}
+// impl DataFrameSize<u16> for SPI2 {}
+// #[cfg(any(feature = "high", feature = "connectivity"))]
+// impl DataFrameSize<u8> for SPI3 {}
+// #[cfg(any(feature = "high", feature = "connectivity"))]
+// impl DataFrameSize<u16> for SPI3 {}
+
+impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI1.
 
@@ -170,11 +182,11 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS> {
         PINS: Pins<REMAP, POS>,
     {
         mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
-        Spi::<SPI1, _, _>::_spi(spi, pins, mode, freq.into(), clocks, apb)
+        Spi::<SPI1, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
     }
 }
 
-impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
+impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI2.
 
@@ -195,12 +207,12 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS> {
         REMAP: Remap<Periph = SPI2>,
         PINS: Pins<REMAP, POS>,
     {
-        Spi::<SPI2, _, _>::_spi(spi, pins, mode, freq.into(), clocks, apb)
+        Spi::<SPI2, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
     }
 }
 
 #[cfg(any(feature = "high", feature = "connectivity"))]
-impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
+impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI3.
 
@@ -221,13 +233,13 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS> {
         REMAP: Remap<Periph = SPI3>,
         PINS: Pins<REMAP, POS>,
     {
-        Spi::<SPI3, _, _>::_spi(spi, pins, mode, freq.into(), clocks, apb)
+        Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
     }
 }
 
 pub type SpiRegisterBlock = crate::pac::spi1::RegisterBlock;
 
-impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS>
+impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8>
 where
     SPI: Deref<Target = SpiRegisterBlock> + Enable + Reset,
     SPI::Bus: GetBusFreq,
@@ -300,6 +312,19 @@ where
             spi,
             pins,
             _remap: PhantomData,
+            _framesize: PhantomData,
+        }
+    }
+
+    pub fn frame_size_16bit(self) -> Spi<SPI, REMAP, PINS, u16>{
+        self.spi.cr1.modify(|_, w| w.spe().clear_bit());
+        self.spi.cr1.modify(|_, w| w.dff().set_bit());
+        self.spi.cr1.modify(|_, w| w.spe().set_bit());
+        Spi{
+            spi: self.spi,
+            pins: self.pins,
+            _remap: PhantomData,
+            _framesize: PhantomData,
         }
     }
 
@@ -312,7 +337,93 @@ where
     }
 }
 
-impl<SPI, REMAP, PINS> crate::hal::spi::FullDuplex<u8> for Spi<SPI, REMAP, PINS>
+impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u16>
+where
+    SPI: Deref<Target = SpiRegisterBlock> + Enable + Reset,
+    SPI::Bus: GetBusFreq,
+{
+    fn _spi(
+        spi: SPI,
+        pins: PINS,
+        mode: Mode,
+        freq: Hertz,
+        clocks: Clocks,
+        apb: &mut SPI::Bus,
+    ) -> Self {
+        // enable or reset SPI
+        SPI::enable(apb);
+        SPI::reset(apb);
+
+        // disable SS output
+        spi.cr2.write(|w| w.ssoe().clear_bit());
+
+        let br = match SPI::Bus::get_frequency(&clocks).0 / freq.0 {
+            0 => unreachable!(),
+            1..=2 => 0b000,
+            3..=5 => 0b001,
+            6..=11 => 0b010,
+            12..=23 => 0b011,
+            24..=47 => 0b100,
+            48..=95 => 0b101,
+            96..=191 => 0b110,
+            _ => 0b111,
+        };
+
+        spi.cr1.write(|w| {
+            w
+                // clock phase from config
+                .cpha()
+                .bit(mode.phase == Phase::CaptureOnSecondTransition)
+                // clock polarity from config
+                .cpol()
+                .bit(mode.polarity == Polarity::IdleHigh)
+                // mstr: master configuration
+                .mstr()
+                .set_bit()
+                // baudrate value
+                .br()
+                .bits(br)
+                // lsbfirst: MSB first
+                .lsbfirst()
+                .clear_bit()
+                // ssm: enable software slave management (NSS pin free for other uses)
+                .ssm()
+                .set_bit()
+                // ssi: set nss high = master mode
+                .ssi()
+                .set_bit()
+                // dff: 16 bit frames
+                .dff()
+                .set_bit()
+                // bidimode: 2-line unidirectional
+                .bidimode()
+                .clear_bit()
+                // both TX and RX are used
+                .rxonly()
+                .clear_bit()
+                // spe: enable the SPI bus
+                .spe()
+                .set_bit()
+        });
+
+        Spi {
+            spi,
+            pins,
+            _remap: PhantomData,
+            _framesize: PhantomData,
+        }
+    }
+
+    #[deprecated(since = "0.6.0", note = "Please use release instead")]
+    pub fn free(self) -> (SPI, PINS) {
+        self.release()
+    }
+    pub fn release(self) -> (SPI, PINS) {
+        (self.spi, self.pins)
+    }
+}
+
+impl<SPI, REMAP, PINS> crate::hal::spi::FullDuplex<u8> for Spi<SPI, REMAP, PINS, u8>
 where
     SPI: Deref<Target = SpiRegisterBlock>,
 {
@@ -355,12 +466,60 @@ where
     }
 }
 
-impl<SPI, REMAP, PINS> crate::hal::blocking::spi::transfer::Default<u8> for Spi<SPI, REMAP, PINS> where
+impl<SPI, REMAP, PINS> crate::hal::spi::FullDuplex<u16> for Spi<SPI, REMAP, PINS, u16>
+where
+    SPI: Deref<Target = SpiRegisterBlock>,
+{
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u16, Error> {
+        let sr = self.spi.sr.read();
+
+        Err(if sr.ovr().bit_is_set() {
+            nb::Error::Other(Error::Overrun)
+        } else if sr.modf().bit_is_set() {
+            nb::Error::Other(Error::ModeFault)
+        } else if sr.crcerr().bit_is_set() {
+            nb::Error::Other(Error::Crc)
+        } else if sr.rxne().bit_is_set() {
+            // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
+            // reading a half-word)
+            return Ok(unsafe { ptr::read_volatile(&self.spi.dr as *const _ as *const u16) });
+        } else {
+            nb::Error::WouldBlock
+        })
+    }
+
+    fn send(&mut self, byte: u16) -> nb::Result<(), Error> {
+        let sr = self.spi.sr.read();
+
+        Err(if sr.ovr().bit_is_set() {
+            nb::Error::Other(Error::Overrun)
+        } else if sr.modf().bit_is_set() {
+            nb::Error::Other(Error::ModeFault)
+        } else if sr.crcerr().bit_is_set() {
+            nb::Error::Other(Error::Crc)
+        } else if sr.txe().bit_is_set() {
+            // NOTE(write_volatile) see note above
+            unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u16, byte) }
+            return Ok(());
+        } else {
+            nb::Error::WouldBlock
+        })
+    }
+}
+
+impl<SPI, REMAP, PINS> crate::hal::blocking::spi::transfer::Default<u8> for Spi<SPI, REMAP, PINS, u8> where
     SPI: Deref<Target = SpiRegisterBlock>
 {
 }
 
-impl<SPI, REMAP, PINS> crate::hal::blocking::spi::Write<u8> for Spi<SPI, REMAP, PINS>
+impl<SPI, REMAP, PINS> crate::hal::blocking::spi::transfer::Default<u16> for Spi<SPI, REMAP, PINS, u16> where
+    SPI: Deref<Target = SpiRegisterBlock>
+{
+}
+
+impl<SPI, REMAP, PINS> crate::hal::blocking::spi::Write<u8> for Spi<SPI, REMAP, PINS, u8>
 where
     SPI: Deref<Target = SpiRegisterBlock>,
 {
@@ -409,10 +568,59 @@ where
     }
 }
 
+impl<SPI, REMAP, PINS> crate::hal::blocking::spi::Write<u16> for Spi<SPI, REMAP, PINS, u16>
+where
+    SPI: Deref<Target = SpiRegisterBlock>,
+{
+    type Error = Error;
+
+    // Implement write as per the "Transmit only procedure" page 712
+    // of RM0008 Rev 20. This is more than twice as fast as the
+    // default Write<> implementation (which reads and drops each
+    // received value)
+    fn write(&mut self, words: &[u16]) -> Result<(), Error> {
+        // Write each word when the tx buffer is empty
+        for word in words {
+            loop {
+                let sr = self.spi.sr.read();
+                if sr.txe().bit_is_set() {
+                    // NOTE(write_volatile) see note above
+                    unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u16, *word) }
+                    if sr.modf().bit_is_set() {
+                        return Err(Error::ModeFault);
+                    }
+                    break;
+                }
+            }
+        }
+        // Wait for final TXE
+        loop {
+            let sr = self.spi.sr.read();
+            if sr.txe().bit_is_set() {
+                break;
+            }
+        }
+        // Wait for final !BSY
+        loop {
+            let sr = self.spi.sr.read();
+            if !sr.bsy().bit_is_set() {
+                break;
+            }
+        }
+        // Clear OVR set due to dropped received values
+        // NOTE(read_volatile) see note above
+        unsafe {
+            let _ = ptr::read_volatile(&self.spi.dr as *const _ as *const u16);
+        }
+        let _ = self.spi.sr.read();
+        Ok(())
+    }
+}
+
 // DMA
 
 pub struct SpiPayload<SPI, REMAP, PINS> {
-    spi: Spi<SPI, REMAP, PINS>,
+    spi: Spi<SPI, REMAP, PINS, u8>,
 }
 
 pub type SpiTxDma<SPI, REMAP, PINS, CHANNEL> = TxDma<SpiPayload<SPI, REMAP, PINS>, CHANNEL>;
@@ -424,7 +632,7 @@ macro_rules! spi_dma {
             type ReceivedWord = u8;
         }
 
-        impl<REMAP, PINS> Spi<$SPIi, REMAP, PINS> {
+        impl<REMAP, PINS> Spi<$SPIi, REMAP, PINS, u8> {
             pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
                 let payload = SpiPayload { spi: self };
                 SpiTxDma { payload, channel }
