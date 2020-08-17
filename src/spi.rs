@@ -414,6 +414,18 @@ where
         }
     }
 
+    pub fn frame_size_8bit(self) -> Spi<SPI, REMAP, PINS, u8>{
+        self.spi.cr1.modify(|_, w| w.spe().clear_bit());
+        self.spi.cr1.modify(|_, w| w.dff().clear_bit());
+        self.spi.cr1.modify(|_, w| w.spe().set_bit());
+        Spi{
+            spi: self.spi,
+            pins: self.pins,
+            _remap: PhantomData,
+            _framesize: PhantomData,
+        }
+    }
+
     #[deprecated(since = "0.6.0", note = "Please use release instead")]
     pub fn free(self) -> (SPI, PINS) {
         self.release()
