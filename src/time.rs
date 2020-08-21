@@ -79,7 +79,7 @@ pub struct KiloHertz(pub u32);
 
 /// Megahertz
 ///
-/// Create a frequency specified in kilohertz.
+/// Create a frequency specified in megahertz.
 ///
 /// See also [`Hertz`] and [`KiloHertz`] for semantically correct ways of creating lower
 /// frequencies.
