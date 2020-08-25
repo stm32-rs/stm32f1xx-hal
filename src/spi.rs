@@ -150,7 +150,7 @@ remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
 
 impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
     /**
-      Constructs an SPI instance using SPI1.
+      Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
       The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
 
@@ -177,7 +177,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
 
 impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
     /**
-      Constructs an SPI instance using SPI2.
+      Constructs an SPI instance using SPI2 in 8bit dataframe mode.
 
       The pin parameter tuple (sck, miso, mosi) should be `(PB13, PB14, PB15)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
 
@@ -203,7 +203,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
 #[cfg(any(feature = "high", feature = "connectivity"))]
 impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     /**
-      Constructs an SPI instance using SPI3.
+      Constructs an SPI instance using SPI3 in 8bit dataframe mode.
 
       The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
 
@@ -237,7 +237,7 @@ pub trait SpiReadWrite<T> {
 impl<SPI, REMAP, PINS, FrameSize> SpiReadWrite<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize>
 where
     SPI: Deref<Target = SpiRegisterBlock>,
-    FrameSize: Copy
+    FrameSize: Copy,
 {
     fn read_data_reg(&mut self) -> FrameSize {
         // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
@@ -298,9 +298,8 @@ where
 impl<SPI, REMAP, PINS, FrameSize> Spi<SPI, REMAP, PINS, FrameSize>
 where
     SPI: Deref<Target = SpiRegisterBlock>,
-    FrameSize: Copy
+    FrameSize: Copy,
 {
-
     #[deprecated(since = "0.6.0", note = "Please use release instead")]
     pub fn free(self) -> (SPI, PINS) {
         self.release()
@@ -311,7 +310,7 @@ where
 }
 
 impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8>
-where 
+where
     SPI: Deref<Target = SpiRegisterBlock> + Enable + Reset,
     SPI::Bus: GetBusFreq,
 {
@@ -386,11 +385,12 @@ where
             _framesize: PhantomData,
         }
     }
-    pub fn frame_size_16bit(self) -> Spi<SPI, REMAP, PINS, u16>{
+    /// Converts from 8bit dataframe to 16bit.
+    pub fn frame_size_16bit(self) -> Spi<SPI, REMAP, PINS, u16> {
         self.spi.cr1.modify(|_, w| w.spe().clear_bit());
         self.spi.cr1.modify(|_, w| w.dff().set_bit());
         self.spi.cr1.modify(|_, w| w.spe().set_bit());
-        Spi{
+        Spi {
             spi: self.spi,
             pins: self.pins,
             _remap: PhantomData,
@@ -403,11 +403,12 @@ impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u16>
 where
     SPI: Deref<Target = SpiRegisterBlock>,
 {
-    pub fn frame_size_8bit(self) -> Spi<SPI, REMAP, PINS, u8>{
+    /// Converts from 16bit dataframe to 8bit.
+    pub fn frame_size_8bit(self) -> Spi<SPI, REMAP, PINS, u8> {
         self.spi.cr1.modify(|_, w| w.spe().clear_bit());
         self.spi.cr1.modify(|_, w| w.dff().clear_bit());
         self.spi.cr1.modify(|_, w| w.spe().set_bit());
-        Spi{
+        Spi {
             spi: self.spi,
             pins: self.pins,
             _remap: PhantomData,
@@ -416,10 +417,11 @@ where
     }
 }
 
-impl<SPI, REMAP, PINS, FrameSize> crate::hal::spi::FullDuplex<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize>
+impl<SPI, REMAP, PINS, FrameSize> crate::hal::spi::FullDuplex<FrameSize>
+    for Spi<SPI, REMAP, PINS, FrameSize>
 where
     SPI: Deref<Target = SpiRegisterBlock>,
-    FrameSize: Copy
+    FrameSize: Copy,
 {
     type Error = Error;
 
@@ -460,9 +462,11 @@ where
     }
 }
 
-impl<SPI, REMAP, PINS, FrameSize> crate::hal::blocking::spi::transfer::Default<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize> where
+impl<SPI, REMAP, PINS, FrameSize> crate::hal::blocking::spi::transfer::Default<FrameSize>
+    for Spi<SPI, REMAP, PINS, FrameSize>
+where
     SPI: Deref<Target = SpiRegisterBlock>,
-    FrameSize: Copy
+    FrameSize: Copy,
 {
 }
 
