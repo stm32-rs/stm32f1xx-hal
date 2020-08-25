@@ -228,8 +228,90 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
 
 pub type SpiRegisterBlock = crate::pac::spi1::RegisterBlock;
 
-impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8>
+pub trait SpiReadWrite<T> {
+    fn read_data_reg(&mut self) -> T;
+    fn write_data_reg(&mut self, data: T);
+    fn write_fast(&mut self, words: &[T]) -> Result<(), Error>;
+}
+
+impl<SPI, REMAP, PINS, FrameSize> SpiReadWrite<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize>
 where
+    SPI: Deref<Target = SpiRegisterBlock>,
+    FrameSize: Copy
+{
+    fn read_data_reg(&mut self) -> FrameSize {
+        // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
+        // reading a half-word)
+        return unsafe { ptr::read_volatile(&self.spi.dr as *const _ as *const FrameSize) };
+    }
+
+    fn write_data_reg(&mut self, data: FrameSize) {
+        // NOTE(write_volatile) see note above
+        unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut FrameSize, data) }
+    }
+
+    // Implement write as per the "Transmit only procedure" page 712
+    // of RM0008 Rev 20. This is more than twice as fast as the
+    // default Write<> implementation (which reads and drops each
+    // received value)
+    fn write_fast(&mut self, words: &[FrameSize]) -> Result<(), Error> {
+        // Write each word when the tx buffer is empty
+        for word in words {
+            loop {
+                let sr = self.spi.sr.read();
+                if sr.txe().bit_is_set() {
+                    // NOTE(write_volatile) see note above
+                    // unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, *word) }
+                    self.write_data_reg(*word);
+                    if sr.modf().bit_is_set() {
+                        return Err(Error::ModeFault);
+                    }
+                    break;
+                }
+            }
+        }
+        // Wait for final TXE
+        loop {
+            let sr = self.spi.sr.read();
+            if sr.txe().bit_is_set() {
+                break;
+            }
+        }
+        // Wait for final !BSY
+        loop {
+            let sr = self.spi.sr.read();
+            if !sr.bsy().bit_is_set() {
+                break;
+            }
+        }
+        // Clear OVR set due to dropped received values
+        // NOTE(read_volatile) see note above
+        // unsafe {
+        //     let _ = ptr::read_volatile(&self.spi.dr as *const _ as *const u8);
+        // }
+        let _ = self.read_data_reg();
+        let _ = self.spi.sr.read();
+        Ok(())
+    }
+}
+
+impl<SPI, REMAP, PINS, FrameSize> Spi<SPI, REMAP, PINS, FrameSize>
+where
+    SPI: Deref<Target = SpiRegisterBlock>,
+    FrameSize: Copy
+{
+
+    #[deprecated(since = "0.6.0", note = "Please use release instead")]
+    pub fn free(self) -> (SPI, PINS) {
+        self.release()
+    }
+    pub fn release(self) -> (SPI, PINS) {
+        (self.spi, self.pins)
+    }
+}
+
+impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8>
+where 
     SPI: Deref<Target = SpiRegisterBlock> + Enable + Reset,
     SPI::Bus: GetBusFreq,
 {
@@ -304,7 +386,6 @@ where
             _framesize: PhantomData,
         }
     }
-
     pub fn frame_size_16bit(self) -> Spi<SPI, REMAP, PINS, u16>{
         self.spi.cr1.modify(|_, w| w.spe().clear_bit());
         self.spi.cr1.modify(|_, w| w.dff().set_bit());
@@ -316,93 +397,12 @@ where
             _framesize: PhantomData,
         }
     }
-
-    #[deprecated(since = "0.6.0", note = "Please use release instead")]
-    pub fn free(self) -> (SPI, PINS) {
-        self.release()
-    }
-    pub fn release(self) -> (SPI, PINS) {
-        (self.spi, self.pins)
-    }
 }
 
 impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u16>
 where
-    SPI: Deref<Target = SpiRegisterBlock> + Enable + Reset,
-    SPI::Bus: GetBusFreq,
+    SPI: Deref<Target = SpiRegisterBlock>,
 {
-    fn _spi(
-        spi: SPI,
-        pins: PINS,
-        mode: Mode,
-        freq: Hertz,
-        clocks: Clocks,
-        apb: &mut SPI::Bus,
-    ) -> Self {
-        // enable or reset SPI
-        SPI::enable(apb);
-        SPI::reset(apb);
-
-        // disable SS output
-        spi.cr2.write(|w| w.ssoe().clear_bit());
-
-        let br = match SPI::Bus::get_frequency(&clocks).0 / freq.0 {
-            0 => unreachable!(),
-            1..=2 => 0b000,
-            3..=5 => 0b001,
-            6..=11 => 0b010,
-            12..=23 => 0b011,
-            24..=47 => 0b100,
-            48..=95 => 0b101,
-            96..=191 => 0b110,
-            _ => 0b111,
-        };
-
-        spi.cr1.write(|w| {
-            w
-                // clock phase from config
-                .cpha()
-                .bit(mode.phase == Phase::CaptureOnSecondTransition)
-                // clock polarity from config
-                .cpol()
-                .bit(mode.polarity == Polarity::IdleHigh)
-                // mstr: master configuration
-                .mstr()
-                .set_bit()
-                // baudrate value
-                .br()
-                .bits(br)
-                // lsbfirst: MSB first
-                .lsbfirst()
-                .clear_bit()
-                // ssm: enable software slave management (NSS pin free for other uses)
-                .ssm()
-                .set_bit()
-                // ssi: set nss high = master mode
-                .ssi()
-                .set_bit()
-                // dff: 16 bit frames
-                .dff()
-                .set_bit()
-                // bidimode: 2-line unidirectional
-                .bidimode()
-                .clear_bit()
-                // both TX and RX are used
-                .rxonly()
-                .clear_bit()
-                // spe: enable the SPI bus
-                .spe()
-                .set_bit()
-        });
-
-        Spi {
-            spi,
-            pins,
-            _remap: PhantomData,
-            _framesize: PhantomData,
-        }
-    }
-
     pub fn frame_size_8bit(self) -> Spi<SPI, REMAP, PINS, u8>{
         self.spi.cr1.modify(|_, w| w.spe().clear_bit());
         self.spi.cr1.modify(|_, w| w.dff().clear_bit());
@@ -414,23 +414,16 @@ where
             _framesize: PhantomData,
         }
     }
-
-    #[deprecated(since = "0.6.0", note = "Please use release instead")]
-    pub fn free(self) -> (SPI, PINS) {
-        self.release()
-    }
-    pub fn release(self) -> (SPI, PINS) {
-        (self.spi, self.pins)
-    }
 }
 
-impl<SPI, REMAP, PINS> crate::hal::spi::FullDuplex<u8> for Spi<SPI, REMAP, PINS, u8>
+impl<SPI, REMAP, PINS, FrameSize> crate::hal::spi::FullDuplex<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize>
 where
     SPI: Deref<Target = SpiRegisterBlock>,
+    FrameSize: Copy
 {
     type Error = Error;
 
-    fn read(&mut self) -> nb::Result<u8, Error> {
+    fn read(&mut self) -> nb::Result<FrameSize, Error> {
         let sr = self.spi.sr.read();
 
         Err(if sr.ovr().bit_is_set() {
@@ -442,13 +435,13 @@ where
         } else if sr.rxne().bit_is_set() {
             // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
             // reading a half-word)
-            return Ok(unsafe { ptr::read_volatile(&self.spi.dr as *const _ as *const u8) });
+            return Ok(self.read_data_reg());
         } else {
             nb::Error::WouldBlock
         })
     }
 
-    fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
+    fn send(&mut self, data: FrameSize) -> nb::Result<(), Error> {
         let sr = self.spi.sr.read();
 
         Err(if sr.ovr().bit_is_set() {
@@ -459,7 +452,7 @@ where
             nb::Error::Other(Error::Crc)
         } else if sr.txe().bit_is_set() {
             // NOTE(write_volatile) see note above
-            unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, byte) }
+            self.write_data_reg(data);
             return Ok(());
         } else {
             nb::Error::WouldBlock
@@ -467,56 +460,9 @@ where
     }
 }
 
-impl<SPI, REMAP, PINS> crate::hal::spi::FullDuplex<u16> for Spi<SPI, REMAP, PINS, u16>
-where
+impl<SPI, REMAP, PINS, FrameSize> crate::hal::blocking::spi::transfer::Default<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize> where
     SPI: Deref<Target = SpiRegisterBlock>,
-{
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u16, Error> {
-        let sr = self.spi.sr.read();
-
-        Err(if sr.ovr().bit_is_set() {
-            nb::Error::Other(Error::Overrun)
-        } else if sr.modf().bit_is_set() {
-            nb::Error::Other(Error::ModeFault)
-        } else if sr.crcerr().bit_is_set() {
-            nb::Error::Other(Error::Crc)
-        } else if sr.rxne().bit_is_set() {
-            // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
-            // reading a half-word)
-            return Ok(unsafe { ptr::read_volatile(&self.spi.dr as *const _ as *const u16) });
-        } else {
-            nb::Error::WouldBlock
-        })
-    }
-
-    fn send(&mut self, byte: u16) -> nb::Result<(), Error> {
-        let sr = self.spi.sr.read();
-
-        Err(if sr.ovr().bit_is_set() {
-            nb::Error::Other(Error::Overrun)
-        } else if sr.modf().bit_is_set() {
-            nb::Error::Other(Error::ModeFault)
-        } else if sr.crcerr().bit_is_set() {
-            nb::Error::Other(Error::Crc)
-        } else if sr.txe().bit_is_set() {
-            // NOTE(write_volatile) see note above
-            unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u16, byte) }
-            return Ok(());
-        } else {
-            nb::Error::WouldBlock
-        })
-    }
-}
-
-impl<SPI, REMAP, PINS> crate::hal::blocking::spi::transfer::Default<u8> for Spi<SPI, REMAP, PINS, u8> where
-    SPI: Deref<Target = SpiRegisterBlock>
-{
-}
-
-impl<SPI, REMAP, PINS> crate::hal::blocking::spi::transfer::Default<u16> for Spi<SPI, REMAP, PINS, u16> where
-    SPI: Deref<Target = SpiRegisterBlock>
+    FrameSize: Copy
 {
 }
 
@@ -531,41 +477,7 @@ where
     // default Write<> implementation (which reads and drops each
     // received value)
     fn write(&mut self, words: &[u8]) -> Result<(), Error> {
-        // Write each word when the tx buffer is empty
-        for word in words {
-            loop {
-                let sr = self.spi.sr.read();
-                if sr.txe().bit_is_set() {
-                    // NOTE(write_volatile) see note above
-                    unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, *word) }
-                    if sr.modf().bit_is_set() {
-                        return Err(Error::ModeFault);
-                    }
-                    break;
-                }
-            }
-        }
-        // Wait for final TXE
-        loop {
-            let sr = self.spi.sr.read();
-            if sr.txe().bit_is_set() {
-                break;
-            }
-        }
-        // Wait for final !BSY
-        loop {
-            let sr = self.spi.sr.read();
-            if !sr.bsy().bit_is_set() {
-                break;
-            }
-        }
-        // Clear OVR set due to dropped received values
-        // NOTE(read_volatile) see note above
-        unsafe {
-            let _ = ptr::read_volatile(&self.spi.dr as *const _ as *const u8);
-        }
-        let _ = self.spi.sr.read();
-        Ok(())
+        self.write_fast(words)
     }
 }
 
@@ -575,46 +487,8 @@ where
 {
     type Error = Error;
 
-    // Implement write as per the "Transmit only procedure" page 712
-    // of RM0008 Rev 20. This is more than twice as fast as the
-    // default Write<> implementation (which reads and drops each
-    // received value)
     fn write(&mut self, words: &[u16]) -> Result<(), Error> {
-        // Write each word when the tx buffer is empty
-        for word in words {
-            loop {
-                let sr = self.spi.sr.read();
-                if sr.txe().bit_is_set() {
-                    // NOTE(write_volatile) see note above
-                    unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u16, *word) }
-                    if sr.modf().bit_is_set() {
-                        return Err(Error::ModeFault);
-                    }
-                    break;
-                }
-            }
-        }
-        // Wait for final TXE
-        loop {
-            let sr = self.spi.sr.read();
-            if sr.txe().bit_is_set() {
-                break;
-            }
-        }
-        // Wait for final !BSY
-        loop {
-            let sr = self.spi.sr.read();
-            if !sr.bsy().bit_is_set() {
-                break;
-            }
-        }
-        // Clear OVR set due to dropped received values
-        // NOTE(read_volatile) see note above
-        unsafe {
-            let _ = ptr::read_volatile(&self.spi.dr as *const _ as *const u16);
-        }
-        let _ = self.spi.sr.read();
-        Ok(())
+        self.write_fast(words)
     }
 }
 
