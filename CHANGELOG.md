@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 MonoTimer now takes ownership of the DCB register
 
+### Added
+
+- Add 16 bit dataframe size for `SPI`
+
 ### Fixed
 
 - Fix MonoTimer not working in debug mode. 
