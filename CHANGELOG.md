@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Breaking changes
 
-MonoTimer now takes ownership of the DCB register
+- MonoTimer now takes ownership of the DCB register
+- SPI objects now have a `FrameSize` type field
 
 ### Added
 
