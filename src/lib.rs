@@ -144,10 +144,7 @@ pub mod afio;
 pub mod backup_domain;
 #[cfg(feature = "device-selected")]
 pub mod bb;
-#[cfg(all(
-    feature = "device-selected",
-    any(feature = "stm32f103", feature = "connectivity")
-))]
+#[cfg(all(feature = "device-selected", feature = "has-can"))]
 pub mod can;
 #[cfg(feature = "device-selected")]
 pub mod crc;

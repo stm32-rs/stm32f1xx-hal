@@ -78,7 +78,7 @@ doc = []
 rt = ["stm32f1/rt"]
 stm32f100 = ["stm32f1/stm32f100", "device-selected"]
 stm32f101 = ["stm32f1/stm32f101", "device-selected"]
-stm32f103 = ["stm32f1/stm32f103", "device-selected"]
+stm32f103 = ["stm32f1/stm32f103", "device-selected", "has-can"]
 stm32f105 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
 stm32f107 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
 
@@ -89,7 +89,9 @@ high = ["medium"]
 # Devices with 768 Kb ROM or more
 xl = ["high"]
 # Connectivity line devices (`stm32f105xx` and `stm32f107xx`)
-connectivity = ["medium"]
+connectivity = ["medium", "has-can"]
+# Devices with CAN interface
+has-can = []
 
 [profile.dev]
 incremental = false
@@ -138,7 +140,7 @@ required-features = ["connectivity"]
 
 [[example]]
 name = "can-loopback"
-required-features = ["stm32f103", "stm32f105", "stm32f107"]
+required-features = ["has-can"]
 
 [[example]]
 name = "can-rtfm"
