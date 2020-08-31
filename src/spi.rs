@@ -231,7 +231,7 @@ pub type SpiRegisterBlock = crate::pac::spi1::RegisterBlock;
 pub trait SpiReadWrite<T> {
     fn read_data_reg(&mut self) -> T;
     fn write_data_reg(&mut self, data: T);
-    fn write_fast(&mut self, words: &[T]) -> Result<(), Error>;
+    fn spi_write(&mut self, words: &[T]) -> Result<(), Error>;
 }
 
 impl<SPI, REMAP, PINS, FrameSize> SpiReadWrite<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize>
@@ -254,7 +254,7 @@ where
     // of RM0008 Rev 20. This is more than twice as fast as the
     // default Write<> implementation (which reads and drops each
     // received value)
-    fn write_fast(&mut self, words: &[FrameSize]) -> Result<(), Error> {
+    fn spi_write(&mut self, words: &[FrameSize]) -> Result<(), Error> {
         // Write each word when the tx buffer is empty
         for word in words {
             loop {
@@ -481,7 +481,7 @@ where
     // default Write<> implementation (which reads and drops each
     // received value)
     fn write(&mut self, words: &[u8]) -> Result<(), Error> {
-        self.write_fast(words)
+        self.spi_write(words)
     }
 }
 
@@ -492,7 +492,7 @@ where
     type Error = Error;
 
     fn write(&mut self, words: &[u16]) -> Result<(), Error> {
-        self.write_fast(words)
+        self.spi_write(words)
     }
 }
 
