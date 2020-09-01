@@ -47,7 +47,7 @@
   | CH4 |     PB9     |    PD15   |
 */
 
-use crate::hal::timer::{CountDown, Periodic};
+use crate::hal::timer::{Cancel, CountDown, Periodic};
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
@@ -81,6 +81,12 @@ use crate::time::Hertz;
 pub enum Event {
     /// Timer timed out / count down ended
     Update,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Error {
+    /// Timer is canceled
+    Canceled,
 }
 
 pub struct Timer<TIM> {
@@ -255,6 +261,19 @@ impl CountDown for CountDownTimer<SYST> {
     }
 }
 
+impl Cancel for CountDownTimer<SYST> {
+    type Error = Error;
+
+    fn cancel(&mut self) -> Result<(), Self::Error> {
+        if !self.tim.is_counter_enabled() {
+            return Err(Self::Error::Canceled);
+        }
+
+        self.tim.disable_counter();
+        Ok(())
+    }
+}
+
 impl Periodic for CountDownTimer<SYST> {}
 
 macro_rules! hal {
@@ -404,6 +423,22 @@ macro_rules! hal {
                         self.clear_update_interrupt_flag();
                         Ok(())
                     }
+                }
+            }
+
+            impl Cancel for CountDownTimer<$TIMX>
+            {
+                type Error = Error;
+
+                fn cancel(&mut self) -> Result<(), Self::Error> {
+                    let is_counter_enabled = self.tim.cr1.read().cen().is_enabled();
+                    if !is_counter_enabled {
+                        return Err(Self::Error::Canceled);
+                    }
+
+                    // disable counter
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                    Ok(())
                 }
             }
 
