@@ -20,6 +20,7 @@ MonoTimer now takes ownership of the DCB register
 ### Added
 
 - Add runtime-reconfigurable GPIO pins
+- Added support for writing/reading/erasing onboard flash
 
 ### Fixed
 

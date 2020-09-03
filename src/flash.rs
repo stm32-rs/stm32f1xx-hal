@@ -121,7 +121,7 @@ impl<'a> FlashWriter<'a> {
         }
     }
 
-    /// Erase sector which contains start_offset
+    /// Erase sector which contains `start_offset`
     pub fn page_erase(&mut self, start_offset: u32) -> Result<()> {
         self.valid_address(start_offset)?;
 
@@ -183,7 +183,7 @@ impl<'a> FlashWriter<'a> {
         }
     }
 
-    /// Erase the Flash Sectors from FLASH_START + start_offset to length
+    /// Erase the Flash Sectors from `FLASH_START + start_offset` to `length`
     pub fn erase(&mut self, start_offset: u32, length: usize) -> Result<()> {
         self.valid_length(start_offset, length)?;
 
@@ -198,7 +198,7 @@ impl<'a> FlashWriter<'a> {
         Ok(())
     }
 
-    /// Retrieve an slice of data from FLASH_START +offset
+    /// Retrieve a slice of data from `FLASH_START + offset`
     pub fn read(&self, offset: u32, length: usize) -> Result<&[u8]> {
         self.valid_address(offset)?;
 
@@ -218,7 +218,7 @@ impl<'a> FlashWriter<'a> {
         )
     }
 
-    /// Write data to FLASH_START +offset
+    /// Write data to `FLASH_START + offset`
     pub fn write(&mut self, offset: u32, data: &[u8]) -> Result<()> {
         self.valid_length(offset, data.len())?;
 
