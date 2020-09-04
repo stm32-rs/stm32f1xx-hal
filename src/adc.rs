@@ -18,8 +18,24 @@ use crate::pac::ADC3;
 
 /// Continuous mode
 pub struct Continuous;
-/// Scan mode
-pub struct Scan;
+/// Single conversion mode
+pub struct Single;
+
+pub trait ConversionMode {
+    fn is_continuous() -> bool;
+}
+
+impl ConversionMode for Continuous {
+    fn is_continuous() -> bool {
+        true
+    }
+}
+
+impl ConversionMode for Single {
+    fn is_continuous() -> bool {
+        false
+    }
+}
 
 /// ADC configuration
 pub struct Adc<ADC> {
@@ -344,6 +360,11 @@ macro_rules! adc_hal {
                     self.rb.sqr1.modify(|_, w| w.l().bits((len-1) as u8));
                 }
 
+                #[allow(unused)]
+                fn sequence_len(&self) -> usize {
+                    self.rb.sqr1.read().l().bits() as usize + 1
+                }
+
                 /**
                   Performs an ADC conversion
 
@@ -567,7 +588,7 @@ impl<PINS> TransferPayload for AdcDma<PINS, Continuous> {
     }
 }
 
-impl<PINS> TransferPayload for AdcDma<PINS, Scan> {
+impl<PINS> TransferPayload for AdcDma<PINS, Single> {
     fn start(&mut self) {
         self.channel.start();
         self.payload.adc.rb.cr2.modify(|_, w| w.adon().set_bit());
@@ -601,7 +622,7 @@ impl Adc<ADC1> {
         }
     }
 
-    pub fn with_scan_dma<PINS>(mut self, pins: PINS, dma_ch: C1) -> AdcDma<PINS, Scan>
+    pub fn with_scan_dma<PINS, T>(mut self, pins: PINS, dma_ch: C1) -> AdcDma<PINS, T>
     where
         Self: SetChannels<PINS>,
     {
@@ -651,7 +672,7 @@ where
     }
 }
 
-impl<PINS> AdcDma<PINS, Scan>
+impl<PINS> AdcDma<PINS, Single>
 where
     Self: TransferPayload,
 {
@@ -709,15 +730,29 @@ impl<B, PINS, MODE> crate::dma::ReadDma<B, u16> for AdcDma<PINS, MODE>
 where
     Self: TransferPayload,
     B: as_slice::AsMutSlice<Element = u16>,
+    MODE: ConversionMode,
 {
     fn read(mut self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self> {
         {
             let buffer = buffer.as_mut_slice();
+
+            let conversion_len = if MODE::is_continuous() {
+                buffer.len()
+            } else {
+                // for non-continous conversion, conversion sequence length should match with DMA
+                // transfer length, to prevent DMA from waiting for a conversion indefinitely
+                let sequence_len = self.payload.adc.sequence_len();
+                if buffer.len() < sequence_len {
+                    panic!("short buffer on ADC conversion: buffer.len()={:?}, adc.seqeuence_len()={:?}", buffer.len(), sequence_len);
+                }
+                sequence_len
+            };
+
             self.channel
                 .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
             self.channel
                 .set_memory_address(buffer.as_ptr() as u32, true);
-            self.channel.set_transfer_length(buffer.len());
+            self.channel.set_transfer_length(conversion_len);
         }
         atomic::compiler_fence(Ordering::Release);
         self.channel.ch().cr.modify(|_, w| {
