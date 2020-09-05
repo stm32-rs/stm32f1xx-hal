@@ -344,6 +344,17 @@ macro_rules! adc_hal {
                     self.rb.sqr1.modify(|_, w| w.l().bits((len-1) as u8));
                 }
 
+                fn set_continuous_mode(&mut self, continuous: bool) {
+                    self.rb.cr2.modify(|_, w| w.cont().bit(continuous));
+                }
+
+                fn set_discontinuous_mode(&mut self, channels_count: Option<u8>) {
+                    self.rb.cr1.modify(|_, w| match channels_count {
+                        Some(count) => w.discen().set_bit().discnum().bits(count),
+                        None => w.discen().clear_bit(),
+                    });
+                }
+
                 /**
                   Performs an ADC conversion
 
@@ -396,6 +407,14 @@ macro_rules! adc_hal {
                 #[inline(always)]
                 fn set_regular_sequence (&mut self, channels: &[u8]) {
                     self.set_regular_sequence(channels);
+                }
+                #[inline(always)]
+                fn set_continuous_mode(&mut self, continuous: bool) {
+                    self.set_continuous_mode(continuous);
+                }
+                #[inline(always)]
+                fn set_discontinuous_mode(&mut self, channels: Option<u8>) {
+                    self.set_discontinuous_mode(channels);
                 }
             }
 
@@ -526,6 +545,14 @@ pub trait ChannelTimeSequence {
     ///
     /// Define a sequence of channels to be converted as a regular group.
     fn set_regular_sequence(&mut self, channels: &[u8]);
+    /// Set ADC continuous conversion
+    ///
+    /// When continuous conversion is enabled conversion does not stop at the last selected group channel but continues again from the first selected group channel.
+    fn set_continuous_mode(&mut self, continuous: bool);
+    /// Set ADC discontinuous mode
+    ///
+    /// It can be used to convert a short sequence of conversions (up to 8) which is a part of the regular sequence of conversions.
+    fn set_discontinuous_mode(&mut self, channels_count: Option<u8>);
 }
 
 /// Set channel sequence and sample times for custom pins
@@ -540,6 +567,10 @@ pub trait ChannelTimeSequence {
 ///     }
 ///     fn set_sequence(&mut self) {
 ///         self.set_regular_sequence(&[0, 2, 0, 2]);
+///         // Optionally we can set continuous scan mode
+///         self.set_continuous_mode(true);
+///         // Also we can use discontinuous conversion (3 channels per conversion)
+///         self.set_discontinuous_mode(Some(3));
 ///     }
 /// }
 /// ```

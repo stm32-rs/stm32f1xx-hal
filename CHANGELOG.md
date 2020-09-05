@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Add 16 bit dataframe size for `SPI`
 
+### Added
+
+- Add support for ADC continuous conversion
+- Add supoort for ADC discontinuous mode
+
 ### Fixed
 
 - Fix MonoTimer not working in debug mode. 
