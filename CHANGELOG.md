@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - Add runtime-reconfigurable GPIO pins
+- Added support for writing/reading/erasing onboard flash
 
 ### Fixed
 
