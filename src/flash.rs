@@ -165,12 +165,12 @@ impl<'a> FlashWriter<'a> {
             if self.verify {
                 // By subtracting 1 from the sector size and masking with
                 // start_offset, we make 'start' point to the beginning of the
-                // page, and similarly 'end' at the end of the page. We do this
-                // because the entire page should have been erased, regardless
-                // of where in the page the given 'start_offset' was.
-                let start = start_offset & !(self.sector_sz.kbytes() as u32 - 1);
-                let end = start + self.sector_sz.kbytes() as u32 - 1;
-                for idx in start..end {
+                // page. We do this because the entire page should have been
+                // erased, regardless of where in the page the given
+                // 'start_offset' was.
+                let size = self.sector_sz.kbytes() as u32;
+                let start = start_offset & !(size - 1);
+                for idx in start..start + size {
                     let write_address = (FLASH_START + idx as u32) as *const u16;
                     let verify: u16 = unsafe { core::ptr::read_volatile(write_address) };
                     if verify != 0xFFFF {
