@@ -144,4 +144,4 @@ required-features = ["has-can"]
 
 [[example]]
 name = "can-rtfm"
-required-features = ["connectivity", "rt"]
+required-features = ["has-can", "rt"]

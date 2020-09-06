@@ -24,7 +24,7 @@ use panic_halt as _;
 use rtfm::app;
 use stm32f1xx_hal::{
     can::{Can, Filter, Frame, Id, Rx, Tx},
-    pac::{Interrupt, CAN2},
+    pac::{Interrupt, CAN1},
     prelude::*,
 };
 
@@ -41,10 +41,10 @@ fn alloc_frame(id: Id, data: &[u8]) -> Box<CanFramePool, Init> {
 #[app(device = stm32f1xx_hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
-        can_tx: Tx<CAN2>,
+        can_tx: Tx<CAN1>,
         can_tx_queue: BinaryHeap<Box<CanFramePool>, U8, Min>,
         tx_count: usize,
-        can_rx: Rx<CAN2>,
+        can_rx: Rx<CAN1>,
     }
 
     #[init]
@@ -56,38 +56,41 @@ const APP: () = {
         let mut flash = cx.device.FLASH.constrain();
         let mut rcc = cx.device.RCC.constrain();
 
-        rcc.cfgr
+        let _clocks = rcc
+            .cfgr
             .use_hse(8.mhz())
-            .sysclk(72.mhz())
-            .hclk(72.mhz())
-            .pclk1(36.mhz())
-            .pclk2(72.mhz())
+            .sysclk(64.mhz())
+            .hclk(64.mhz())
+            .pclk1(16.mhz())
+            .pclk2(64.mhz())
             .freeze(&mut flash.acr);
 
-        let mut can2 = Can::new(cx.device.CAN2, &mut rcc.apb1);
+        #[cfg(not(feature = "connectivity"))]
+        let mut can = Can::new(cx.device.CAN1, &mut rcc.apb1, cx.device.USB);
 
-        // Select pins for CAN2.
-        let mut gpiob = cx.device.GPIOB.split(&mut rcc.apb2);
-        let can_rx_pin = gpiob.pb5.into_floating_input(&mut gpiob.crl);
-        let can_tx_pin = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
+        #[cfg(feature = "connectivity")]
+        let mut can = Can::new(cx.device.CAN1, &mut rcc.apb1);
+
+        // Select pins for CAN1.
+        let mut gpioa = cx.device.GPIOA.split(&mut rcc.apb2);
+        let can_rx_pin = gpioa.pa11.into_floating_input(&mut gpioa.crh);
+        let can_tx_pin = gpioa.pa12.into_alternate_push_pull(&mut gpioa.crh);
         let mut afio = cx.device.AFIO.constrain(&mut rcc.apb2);
-        can2.assign_pins((can_tx_pin, can_rx_pin), &mut afio.mapr);
+        can.assign_pins((can_tx_pin, can_rx_pin), &mut afio.mapr);
 
-        can2.configure(|config| {
-            // APB1 (PCLK1): 36MHz, Bit rate: 125kBit/s, Sample Point 87.5%
+        can.configure(|config| {
+            // APB1 (PCLK1): 16MHz, Bit rate: 1000kBit/s, Sample Point 87.5%
             // Value was calculated with http://www.bittiming.can-wiki.info/
-            config.set_bit_timing(0x001c_0011);
+            config.set_bit_timing(0x001c_0000);
         });
-
-        // Filters are required to use the receiver part of CAN2.
-        // Because the filter banks are part of CAN1 we first need to enable CAN1
-        // and split the filters between the peripherals to use them for CAN2.
-        let mut can1 = Can::new(cx.device.CAN1, &mut rcc.apb1);
-        let (_, mut filters) = can1.split_filters(0).unwrap();
 
         // To share load between FIFOs use one filter for standard messages and another
         // for extended messages. Accept all IDs by setting the mask to 0. Explicitly
         // allow to receive remote frames.
+        #[cfg(not(feature = "connectivity"))]
+        let mut filters = can.split_filters().unwrap();
+        #[cfg(feature = "connectivity")]
+        let (mut filters, _) = can.split_filters(0).unwrap();
         filters
             .add(&Filter::new_standard(0).with_mask(0).allow_remote())
             .unwrap();
@@ -95,17 +98,17 @@ const APP: () = {
             .add(&Filter::new_extended(0).with_mask(0).allow_remote())
             .unwrap();
 
-        let mut can_rx = can2.take_rx(filters).unwrap();
+        let mut can_rx = can.take_rx(filters).unwrap();
         can_rx.enable_interrupts();
 
-        let mut can_tx = can2.take_tx().unwrap();
+        let mut can_tx = can.take_tx().unwrap();
         can_tx.enable_interrupt();
 
         let can_tx_queue = BinaryHeap::new();
         CanFramePool::grow(CAN_POOL_MEMORY);
 
         // Sync to the bus and start normal operation.
-        can2.enable().ok();
+        can.enable().ok();
 
         init::LateResources {
             can_tx,
@@ -145,7 +148,7 @@ const APP: () = {
         });
 
         // Manually trigger the tx interrupt to start the transmission.
-        rtfm::pend(Interrupt::CAN2_TX);
+        rtfm::pend(Interrupt::USB_HP_CAN_TX);
 
         // Add some higher priority messages when 3 messages have been sent.
         loop {
@@ -187,8 +190,8 @@ const APP: () = {
     }
 
     // This ISR is triggered by each finished frame transmission.
-    #[task(binds = CAN2_TX, resources = [can_tx, can_tx_queue, tx_count])]
-    fn can2_tx(cx: can2_tx::Context) {
+    #[task(binds = USB_HP_CAN_TX, resources = [can_tx, can_tx_queue, tx_count])]
+    fn can_tx(cx: can_tx::Context) {
         let tx = cx.resources.can_tx;
         let tx_queue = cx.resources.can_tx_queue;
 
@@ -218,8 +221,8 @@ const APP: () = {
         }
     }
 
-    #[task(binds = CAN2_RX0, resources = [can_rx, can_tx_queue])]
-    fn can2_rx0(cx: can2_rx0::Context) {
+    #[task(binds =  USB_LP_CAN_RX0, resources = [can_rx, can_tx_queue])]
+    fn can_rx0(cx: can_rx0::Context) {
         // Echo back received packages with correct priority ordering.
         loop {
             match cx.resources.can_rx.receive() {
@@ -235,12 +238,12 @@ const APP: () = {
         }
 
         // Start transmission of the newly queue frames.
-        rtfm::pend(Interrupt::CAN2_TX);
+        rtfm::pend(Interrupt::USB_HP_CAN_TX);
     }
 
-    #[task(binds = CAN2_RX1)]
-    fn can2_rx1(_: can2_rx1::Context) {
+    #[task(binds = CAN_RX1)]
+    fn can_rx1(_: can_rx1::Context) {
         // Jump to the other interrupt handler which handles both RX fifos.
-        rtfm::pend(Interrupt::CAN2_RX0);
+        rtfm::pend(Interrupt::USB_LP_CAN_RX0);
     }
 };
