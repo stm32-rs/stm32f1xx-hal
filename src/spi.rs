@@ -214,6 +214,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     pub fn spi3<F, POS>(
         spi: SPI3,
         pins: PINS,
+        mapr: &mut MAPR,
         mode: Mode,
         freq: F,
         clocks: Clocks,
@@ -224,6 +225,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
         REMAP: Remap<Periph = SPI3>,
         PINS: Pins<REMAP, POS>,
     {
+        mapr.modify_mapr(|_, w| w.spi3_remap().bit(REMAP::REMAP));
         Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
     }
 }
