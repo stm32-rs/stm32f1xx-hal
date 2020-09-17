@@ -41,6 +41,7 @@ use crate::pac::{SPI1, SPI2};
 
 use crate::afio::MAPR;
 use crate::dma::dma1::{C3, C5};
+#[cfg(feature = "connectivity")]
 use crate::dma::dma2::C2;
 use crate::dma::{Static, Transfer, TransferPayload, Transmit, TxDma, R};
 use crate::gpio::gpioa::{PA5, PA6, PA7};
