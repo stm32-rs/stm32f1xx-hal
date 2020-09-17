@@ -77,6 +77,25 @@ use crate::afio;
 use crate::pac::EXTI;
 use crate::rcc::APB2;
 
+/// Slew rates available for Output and relavant AlternateMode Pins
+///
+/// See Table 21 "Output MODE bits" in the reference
+pub enum IOPinSpeed {
+    /// 10Mhz
+    Medium = 0b01, // (yes, this one is "less" then 2Mhz)
+    /// 2Mhz
+    Slow = 0b10,
+    /// // 50Mhz
+    Fast = 0b11,
+}
+
+/// Allow setting of the slew rate of an IO pin
+///
+/// Initially all pins are set to the maximum slew rate
+pub trait OutputSpeed<CR> {
+    fn set_speed(&mut self, cr: &mut CR, speed: IOPinSpeed);
+}
+
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
     /// The to split the GPIO into
@@ -247,6 +266,8 @@ macro_rules! gpio {
                 PinMode,
                 Dynamic,
                 PinModeError,
+                OutputSpeed,
+                IOPinSpeed,
             };
 
             /// GPIO parts
@@ -746,6 +767,26 @@ macro_rules! gpio {
                     #[inline]
                     fn is_set_low(&self) -> Result<bool, Self::Error> {
                         Ok(self._is_set_low())
+                    }
+                }
+
+                impl<MODE> OutputSpeed<$CR> for $PXi<Output<MODE>> {
+                    fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
+                        const OFFSET: u32 = (4 * $i) % 32;
+
+                        cr.cr().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b11 << OFFSET)) | ((speed as u32) << OFFSET))
+                        });
+                    }
+                }
+
+                impl OutputSpeed<$CR> for $PXi<Alternate<PushPull>> {
+                    fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
+                        const OFFSET: u32 = (4 * $i) % 32;
+
+                        cr.cr().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b11 << OFFSET)) | ((speed as u32) << OFFSET))
+                        });
                     }
                 }
 
