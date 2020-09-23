@@ -80,16 +80,16 @@ use crate::afio;
 use crate::pac::EXTI;
 use crate::rcc::APB2;
 
-/// Slew rates available for Output and relavant AlternateMode Pins
+/// Slew rates available for Output and relevant AlternateMode Pins
 ///
 /// See Table 21 "Output MODE bits" in the reference
 pub enum IOPinSpeed {
-    /// 10Mhz
-    Medium = 0b01, // (yes, this one is "less" then 2Mhz)
-    /// 2Mhz
-    Slow = 0b10,
-    /// // 50Mhz
-    Fast = 0b11,
+    /// Slew at 10Mhz
+    Mhz10 = 0b01, // (yes, this one is "less" then 2Mhz)
+    /// Slew at 2Mhz
+    Mhz2  = 0b10,
+    /// Slew at 50Mhz
+    Mhz50 = 0b11,
 }
 
 /// Allow setting of the slew rate of an IO pin
