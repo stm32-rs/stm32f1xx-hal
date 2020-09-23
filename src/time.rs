@@ -28,7 +28,7 @@
 //! ```
 
 use core::ops;
-use cortex_m::peripheral::DWT;
+use cortex_m::peripheral::{DCB, DWT};
 
 use crate::rcc::Clocks;
 
@@ -79,7 +79,7 @@ pub struct KiloHertz(pub u32);
 
 /// Megahertz
 ///
-/// Create a frequency specified in kilohertz.
+/// Create a frequency specified in megahertz.
 ///
 /// See also [`Hertz`] and [`KiloHertz`] for semantically correct ways of creating lower
 /// frequencies.
@@ -227,6 +227,11 @@ impl_arithmetic!(MegaHertz, u32);
 impl_arithmetic!(Bps, u32);
 
 /// A monotonic non-decreasing timer
+///
+/// This uses the timer in the debug watch trace peripheral. This means, that if the
+/// core is stopped, the timer does not count up. This may be relevant if you are using
+/// cortex_m_semihosting::hprintln for debugging in which case the timer will be stopped
+/// while printing
 #[derive(Clone, Copy)]
 pub struct MonoTimer {
     frequency: Hertz,
@@ -234,7 +239,8 @@ pub struct MonoTimer {
 
 impl MonoTimer {
     /// Creates a new `Monotonic` timer
-    pub fn new(mut dwt: DWT, clocks: Clocks) -> Self {
+    pub fn new(mut dwt: DWT, mut dcb: DCB, clocks: Clocks) -> Self {
+        dcb.enable_trace();
         dwt.enable_cycle_counter();
 
         // now the CYCCNT counter can't be stopped or reset

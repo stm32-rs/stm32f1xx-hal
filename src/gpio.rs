@@ -2,12 +2,15 @@
 //!
 //! The GPIO pins are organised into groups of 16 pins which can be accessed through the
 //! `gpioa`, `gpiob`... modules. To get access to the pins, you first need to convert them into a
-//! HAL designed struct from the `pac` struct using the `spilit` function.
+//! HAL designed struct from the `pac` struct using the [split](trait.GpioExt.html#tymethod.split) function.
 //! ```rust
 //! // Acquire the GPIOC peripheral
 //! // NOTE: `dp` is the device peripherals from the `PAC` crate
 //! let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
 //! ```
+//!
+//! See the documentation for [rcc::APB2](../rcc/struct.APB2.html) for details about the input parameter to
+//! `split`.
 //!
 //! This gives you a struct containing two control registers `crl` and `crh`, and all the pins
 //! `px0..px15`. These structs are what you use to interract with the pins to change their modes,

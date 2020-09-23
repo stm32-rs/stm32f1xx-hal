@@ -1,17 +1,6 @@
 /*!
   Real time clock
-
-  A continuously running clock that counts seconds. It is part of the backup domain which means
-  that the counter is not affected by system resets or standby mode. If Vbat is connected, it is
-  not reset even if the rest of the device is powered off. This allows it to be used to wake the
-  CPU when it is in low power mode.
-
-  Since it is part of the backup domain, write access to it must be enabled before the RTC can be
-  used. See `backup_domain` for more details.
-
-  See examples/rtc.rs and examples/blinky_rtc.rs for usage examples.
 */
-
 use crate::pac::{RCC, RTC};
 
 use crate::backup_domain::BackupDomain;
@@ -23,8 +12,22 @@ use core::convert::Infallible;
 const LSE_HERTZ: u32 = 32_768;
 
 /**
-  Interface to the real time clock
+  Real time clock
+
+  A continuously running clock that counts seconds¹. It is part of the backup domain which means
+  that the counter is not affected by system resets or standby mode. If Vbat is connected, it is
+  not reset even if the rest of the device is powered off. This allows it to be used to wake the
+  CPU when it is in low power mode.
+
+
+  See [examples/rtc.rs] and [examples/blinky_rtc.rs] for usage examples.
+
+  1: Unless configured to another frequency using [select_frequency](struct.Rtc.html#method.select_frequency)
+
+  [examples/rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.6.1/examples/rtc.rs
+  [examples/blinky_rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.6.1/examples/blinky_rtc.rs
 */
+
 pub struct Rtc {
     regs: RTC,
 }
@@ -33,6 +36,12 @@ impl Rtc {
     /**
       Initialises the RTC. The `BackupDomain` struct is created by
       `Rcc.bkp.constrain()`.
+
+      The frequency is set to 1 Hz.
+
+      Since the RTC is part of the backup domain, The RTC counter is not reset by normal resets or
+      power cycles where (VBAT) still has power. Use [set_time](#method.set_time) if you want to
+      reset the counter.
     */
     pub fn rtc(regs: RTC, bkp: &mut BackupDomain) -> Self {
         let mut result = Rtc { regs };
@@ -123,7 +132,9 @@ impl Rtc {
         self.clear_alarm_flag();
     }
 
-    /// Enables the RTCALARM interrupt
+    /// Enables the RTC interrupt to trigger when the counter reaches the alarm value. In addition,
+    /// if the EXTI controller has been set up correctly, this function also enables the RTCALARM
+    /// interrupt.
     pub fn listen_alarm(&mut self) {
         // Enable alarm interrupt
         self.perform_write(|s| {
@@ -131,7 +142,7 @@ impl Rtc {
         })
     }
 
-    /// Disables the RTCALARM interrupt
+    /// Stops the RTC alarm from triggering the RTC and RTCALARM interrupts
     pub fn unlisten_alarm(&mut self) {
         // Disable alarm interrupt
         self.perform_write(|s| {
@@ -147,7 +158,7 @@ impl Rtc {
         self.regs.cnth.read().bits() << 16 | self.regs.cntl.read().bits()
     }
 
-    /// Enables the RTC second interrupt
+    /// Enables triggering the RTC interrupt every time the RTC counter is increased
     pub fn listen_seconds(&mut self) {
         self.perform_write(|s| s.regs.crh.modify(|_, w| w.secie().set_bit()))
     }
