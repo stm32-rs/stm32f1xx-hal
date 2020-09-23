@@ -87,7 +87,7 @@ pub enum IOPinSpeed {
     /// Slew at 10Mhz
     Mhz10 = 0b01, // (yes, this one is "less" then 2Mhz)
     /// Slew at 2Mhz
-    Mhz2  = 0b10,
+    Mhz2 = 0b10,
     /// Slew at 50Mhz
     Mhz50 = 0b11,
 }
