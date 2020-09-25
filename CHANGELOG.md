@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Add 16 bit dataframe size for `SPI`
 - Implement `timer::Cancel` trait for `CountDownTimer`
+- Changing Output pin slew rates through the OutputSpeed trait
 
 ### Added
 
