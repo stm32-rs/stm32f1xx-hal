@@ -84,7 +84,7 @@
 //! [README]: https://github.com/stm32-rs/stm32f1xx-hal/tree/v0.6.1
 
 #![no_std]
-#![deny(intra_doc_link_resolution_failure)]
+#![deny(broken_intra_doc_links)]
 
 // If no target specified, print error message.
 #[cfg(not(any(
