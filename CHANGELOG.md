@@ -11,15 +11,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - MonoTimer now takes ownership of the DCB register
 - SPI objects now have a `FrameSize` type field
+- Bit banding functions (`bb::*`) are now correctly marked as unsafe
 
 ### Added
 
 - Add 16 bit dataframe size for `SPI`
 - Implement `timer::Cancel` trait for `CountDownTimer`
 - Changing Output pin slew rates through the OutputSpeed trait
-
-### Added
-
 - Add support for ADC continuous conversion
 - Add supoort for ADC discontinuous mode
 
