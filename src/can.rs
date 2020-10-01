@@ -284,9 +284,9 @@ impl traits::Pins for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {
 
     fn remap(mapr: &mut MAPR) {
         #[cfg(not(feature = "connectivity"))]
-        mapr.modify_mapr(|_, w| unsafe { w.can_remap().bits(0x10) });
+        mapr.modify_mapr(|_, w| unsafe { w.can_remap().bits(0b10) });
         #[cfg(feature = "connectivity")]
-        mapr.modify_mapr(|_, w| unsafe { w.can1_remap().bits(0x10) });
+        mapr.modify_mapr(|_, w| unsafe { w.can1_remap().bits(0b10) });
     }
 }
 
