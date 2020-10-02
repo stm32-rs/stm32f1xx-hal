@@ -454,8 +454,10 @@ where
     ///
     /// Call `Can::enable()` in the ISR when the automatic wake-up is not enabled.
     pub fn enable_wakeup_interrupt(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        bb::set(&can.ier, 16); // WKUIE
+        unsafe {
+            let can = &*Instance::REGISTERS;
+            bb::set(&can.ier, 16); // WKUIE
+        }
     }
 
     /// Clears all state-change interrupt flags.
@@ -722,7 +724,7 @@ where
         }
 
         // Disable the filter bank so it can be modified.
-        bb::clear(&can.fa1r, idx as u8);
+        unsafe { bb::clear(&can.fa1r, idx as u8) };
 
         let filter_bank = &can.fb[idx];
         let fr1 = filter_bank.fr1.read().bits();
@@ -774,7 +776,7 @@ where
 
         filter_bank.fr1.write(|w| unsafe { w.bits(fr1) });
         filter_bank.fr2.write(|w| unsafe { w.bits(fr2) });
-        bb::set(&can.fa1r, idx as u8); // Enable the filter bank
+        unsafe { bb::set(&can.fa1r, idx as u8) }; // Enable the filter bank
         Ok(())
     }
 
@@ -785,7 +787,7 @@ where
         assert!(self.start_idx + self.count <= self.stop_idx);
         for i in self.start_idx..(self.start_idx + self.count) {
             // Bitbanding required because the filters are shared between CAN1 and CAN2
-            bb::clear(&can.fa1r, i as u8);
+            unsafe { bb::clear(&can.fa1r, i as u8) };
         }
         self.count = 0;
     }
@@ -941,14 +943,18 @@ where
     ///
     /// The interrupt flags must be cleared with `Tx::clear_interrupt_flags()`.
     pub fn enable_interrupt(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        bb::set(&can.ier, 0); // TMEIE
+        unsafe {
+            let can = &*Instance::REGISTERS;
+            bb::set(&can.ier, 0); // TMEIE
+        }
     }
 
     /// Disables the transmit interrupt.
     pub fn disable_interrupt(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        bb::clear(&can.ier, 0); // TMEIE
+        unsafe {
+            let can = &*Instance::REGISTERS;
+            bb::clear(&can.ier, 0); // TMEIE
+        }
     }
 
     /// Clears the request complete flag for all mailboxes.
@@ -1017,15 +1023,19 @@ where
     /// Make sure to register interrupt handlers for both.
     /// The interrupt flags are cleared by reading frames with `Rx::receive()`.
     pub fn enable_interrupts(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        bb::set(&can.ier, 1); // FMPIE0
-        bb::set(&can.ier, 4); // FMPIE1
+        unsafe {
+            let can = &*Instance::REGISTERS;
+            bb::set(&can.ier, 1); // FMPIE0
+            bb::set(&can.ier, 4); // FMPIE1
+        }
     }
 
     /// Disables the receive interrupts.
     pub fn disable_interrupts(&mut self) {
-        let can = unsafe { &*Instance::REGISTERS };
-        bb::clear(&can.ier, 1); // FMPIE0
-        bb::clear(&can.ier, 4); // FMPIE1
+        unsafe {
+            let can = &*Instance::REGISTERS;
+            bb::clear(&can.ier, 1); // FMPIE0
+            bb::clear(&can.ier, 4); // FMPIE1
+        }
     }
 }
