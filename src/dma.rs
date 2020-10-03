@@ -361,7 +361,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
