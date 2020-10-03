@@ -9,6 +9,7 @@ use crate::gpio::{gpioa, gpiob, gpioc};
 use crate::rcc::{Clocks, Enable, Reset, APB2};
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
+use embedded_dma::StaticWriteBuffer;
 
 use crate::pac::ADC1;
 #[cfg(feature = "stm32f103")]
@@ -701,16 +702,18 @@ where
 impl<B, PINS, MODE> crate::dma::CircReadDma<B, u16> for AdcDma<PINS, MODE>
 where
     Self: TransferPayload,
-    B: as_slice::AsMutSlice<Element = u16>,
+    &'static mut [B; 2]: StaticWriteBuffer<Word = u16>,
+    B: 'static,
 {
-    fn circ_read(mut self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
+    fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
         {
-            let buffer = buffer[0].as_mut_slice();
+            // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+            // until the end of the transfer.
+            let (ptr, len) = unsafe { buffer.static_write_buffer() };
             self.channel
                 .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
-            self.channel
-                .set_memory_address(buffer.as_ptr() as u32, true);
-            self.channel.set_transfer_length(buffer.len() * 2);
+            self.channel.set_memory_address(ptr as u32, true);
+            self.channel.set_transfer_length(len);
 
             atomic::compiler_fence(Ordering::Release);
 
@@ -739,16 +742,17 @@ where
 impl<B, PINS, MODE> crate::dma::ReadDma<B, u16> for AdcDma<PINS, MODE>
 where
     Self: TransferPayload,
-    B: as_slice::AsMutSlice<Element = u16>,
+    B: StaticWriteBuffer<Word = u16>,
 {
-    fn read(mut self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self> {
+    fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
         {
-            let buffer = buffer.as_mut_slice();
+            // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+            // until the end of the transfer.
+            let (ptr, len) = unsafe { buffer.static_write_buffer() };
             self.channel
                 .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
-            self.channel
-                .set_memory_address(buffer.as_ptr() as u32, true);
-            self.channel.set_transfer_length(buffer.len());
+            self.channel.set_memory_address(ptr as u32, true);
+            self.channel.set_transfer_length(len);
         }
         atomic::compiler_fence(Ordering::Release);
         self.channel.ch().cr.modify(|_, w| {

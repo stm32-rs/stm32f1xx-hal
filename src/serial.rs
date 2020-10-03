@@ -44,10 +44,11 @@ use core::sync::atomic::{self, Ordering};
 
 use crate::pac::{USART1, USART2, USART3};
 use core::convert::Infallible;
+use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
-use crate::dma::{dma1, CircBuffer, RxDma, Static, Transfer, TxDma, R, W};
+use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
@@ -66,6 +67,7 @@ pub enum Event {
 
 /// Serial error
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Framing error
     Framing,
@@ -75,8 +77,6 @@ pub enum Error {
     Overrun,
     /// Parity check error
     Parity,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 // USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
@@ -304,6 +304,7 @@ macro_rules! hal {
 
                     #[allow(unused_unsafe)]
                     mapr.modify_mapr(|_, w| unsafe{
+                            #[allow(clippy::redundant_closure_call)]
                             w.$usartX_remap().$bit(($closure)(PINS::REMAP))
                         });
 
@@ -584,15 +585,21 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma where B: as_slice::AsMutSlice<Element=u8> {
-                fn circ_read(mut self, buffer: &'static mut [B; 2],
+            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
+            where
+                &'static mut [B; 2]: StaticWriteBuffer<Word = u8>,
+                B: 'static,
+            {
+                fn circ_read(mut self, mut buffer: &'static mut [B; 2],
                 ) -> CircBuffer<B, Self>
                 {
                     {
-                        let buffer = buffer[0].as_mut_slice();
+                        // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                        // until the end of the transfer.
+                        let (ptr, len) = unsafe { buffer.static_write_buffer() };
                         self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
-                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
-                        self.channel.set_transfer_length(buffer.len() * 2);
+                        self.channel.set_memory_address(ptr as u32, true);
+                        self.channel.set_transfer_length(len);
 
                         atomic::compiler_fence(Ordering::Release);
 
@@ -612,15 +619,18 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<B> crate::dma::ReadDma<B, u8> for $rxdma where B: as_slice::AsMutSlice<Element=u8> {
-                fn read(mut self, buffer: &'static mut B,
-                ) -> Transfer<W, &'static mut B, Self>
-                {
+            impl<B> crate::dma::ReadDma<B, u8> for $rxdma
+            where
+                B: StaticWriteBuffer<Word = u8>,
+            {
+                fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
                     {
-                        let buffer = buffer.as_mut_slice();
+                        // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                        // until the end of the transfer.
+                        let (ptr, len) = unsafe { buffer.static_write_buffer() };
                         self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
-                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
-                        self.channel.set_transfer_length(buffer.len());
+                        self.channel.set_memory_address(ptr as u32, true);
+                        self.channel.set_transfer_length(len);
                     }
                     atomic::compiler_fence(Ordering::Release);
                     self.channel.ch().cr.modify(|_, w| { w
@@ -637,17 +647,20 @@ macro_rules! serialdma {
                 }
             }
 
-            impl<A, B> crate::dma::WriteDma<A, B, u8> for $txdma where A: as_slice::AsSlice<Element=u8>, B: Static<A> {
-                fn write(mut self, buffer: B
-                ) -> Transfer<R, B, Self>
-                {
+            impl<B> crate::dma::WriteDma<B, u8> for $txdma
+            where
+                B: StaticReadBuffer<Word = u8>,
+            {
+                fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
                     {
-                        let buffer = buffer.borrow().as_slice();
+                        // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                        // until the end of the transfer.
+                        let (ptr, len) = unsafe { buffer.static_read_buffer() };
 
                         self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
 
-                        self.channel.set_memory_address(buffer.as_ptr() as u32, true);
-                        self.channel.set_transfer_length(buffer.len());
+                        self.channel.set_memory_address(ptr as u32, true);
+                        self.channel.set_transfer_length(len);
                     }
 
                     atomic::compiler_fence(Ordering::Release);

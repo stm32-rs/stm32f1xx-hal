@@ -43,7 +43,7 @@ use crate::afio::MAPR;
 use crate::dma::dma1::{C3, C5};
 #[cfg(feature = "connectivity")]
 use crate::dma::dma2::C2;
-use crate::dma::{Static, Transfer, TransferPayload, Transmit, TxDma, R};
+use crate::dma::{Transfer, TransferPayload, Transmit, TxDma, R};
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
@@ -53,11 +53,11 @@ use crate::rcc::{Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
-
-use as_slice::AsSlice;
+use embedded_dma::StaticReadBuffer;
 
 /// SPI error
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Overrun occurred
     Overrun,
@@ -65,8 +65,6 @@ pub enum Error {
     ModeFault,
     /// CRC error
     Crc,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 use core::marker::PhantomData;
@@ -246,7 +244,7 @@ where
     fn read_data_reg(&mut self) -> FrameSize {
         // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
         // reading a half-word)
-        return unsafe { ptr::read_volatile(&self.spi.dr as *const _ as *const FrameSize) };
+        unsafe { ptr::read_volatile(&self.spi.dr as *const _ as *const FrameSize) }
     }
 
     fn write_data_reg(&mut self, data: FrameSize) {
@@ -541,21 +539,21 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<A, B, REMAP, PIN> crate::dma::WriteDma<A, B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
+        impl<B, REMAP, PIN> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
         where
-            A: AsSlice<Element = u8>,
-            B: Static<A>,
+            B: StaticReadBuffer<Word = u8>,
         {
             fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
                 {
-                    let buffer = buffer.borrow().as_slice();
+                    // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                    // until the end of the transfer.
+                    let (ptr, len) = unsafe { buffer.static_read_buffer() };
                     self.channel.set_peripheral_address(
                         unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
                         false,
                     );
-                    self.channel
-                        .set_memory_address(buffer.as_ptr() as u32, true);
-                    self.channel.set_transfer_length(buffer.len());
+                    self.channel.set_memory_address(ptr as u32, true);
+                    self.channel.set_transfer_length(len);
                 }
                 atomic::compiler_fence(Ordering::Release);
                 self.channel.ch().cr.modify(|_, w| {
