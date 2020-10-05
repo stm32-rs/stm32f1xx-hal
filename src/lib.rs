@@ -130,10 +130,12 @@ pub use stm32f1::stm32f107 as pac;
 
 #[cfg(feature = "device-selected")]
 #[deprecated(since = "0.6.0", note = "please use `pac` instead")]
+#[doc(hidden)]
 pub use crate::pac as device;
 
 #[cfg(feature = "device-selected")]
 #[deprecated(since = "0.6.0", note = "please use `pac` instead")]
+#[doc(hidden)]
 pub use crate::pac as stm32;
 
 #[cfg(feature = "device-selected")]
