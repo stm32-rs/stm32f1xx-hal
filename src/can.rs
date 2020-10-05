@@ -66,7 +66,7 @@ impl Id {
 
     /// Creates a new standard identifier (11bit, Range: 0..0x7FF)
     ///
-    /// IDs outside the allowed range are silently truncated.
+    /// Panics for IDs outside the allowed range.
     pub fn new_standard(id: u32) -> Self {
         assert!(id < 0x7FF);
         Self(id << Self::STANDARD_SHIFT)
@@ -74,7 +74,7 @@ impl Id {
 
     /// Creates a new extendended identifier (29bit , Range: 0..0x1FFFFFFF).
     ///
-    /// IDs outside the allowed range are silently truncated.
+    /// Panics for IDs outside the allowed range.
     pub fn new_extended(id: u32) -> Id {
         assert!(id < 0x1FFF_FFFF);
         Self(id << Self::EXTENDED_SHIFT | Self::IDE_MASK)
@@ -207,7 +207,7 @@ impl Frame {
 
     /// Returns the data length code (DLC) which is in the range 0..8.
     ///
-    /// For data frames the DLC value always matches the lenght of the data.
+    /// For data frames the DLC value always matches the length of the data.
     /// Remote frames no not carry any data, yet the DLC can be greater than 0.
     pub fn dlc(&self) -> usize {
         self.dlc
@@ -522,7 +522,8 @@ impl Can<CAN1> {
     /// `fm1r` in combination with `fs1r` sets the filter bank layout. The correct
     /// `Filters::add_*()` function must be used.
     /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
-    /// More details can be found in the reference manual of the device.
+    /// More details can be found in  the reference manual (Section 24.7.4
+    /// Identifier filtering, Filter bank scale and mode configuration).
     #[cfg(not(feature = "connectivity"))]
     pub fn split_filters_advanced(
         &mut self,
@@ -813,7 +814,7 @@ where
     /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
     ///
     /// Frames are transmitted to the bus based on their priority (identifier).
-    /// Transmit order is preserved for frames with of identifiers.
+    /// Transmit order is preserved for frames with identical identifiers.
     /// If all transmit mailboxes are full, a higher priority frame replaces the
     /// lowest priority frame, which is returned as `Ok(Some(frame))`.
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {

@@ -22,7 +22,7 @@ fn main() -> ! {
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
 
-    // To meet CAN clock accuracy requirements an external crystal or ceramic
+    // To meet CAN clock accuracy requirements, an external crystal or ceramic
     // resonator must be used.
     rcc.cfgr.use_hse(8.mhz()).freeze(&mut flash.acr);
 

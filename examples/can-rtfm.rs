@@ -51,8 +51,6 @@ const APP: () = {
     fn init(cx: init::Context) -> init::LateResources {
         static mut CAN_POOL_MEMORY: [u8; 256] = [0; 256];
 
-        unsafe { cx.core.SCB.vtor.write(0x0800_0000) };
-
         let mut flash = cx.device.FLASH.constrain();
         let mut rcc = cx.device.RCC.constrain();
 

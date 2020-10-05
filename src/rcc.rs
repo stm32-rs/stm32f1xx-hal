@@ -650,7 +650,6 @@ bus! {
 }
 #[cfg(feature = "connectivity")]
 bus! {
-    ADC2 => (APB2, adc2en, adc2rst),
     CAN1 => (APB1, can1en, can1rst),
     CAN2 => (APB1, can2en, can2rst),
 }
