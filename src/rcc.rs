@@ -648,6 +648,10 @@ bus! {
     ADC2 => (APB2, adc2en, adc2rst),
     CAN1 => (APB1, canen, canrst),
 }
+#[cfg(feature = "connectivity")]
+bus! {
+    ADC2 => (APB2, adc2en, adc2rst),
+}
 #[cfg(all(feature = "stm32f103", feature = "high",))]
 bus! {
     ADC3 => (APB2, adc3en, adc3rst),
