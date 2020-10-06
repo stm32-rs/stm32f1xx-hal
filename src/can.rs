@@ -40,6 +40,27 @@ use core::{
     marker::PhantomData,
 };
 
+/// CAN Identifier
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Id {
+    /// Standard 11bit Identifier (0..=0x7FF)
+    Standard(u32),
+
+    /// Extended 29bit Identifier (0..=0x1FFF_FFFF)
+    Extended(u32),
+}
+
+impl Id {
+    /// Returs true when the identifier is valid, false otherwise.
+    pub fn valid(self) -> bool {
+        match self {
+            Id::Standard(id) if id <= 0x7FF => true,
+            Id::Extended(id) if id <= 0x1FFF_FFFF => true,
+            _ => false,
+        }
+    }
+}
+
 /// Identifier of a CAN message.
 ///
 /// Can be either a standard identifier (11bit, Range: 0..0x3FF) or a
@@ -51,9 +72,9 @@ use core::{
 /// have a higher priority than extended frames and data frames have a higher
 /// priority than remote frames.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Id(u32);
+struct IdReg(u32);
 
-impl Id {
+impl IdReg {
     const STANDARD_SHIFT: u32 = 21;
     const STANDARD_MASK: u32 = 0x7FF << Self::STANDARD_SHIFT;
 
@@ -75,18 +96,18 @@ impl Id {
     /// Creates a new extendended identifier (29bit , Range: 0..0x1FFFFFFF).
     ///
     /// Panics for IDs outside the allowed range.
-    pub fn new_extended(id: u32) -> Id {
+    fn new_extended(id: u32) -> IdReg {
         assert!(id < 0x1FFF_FFFF);
         Self(id << Self::EXTENDED_SHIFT | Self::IDE_MASK)
     }
 
-    fn from_register(reg: u32) -> Id {
+    fn from_register(reg: u32) -> IdReg {
         Self(reg & 0xFFFF_FFFE)
     }
 
     /// Sets the remote transmission (RTR) flag. This marks the identifier as
     /// being part of a remote frame.
-    fn with_rtr(self, rtr: bool) -> Id {
+    fn with_rtr(self, rtr: bool) -> IdReg {
         if rtr {
             Self(self.0 | Self::RTR_MASK)
         } else {
@@ -95,23 +116,21 @@ impl Id {
     }
 
     /// Returns the identifier.
-    ///
-    /// It is up to the user to check if it is an standard or extended id.
-    pub fn as_u32(self) -> u32 {
+    fn to_id(self) -> Id {
         if self.is_extended() {
-            self.0 >> Self::EXTENDED_SHIFT
+            Id::Extended(self.0 >> Self::EXTENDED_SHIFT)
         } else {
-            self.0 >> Self::STANDARD_SHIFT
+            Id::Standard(self.0 >> Self::STANDARD_SHIFT)
         }
     }
 
     /// Returns `true` if the identifier is an extended identifier.
-    pub fn is_extended(self) -> bool {
+    fn is_extended(self) -> bool {
         self.0 & Self::IDE_MASK != 0
     }
 
     /// Returns `true` if the identifier is a standard identifier.
-    pub fn is_standard(self) -> bool {
+    fn is_standard(self) -> bool {
         !self.is_extended()
     }
 
@@ -121,7 +140,7 @@ impl Id {
     }
 }
 
-impl Ord for Id {
+impl Ord for IdReg {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self.is_standard(), other.is_standard()) {
             (true, false) => Ordering::Less,
@@ -132,7 +151,7 @@ impl Ord for Id {
     }
 }
 
-impl PartialOrd for Id {
+impl PartialOrd for IdReg {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -141,15 +160,22 @@ impl PartialOrd for Id {
 /// A CAN data or remote frame.
 #[derive(Clone, Debug)]
 pub struct Frame {
-    id: Id,
+    id: IdReg,
     dlc: usize,
     data: [u8; 8],
 }
 
 impl Frame {
-    /// Creates a new data frame.
-    pub fn new(id: Id, data: &[u8]) -> Self {
-        assert!(!id.rtr());
+    /// Creates a new frame.
+    pub fn new(id: Id, data: &[u8]) -> Result<Frame, ()> {
+        if !id.valid() || data.len() > 8 {
+            return Err(());
+        }
+
+        let id = match id {
+            Id::Standard(id) => IdReg::new_standard(id),
+            Id::Extended(id) => IdReg::new_extended(id),
+        };
 
         let mut frame = Self {
             id,
@@ -157,27 +183,19 @@ impl Frame {
             data: [0; 8],
         };
         frame.data[0..data.len()].copy_from_slice(data);
-        frame
+        Ok(frame)
     }
 
-    /// Creates a new frame with a standard identifier.
-    pub fn new_standard(id: u32, data: &[u8]) -> Self {
-        Self::new(Id::new_standard(id), data)
-    }
+    /// Creates a new remote frame with configurable data length code (DLC).
+    pub fn new_remote(id: Id, dlc: usize) -> Result<Frame, ()> {
+        if dlc >= 8 {
+            return Err(());
+        }
 
-    /// Creates a new frame with an extended identifier.
-    pub fn new_extended(id: u32, data: &[u8]) -> Self {
-        Self::new(Id::new_extended(id), data)
-    }
-
-    /// Marks the frame as a remote frame with configurable data length code (DLC).
-    ///
-    /// Remote frames do not contain any data, even if the frame was created with a
-    /// non-empty data buffer.
-    pub fn with_rtr(&mut self, dlc: usize) -> &mut Self {
-        self.id = self.id.with_rtr(true);
-        self.dlc = dlc;
-        self
+        let mut frame = Self::new(id, &[])?;
+        frame.dlc = dlc;
+        frame.id.with_rtr(true);
+        Ok(frame)
     }
 
     /// Returns true if this frame is an extended frame
@@ -202,7 +220,7 @@ impl Frame {
 
     /// Returns the frame identifier.
     pub fn id(&self) -> Id {
-        self.id
+        self.id.to_id()
     }
 
     /// Returns the data length code (DLC) which is in the range 0..8.
@@ -226,7 +244,7 @@ impl Frame {
 // Ordering is based on the ID and can be used to sort frames by priority.
 impl Ord for Frame {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.id().cmp(&other.id())
+        self.id.cmp(&other.id)
     }
 }
 
@@ -599,19 +617,17 @@ impl Filter {
         Self { id: 0, mask: 0 }
     }
 
-    /// Creates a filter that accepts frames with the specified standard identifier.
-    pub fn new_standard(id: u32) -> Self {
-        Self {
-            id: id << Id::STANDARD_SHIFT,
-            mask: Id::STANDARD_MASK | Id::IDE_MASK | Id::RTR_MASK,
-        }
-    }
-
-    /// Creates a filter that accepts frames with the extended standard identifier.
-    pub fn new_extended(id: u32) -> Self {
-        Self {
-            id: id << Id::EXTENDED_SHIFT | Id::IDE_MASK,
-            mask: Id::EXTENDED_MASK | Id::IDE_MASK | Id::RTR_MASK,
+    /// Creates a filter that accepts frames with the specified identifier.
+    pub fn new(id: Id) -> Self {
+        match id {
+            Id::Standard(id) => Filter {
+                id: id << IdReg::STANDARD_SHIFT,
+                mask: IdReg::STANDARD_MASK | IdReg::IDE_MASK | IdReg::RTR_MASK,
+            },
+            Id::Extended(id) => Filter {
+                id: id << IdReg::EXTENDED_SHIFT | IdReg::IDE_MASK,
+                mask: IdReg::EXTENDED_MASK | IdReg::IDE_MASK | IdReg::RTR_MASK,
+            },
         }
     }
 
@@ -620,41 +636,43 @@ impl Filter {
     /// A mask of 0 accepts all identifiers.
     pub fn with_mask(&mut self, mask: u32) -> &mut Self {
         if self.is_extended() {
-            self.mask = (self.mask & !Id::EXTENDED_MASK) | (mask << Id::EXTENDED_SHIFT);
+            self.mask = (self.mask & !IdReg::EXTENDED_MASK) | (mask << IdReg::EXTENDED_SHIFT);
         } else {
-            self.mask = (self.mask & !Id::STANDARD_MASK) | (mask << Id::STANDARD_SHIFT);
+            self.mask = (self.mask & !IdReg::STANDARD_MASK) | (mask << IdReg::STANDARD_SHIFT);
         }
         self
     }
 
     /// Makes this filter accept both data and remote frames.
     pub fn allow_remote(&mut self) -> &mut Self {
-        self.mask &= !Id::RTR_MASK;
+        self.mask &= !IdReg::RTR_MASK;
         self
     }
 
     /// Makes this filter accept only remote frames.
     pub fn only_remote(&mut self) -> &mut Self {
-        self.id |= Id::RTR_MASK;
-        self.mask |= Id::RTR_MASK;
+        self.id |= IdReg::RTR_MASK;
+        self.mask |= IdReg::RTR_MASK;
         self
     }
 
     fn is_extended(&self) -> bool {
-        self.id & Id::IDE_MASK != 0
+        self.id & IdReg::IDE_MASK != 0
     }
 
     fn matches_single_id(&self) -> bool {
-        ((self.mask & (Id::IDE_MASK | Id::RTR_MASK)) == (Id::IDE_MASK | Id::RTR_MASK))
+        ((self.mask & (IdReg::IDE_MASK | IdReg::RTR_MASK)) == (IdReg::IDE_MASK | IdReg::RTR_MASK))
             && if self.is_extended() {
-                (self.mask & Id::EXTENDED_MASK) == Id::EXTENDED_MASK
+                (self.mask & IdReg::EXTENDED_MASK) == IdReg::EXTENDED_MASK
             } else {
-                (self.mask & Id::STANDARD_MASK) == Id::STANDARD_MASK
+                (self.mask & IdReg::STANDARD_MASK) == IdReg::STANDARD_MASK
             }
     }
 
     fn reg_to_16bit(reg: u32) -> u32 {
-        (reg & Id::STANDARD_MASK) >> 16 | (reg & Id::IDE_MASK) << 1 | (reg & Id::RTR_MASK) << 3
+        (reg & IdReg::STANDARD_MASK) >> 16
+            | (reg & IdReg::IDE_MASK) << 1
+            | (reg & IdReg::RTR_MASK) << 3
     }
 
     fn id_to_16bit(&self) -> u32 {
@@ -859,7 +877,7 @@ where
 
     /// Returns `Ok` when the mailbox is free or has a lower priority than
     /// identifier than `id`.
-    fn check_priority(&self, idx: usize, id: Id) -> nb::Result<(), Infallible> {
+    fn check_priority(&self, idx: usize, id: IdReg) -> nb::Result<(), Infallible> {
         let can = unsafe { &*Instance::REGISTERS };
 
         // Read the pending frame's id to check its priority.
@@ -868,7 +886,7 @@ where
 
         // Check the priority by comparing the identifiers. But first make sure the
         // frame has not finished transmission (`TXRQ` == 0) in the meantime.
-        if tir.txrq().bit_is_set() && id >= Id::from_register(tir.bits()) {
+        if tir.txrq().bit_is_set() && id >= IdReg::from_register(tir.bits()) {
             // There's a mailbox whose priority is higher or equal
             // the priority of the new frame.
             return Err(nb::Error::WouldBlock);
@@ -901,7 +919,7 @@ where
         if self.abort(idx) {
             // Read back the pending frame.
             let mut pending_frame = Frame {
-                id: Id(mb.tir.read().bits()),
+                id: IdReg(mb.tir.read().bits()),
                 dlc: mb.tdtr.read().dlc().bits() as usize,
                 data: [0; 8],
             };
@@ -1006,7 +1024,7 @@ where
 
         // Read the frame.
         let mut frame = Frame {
-            id: Id(rx.rir.read().bits()),
+            id: IdReg(rx.rir.read().bits()),
             dlc: rx.rdtr.read().dlc().bits() as usize,
             data: [0; 8],
         };
