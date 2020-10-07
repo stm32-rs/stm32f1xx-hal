@@ -706,32 +706,30 @@ where
     B: 'static,
 {
     fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
-        {
-            // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-            // until the end of the transfer.
-            let (ptr, len) = unsafe { buffer.static_write_buffer() };
-            self.channel
-                .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
-            self.channel.set_memory_address(ptr as u32, true);
-            self.channel.set_transfer_length(len);
+        // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+        // until the end of the transfer.
+        let (ptr, len) = unsafe { buffer.static_write_buffer() };
+        self.channel
+            .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
+        self.channel.set_memory_address(ptr as u32, true);
+        self.channel.set_transfer_length(len);
 
-            atomic::compiler_fence(Ordering::Release);
+        atomic::compiler_fence(Ordering::Release);
 
-            self.channel.ch().cr.modify(|_, w| {
-                w.mem2mem()
-                    .clear_bit()
-                    .pl()
-                    .medium()
-                    .msize()
-                    .bits16()
-                    .psize()
-                    .bits16()
-                    .circ()
-                    .set_bit()
-                    .dir()
-                    .clear_bit()
-            });
-        }
+        self.channel.ch().cr.modify(|_, w| {
+            w.mem2mem()
+                .clear_bit()
+                .pl()
+                .medium()
+                .msize()
+                .bits16()
+                .psize()
+                .bits16()
+                .circ()
+                .set_bit()
+                .dir()
+                .clear_bit()
+        });
 
         self.start();
 
@@ -745,15 +743,14 @@ where
     B: StaticWriteBuffer<Word = u16>,
 {
     fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
-        {
-            // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-            // until the end of the transfer.
-            let (ptr, len) = unsafe { buffer.static_write_buffer() };
-            self.channel
-                .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
-            self.channel.set_memory_address(ptr as u32, true);
-            self.channel.set_transfer_length(len);
-        }
+        // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+        // until the end of the transfer.
+        let (ptr, len) = unsafe { buffer.static_write_buffer() };
+        self.channel
+            .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
+        self.channel.set_memory_address(ptr as u32, true);
+        self.channel.set_transfer_length(len);
+
         atomic::compiler_fence(Ordering::Release);
         self.channel.ch().cr.modify(|_, w| {
             w.mem2mem()

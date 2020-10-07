@@ -544,17 +544,16 @@ macro_rules! spi_dma {
             B: StaticReadBuffer<Word = u8>,
         {
             fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
-                {
-                    // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                    // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.static_read_buffer() };
-                    self.channel.set_peripheral_address(
-                        unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
-                        false,
-                    );
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
-                }
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.static_read_buffer() };
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len);
+
                 atomic::compiler_fence(Ordering::Release);
                 self.channel.ch().cr.modify(|_, w| {
                     w

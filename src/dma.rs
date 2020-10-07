@@ -317,6 +317,11 @@ macro_rules! dma {
                             // we need a fence here for the same reason we need one in `Transfer.wait`
                             atomic::compiler_fence(Ordering::Acquire);
 
+                            // `Transfer` needs to have a `Drop` implementation, because we accept
+                            // managed buffers that can free their memory on drop. Because of that
+                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
+                            // and `mem::forget`.
+                            //
                             // NOTE(unsafe) There is no panic branch between getting the resources
                             // and forgetting `self`.
                             unsafe {
@@ -350,6 +355,11 @@ macro_rules! dma {
                             // we need a fence here for the same reason we need one in `Transfer.wait`
                             atomic::compiler_fence(Ordering::Acquire);
 
+                            // `Transfer` needs to have a `Drop` implementation, because we accept
+                            // managed buffers that can free their memory on drop. Because of that
+                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
+                            // and `mem::forget`.
+                            //
                             // NOTE(unsafe) There is no panic branch between getting the resources
                             // and forgetting `self`.
                             unsafe {
