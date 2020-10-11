@@ -183,7 +183,7 @@ const APP: () = {
         // The output can look different if there are other nodes on bus the sending messages.
 
         loop {
-            cortex_m::asm::wfi();
+            cortex_m::asm::nop();
         }
     }
 
@@ -195,26 +195,25 @@ const APP: () = {
 
         tx.clear_interrupt_flags();
 
-        // There is now a free mailbox. Send the next frame if there is still someting
-        // in the queue.
+        // There is now a free mailbox. Try to transmit pending frames until either
+        // the queue is empty or transmission would block the execution of this ISR.
         while let Some(frame) = tx_queue.peek() {
             match tx.transmit(&frame) {
                 Ok(None) => {
+                    // Frame was successfully placed into a transmit buffer.
                     tx_queue.pop();
                     *cx.resources.tx_count += 1;
                 }
-                Ok(pending_frame) => {
+                Ok(Some(pending_frame)) => {
                     // A lower priority frame was replaced with our high priority frame.
                     // Put the low priority frame back in the transmit queue.
                     tx_queue.pop();
-                    if let Some(frame) = pending_frame {
-                        tx_queue
-                            .push(CanFramePool::alloc().unwrap().init(frame))
-                            .unwrap();
-                    }
+                    tx_queue
+                        .push(CanFramePool::alloc().unwrap().init(pending_frame))
+                        .unwrap();
                 }
                 Err(nb::Error::WouldBlock) => break,
-                _ => unreachable!(),
+                Err(_) => unreachable!(),
             }
         }
     }
