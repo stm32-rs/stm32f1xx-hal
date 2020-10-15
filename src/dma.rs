@@ -57,41 +57,41 @@ pub trait TransferPayload {
     fn stop(&mut self);
 }
 /// Read transfer
-pub struct TransferR<BUFFER, PAYLOAD>
+pub struct TransferR<'b, 'p, BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
-    buffer: BUFFER,
-    payload: PAYLOAD,
+    buffer: &'b BUFFER,
+    payload: &'p mut PAYLOAD,
 }
 /// Write transfer
-pub struct TransferW<BUFFER, PAYLOAD>
+pub struct TransferW<'b, 'p, BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
-    buffer: BUFFER,
-    payload: PAYLOAD,
+    buffer: &'b mut BUFFER,
+    payload: &'p mut PAYLOAD,
 }
 
-impl<BUFFER, PAYLOAD> TransferR<BUFFER, PAYLOAD>
+impl<'b, 'p, BUFFER, PAYLOAD> TransferR<'b, 'p, BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
-    pub(crate) fn new(buffer: BUFFER, payload: PAYLOAD) -> Self {
+    pub(crate) fn new(buffer: &'b BUFFER, payload: &'p mut PAYLOAD) -> Self {
         Self { buffer, payload }
     }
 }
 
-impl<BUFFER, PAYLOAD> TransferW<BUFFER, PAYLOAD>
+impl<'b, 'p, BUFFER, PAYLOAD> TransferW<'b, 'p, BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
-    pub(crate) fn new(buffer: BUFFER, payload: PAYLOAD) -> Self {
+    pub(crate) fn new(buffer: &'b mut BUFFER, payload: &'p mut PAYLOAD) -> Self {
         Self { buffer, payload }
     }
 }
 
-impl<BUFFER, PAYLOAD> Drop for TransferR<BUFFER, PAYLOAD>
+impl<'b, 'p, BUFFER, PAYLOAD> Drop for TransferR<'b, 'p, BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<BUFFER, PAYLOAD> Drop for TransferW<BUFFER, PAYLOAD>
+impl<'b, 'p, BUFFER, PAYLOAD> Drop for TransferW<'b, 'p, BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
@@ -124,7 +124,7 @@ macro_rules! dma {
     }),)+) => {
         $(
             pub mod $dmaX {
-                use core::{sync::atomic::{self, Ordering}, ptr, mem};
+                use core::{sync::atomic::{self, Ordering}, ptr};
 
                 use crate::pac::{$DMAX, dma1};
 
@@ -295,7 +295,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> TransferW<BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<'b, 'p, BUFFER, PAYLOAD> TransferW<'b, 'p, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -303,7 +303,7 @@ macro_rules! dma {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
+                        pub fn wait(self) {
                             while !self.is_done() {}
 
                             atomic::compiler_fence(Ordering::Acquire);
@@ -316,24 +316,10 @@ macro_rules! dma {
 
                             // we need a fence here for the same reason we need one in `Transfer.wait`
                             atomic::compiler_fence(Ordering::Acquire);
-
-                            // `Transfer` needs to have a `Drop` implementation, because we accept
-                            // managed buffers that can free their memory on drop. Because of that
-                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
-                            // and `mem::forget`.
-                            //
-                            // NOTE(unsafe) There is no panic branch between getting the resources
-                            // and forgetting `self`.
-                            unsafe {
-                                let buffer = ptr::read(&self.buffer);
-                                let payload = ptr::read(&self.payload);
-                                mem::forget(self);
-                                (buffer, payload)
-                            }
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> TransferR<BUFFER, TxDma<PAYLOAD, $CX>>
+                    impl<'b, 'p, BUFFER, PAYLOAD> TransferR<'b, 'p, BUFFER, TxDma<PAYLOAD, $CX>>
                     where
                         TxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -341,7 +327,7 @@ macro_rules! dma {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
+                        pub fn wait(self) {
                             while !self.is_done() {}
 
                             atomic::compiler_fence(Ordering::Acquire);
@@ -354,24 +340,10 @@ macro_rules! dma {
 
                             // we need a fence here for the same reason we need one in `Transfer.wait`
                             atomic::compiler_fence(Ordering::Acquire);
-
-                            // `Transfer` needs to have a `Drop` implementation, because we accept
-                            // managed buffers that can free their memory on drop. Because of that
-                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
-                            // and `mem::forget`.
-                            //
-                            // NOTE(unsafe) There is no panic branch between getting the resources
-                            // and forgetting `self`.
-                            unsafe {
-                                let buffer = ptr::read(&self.buffer);
-                                let payload = ptr::read(&self.payload);
-                                mem::forget(self);
-                                (buffer, payload)
-                            }
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> TransferW<BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<'b, 'p, BUFFER, PAYLOAD> TransferW<'b, 'p, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -521,7 +493,7 @@ where
     B: StaticWriteBuffer<Word = RS>,
     Self: core::marker::Sized + TransferPayload,
 {
-    fn read(self, buffer: B) -> TransferW<B, Self>;
+    fn read<'b, 'p>(&'p mut self, buffer: &'b mut B) -> TransferW<'b, 'p, B, Self>;
 }
 
 /// Trait for DMA writing from memory to peripheral.
@@ -530,5 +502,5 @@ where
     B: StaticReadBuffer<Word = TS>,
     Self: core::marker::Sized + TransferPayload,
 {
-    fn write(self, buffer: B) -> TransferR<B, Self>;
+    fn write<'b, 'p>(&'p mut self, buffer: &'b B) -> TransferR<'b, 'p, B, Self>;
 }

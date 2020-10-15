@@ -55,10 +55,10 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    let rx = serial.split().1.with_dma(channels.5);
-    let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
+    let mut rx = serial.split().1.with_dma(channels.5);
+    let mut buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
 
-    let t = rx.read(buf);
+    let t = rx.read(&mut buf);
 
     while !t.is_done() {
         let _slice = t.peek();

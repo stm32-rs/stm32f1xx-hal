@@ -55,10 +55,10 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    let rx = serial.split().1.with_dma(channels.5);
-    let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
+    let mut rx = serial.split().1.with_dma(channels.5);
+    let mut buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
 
-    let (_buf, _rx) = rx.read(buf).wait();
+    rx.read(&mut buf).wait();
 
     asm::bkpt();
 

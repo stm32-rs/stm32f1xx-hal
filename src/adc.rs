@@ -742,7 +742,7 @@ where
     Self: TransferPayload,
     B: StaticWriteBuffer<Word = u16>,
 {
-    fn read(mut self, mut buffer: B) -> TransferW<B, Self> {
+    fn read<'b, 'p>(&'p mut self, buffer: &'b mut B) -> TransferW<'b, 'p, B, Self> {
         // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
         // until the end of the transfer.
         let (ptr, len) = unsafe { buffer.static_write_buffer() };

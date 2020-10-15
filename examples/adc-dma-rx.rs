@@ -35,14 +35,14 @@ fn main() -> ! {
     // Configure pa0 as an analog input
     let adc_ch0 = gpioa.pa0.into_analog(&mut gpioa.crl);
 
-    let adc_dma = adc1.with_dma(adc_ch0, dma_ch1);
-    let buf = singleton!(: [u16; 8] = [0; 8]).unwrap();
+    let mut adc_dma = adc1.with_dma(adc_ch0, dma_ch1);
+    let mut buf = singleton!(: [u16; 8] = [0; 8]).unwrap();
 
     // The read method consumes the buf and self, starts the adc and dma transfer and returns a
     // RxDma struct. The wait method consumes the RxDma struct, waits for the whole transfer to be
     // completed and then returns the updated buf and underlying adc_dma struct. For non blocking,
     // one can call the is_done method of RxDma and only call wait after that method returns true.
-    let (_buf, adc_dma) = adc_dma.read(buf).wait();
+    adc_dma.read(&mut buf).wait();
     asm::bkpt();
 
     // Consumes the AdcDma struct, restores adc configuration to previous state and returns the

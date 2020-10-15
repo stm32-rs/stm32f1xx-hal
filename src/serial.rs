@@ -619,7 +619,7 @@ macro_rules! serialdma {
             where
                 B: StaticWriteBuffer<Word = u8>,
             {
-                fn read(mut self, mut buffer: B) -> TransferW<B, Self> {
+                fn read<'b, 'p>(&'p mut self, buffer: &'b mut B) -> TransferW<'b, 'p, B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
                     let (ptr, len) = unsafe { buffer.static_write_buffer() };
@@ -646,7 +646,7 @@ macro_rules! serialdma {
             where
                 B: StaticReadBuffer<Word = u8>,
             {
-                fn write(mut self, buffer: B) -> TransferR<B, Self> {
+                fn write<'b, 'p>(&'p mut self, buffer: &'b B) -> TransferR<'b, 'p, B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
                     let (ptr, len) = unsafe { buffer.static_read_buffer() };

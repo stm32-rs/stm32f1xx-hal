@@ -55,17 +55,17 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    let tx = serial.split().0.with_dma(channels.4);
+    let mut tx = serial.split().0.with_dma(channels.4);
 
-    let (_, tx) = tx.write(b"The quick brown fox").wait();
-
-    asm::bkpt();
-
-    let (_, tx) = tx.write(b" jumps").wait();
+    tx.write(&b"The quick brown fox").wait();
 
     asm::bkpt();
 
-    tx.write(b" over the lazy dog.").wait();
+    tx.write(&b" jumps").wait();
+
+    asm::bkpt();
+
+    tx.write(&b" over the lazy dog.").wait();
 
     asm::bkpt();
 
