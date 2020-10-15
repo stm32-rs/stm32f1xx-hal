@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - SPI objects now have a `FrameSize` type field
 - Bit banding functions (`bb::*`) are now correctly marked as unsafe
 - Add missing remap to `spi3` constructor. Requires a new `mapr` argument.
+- Change DMA API to use embedded-dma traits.
 
 ### Added
 

@@ -1,16 +1,18 @@
 //! # Direct Memory Access
 #![allow(dead_code)]
 
-use core::marker::PhantomData;
-use core::ops;
+use core::{
+    marker::PhantomData,
+    sync::atomic::{compiler_fence, Ordering},
+};
+use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 
 use crate::rcc::AHB;
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     Overrun,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 pub enum Event {
@@ -33,29 +35,17 @@ where
     readable_half: Half,
 }
 
-impl<BUFFER, PAYLOAD> CircBuffer<BUFFER, PAYLOAD> {
+impl<BUFFER, PAYLOAD> CircBuffer<BUFFER, PAYLOAD>
+where
+    &'static mut [BUFFER; 2]: StaticWriteBuffer,
+    BUFFER: 'static,
+{
     pub(crate) fn new(buf: &'static mut [BUFFER; 2], payload: PAYLOAD) -> Self {
         CircBuffer {
             buffer: buf,
             payload,
             readable_half: Half::Second,
         }
-    }
-}
-
-pub trait Static<B> {
-    fn borrow(&self) -> &B;
-}
-
-impl<B> Static<B> for &'static B {
-    fn borrow(&self) -> &B {
-        *self
-    }
-}
-
-impl<B> Static<B> for &'static mut B {
-    fn borrow(&self) -> &B {
-        *self
     }
 }
 
@@ -70,13 +60,19 @@ pub trait TransferPayload {
     fn stop(&mut self);
 }
 
-pub struct Transfer<MODE, BUFFER, PAYLOAD> {
+pub struct Transfer<MODE, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
     _mode: PhantomData<MODE>,
     buffer: BUFFER,
     payload: PAYLOAD,
 }
 
-impl<BUFFER, PAYLOAD> Transfer<R, BUFFER, PAYLOAD> {
+impl<BUFFER, PAYLOAD> Transfer<R, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
     pub(crate) fn r(buffer: BUFFER, payload: PAYLOAD) -> Self {
         Transfer {
             _mode: PhantomData,
@@ -86,7 +82,10 @@ impl<BUFFER, PAYLOAD> Transfer<R, BUFFER, PAYLOAD> {
     }
 }
 
-impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, PAYLOAD> {
+impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
     pub(crate) fn w(buffer: BUFFER, payload: PAYLOAD) -> Self {
         Transfer {
             _mode: PhantomData,
@@ -96,11 +95,13 @@ impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, PAYLOAD> {
     }
 }
 
-impl<BUFFER, PAYLOAD> ops::Deref for Transfer<R, BUFFER, PAYLOAD> {
-    type Target = BUFFER;
-
-    fn deref(&self) -> &BUFFER {
-        &self.buffer
+impl<MODE, BUFFER, PAYLOAD> Drop for Transfer<MODE, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
+    fn drop(&mut self) {
+        self.payload.stop();
+        compiler_fence(Ordering::SeqCst);
     }
 }
 
@@ -123,14 +124,14 @@ macro_rules! dma {
     }),)+) => {
         $(
             pub mod $dmaX {
-                use core::sync::atomic::{self, Ordering};
-                use core::ptr;
+                use core::{sync::atomic::{self, Ordering}, ptr, mem};
 
                 use crate::pac::{$DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
                 use crate::rcc::{AHB, Enable};
 
+                #[allow(clippy::manual_non_exhaustive)]
                 pub struct Channels((), $(pub $CX),+);
 
                 $(
@@ -316,7 +317,19 @@ macro_rules! dma {
                             // we need a fence here for the same reason we need one in `Transfer.wait`
                             atomic::compiler_fence(Ordering::Acquire);
 
-                            (self.buffer, self.payload)
+                            // `Transfer` needs to have a `Drop` implementation, because we accept
+                            // managed buffers that can free their memory on drop. Because of that
+                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
+                            // and `mem::forget`.
+                            //
+                            // NOTE(unsafe) There is no panic branch between getting the resources
+                            // and forgetting `self`.
+                            unsafe {
+                                let buffer = ptr::read(&self.buffer);
+                                let payload = ptr::read(&self.payload);
+                                mem::forget(self);
+                                (buffer, payload)
+                            }
                         }
                     }
 
@@ -342,11 +355,23 @@ macro_rules! dma {
                             // we need a fence here for the same reason we need one in `Transfer.wait`
                             atomic::compiler_fence(Ordering::Acquire);
 
-                            (self.buffer, self.payload)
+                            // `Transfer` needs to have a `Drop` implementation, because we accept
+                            // managed buffers that can free their memory on drop. Because of that
+                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
+                            // and `mem::forget`.
+                            //
+                            // NOTE(unsafe) There is no panic branch between getting the resources
+                            // and forgetting `self`.
+                            unsafe {
+                                let buffer = ptr::read(&self.buffer);
+                                let payload = ptr::read(&self.payload);
+                                mem::forget(self);
+                                (buffer, payload)
+                            }
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -480,27 +505,30 @@ pub trait Transmit {
     type ReceivedWord;
 }
 
+/// Trait for circular DMA readings from peripheral to memory.
 pub trait CircReadDma<B, RS>: Receive
 where
-    B: as_slice::AsMutSlice<Element = RS>,
+    &'static mut [B; 2]: StaticWriteBuffer<Word = RS>,
+    B: 'static,
     Self: core::marker::Sized,
 {
     fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self>;
 }
 
+/// Trait for DMA readings from peripheral to memory.
 pub trait ReadDma<B, RS>: Receive
 where
-    B: as_slice::AsMutSlice<Element = RS>,
-    Self: core::marker::Sized,
+    B: StaticWriteBuffer<Word = RS>,
+    Self: core::marker::Sized + TransferPayload,
 {
-    fn read(self, buffer: &'static mut B) -> Transfer<W, &'static mut B, Self>;
+    fn read(self, buffer: B) -> Transfer<W, B, Self>;
 }
 
-pub trait WriteDma<A, B, TS>: Transmit
+/// Trait for DMA writing from memory to peripheral.
+pub trait WriteDma<B, TS>: Transmit
 where
-    A: as_slice::AsSlice<Element = TS>,
-    B: Static<A>,
-    Self: core::marker::Sized,
+    B: StaticReadBuffer<Word = TS>,
+    Self: core::marker::Sized + TransferPayload,
 {
     fn write(self, buffer: B) -> Transfer<R, B, Self>;
 }
