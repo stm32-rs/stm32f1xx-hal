@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 use embedded_hal::adc::{Channel, OneShot};
 
-use crate::dma::{dma1::C1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
+use crate::dma::{dma1::C1, CircBuffer, Receive, RxDma, TransferPayload, TransferW};
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
 use crate::rcc::{Clocks, Enable, Reset, APB2};
@@ -742,7 +742,7 @@ where
     Self: TransferPayload,
     B: StaticWriteBuffer<Word = u16>,
 {
-    fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
+    fn read(mut self, mut buffer: B) -> TransferW<B, Self> {
         // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
         // until the end of the transfer.
         let (ptr, len) = unsafe { buffer.static_write_buffer() };
@@ -768,6 +768,6 @@ where
         });
         self.start();
 
-        Transfer::w(buffer, self)
+        TransferW::new(buffer, self)
     }
 }

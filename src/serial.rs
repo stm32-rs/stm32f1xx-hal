@@ -48,7 +48,7 @@ use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
-use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
+use crate::dma::{dma1, CircBuffer, RxDma, TransferR, TransferW, TxDma};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
@@ -619,7 +619,7 @@ macro_rules! serialdma {
             where
                 B: StaticWriteBuffer<Word = u8>,
             {
-                fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
+                fn read(mut self, mut buffer: B) -> TransferW<B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
                     let (ptr, len) = unsafe { buffer.static_write_buffer() };
@@ -638,7 +638,7 @@ macro_rules! serialdma {
                     });
                     self.start();
 
-                    Transfer::w(buffer, self)
+                    TransferW::new(buffer, self)
                 }
             }
 
@@ -646,7 +646,7 @@ macro_rules! serialdma {
             where
                 B: StaticReadBuffer<Word = u8>,
             {
-                fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
+                fn write(mut self, buffer: B) -> TransferR<B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
                     let (ptr, len) = unsafe { buffer.static_read_buffer() };
@@ -668,7 +668,7 @@ macro_rules! serialdma {
                     });
                     self.start();
 
-                    Transfer::r(buffer, self)
+                    TransferR::new(buffer, self)
                 }
             }
         )+

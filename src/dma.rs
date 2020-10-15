@@ -1,10 +1,7 @@
 //! # Direct Memory Access
 #![allow(dead_code)]
 
-use core::{
-    marker::PhantomData,
-    sync::atomic::{compiler_fence, Ordering},
-};
+use core::sync::atomic::{compiler_fence, Ordering};
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 
 use crate::rcc::AHB;
@@ -59,43 +56,42 @@ pub trait TransferPayload {
     fn start(&mut self);
     fn stop(&mut self);
 }
-
-pub struct Transfer<MODE, BUFFER, PAYLOAD>
+/// Read transfer
+pub struct TransferR<BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
-    _mode: PhantomData<MODE>,
+    buffer: BUFFER,
+    payload: PAYLOAD,
+}
+/// Write transfer
+pub struct TransferW<BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
     buffer: BUFFER,
     payload: PAYLOAD,
 }
 
-impl<BUFFER, PAYLOAD> Transfer<R, BUFFER, PAYLOAD>
+impl<BUFFER, PAYLOAD> TransferR<BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
-    pub(crate) fn r(buffer: BUFFER, payload: PAYLOAD) -> Self {
-        Transfer {
-            _mode: PhantomData,
-            buffer,
-            payload,
-        }
+    pub(crate) fn new(buffer: BUFFER, payload: PAYLOAD) -> Self {
+        Self { buffer, payload }
     }
 }
 
-impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, PAYLOAD>
+impl<BUFFER, PAYLOAD> TransferW<BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
-    pub(crate) fn w(buffer: BUFFER, payload: PAYLOAD) -> Self {
-        Transfer {
-            _mode: PhantomData,
-            buffer,
-            payload,
-        }
+    pub(crate) fn new(buffer: BUFFER, payload: PAYLOAD) -> Self {
+        Self { buffer, payload }
     }
 }
 
-impl<MODE, BUFFER, PAYLOAD> Drop for Transfer<MODE, BUFFER, PAYLOAD>
+impl<BUFFER, PAYLOAD> Drop for TransferR<BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
 {
@@ -105,11 +101,15 @@ where
     }
 }
 
-/// Read transfer
-pub struct R;
-
-/// Write transfer
-pub struct W;
+impl<BUFFER, PAYLOAD> Drop for TransferW<BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
+    fn drop(&mut self) {
+        self.payload.stop();
+        compiler_fence(Ordering::SeqCst);
+    }
+}
 
 macro_rules! dma {
     ($($DMAX:ident: ($dmaX:ident, {
@@ -128,7 +128,7 @@ macro_rules! dma {
 
                 use crate::pac::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, TransferR, TransferW , RxDma, TxDma, TransferPayload};
                 use crate::rcc::{AHB, Enable};
 
                 #[allow(clippy::manual_non_exhaustive)]
@@ -295,7 +295,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD> TransferW<BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -333,7 +333,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD> TransferR<BUFFER, TxDma<PAYLOAD, $CX>>
                     where
                         TxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -371,7 +371,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD> TransferW<BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -521,7 +521,7 @@ where
     B: StaticWriteBuffer<Word = RS>,
     Self: core::marker::Sized + TransferPayload,
 {
-    fn read(self, buffer: B) -> Transfer<W, B, Self>;
+    fn read(self, buffer: B) -> TransferW<B, Self>;
 }
 
 /// Trait for DMA writing from memory to peripheral.
@@ -530,5 +530,5 @@ where
     B: StaticReadBuffer<Word = TS>,
     Self: core::marker::Sized + TransferPayload,
 {
-    fn write(self, buffer: B) -> Transfer<R, B, Self>;
+    fn write(self, buffer: B) -> TransferR<B, Self>;
 }
