@@ -24,8 +24,8 @@ const LSE_HERTZ: u32 = 32_768;
 
   1: Unless configured to another frequency using [select_frequency](struct.Rtc.html#method.select_frequency)
 
-  [examples/rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.6.1/examples/rtc.rs
-  [examples/blinky_rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.6.1/examples/blinky_rtc.rs
+  [examples/rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.7.0/examples/rtc.rs
+  [examples/blinky_rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.7.0/examples/blinky_rtc.rs
 */
 
 pub struct Rtc {
