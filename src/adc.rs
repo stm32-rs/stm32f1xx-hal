@@ -737,14 +737,12 @@ where
     }
 }
 
-impl<B, PINS, MODE> crate::dma::ReadDma<B, u16> for AdcDma<PINS, MODE>
-where
-    Self: TransferPayload,
-    B: StaticWriteBuffer<Word = u16>,
-{
-    fn read(mut self, mut buffer: B) -> TransferW<B, Self> {
-        // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-        // until the end of the transfer.
+impl<PINS, MODE> AdcDma<PINS, MODE> {
+    #[inline(always)]
+    fn configure_read<B>(&mut self, buffer: &mut B)
+    where
+        B: StaticWriteBuffer<Word = u16>,
+    {
         let (ptr, len) = unsafe { buffer.static_write_buffer() };
         self.channel
             .set_peripheral_address(unsafe { &(*ADC1::ptr()).dr as *const _ as u32 }, false);
@@ -766,8 +764,30 @@ where
                 .dir()
                 .clear_bit()
         });
-        self.start();
+    }
+}
 
+impl<B, PINS, MODE> crate::dma::ReadDma<B, u16> for AdcDma<PINS, MODE>
+where
+    Self: TransferPayload,
+    B: StaticWriteBuffer<Word = u16>,
+{
+    fn read(mut self, mut buffer: B) -> TransferW<B, Self> {
+        // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+        // until the end of the transfer.
+        self.configure_read(&mut buffer);
+        self.start();
         TransferW::new(buffer, self)
+    }
+}
+impl<B, PINS, MODE> crate::dma::BlockingReadDma<B, u16> for AdcDma<PINS, MODE>
+where
+    Self: TransferPayload,
+    B: StaticWriteBuffer<Word = u16>,
+{
+    fn blocking_read(&mut self, buffer: &mut B) {
+        self.configure_read(buffer);
+        self.start();
+        self.channel.wait_transfer();
     }
 }

@@ -572,6 +572,26 @@ macro_rules! serialdma {
                         channel
                     )
                 }
+
+                #[inline(always)]
+                fn configure_read<B>(&mut self, buffer: &mut B) where
+                    B: StaticWriteBuffer<Word = u8>,
+                {
+                    let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                    self.channel.set_memory_address(ptr as u32, true);
+                    self.channel.set_transfer_length(len);
+
+                    atomic::compiler_fence(Ordering::Release);
+                    self.channel.ch().cr.modify(|_, w| { w
+                        .mem2mem() .clear_bit()
+                        .pl()      .medium()
+                        .msize()   .bits8()
+                        .psize()   .bits8()
+                        .circ()    .clear_bit()
+                        .dir()     .clear_bit()
+                    });
+                }
             }
 
             impl $txdma {
@@ -582,6 +602,29 @@ macro_rules! serialdma {
                         payload,
                         channel,
                     )
+                }
+
+                #[inline(always)]
+                fn configure_write<B>(&mut self, buffer: &B) where
+                    B: StaticReadBuffer<Word = u8>,
+                {
+                    let (ptr, len) = unsafe { buffer.static_read_buffer() };
+
+                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+
+                    self.channel.set_memory_address(ptr as u32, true);
+                    self.channel.set_transfer_length(len);
+
+                    atomic::compiler_fence(Ordering::Release);
+
+                    self.channel.ch().cr.modify(|_, w| { w
+                        .mem2mem() .clear_bit()
+                        .pl()      .medium()
+                        .msize()   .bits8()
+                        .psize()   .bits8()
+                        .circ()    .clear_bit()
+                        .dir()     .set_bit()
+                    });
                 }
             }
 
@@ -622,22 +665,8 @@ macro_rules! serialdma {
                 fn read(mut self, mut buffer: B) -> TransferW<B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.static_write_buffer() };
-                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
-
-                    atomic::compiler_fence(Ordering::Release);
-                    self.channel.ch().cr.modify(|_, w| { w
-                        .mem2mem() .clear_bit()
-                        .pl()      .medium()
-                        .msize()   .bits8()
-                        .psize()   .bits8()
-                        .circ()    .clear_bit()
-                        .dir()     .clear_bit()
-                    });
+                    self.configure_read(&mut buffer);
                     self.start();
-
                     TransferW::new(buffer, self)
                 }
             }
@@ -649,26 +678,31 @@ macro_rules! serialdma {
                 fn write(mut self, buffer: B) -> TransferR<B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.static_read_buffer() };
-
-                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
-
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
-
-                    atomic::compiler_fence(Ordering::Release);
-
-                    self.channel.ch().cr.modify(|_, w| { w
-                        .mem2mem() .clear_bit()
-                        .pl()      .medium()
-                        .msize()   .bits8()
-                        .psize()   .bits8()
-                        .circ()    .clear_bit()
-                        .dir()     .set_bit()
-                    });
+                    self.configure_write(&buffer);
                     self.start();
-
                     TransferR::new(buffer, self)
+                }
+            }
+
+            impl<B> crate::dma::BlockingReadDma<B, u8> for $rxdma
+            where
+                B: StaticWriteBuffer<Word = u8>,
+            {
+                fn blocking_read(&mut self, buffer: &mut B) {
+                    self.configure_read(buffer);
+                    self.start();
+                    self.channel.wait_transfer();
+                }
+            }
+
+            impl<B> crate::dma::BlockingWriteDma<B, u8> for $txdma
+            where
+                B: StaticReadBuffer<Word = u8>,
+            {
+                fn blocking_write(&mut self, buffer: &B) {
+                    self.configure_write(buffer);
+                    self.start();
+                    self.channel.wait_transfer();
                 }
             }
         )+

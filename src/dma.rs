@@ -177,6 +177,22 @@ macro_rules! dma {
                         pub fn in_progress(&self) -> bool {
                             self.isr().$tcifX().bit_is_clear()
                         }
+
+                        #[inline(always)]
+                        pub(crate) fn wait_transfer(&mut self) {
+                            while self.in_progress() {}
+
+                            atomic::compiler_fence(Ordering::Acquire);
+
+                            self.stop();
+
+                            // we need a read here to make the Acquire fence effective
+                            // we do *not* need this if `dma.stop` does a RMW operation
+                            unsafe { ptr::read_volatile(&0); }
+
+                            // we need a fence here for the same reason we need one in `Transfer.wait`
+                            atomic::compiler_fence(Ordering::Acquire);
+                        }
                     }
 
                     impl $CX {
@@ -304,19 +320,7 @@ macro_rules! dma {
                         }
 
                         pub fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
-                            while !self.is_done() {}
-
-                            atomic::compiler_fence(Ordering::Acquire);
-
-                            self.payload.stop();
-
-                            // we need a read here to make the Acquire fence effective
-                            // we do *not* need this if `dma.stop` does a RMW operation
-                            unsafe { ptr::read_volatile(&0); }
-
-                            // we need a fence here for the same reason we need one in `Transfer.wait`
-                            atomic::compiler_fence(Ordering::Acquire);
-
+                            self.payload.channel.wait_transfer();
                             // `Transfer` needs to have a `Drop` implementation, because we accept
                             // managed buffers that can free their memory on drop. Because of that
                             // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
@@ -342,19 +346,7 @@ macro_rules! dma {
                         }
 
                         pub fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
-                            while !self.is_done() {}
-
-                            atomic::compiler_fence(Ordering::Acquire);
-
-                            self.payload.stop();
-
-                            // we need a read here to make the Acquire fence effective
-                            // we do *not* need this if `dma.stop` does a RMW operation
-                            unsafe { ptr::read_volatile(&0); }
-
-                            // we need a fence here for the same reason we need one in `Transfer.wait`
-                            atomic::compiler_fence(Ordering::Acquire);
-
+                            self.payload.channel.wait_transfer();
                             // `Transfer` needs to have a `Drop` implementation, because we accept
                             // managed buffers that can free their memory on drop. Because of that
                             // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
@@ -531,4 +523,22 @@ where
     Self: core::marker::Sized + TransferPayload,
 {
     fn write(self, buffer: B) -> TransferR<B, Self>;
+}
+
+/// Trait for DMA blocking readings from peripheral to memory. It starts DMA transfer and waits for complete.
+pub trait BlockingReadDma<B, RS>: Receive
+where
+    B: StaticWriteBuffer<Word = RS>,
+    Self: core::marker::Sized + TransferPayload,
+{
+    fn blocking_read(&mut self, buffer: &mut B);
+}
+
+/// Trait for DMA blocking writing from memory to peripheral. It starts DMA transfer and waits for complete.
+pub trait BlockingWriteDma<B, TS>: Transmit
+where
+    B: StaticReadBuffer<Word = TS>,
+    Self: core::marker::Sized + TransferPayload,
+{
+    fn blocking_write(&mut self, buffer: &B);
 }
