@@ -220,12 +220,16 @@ macro_rules! wait_for_flag {
         let sr1 = $i2c.sr1.read();
 
         if sr1.berr().bit_is_set() {
+            $i2c.sr1.write(|w| w.berr().clear_bit());
             Err(Other(Error::Bus))
         } else if sr1.arlo().bit_is_set() {
+            $i2c.sr1.write(|w| w.arlo().clear_bit());
             Err(Other(Error::Arbitration))
         } else if sr1.af().bit_is_set() {
+            $i2c.sr1.write(|w| w.af().clear_bit());
             Err(Other(Error::Acknowledge))
         } else if sr1.ovr().bit_is_set() {
+            $i2c.sr1.write(|w| w.ovr().clear_bit());
             Err(Other(Error::Overrun))
         } else if sr1.$flag().bit_is_set() {
             Ok(())
