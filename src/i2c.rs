@@ -436,12 +436,17 @@ where
         last_ret
     }
 
-    fn write_without_stop(&mut self, addr: u8, bytes: &[u8]) -> NbResult<(), Error> {
-        self.send_start_and_wait()?;
+    fn send_addr_and_wait(&mut self, addr: u8, read: bool) -> NbResult<(), Error> {
         self.nb.i2c.sr1.read();
-        self.nb.send_addr(addr, false);
+        self.nb.send_addr(addr, read);
+        let ret = busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr), self.addr_timeout);
+        if ret == Err(Other(Error::Acknowledge)) {
+            self.nb.send_stop();
+        }
+        ret
+    }
 
-        busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr), self.addr_timeout)?;
+    fn write_bytes_and_wait(&mut self, bytes: &[u8]) -> NbResult<(), Error> {
         self.nb.i2c.sr1.read();
         self.nb.i2c.sr2.read();
 
@@ -454,6 +459,17 @@ where
         busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.data_timeout)?;
 
         Ok(())
+    }
+
+    fn write_without_stop(&mut self, addr: u8, bytes: &[u8]) -> NbResult<(), Error> {
+        self.send_start_and_wait()?;
+        self.send_addr_and_wait(addr, false)?;
+
+        let ret = self.write_bytes_and_wait(bytes);
+        if ret == Err(Other(Error::Acknowledge)) {
+            self.nb.send_stop();
+        }
+        ret
     }
 }
 
@@ -480,9 +496,7 @@ where
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         self.send_start_and_wait()?;
-        self.nb.i2c.sr1.read();
-        self.nb.send_addr(addr, true);
-        busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr), self.addr_timeout)?;
+        self.send_addr_and_wait(addr, true)?;
 
         match buffer.len() {
             1 => {
