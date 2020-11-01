@@ -533,6 +533,7 @@ where
                 self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
             }
             buffer_len => {
+                self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
                 self.nb.i2c.sr1.read();
                 self.nb.i2c.sr2.read();
 
