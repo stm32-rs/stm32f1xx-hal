@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- LSB/MSB bit format selection for `SPI`
+
 ## [v0.7.0]- 2020-10-17
 
 ### Breaking changes

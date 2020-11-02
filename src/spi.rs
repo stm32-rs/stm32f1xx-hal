@@ -116,6 +116,15 @@ pub struct Spi<SPI, REMAP, PINS, FRAMESIZE> {
     _framesize: PhantomData<FRAMESIZE>,
 }
 
+/// The bit format to send the data in
+#[derive(Debug, Clone, Copy)]
+pub enum SpiBitFormat {
+    /// Least significant bit first
+    LsbFirst,
+    /// Most significant bit first
+    MsbFirst,
+}
+
 /// A filler type for when the SCK pin is unnecessary
 pub struct NoSck;
 /// A filler type for when the Miso pin is unnecessary
@@ -308,6 +317,14 @@ where
     }
     pub fn release(self) -> (SPI, PINS) {
         (self.spi, self.pins)
+    }
+
+    /// Select which frame format is used for data transfers
+    pub fn bit_format(&mut self, format: SpiBitFormat) {
+        match format {
+            SpiBitFormat::LsbFirst => self.spi.cr1.modify(|_, w| w.lsbfirst().set_bit()),
+            SpiBitFormat::MsbFirst => self.spi.cr1.modify(|_, w| w.lsbfirst().clear_bit()),
+        }
     }
 }
 
