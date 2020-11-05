@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Fix > 2 byte i2c reads
+- Send stop after acknowledge errors on i2c
+- Fix i2c interactions after errors
+
 ## [v0.7.0]- 2020-10-17
 
 ### Breaking changes
