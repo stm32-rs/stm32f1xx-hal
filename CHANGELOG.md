@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- LSB/MSB bit format selection for `SPI`
+
 ### Fixed
 - Fix > 2 byte i2c reads
 - Send stop after acknowledge errors on i2c
