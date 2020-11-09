@@ -437,7 +437,7 @@ macro_rules! adc_hal {
 }
 
 impl Adc<ADC1> {
-    fn read_aux(&mut self, chan: u8) -> u16 {
+    pub fn read_aux(&mut self, chan: u8) -> u16 {
         let tsv_off = if self.rb.cr2.read().tsvrefe().bit_is_clear() {
             self.rb.cr2.modify(|_, w| w.tsvrefe().set_bit());
 
