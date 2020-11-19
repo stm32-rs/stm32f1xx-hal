@@ -13,12 +13,15 @@ fn main() -> ! {
     let mut rcc = dp.RCC.constrain();
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut rng = adc::Adc::adc1(dp.ADC1, &mut rcc.apb2, clocks).as_rng();
+    let mut adc = adc::Adc::adc1(dp.ADC1, &mut rcc.apb2, clocks);
 
     loop {
         let mut buf = [0; 8];
+        let mut rng = adc.into_rng();
         if let Ok(_) = rng.read(&mut buf) {
             hprintln!("buf: {:02X?}", buf).unwrap();
         }
+        adc = rng.release();
+        hprintln!("temp: {:?}", adc.read_temp()).unwrap();
     }
 }
