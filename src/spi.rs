@@ -3,6 +3,8 @@
   To construct the SPI instances, use the `Spi::spiX` functions.
 
   The pin parameter is a tuple containing `(sck, miso, mosi)` which should be configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+  NOTE! As the SPI pins are 5V tolerant on many STM32F1xx devices, you may also configure the 'Alternate' (Output) pins as `Alternate<OpenDrain>`,
+  and then use pull-up resistors to access a 5V SPI bus without a level converter.
 
   You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
 
@@ -46,7 +48,7 @@ use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
 use crate::gpio::gpioc::{PC10, PC11, PC12};
-use crate::gpio::{Alternate, Floating, Input, PushPull};
+use crate::gpio::{Alternate, Floating, Input, PushPull, OpenDrain};
 use crate::rcc::{Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
 use crate::time::Hertz;
 
@@ -134,8 +136,10 @@ macro_rules! remap {
             const REMAP: bool = $state;
         }
         impl Sck<$name> for $SCK<Alternate<PushPull>> {}
+        impl Sck<$name> for $SCK<Alternate<OpenDrain>> {}
         impl Miso<$name> for $MISO<Input<Floating>> {}
         impl Mosi<$name> for $MOSI<Alternate<PushPull>> {}
+        impl Mosi<$name> for $MOSI<Alternate<OpenDrain>> {}
     };
 }
 
