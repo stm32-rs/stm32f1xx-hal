@@ -64,7 +64,7 @@ pub trait TransferPayload {
 /// The Trait defines methods for checking if the operation is complete, or waiting for
 /// the operation to complete. The wait function is also used to return ownership of the
 /// transmission buffer and `TransferPayload` (An RxDma or TxDma wrapping a peripheral).
-pub trait TransferOperation<BUFFER, DMA>
+pub trait Transferable<BUFFER, DMA>
 {
     /// Checks if a Transmission is complete
     fn is_done(&self) -> bool;
@@ -147,7 +147,7 @@ macro_rules! dma {
 
                 use crate::pac::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferOperation, TransferPayload};
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, Transferable, TransferPayload};
                 use crate::rcc::{AHB, Enable};
 
                 #[allow(clippy::manual_non_exhaustive)]
@@ -314,7 +314,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> TransferOperation<BUFFER, RxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD, MODE> Transferable<BUFFER, RxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
@@ -352,7 +352,7 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> TransferOperation<BUFFER, TxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD, MODE> Transferable<BUFFER, TxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
                     where
                         TxDma<PAYLOAD, $CX>: TransferPayload,
                     {
