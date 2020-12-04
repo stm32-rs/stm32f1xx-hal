@@ -11,6 +11,7 @@ use stm32f1xx_hal::{
     pac,
     prelude::*,
     spi::{Mode, Phase, Polarity, Spi},
+    dma::{TransferOperation}
 };
 
 #[entry]
@@ -49,7 +50,7 @@ fn main() -> ! {
     let spi_dma = spi.with_tx_dma(dma.5);
 
     // Start a DMA transfer
-    let transfer = spi_dma.write(b"hello, world");
+    let mut transfer = spi_dma.write(b"hello, world");
 
     // Wait for it to finnish. The transfer takes ownership over the SPI device
     // and the data being sent anb those things are returned by transfer.wait
