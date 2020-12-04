@@ -64,16 +64,15 @@ pub trait TransferPayload {
 /// The Trait defines methods for checking if the operation is complete, or waiting for
 /// the operation to complete. The wait function is also used to return ownership of the
 /// transmission buffer and `TransferPayload` (An RxDma or TxDma wrapping a peripheral).
-pub trait Transferable<BUFFER, DMA>
-{
+pub trait Transferable<BUFFER, DMA> {
     /// Checks if a Transmission is complete
     fn is_done(&self) -> bool;
 
     /// Wait for transmission to complete
-    /// 
-    /// When the transmission is complete, the ownership of the buffer and the "Payload" 
+    ///
+    /// When the transmission is complete, the ownership of the buffer and the "Payload"
     /// (the instance that started the Transfer) is returned to the caller.
-    /// 
+    ///
     /// # Returns
     /// - Tuple containing the Transmitted buffer and the Payload (the instance initiating the transfer)
     fn wait(self) -> (BUFFER, DMA);
