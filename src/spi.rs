@@ -50,7 +50,7 @@ use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
 use crate::gpio::gpioc::{PC10, PC11, PC12};
-use crate::gpio::{Alternate, Floating, Input, PushPull};
+use crate::gpio::{Alternate, Floating, Input, PushPull, OpenDrain};
 use crate::rcc::{Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
 use crate::time::Hertz;
 
