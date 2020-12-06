@@ -10,7 +10,6 @@ use cortex_m::{asm, singleton};
 
 use cortex_m_rt::entry;
 use stm32f1xx_hal::{
-    dma::Transferable,
     pac,
     prelude::*,
     serial::{Config, Serial},

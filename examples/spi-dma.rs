@@ -8,7 +8,6 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use stm32f1xx_hal::{
-    dma::Transferable,
     pac,
     prelude::*,
     spi::{Mode, Phase, Polarity, Spi},

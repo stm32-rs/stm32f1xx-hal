@@ -8,7 +8,7 @@ use panic_halt as _;
 use cortex_m::{asm, singleton};
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{adc, dma::Transferable, pac, prelude::*};
+use stm32f1xx_hal::{adc, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
