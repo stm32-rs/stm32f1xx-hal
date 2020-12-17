@@ -1,4 +1,4 @@
-//! CDC-ACM serial port example using cortex-m-rtfm.
+//! CDC-ACM serial port example using cortex-m-rtic.
 //! Target board: Blue Pill
 #![no_main]
 #![no_std]
@@ -8,7 +8,7 @@ extern crate panic_semihosting;
 
 use cortex_m::asm::delay;
 use embedded_hal::digital::v2::OutputPin;
-use rtfm::app;
+use rtic::app;
 use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
 use usb_device::bus;

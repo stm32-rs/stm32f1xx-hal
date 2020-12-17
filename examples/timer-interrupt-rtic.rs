@@ -11,7 +11,7 @@
 // you can put a breakpoint on `rust_begin_unwind` to catch panics
 use panic_halt as _;
 
-use rtfm::app;
+use rtic::app;
 
 use embedded_hal::digital::v2::OutputPin;
 use stm32f1xx_hal::{
@@ -55,7 +55,7 @@ const APP: () = {
             Timer::tim1(cx.device.TIM1, &clocks, &mut rcc.apb2).start_count_down(1.hz());
         timer.listen(Event::Update);
 
-        // Init the static resources to use them later through RTFM
+        // Init the static resources to use them later through RTIC
         init::LateResources {
             led,
             timer_handler: timer,
@@ -64,7 +64,7 @@ const APP: () = {
 
     // Optional.
     //
-    // https://rtfm.rs/0.5/book/en/by-example/app.html#idle
+    // https://rtic.rs/0.5/book/en/by-example/app.html#idle
     // > When no idle function is declared, the runtime sets the SLEEPONEXIT bit and then
     // > sends the microcontroller to sleep after running init.
     #[idle]
@@ -84,7 +84,7 @@ const APP: () = {
         static mut COUNT: u8 = 0;
 
         if *cx.resources.led_state {
-            // Uses resources managed by rtfm to turn led off (on bluepill)
+            // Uses resources managed by rtic to turn led off (on bluepill)
             cx.resources.led.set_high().unwrap();
             *cx.resources.led_state = false;
         } else {
