@@ -24,7 +24,7 @@ use crate::hal::{
 use core::cell::RefCell;
 use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 
 // NOTE You can uncomment 'hprintln' here and in the code below for a bit more
 // verbosity at runtime, at the cost of throwing off the timing of the blink
@@ -62,8 +62,8 @@ fn TIM2() {
         })
     });
 
-    let _ = led.toggle();
-    let _ = tim.wait();
+    let _ = led.try_toggle();
+    let _ = tim.try_wait();
 }
 
 #[entry]
@@ -81,7 +81,7 @@ fn main() -> ! {
     // Configure PC13 pin to blink LED
     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    let _ = led.set_high(); // Turn off
+    let _ = led.try_set_high(); // Turn off
 
     // Move the pin into our global storage
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));

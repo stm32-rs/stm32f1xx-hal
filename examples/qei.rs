@@ -46,9 +46,9 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, clocks);
 
     loop {
-        let before = qei.count();
-        delay.delay_ms(1_000_u16);
-        let after = qei.count();
+        let before = qei.try_count().unwrap();
+        delay.try_delay_ms(1_000_u16).unwrap();
+        let after = qei.try_count().unwrap();
 
         let elapsed = after.wrapping_sub(before) as i16;
 

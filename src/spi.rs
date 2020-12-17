@@ -444,7 +444,7 @@ where
 {
     type Error = Error;
 
-    fn read(&mut self) -> nb::Result<FrameSize, Error> {
+    fn try_read(&mut self) -> nb::Result<FrameSize, Error> {
         let sr = self.spi.sr.read();
 
         Err(if sr.ovr().bit_is_set() {
@@ -462,7 +462,7 @@ where
         })
     }
 
-    fn send(&mut self, data: FrameSize) -> nb::Result<(), Error> {
+    fn try_send(&mut self, data: FrameSize) -> nb::Result<(), Error> {
         let sr = self.spi.sr.read();
 
         Err(if sr.ovr().bit_is_set() {
@@ -499,7 +499,7 @@ where
     // of RM0008 Rev 20. This is more than twice as fast as the
     // default Write<> implementation (which reads and drops each
     // received value)
-    fn write(&mut self, words: &[u8]) -> Result<(), Error> {
+    fn try_write(&mut self, words: &[u8]) -> Result<(), Error> {
         self.spi_write(words)
     }
 }
@@ -510,7 +510,7 @@ where
 {
     type Error = Error;
 
-    fn write(&mut self, words: &[u16]) -> Result<(), Error> {
+    fn try_write(&mut self, words: &[u16]) -> Result<(), Error> {
         self.spi_write(words)
     }
 }

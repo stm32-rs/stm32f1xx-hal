@@ -1,5 +1,6 @@
 //! # API for the Analog to Digital converter
 
+use core::convert::Infallible;
 use core::marker::PhantomData;
 use embedded_hal::adc::{Channel, OneShot};
 
@@ -108,7 +109,7 @@ macro_rules! adc_pins {
             impl Channel<$ADC> for $pin {
                 type ID = u8;
 
-                fn channel() -> u8 { $chan }
+                fn channel(&self) -> u8 { $chan }
             }
         )+
     };
@@ -424,10 +425,10 @@ macro_rules! adc_hal {
                 WORD: From<u16>,
                 PIN: Channel<$ADC, ID = u8>,
                 {
-                    type Error = ();
+                    type Error = Infallible;
 
-                    fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                        let res = self.convert(PIN::channel());
+                    fn try_read(&mut self, pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
+                        let res = self.convert(PIN::channel(pin));
                         Ok(res.into())
                     }
                 }
@@ -616,10 +617,10 @@ impl Adc<ADC1> {
     {
         self.rb.cr1.modify(|_, w| w.discen().clear_bit());
         self.rb.cr2.modify(|_, w| w.align().bit(self.align.into()));
-        self.set_channel_sample_time(PIN::channel(), self.sample_time);
+        self.set_channel_sample_time(PIN::channel(&pins), self.sample_time);
         self.rb
             .sqr3
-            .modify(|_, w| unsafe { w.sq1().bits(PIN::channel()) });
+            .modify(|_, w| unsafe { w.sq1().bits(PIN::channel(&pins)) });
         self.rb.cr2.modify(|_, w| w.dma().set_bit());
 
         let payload = AdcPayload {

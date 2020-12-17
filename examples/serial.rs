@@ -70,10 +70,10 @@ fn main() -> ! {
 
     // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';
-    block!(serial.write(sent)).ok();
+    block!(serial.try_write(sent)).ok();
 
     // Read the byte that was just sent. Blocks until the read is complete
-    let received = block!(serial.read()).unwrap();
+    let received = block!(serial.try_read()).unwrap();
 
     // Since we have connected tx and rx, the byte we sent should be the one we received
     assert_eq!(received, sent);
@@ -84,8 +84,8 @@ fn main() -> ! {
     // You can also split the serial struct into a receiving and a transmitting part
     let (mut tx, mut rx) = serial.split();
     let sent = b'Y';
-    block!(tx.write(sent)).ok();
-    let received = block!(rx.read()).unwrap();
+    block!(tx.try_write(sent)).ok();
+    let received = block!(rx.try_read()).unwrap();
     assert_eq!(received, sent);
     asm::bkpt();
 

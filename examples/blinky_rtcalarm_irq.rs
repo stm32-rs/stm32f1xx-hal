@@ -24,7 +24,7 @@ use crate::hal::{
 use core::cell::RefCell;
 use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 
 // A type definition for the GPIO pin to be used for our LED
 type LEDPIN = gpioc::PC13<Output<PushPull>>;
@@ -68,7 +68,7 @@ fn RTCALARM() {
     exti.pr.write(|w| w.pr17().set_bit());
     rtc.set_alarm(rtc.current_time() + TOGGLE_INTERVAL_SECONDS);
 
-    let _ = led.toggle();
+    let _ = led.try_toggle();
 }
 
 #[cfg(not(feature = "stm32f101"))]
@@ -82,7 +82,7 @@ fn main() -> ! {
     // Set up the GPIO pin
     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    let _ = led.set_high(); // Turn off
+    let _ = led.try_set_high(); // Turn off
 
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 

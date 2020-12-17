@@ -29,7 +29,7 @@ fn EXTI9_5() {
     let int_pin = unsafe { &mut *INT_PIN.as_mut_ptr() };
 
     if int_pin.check_interrupt() {
-        led.toggle().unwrap();
+        led.try_toggle().unwrap();
 
         // if we don't clear this bit, the ISR would trigger indefinitely
         int_pin.clear_interrupt_pending_bit();

@@ -9,7 +9,7 @@ use panic_halt as _;
 use nb::block;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use stm32f1xx_hal::{pac, prelude::*, timer::Timer};
 
 #[entry]
@@ -37,13 +37,13 @@ fn main() -> ! {
 
     // Wait for the timer to trigger an update and change the state of the LED
     loop {
-        block!(timer.wait()).unwrap();
+        block!(timer.try_wait()).unwrap();
         for led in leds.iter_mut() {
-            led.set_high().unwrap();
+            led.try_set_high().unwrap();
         }
-        block!(timer.wait()).unwrap();
+        block!(timer.try_wait()).unwrap();
         for led in leds.iter_mut() {
-            led.set_low().unwrap();
+            led.try_set_low().unwrap();
         }
     }
 }

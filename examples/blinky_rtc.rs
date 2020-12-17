@@ -15,7 +15,7 @@ use panic_halt as _;
 use stm32f1xx_hal::{pac, prelude::*, rtc::Rtc};
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use nb::block;
 
 #[entry]
@@ -43,10 +43,10 @@ fn main() -> ! {
         rtc.set_alarm(5);
         block!(rtc.wait_alarm()).unwrap();
         if led_on {
-            led.set_low().unwrap();
+            led.try_set_low().unwrap();
             led_on = false;
         } else {
-            led.set_high().unwrap();
+            led.try_set_high().unwrap();
             led_on = true;
         }
     }

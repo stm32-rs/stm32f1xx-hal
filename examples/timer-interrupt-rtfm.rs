@@ -13,7 +13,7 @@ use panic_halt as _;
 
 use rtfm::app;
 
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use stm32f1xx_hal::{
     gpio::{gpioc::PC13, Output, PushPull, State},
     pac,
@@ -85,19 +85,19 @@ const APP: () = {
 
         if *cx.resources.led_state {
             // Uses resources managed by rtfm to turn led off (on bluepill)
-            cx.resources.led.set_high().unwrap();
+            cx.resources.led.try_set_high().unwrap();
             *cx.resources.led_state = false;
         } else {
-            cx.resources.led.set_low().unwrap();
+            cx.resources.led.try_set_low().unwrap();
             *cx.resources.led_state = true;
         }
         *COUNT += 1;
 
         if *COUNT == 4 {
             // Changes timer update frequency
-            cx.resources.timer_handler.start(2.hz());
+            let _ = cx.resources.timer_handler.try_start(2.hz());
         } else if *COUNT == 12 {
-            cx.resources.timer_handler.start(1.hz());
+            let _ = cx.resources.timer_handler.try_start(1.hz());
             *COUNT = 0;
         }
 

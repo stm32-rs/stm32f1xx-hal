@@ -1,3 +1,5 @@
+use core::convert::Infallible;
+use core::marker::PhantomData;
 /**
   # Quadrature Encoder Interface
 
@@ -6,9 +8,8 @@
 */
 use core::u16;
 
-use core::marker::PhantomData;
-
-use crate::hal::{self, Direction};
+use crate::hal;
+use crate::hal::qei::Direction;
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
@@ -179,18 +180,19 @@ macro_rules! hal {
                 }
             }
 
-            impl<REMAP, PINS> hal::Qei for Qei<$TIMX, REMAP, PINS> {
+            impl<REMAP, PINS> hal::qei::Qei for Qei<$TIMX, REMAP, PINS> {
+                type Error = Infallible;
                 type Count = u16;
 
-                fn count(&self) -> u16 {
-                    self.tim.cnt.read().cnt().bits()
+                fn try_count(&self) -> Result<u16, Self::Error> {
+                    Ok(self.tim.cnt.read().cnt().bits())
                 }
 
-                fn direction(&self) -> Direction {
+                fn try_direction(&self) -> Result<Direction, Self::Error> {
                     if self.tim.cr1.read().dir().bit_is_clear() {
-                        hal::Direction::Upcounting
+                        Ok(Direction::Upcounting)
                     } else {
-                        hal::Direction::Downcounting
+                        Ok(Direction::Downcounting)
                     }
                 }
             }

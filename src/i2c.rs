@@ -479,7 +479,7 @@ where
 {
     type Error = NbError<Error>;
 
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+    fn try_write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
         self.write_without_stop(addr, bytes)?;
         self.nb.send_stop();
         busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;
@@ -494,7 +494,7 @@ where
 {
     type Error = NbError<Error>;
 
-    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+    fn try_read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         self.send_start_and_wait()?;
         self.send_addr_and_wait(addr, true)?;
 
@@ -566,13 +566,18 @@ where
 {
     type Error = NbError<Error>;
 
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
+    fn try_write_read(
+        &mut self,
+        addr: u8,
+        bytes: &[u8],
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error> {
         if !bytes.is_empty() {
             self.write_without_stop(addr, bytes)?;
         }
 
         if !buffer.is_empty() {
-            self.read(addr, buffer)?;
+            self.try_read(addr, buffer)?;
         } else if !bytes.is_empty() {
             self.nb.send_stop();
             busy_wait_cycles!(self.nb.wait_for_stop(), self.data_timeout)?;

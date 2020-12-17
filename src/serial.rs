@@ -416,7 +416,7 @@ macro_rules! hal {
             impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
                 type Error = Error;
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
+                fn try_read(&mut self) -> nb::Result<u8, Error> {
                     unsafe { &*$USARTX::ptr() }.read()
                 }
             }
@@ -424,10 +424,10 @@ macro_rules! hal {
             impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
                 type Error = Infallible;
 
-                fn flush(&mut self) -> nb::Result<(), Self::Error> {
+                fn try_flush(&mut self) -> nb::Result<(), Self::Error> {
                     unsafe { &*$USARTX::ptr() }.flush()
                 }
-                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+                fn try_write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
                     unsafe { &*$USARTX::ptr() }.write(byte)
                 }
             }
@@ -435,7 +435,7 @@ macro_rules! hal {
             impl<PINS> crate::hal::serial::Read<u8> for Serial<$USARTX, PINS> {
                 type Error = Error;
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
+                fn try_read(&mut self) -> nb::Result<u8, Error> {
                     self.usart.deref().read()
                 }
             }
@@ -443,11 +443,11 @@ macro_rules! hal {
             impl<PINS> crate::hal::serial::Write<u8> for Serial<$USARTX, PINS> {
                 type Error = Infallible;
 
-                fn flush(&mut self) -> nb::Result<(), Self::Error> {
+                fn try_flush(&mut self) -> nb::Result<(), Self::Error> {
                     self.usart.deref().flush()
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+                fn try_write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
                     self.usart.deref().write(byte)
                 }
             }
@@ -463,7 +463,7 @@ where
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         s.as_bytes()
             .iter()
-            .try_for_each(|c| nb::block!(self.write(*c)))
+            .try_for_each(|c| nb::block!(self.try_write(*c)))
             .map_err(|_| core::fmt::Error)
     }
 }
