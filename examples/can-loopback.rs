@@ -54,8 +54,10 @@ fn main() -> ! {
     filters.enable_bank(
         0,
         [
-            Mask16::frames_with_std_id(StandardId::new(0).unwrap()),
-            Mask16::frames_with_std_id(StandardId::new(1).unwrap()),
+            // accepts 0 and 1
+            Mask16::frames_with_std_id(StandardId::new(0).unwrap(), StandardId::new(1).unwrap()),
+            // accepts 0 and 2
+            Mask16::frames_with_std_id(StandardId::new(0).unwrap(), StandardId::new(2).unwrap()),
         ],
     );
 
@@ -86,7 +88,7 @@ fn main() -> ! {
     block!(can.enable()).ok();
 
     // Some messages shall pass the filters.
-    for &id in &[0, 1, 8, 9, 10, 11] {
+    for &id in &[0, 1, 2, 8, 9, 10, 11] {
         let frame_tx = Frame::new_data(StandardId::new(id).unwrap(), [id as u8]);
         block!(can.transmit(&frame_tx)).unwrap();
         let frame_rx = block!(can.receive()).unwrap();
