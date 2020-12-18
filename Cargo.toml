@@ -144,5 +144,5 @@ name = "can-loopback"
 required-features = ["has-can"]
 
 [[example]]
-name = "can-rtfm"
+name = "can-rtic"
 required-features = ["has-can", "rt"]

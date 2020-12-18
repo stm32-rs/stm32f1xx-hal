@@ -1,4 +1,4 @@
-//! Interrupt driven CAN transmitter with RTFM.
+//! Interrupt driven CAN transmitter with RTIC.
 //!
 //! CAN frames are allocated from a static memory pool and stored in a priority
 //! queue (min heap) for transmisison. To start transmission the CAN TX
@@ -20,7 +20,7 @@ use heapless::{
 };
 use nb::block;
 use panic_halt as _;
-use rtfm::app;
+use rtic::app;
 use stm32f1xx_hal::{
     can::Can,
     pac::{Interrupt, CAN1},
@@ -54,7 +54,7 @@ impl Eq for PriorityFrame {}
 
 fn enqueue_frame(queue: &mut BinaryHeap<PriorityFrame, U16, Max>, frame: Frame) {
     queue.push(PriorityFrame(frame)).unwrap();
-    rtfm::pend(Interrupt::USB_HP_CAN_TX);
+    rtic::pend(Interrupt::USB_HP_CAN_TX);
 }
 
 #[app(device = stm32f1xx_hal::pac, peripherals = true)]
