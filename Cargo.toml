@@ -43,7 +43,7 @@ optional = true
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.2"
 panic-itm = "0.4.1"
-cortex-m-rtfm = "0.5"
+cortex-m-rtic = "0.5"
 cortex-m-semihosting = "0.3.3"
 heapless = "0.4.3"
 m = "0.1.1"
@@ -109,7 +109,7 @@ name = "usb_serial_interrupt"
 required-features = ["rt", "stm32-usbd"]
 
 [[example]]
-name = "usb_serial_rtfm"
+name = "usb_serial_rtic"
 required-features = ["rt", "stm32-usbd"]
 
 [[example]]
@@ -125,7 +125,7 @@ name = "qei"
 required-features = ["medium"]
 
 [[example]]
-name = "timer-interrupt-rtfm"
+name = "timer-interrupt-rtic"
 required-features = ["rt", "medium"]
 
 [[example]]
