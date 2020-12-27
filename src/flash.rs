@@ -150,9 +150,10 @@ impl<'a> FlashWriter<'a> {
     }
 
     /// Erases the Option Bytes. Requires Option Bytes registers to be unlocked.
-    fn erase_opt(&mut self) -> Result<()> {
+    fn erase_opt(&mut self) -> Result<u32> {
         // Ensure OPTWRE is set
         if self.flash.cr.cr().read().optwre().bit_is_set() {
+            let orig_val = unsafe { *(OPT_BYTES_BASE as *const u32) };
             // Erase the option bytes and wait
             self.flash.cr.cr().modify(|_, w| w.opter().set_bit());
             self.flash.cr.cr().modify(|_, w| w.strt().set_bit());
@@ -164,7 +165,7 @@ impl<'a> FlashWriter<'a> {
             }
             // Clear the OPTER bit
             self.flash.cr.cr().modify(|_, w| w.opter().clear_bit());
-            Ok(())
+            Ok(orig_val)
         } else {
             Err(Error::UnlockOptError)
         }
@@ -177,7 +178,9 @@ impl<'a> FlashWriter<'a> {
         // Wait for operation to finish
         while self.flash.sr.sr().read().bsy().bit_is_set() {}
 
-        // First we must erase the Option Bytes
+        // The documentation is somewhat vague here, but if we don't
+        // first erase the Option Bytes, the subsequent write fails with
+        // a set PGERR bit.
         self.erase_opt()?;
 
         // Now set the OPTPG bit to enable write access to Option Bytes
@@ -211,8 +214,10 @@ impl<'a> FlashWriter<'a> {
         // do not do this before checking PEGERR in case of side-effects.
         self.lock_opt()?;
 
-        let curr_rdp = unsafe { *opt_ptr };
-        if curr_rdp == intended_rdp | !(intended_rdp & 0xFF) << 8 {
+        // If the operation was successful, the lower half-word of Option Bytes
+        // should be composed of our RDP value and its complement as the lower and
+        // upper bytes respectively.
+        if unsafe { *opt_ptr } == intended_rdp | !(intended_rdp & 0xFF) << 8 {
             Ok(())
         } else {
             Err(Error::ProgrammingError)
