@@ -1,11 +1,14 @@
 //! Flash memory
 
+// See ST document PM0075 for more information
+
 use crate::pac::{flash, FLASH};
 
 pub const FLASH_START: u32 = 0x0800_0000;
 pub const FLASH_END: u32 = 0x080F_FFFF;
 
-const _RDPRT_KEY: u16 = 0x00A5;
+const OPT_BYTES_BASE: u32 = 0x1FFF_F800;
+const RDPRT_KEY: u8 = 0xA5;
 const KEY1: u32 = 0x45670123;
 const KEY2: u32 = 0xCDEF89AB;
 
@@ -24,6 +27,7 @@ pub enum Error {
     WriteError,
     VerifyError,
     UnlockError,
+    UnlockOptError,
     LockError,
 }
 
@@ -51,6 +55,15 @@ pub enum FlashSize {
     Sz768K = 768,
     Sz1M = 1024,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+pub enum ProtectionStatus {
+    Unprotected,
+    Read,
+    Write,
+    ReadWrite,
+}
+
 impl FlashSize {
     const fn kbytes(self) -> u32 {
         SZ_1K as u32 * self as u32
@@ -98,6 +111,111 @@ impl<'a> FlashWriter<'a> {
         match self.flash.cr.cr().read().lock().bit_is_set() {
             true => Ok(()),
             false => Err(Error::LockError),
+        }
+    }
+
+    fn unlock_opt(&mut self) -> Result<()> {
+        // First we must unlock the FPEC
+        self.unlock()?;
+
+        // Wait for any ongoing operations
+        while self.flash.sr.sr().read().bsy().bit_is_set() {}
+
+        // NOTE(unsafe) write Keys to the OPTKEYR register. This is safe because the
+        // only side effect of these writes is to unlock the option bytes
+        // register, which is the intent of this function. Do not rearrange the
+        // order of these writes.
+        self.flash
+            .optkeyr
+            .optkeyr()
+            .write(|w| unsafe { w.optkey().bits(KEY1) });
+
+        self.flash
+            .optkeyr
+            .optkeyr()
+            .write(|w| unsafe { w.optkey().bits(KEY2) });
+
+        // Verify success
+        if self.flash.cr.cr().read().optwre().bit_is_set() {
+            Ok(())
+        } else {
+            Err(Error::UnlockOptError)
+        }
+    }
+
+    fn lock_opt(&mut self) -> Result<()> {
+        // Reset the OPTWRE bit before relocking flash generally
+        self.flash.cr.cr().write(|w| w.optwre().clear_bit());
+        self.lock()
+    }
+
+    /// Erases the Option Bytes. Requires Option Bytes registers to be unlocked.
+    fn erase_opt(&mut self) -> Result<()> {
+        // Ensure OPTWRE is set
+        if self.flash.cr.cr().read().optwre().bit_is_set() {
+            // Erase the option bytes and wait
+            self.flash.cr.cr().modify(|_, w| w.opter().set_bit());
+            self.flash.cr.cr().modify(|_, w| w.strt().set_bit());
+            while self.flash.sr.sr().read().bsy().bit_is_set() {}
+
+            // Clear EOP bit if set
+            if self.flash.sr.sr().read().eop().bit_is_set() {
+                self.flash.sr.sr().modify(|_, w| w.eop().clear_bit());
+            }
+            // Clear the OPTER bit
+            self.flash.cr.cr().modify(|_, w| w.opter().clear_bit());
+            Ok(())
+        } else {
+            Err(Error::UnlockOptError)
+        }
+    }
+
+    fn set_rdp(&mut self, val: u8) -> Result<()> {
+        // First we need to unlock the Option Byte programming
+        self.unlock_opt()?;
+
+        // Wait for operation to finish
+        while self.flash.sr.sr().read().bsy().bit_is_set() {}
+
+        // First we must erase the Option Bytes
+        self.erase_opt()?;
+
+        // Now set the OPTPG bit to enable write access to Option Bytes
+        self.flash.cr.cr().modify(|_, w| w.optpg().set_bit());
+
+        let intended_rdp = val as u16;
+        let opt_ptr = OPT_BYTES_BASE as *mut u16;
+        unsafe {
+            core::ptr::write_volatile(opt_ptr, intended_rdp);
+        }
+
+        // // Wait for operation to finish
+        while self.flash.sr.sr().read().bsy().bit_is_set() {}
+
+        // Clear OPTPG bit
+        self.flash.cr.cr().modify(|_, w| w.optpg().clear_bit());
+
+        // Check for an error condition
+        if self.flash.sr.sr().read().pgerr().bit_is_set() {
+            // Clear the error bit
+            self.flash.sr.sr().modify(|_, w| w.pgerr().clear_bit());
+            // Before returning, re-lock flash.
+            self.lock_opt()?;
+            return Err(Error::ProgrammingError);
+        }
+
+        // Wait for operation to finish
+        while self.flash.sr.sr().read().bsy().bit_is_set() {}
+
+        // Now we should re-lock the Option Bytes. NOTE: We intentionally
+        // do not do this before checking PEGERR in case of side-effects.
+        self.lock_opt()?;
+
+        let curr_rdp = unsafe { *opt_ptr };
+        if curr_rdp == intended_rdp | !(intended_rdp & 0xFF) << 8 {
+            Ok(())
+        } else {
+            Err(Error::ProgrammingError)
         }
     }
 
@@ -288,6 +406,31 @@ impl<'a> FlashWriter<'a> {
     pub fn change_verification(&mut self, verify: bool) {
         self.verify = verify;
     }
+
+    /// Reads the OBR and WRPR registers to determine protection status of flash
+    pub fn protection_status(&mut self) -> ProtectionStatus {
+        let read_prot = self.flash.obr.obr().read().rdprt().bit_is_set();
+        let write_prot = self.flash.wrpr.wrpr().read().wrp().bits() == 0;
+        match (read_prot, write_prot) {
+            (false, false) => ProtectionStatus::Unprotected,
+            (true, false) => ProtectionStatus::Read,
+            (false, true) => ProtectionStatus::Write,
+            (true, true) => ProtectionStatus::ReadWrite,
+        }
+    }
+
+    /// Enables Read Protection by setting RDP Option Byte. Will not take efect until
+    /// MCU has been reset (e.g. via `cortex_m::peripheral::SCB::sys_reset()`)
+    pub fn protect_read(&mut self) -> Result<()> {
+        // We can write any value that is not RDPRT_KEY to enable read protection.
+        // Arbitrarily choose to write 0xBB
+        self.set_rdp(0xBB)
+    }
+
+    /// NOTE(unsafe) This will cause flash to be erased! Un-protects flash from read.
+    pub unsafe fn unprotect_read(&mut self) -> Result<()> {
+        self.set_rdp(RDPRT_KEY)
+    }
 }
 
 /// Extension trait to constrain the FLASH peripheral
@@ -303,10 +446,10 @@ impl FlashExt for FLASH {
             ar: AR { _0: () },
             cr: CR { _0: () },
             keyr: KEYR { _0: () },
-            _obr: OBR { _0: () },
-            _optkeyr: OPTKEYR { _0: () },
+            obr: OBR { _0: () },
+            optkeyr: OPTKEYR { _0: () },
             sr: SR { _0: () },
-            _wrpr: WRPR { _0: () },
+            wrpr: WRPR { _0: () },
         }
     }
 }
@@ -326,16 +469,16 @@ pub struct Parts {
     pub(crate) keyr: KEYR,
 
     /// Opaque OBR register
-    pub(crate) _obr: OBR,
+    pub(crate) obr: OBR,
 
     /// Opaque OPTKEYR register
-    pub(crate) _optkeyr: OPTKEYR,
+    pub(crate) optkeyr: OPTKEYR,
 
     /// Opaque SR register
     pub(crate) sr: SR,
 
     /// Opaque WRPR register
-    pub(crate) _wrpr: WRPR,
+    pub(crate) wrpr: WRPR,
 }
 impl Parts {
     pub fn writer(&mut self, sector_sz: SectorSize, flash_sz: FlashSize) -> FlashWriter {

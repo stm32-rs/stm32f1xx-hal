@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - LSB/MSB bit format selection for `SPI`
+- Flash read un/protection
 
 ### Fixed
 - Fix > 2 byte i2c reads
