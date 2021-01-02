@@ -98,6 +98,9 @@ pub struct I2c<I2C, PINS> {
 }
 
 /// embedded-hal compatible blocking I2C implementation
+///
+/// **NOTE**: Before using blocking I2C, you need to enable the DWT cycle counter using the
+/// [DWT::enable_cycle_counter] method.
 pub struct BlockingI2c<I2C, PINS> {
     nb: I2c<I2C, PINS>,
     start_timeout: u32,
