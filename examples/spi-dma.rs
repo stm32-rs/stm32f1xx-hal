@@ -27,7 +27,7 @@ fn main() -> ! {
     // `clocks`
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    // Acquire the GPIOA peripheral
+    // Acquire the GPIOB peripheral
     let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
 
     let pins = (
