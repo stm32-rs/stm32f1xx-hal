@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+- Rename `gpio::Edge::{RISING, FALLING, RISING_FALLING}` to `Rising`, `Falling`, `RisingFalling`, respectively
+
 ### Added
 
 - LSB/MSB bit format selection for `SPI`

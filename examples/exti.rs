@@ -55,7 +55,7 @@ fn main() -> ! {
         let int_pin = unsafe { &mut *INT_PIN.as_mut_ptr() };
         *int_pin = gpioa.pa7.into_floating_input(&mut gpioa.crl);
         int_pin.make_interrupt_source(&mut afio);
-        int_pin.trigger_on_edge(&p.EXTI, Edge::RISING_FALLING);
+        int_pin.trigger_on_edge(&p.EXTI, Edge::RisingFalling);
         int_pin.enable_interrupt(&p.EXTI);
     } // initialization ends here
 
