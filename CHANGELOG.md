@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Reintroduced the "Transferable" trait to make it possible to pass an abstract reference for any SPI DMA.
+
 ## [v0.7.0]- 2020-10-17
 
 ### Breaking changes
