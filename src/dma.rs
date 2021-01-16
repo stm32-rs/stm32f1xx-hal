@@ -60,6 +60,24 @@ pub trait TransferPayload {
     fn stop(&mut self);
 }
 
+/// Trait implemented by `Transfer` to provide access to the DMA Transfer Operation.
+/// The Trait defines methods for checking if the operation is complete, or waiting for
+/// the operation to complete. The wait function is also used to return ownership of the
+/// transmission buffer and `TransferPayload` (An RxDma or TxDma wrapping a peripheral).
+pub trait Transferable<BUFFER, DMA> {
+    /// Checks if a Transmission is complete
+    fn is_done(&self) -> bool;
+
+    /// Wait for transmission to complete
+    ///
+    /// When the transmission is complete, the ownership of the buffer and the "Payload"
+    /// (the instance that started the Transfer) is returned to the caller.
+    ///
+    /// # Returns
+    /// - Tuple containing the Transmitted buffer and the Payload (the instance initiating the transfer)
+    fn wait(self) -> (BUFFER, DMA);
+}
+
 pub struct Transfer<MODE, BUFFER, PAYLOAD>
 where
     PAYLOAD: TransferPayload,
@@ -128,7 +146,7 @@ macro_rules! dma {
 
                 use crate::pac::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, Transferable, TransferPayload};
                 use crate::rcc::{AHB, Enable};
 
                 #[allow(clippy::manual_non_exhaustive)]
@@ -295,15 +313,15 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD, MODE> Transferable<BUFFER, RxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
-                        pub fn is_done(&self) -> bool {
+                        fn is_done(&self) -> bool {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
+                        fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
                             atomic::compiler_fence(Ordering::Acquire);
@@ -333,15 +351,15 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
+                    impl<BUFFER, PAYLOAD, MODE> Transferable<BUFFER, TxDma<PAYLOAD, $CX>> for Transfer<MODE, BUFFER, TxDma<PAYLOAD, $CX>>
                     where
                         TxDma<PAYLOAD, $CX>: TransferPayload,
                     {
-                        pub fn is_done(&self) -> bool {
+                        fn is_done(&self) -> bool {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
+                        fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
                             atomic::compiler_fence(Ordering::Acquire);

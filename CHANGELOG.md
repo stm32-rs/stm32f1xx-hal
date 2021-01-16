@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 ### Added
-
+- Reintroduced the "Transferable" trait to make it possible to pass an abstract reference for any SPI DMA.
 - LSB/MSB bit format selection for `SPI`
 
 ### Fixed
