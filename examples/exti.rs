@@ -17,7 +17,7 @@ use stm32f1xx_hal::{pac, prelude::*};
 // These two are owned by the ISR. main() may only access them during the initialization phase,
 // where the interrupt is not yet enabled (i.e. no concurrent accesses can occur).
 // After enabling the interrupt, main() may not have any references to these objects any more.
-// For the sake of minimalism, we do not use RTFM here, which would be the better way.
+// For the sake of minimalism, we do not use RTIC here, which would be the better way.
 static mut LED: MaybeUninit<stm32f1xx_hal::gpio::gpioc::PC13<Output<PushPull>>> =
     MaybeUninit::uninit();
 static mut INT_PIN: MaybeUninit<stm32f1xx_hal::gpio::gpioa::PA7<Input<Floating>>> =

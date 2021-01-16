@@ -56,6 +56,11 @@ fn main() -> ! {
         1.khz(),
     );
 
+    // Enable clock on each of the channels
+    pwm.enable(Channel::C1);
+    pwm.enable(Channel::C2);
+    pwm.enable(Channel::C3);
+
     //// Operations affecting all defined channels on the Timer
 
     // Adjust period to 0.5 seconds
