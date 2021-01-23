@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Support for OpenDrain pin configuration on SPI CLK and MOSI pins
 - LSB/MSB bit format selection for `SPI`
+- Flash read un/protection
 
 ### Fixed
 - Fix > 2 byte i2c reads
