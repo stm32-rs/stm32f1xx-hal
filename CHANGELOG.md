@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Support for OpenDrain pin configuration on SPI CLK and MOSI pins
 - LSB/MSB bit format selection for `SPI`
 
 ### Fixed
