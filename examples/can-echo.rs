@@ -49,7 +49,7 @@ fn main() -> ! {
     filters.enable_bank(0, Mask32::accept_all());
 
     #[cfg(feature = "connectivity")]
-    let can2 = {
+    let _can2 = {
         let can = Can::new(dp.CAN2, &mut rcc.apb1);
 
         let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
@@ -77,7 +77,7 @@ fn main() -> ! {
 
     // Select the interface.
     let mut can = can1;
-    //let mut can = can2;
+    //let mut can = _can2;
 
     // Split the peripheral into transmitter and receiver parts.
     block!(can.enable()).unwrap();

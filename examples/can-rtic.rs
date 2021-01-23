@@ -81,7 +81,7 @@ const APP: () = {
             .freeze(&mut flash.acr);
 
         #[cfg(not(feature = "connectivity"))]
-        let mut can = Can::new(cx.device.CAN1, &mut rcc.apb1, cx.device.USB);
+        let can = Can::new(cx.device.CAN1, &mut rcc.apb1, cx.device.USB);
 
         #[cfg(feature = "connectivity")]
         let can = Can::new(cx.device.CAN1, &mut rcc.apb1);
