@@ -35,13 +35,12 @@ fn main() -> ! {
     let mut can = bxcan::Can::new(can);
 
     // Use loopback mode: No pins need to be assigned to peripheral.
-    can.configure(|config| {
-        // APB1 (PCLK1): 8MHz, Bit rate: 500Bit/s, Sample Point 87.5%
-        // Value was calculated with http://www.bittiming.can-wiki.info/
-        config.set_bit_timing(0x001c_0000);
-        config.set_loopback(true);
-        config.set_silent(true);
-    });
+    // APB1 (PCLK1): 8MHz, Bit rate: 500Bit/s, Sample Point 87.5%
+    // Value was calculated with http://www.bittiming.can-wiki.info/
+    can.modify_config()
+        .set_bit_timing(0x001c_0000)
+        .set_loopback(true)
+        .set_silent(true);
 
     let mut filters = can.modify_filters();
     assert!(filters.num_banks() > 3);

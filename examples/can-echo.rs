@@ -38,11 +38,10 @@ fn main() -> ! {
 
         bxcan::Can::new(can)
     };
-    can1.configure(|config| {
-        // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
-        // Value was calculated with http://www.bittiming.can-wiki.info/
-        config.set_bit_timing(0x001c_0003);
-    });
+
+    // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
+    // Value was calculated with http://www.bittiming.can-wiki.info/
+    can1.modify_config().set_bit_timing(0x001c_0003);
 
     // Configure filters so that can frames can be received.
     let mut filters = can1.modify_filters();
@@ -58,16 +57,14 @@ fn main() -> ! {
         can.assign_pins((tx, rx), &mut afio.mapr);
 
         let mut can2 = bxcan::Can::new(can);
-        can2.configure(|config| {
-            // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
-            // Value was calculated with http://www.bittiming.can-wiki.info/
-            config.set_bit_timing(0x001c_0003);
-        });
+
+        // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
+        // Value was calculated with http://www.bittiming.can-wiki.info/
+        can2.modify_config().set_bit_timing(0x001c_0003);
 
         // A total of 28 filters are shared between the two CAN instances.
         // Split them equally between CAN1 and CAN2.
-        filters.set_split(14);
-        let mut slave_filters = filters.slave_filters();
+        let mut slave_filters = filters.set_split(14).slave_filters();
         slave_filters.enable_bank(14, Mask32::accept_all());
         can2
     };

@@ -94,15 +94,12 @@ const APP: () = {
         can.assign_pins((can_tx_pin, can_rx_pin), &mut afio.mapr);
 
         let mut can = bxcan::Can::new(can);
-        can.configure(|config| {
-            // APB1 (PCLK1): 16MHz, Bit rate: 1000kBit/s, Sample Point 87.5%
-            // Value was calculated with http://www.bittiming.can-wiki.info/
-            config.set_bit_timing(0x001c_0000);
-        });
 
-        let mut filters = can.modify_filters();
-        filters.enable_bank(0, Mask32::accept_all());
-        drop(filters);
+        // APB1 (PCLK1): 16MHz, Bit rate: 1000kBit/s, Sample Point 87.5%
+        // Value was calculated with http://www.bittiming.can-wiki.info/
+        can.modify_config().set_bit_timing(0x001c_0000);
+
+        can.modify_filters().enable_bank(0, Mask32::accept_all());
 
         // Sync to the bus and start normal operation.
         can.enable_interrupts(
