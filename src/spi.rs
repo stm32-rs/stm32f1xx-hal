@@ -247,6 +247,7 @@ pub trait SpiReadWrite<T> {
     fn read_data_reg(&mut self) -> T;
     fn write_data_reg(&mut self, data: T);
     fn spi_write(&mut self, words: &[T]) -> Result<(), Error>;
+    fn spi_write_iter(&mut self, words: impl Iterator<Item = T>) -> Result<(), Error>;
 }
 
 impl<SPI, REMAP, PINS, FrameSize> SpiReadWrite<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize>
@@ -265,11 +266,15 @@ where
         unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut FrameSize, data) }
     }
 
+    fn spi_write(&mut self, words: &[FrameSize]) -> Result<(), Error> {
+        self.spi_write_iter(words.iter().cloned())
+    }
+
     // Implement write as per the "Transmit only procedure" page 712
     // of RM0008 Rev 20. This is more than twice as fast as the
     // default Write<> implementation (which reads and drops each
     // received value)
-    fn spi_write(&mut self, words: &[FrameSize]) -> Result<(), Error> {
+    fn spi_write_iter(&mut self, words: impl Iterator<Item = FrameSize>) -> Result<(), Error> {
         // Write each word when the tx buffer is empty
         for word in words {
             loop {
@@ -277,7 +282,7 @@ where
                 if sr.txe().bit_is_set() {
                     // NOTE(write_volatile) see note above
                     // unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, *word) }
-                    self.write_data_reg(*word);
+                    self.write_data_reg(word);
                     if sr.modf().bit_is_set() {
                         return Err(Error::ModeFault);
                     }
@@ -516,6 +521,34 @@ where
 
     fn write(&mut self, words: &[u16]) -> Result<(), Error> {
         self.spi_write(words)
+    }
+}
+
+impl<SPI, REMAP, PINS> crate::hal::blocking::spi::WriteIter<u8> for Spi<SPI, REMAP, PINS, u8>
+where
+    SPI: Deref<Target = SpiRegisterBlock>,
+{
+    type Error = Error;
+
+    fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
+    where
+        WI: IntoIterator<Item = u8>,
+    {
+        self.spi_write_iter(words.into_iter())
+    }
+}
+
+impl<SPI, REMAP, PINS> crate::hal::blocking::spi::WriteIter<u16> for Spi<SPI, REMAP, PINS, u16>
+where
+    SPI: Deref<Target = SpiRegisterBlock>,
+{
+    type Error = Error;
+
+    fn write_iter<WI>(&mut self, words: WI) -> Result<(), Self::Error>
+    where
+        WI: IntoIterator<Item = u16>,
+    {
+        self.spi_write_iter(words.into_iter())
     }
 }
 
