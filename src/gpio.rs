@@ -466,6 +466,25 @@ macro_rules! gpio {
             }
             impl<MODE, const N: u8> Mode<MODE> for $PX<MODE, N> {}
 
+            impl<MODE, const N: u8> $PX<MODE, N> where MODE: Active {
+                /// Erases the pin number from the type
+                #[inline]
+                fn into_generic(self) -> Generic<MODE> {
+                    Generic {
+                        i: {N},
+                        _mode: PhantomData,
+                    }
+                }
+
+                /// Erases the pin number and port from the type
+                ///
+                /// This is useful when you want to collect the pins into an array where you
+                /// need all the elements to have the same type
+                pub fn downgrade(self) -> Pxx<MODE> {
+                    self.into_generic().downgrade()
+                }
+            }
+
             impl<const N: u8> $PX<Debugger, N> {
                 /// Put the pin in an active state. The caller
                 /// must enforce that the pin is really in this
@@ -600,6 +619,43 @@ macro_rules! gpio {
                     else {
                         Err(PinModeError::IncorrectMode)
                     }
+                }
+            }
+
+            impl<MODE, const N: u8> $PX<Input<MODE>, N> {
+                #[inline(always)]
+                fn _trigger_on_edge(&mut self, exti: &EXTI, edge: Edge) {
+                    match edge {
+                        Edge::RISING => {
+                            exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << {N})) });
+                            exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << {N})) });
+                        },
+                        Edge::FALLING => {
+                            exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << {N})) });
+                            exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << {N})) });
+                        },
+                        Edge::RISING_FALLING => {
+                            exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << {N})) });
+                            exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << {N})) });
+                        }
+                    }
+                }
+                #[inline(always)]
+                fn _enable_interrupt(&mut self, exti: &EXTI) {
+                    exti.imr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << {N})) });
+                }
+
+                #[inline(always)]
+                fn _disable_interrupt(&mut self, exti: &EXTI) {
+                    exti.imr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << {N})) });
+                }
+                #[inline(always)]
+                fn _clear_interrupt_pending_bit(&mut self) {
+                    unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << {N}) ) };
+                }
+                #[inline(always)]
+                fn _check_interrupt(&mut self) -> bool {
+                    unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << {N})) != 0 }
                 }
             }
 
@@ -851,25 +907,6 @@ macro_rules! gpio {
                     );
                 }
 
-                impl<MODE> $PX<MODE, $i> where MODE: Active {
-                    /// Erases the pin number from the type
-                    #[inline]
-                    fn into_generic(self) -> Generic<MODE> {
-                        Generic {
-                            i: $i,
-                            _mode: PhantomData,
-                        }
-                    }
-
-                    /// Erases the pin number and port from the type
-                    ///
-                    /// This is useful when you want to collect the pins into an array where you
-                    /// need all the elements to have the same type
-                    pub fn downgrade(self) -> Pxx<MODE> {
-                        self.into_generic().downgrade()
-                    }
-                }
-
                 impl<MODE> OutputSpeed<$CR> for $PX<Output<MODE>, $i> {
                     fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
                         const OFFSET: u32 = (4 * $i) % 32;
@@ -940,44 +977,31 @@ macro_rules! gpio {
 
                     /// Generate interrupt on rising edge, falling edge or both
                     fn trigger_on_edge(&mut self, exti: &EXTI, edge: Edge) {
-                        match edge {
-                            Edge::RISING => {
-                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
-                            },
-                            Edge::FALLING => {
-                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
-                            },
-                            Edge::RISING_FALLING => {
-                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                            }
-                        }
+                        self._trigger_on_edge(exti, edge);
                     }
 
                     /// Enable external interrupts from this pin.
                     #[inline]
                     fn enable_interrupt(&mut self, exti: &EXTI) {
-                        exti.imr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                        self._enable_interrupt(exti);
                     }
 
                     /// Disable external interrupts from this pin
                     #[inline]
                     fn disable_interrupt(&mut self, exti: &EXTI) {
-                        exti.imr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                        self._disable_interrupt(exti);
                     }
 
                     /// Clear the interrupt pending bit for this pin
                     #[inline]
                     fn clear_interrupt_pending_bit(&mut self) {
-                        unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << $i) ) };
+                        self._clear_interrupt_pending_bit();
                     }
 
                     /// Reads the interrupt pending bit for this pin
                     #[inline]
                     fn check_interrupt(&mut self) -> bool {
-                        unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << $i)) != 0 }
+                        self._check_interrupt()
                     }
                 }
 
