@@ -237,7 +237,7 @@ impl Debugger {
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $PXx:ident, $extigpionr:expr, [
+    ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $PXx:ident, $extigpionr:expr, $PX:ident, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $CR:ident, $exticri:ident),)+
     ]) => {
         /// GPIO
@@ -281,7 +281,7 @@ macro_rules! gpio {
                 pub crh: CRH,
                 $(
                     /// Pin
-                    pub $pxi: $PXi<$MODE>,
+                    pub $pxi: $PX<$MODE, $i>,
                 )+
             }
 
@@ -296,7 +296,7 @@ macro_rules! gpio {
                         crl: CRL { _0: () },
                         crh: CRH { _0: () },
                         $(
-                            $pxi: $PXi { mode: <$MODE>::_new() },
+                            $pxi: $PX { mode: <$MODE>::_new() },
                         )+
                     }
                 }
@@ -461,33 +461,33 @@ macro_rules! gpio {
 
             impl<MODE> Mode<MODE> for Generic<MODE> {}
 
+            /// Pin
+            pub struct $PX<MODE, const N: u8> {
+                mode: MODE,
+            }
+            impl<MODE, const N: u8> Mode<MODE> for $PX<MODE, N> {}
 
             $(
-                /// Pin
-                pub struct $PXi<MODE> {
-                    mode: MODE,
-                }
+                pub type $PXi<MODE> = $PX<MODE, $i>;
 
-                impl<MODE> Mode<MODE> for $PXi<MODE> {}
-
-                impl $PXi<Debugger> {
+                impl $PX<Debugger, $i> {
                     /// Put the pin in an active state. The caller
                     /// must enforce that the pin is really in this
                     /// state in the hardware.
                     #[allow(dead_code)]
-                    pub(crate) unsafe fn activate(self) -> $PXi<Input<Floating>> {
-                        $PXi { mode: Input::_new() }
+                    pub(crate) unsafe fn activate(self) -> $PX<Input<Floating>, $i> {
+                        $PX { mode: Input::_new() }
                     }
                 }
 
-                impl<MODE> $PXi<MODE> where MODE: Active {
+                impl<MODE> $PX<MODE, $i> where MODE: Active {
                     /// Configures the pin to operate as an alternate function push-pull output
                     /// pin.
                     #[inline]
                     pub fn into_alternate_push_pull(
                         self,
                         cr: &mut $CR,
-                    ) -> $PXi<Alternate<PushPull>> {
+                    ) -> $PX<Alternate<PushPull>, $i> {
                         const OFFSET: u32 = (4 * $i) % 32;
                         // Alternate function output push pull
                         const CNF: u32 = 0b10;
@@ -502,7 +502,7 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
-                        $PXi { mode: Alternate::_new() }
+                        $PX { mode: Alternate::_new() }
                     }
 
                     /// Configures the pin to operate as an alternate function open-drain output
@@ -511,7 +511,7 @@ macro_rules! gpio {
                     pub fn into_alternate_open_drain(
                         self,
                         cr: &mut $CR,
-                    ) -> $PXi<Alternate<OpenDrain>> {
+                    ) -> $PX<Alternate<OpenDrain>, $i> {
                         const OFFSET: u32 = (4 * $i) % 32;
                         // Alternate function output open drain
                         const CNF: u32 = 0b11;
@@ -526,7 +526,7 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
-                        $PXi { mode: Alternate::_new() }
+                        $PX { mode: Alternate::_new() }
                     }
 
                     /// Configures the pin to operate as a floating input pin
@@ -534,9 +534,9 @@ macro_rules! gpio {
                     pub fn into_floating_input(
                         self,
                         cr: &mut $CR,
-                    ) -> $PXi<Input<Floating>> {
+                    ) -> $PX<Input<Floating>, $i> {
                         unsafe {
-                            $PXi::<Input<Floating>>::set_mode(cr)
+                            $PX::<Input<Floating>, $i>::set_mode(cr)
                         }
                     }
 
@@ -545,9 +545,9 @@ macro_rules! gpio {
                     pub fn into_pull_down_input(
                         self,
                         cr: &mut $CR,
-                    ) -> $PXi<Input<PullDown>> {
+                    ) -> $PX<Input<PullDown>, $i> {
                         unsafe {
-                            $PXi::<Input<PullDown>>::set_mode(cr)
+                            $PX::<Input<PullDown>, $i>::set_mode(cr)
                         }
                     }
 
@@ -556,9 +556,9 @@ macro_rules! gpio {
                     pub fn into_pull_up_input(
                         self,
                         cr: &mut $CR,
-                    ) -> $PXi<Input<PullUp>> {
+                    ) -> $PX<Input<PullUp>, $i> {
                         unsafe {
-                            $PXi::<Input<PullUp>>::set_mode(cr)
+                            $PX::<Input<PullUp>, $i>::set_mode(cr)
                         }
                     }
 
@@ -568,7 +568,7 @@ macro_rules! gpio {
                     pub fn into_open_drain_output(
                         self,
                         cr: &mut $CR,
-                    ) -> $PXi<Output<OpenDrain>> {
+                    ) -> $PX<Output<OpenDrain>, $i> {
                         self.into_open_drain_output_with_state(cr, State::Low)
                     }
 
@@ -579,10 +579,10 @@ macro_rules! gpio {
                         mut self,
                         cr: &mut $CR,
                         initial_state: State,
-                    ) -> $PXi<Output<OpenDrain>> {
+                    ) -> $PX<Output<OpenDrain>, $i> {
                         self.set_state(initial_state);
                         unsafe {
-                            $PXi::<Output<OpenDrain>>::set_mode(cr)
+                            $PX::<Output<OpenDrain>, $i>::set_mode(cr)
                         }
                     }
                     /// Configures the pin to operate as an push-pull output pin.
@@ -591,7 +591,7 @@ macro_rules! gpio {
                     pub fn into_push_pull_output(
                         self,
                         cr: &mut $CR,
-                    ) -> $PXi<Output<PushPull>> {
+                    ) -> $PX<Output<PushPull>, $i> {
                         self.into_push_pull_output_with_state(cr, State::Low)
                     }
 
@@ -602,18 +602,18 @@ macro_rules! gpio {
                         mut self,
                         cr: &mut $CR,
                         initial_state: State,
-                    ) -> $PXi<Output<PushPull>> {
+                    ) -> $PX<Output<PushPull>, $i> {
                         self.set_state(initial_state);
                         unsafe {
-                            $PXi::<Output<PushPull>>::set_mode(cr)
+                            $PX::<Output<PushPull>, $i>::set_mode(cr)
                         }
                     }
 
                     /// Configures the pin to operate as an analog input pin
                     #[inline]
-                    pub fn into_analog(self, cr: &mut $CR) -> $PXi<Analog> {
+                    pub fn into_analog(self, cr: &mut $CR) -> $PX<Analog, $i> {
                         unsafe {
-                            $PXi::<Analog>::set_mode(cr)
+                            $PX::<Analog, $i>::set_mode(cr)
                         }
                     }
 
@@ -621,9 +621,9 @@ macro_rules! gpio {
                     /// and output without changing the type. It starts out
                     /// as a floating input
                     #[inline]
-                    pub fn into_dynamic(self, cr: &mut $CR) -> $PXi<Dynamic> {
+                    pub fn into_dynamic(self, cr: &mut $CR) -> $PX<Dynamic, $i> {
                         self.into_floating_input(cr);
-                        $PXi::<Dynamic>{mode: Dynamic::InputFloating}
+                        $PX::<Dynamic, $i>{mode: Dynamic::InputFloating}
                     }
                 }
 
@@ -645,9 +645,9 @@ macro_rules! gpio {
                         pub fn $fn_name(
                             &mut self,
                             cr: &mut $CR,
-                            mut f: impl FnMut(&mut $PXi<$mode>)
+                            mut f: impl FnMut(&mut $PX<$mode, $i>)
                         ) {
-                            let mut temp = unsafe { $PXi::<$mode>::set_mode(cr) };
+                            let mut temp = unsafe { $PX::<$mode, $i>::set_mode(cr) };
                             f(&mut temp);
                             unsafe {
                                 Self::set_mode(cr);
@@ -666,10 +666,10 @@ macro_rules! gpio {
                             &mut self,
                             cr: &mut $CR,
                             state: State,
-                            mut f: impl FnMut(&mut $PXi<$mode>)
+                            mut f: impl FnMut(&mut $PX<$mode, $i>)
                         ) {
                             self.set_state(state);
-                            let mut temp = unsafe { $PXi::<$mode>::set_mode(cr) };
+                            let mut temp = unsafe { $PX::<$mode, $i>::set_mode(cr) };
                             f(&mut temp);
                             unsafe {
                                 Self::set_mode(cr);
@@ -689,9 +689,9 @@ macro_rules! gpio {
                         pub fn $fn_name(
                             &mut self,
                             cr: &mut $CR,
-                            mut f: impl FnMut(&mut $PXi<$mode>)
+                            mut f: impl FnMut(&mut $PX<$mode, $i>)
                         ) {
-                            let mut temp = unsafe { $PXi::<$mode>::set_mode(cr) };
+                            let mut temp = unsafe { $PX::<$mode, $i>::set_mode(cr) };
                             f(&mut temp);
                             unsafe {
                                 Self::set_mode(cr);
@@ -700,7 +700,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> $PXi<MODE> where MODE: Active, $PXi<MODE>: PinMode<$CR> {
+                impl<MODE> $PX<MODE, $i> where MODE: Active, $PX<MODE, $i>: PinMode<$CR> {
                     impl_temp_output!(
                         as_push_pull_output,
                         as_push_pull_output_with_state,
@@ -725,7 +725,7 @@ macro_rules! gpio {
                     );
                 }
 
-                impl<MODE> $PXi<MODE> where MODE: Active {
+                impl<MODE> $PX<MODE, $i> where MODE: Active {
                     /// Erases the pin number from the type
                     #[inline]
                     fn into_generic(self) -> Generic<MODE> {
@@ -746,7 +746,7 @@ macro_rules! gpio {
 
                 // embedded_hal impls
 
-                impl<MODE> OutputPin for $PXi<Output<MODE>> {
+                impl<MODE> OutputPin for $PX<Output<MODE>, $i> {
                     type Error = Infallible;
                     #[inline]
                     fn set_high(&mut self) -> Result<(), Self::Error> {
@@ -761,7 +761,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> StatefulOutputPin for $PXi<Output<MODE>> {
+                impl<MODE> StatefulOutputPin for $PX<Output<MODE>, $i> {
                     #[inline]
                     fn is_set_high(&self) -> Result<bool, Self::Error> {
                         self.is_set_low().map(|b| !b)
@@ -773,7 +773,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> OutputSpeed<$CR> for $PXi<Output<MODE>> {
+                impl<MODE> OutputSpeed<$CR> for $PX<Output<MODE>, $i> {
                     fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
                         const OFFSET: u32 = (4 * $i) % 32;
 
@@ -783,7 +783,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl OutputSpeed<$CR> for $PXi<Alternate<PushPull>> {
+                impl OutputSpeed<$CR> for $PX<Alternate<PushPull>, $i> {
                     fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
                         const OFFSET: u32 = (4 * $i) % 32;
 
@@ -793,9 +793,9 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> toggleable::Default for $PXi<Output<MODE>> {}
+                impl<MODE> toggleable::Default for $PX<Output<MODE>, $i> {}
 
-                impl<MODE> InputPin for $PXi<Input<MODE>> {
+                impl<MODE> InputPin for $PX<Input<MODE>, $i> {
                     type Error = Infallible;
                     #[inline]
                     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -809,7 +809,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl InputPin for $PXi<Output<OpenDrain>> {
+                impl InputPin for $PX<Output<OpenDrain>, $i> {
                     type Error = Infallible;
                     #[inline]
                     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -825,40 +825,40 @@ macro_rules! gpio {
 
                 // Dynamic pin
 
-                impl $PXi<Dynamic> {
+                impl $PX<Dynamic, $i> {
                     #[inline]
                     pub fn make_pull_up_input(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Input<PullUp>>::set_mode(cr) };
+                        unsafe { $PX::<Input<PullUp>, $i>::set_mode(cr) };
                         self.mode = Dynamic::InputPullUp;
                     }
                     #[inline]
                     pub fn make_pull_down_input(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Input<PullDown>>::set_mode(cr) };
+                        unsafe { $PX::<Input<PullDown>, $i>::set_mode(cr) };
                         self.mode = Dynamic::InputPullDown;
                     }
                     #[inline]
                     pub fn make_floating_input(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Input<Floating>>::set_mode(cr) };
+                        unsafe { $PX::<Input<Floating>, $i>::set_mode(cr) };
                         self.mode = Dynamic::InputFloating;
                     }
                     #[inline]
                     pub fn make_push_pull_output(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Output<PushPull>>::set_mode(cr) };
+                        unsafe { $PX::<Output<PushPull>, $i>::set_mode(cr) };
                         self.mode = Dynamic::OutputPushPull;
                     }
                     #[inline]
                     pub fn make_open_drain_output(&mut self, cr: &mut $CR) {
                         // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Output<OpenDrain>>::set_mode(cr) };
+                        unsafe { $PX::<Output<OpenDrain>, $i>::set_mode(cr) };
                         self.mode = Dynamic::OutputOpenDrain;
                     }
                 }
 
-                impl OutputPin for $PXi<Dynamic> {
+                impl OutputPin for $PX<Dynamic, $i> {
                     type Error = PinModeError;
                     fn set_high(&mut self) -> Result<(), Self::Error> {
                         if self.mode.is_output() {
@@ -880,7 +880,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl InputPin for $PXi<Dynamic> {
+                impl InputPin for $PX<Dynamic, $i> {
                     type Error = PinModeError;
                     fn is_high(&self) -> Result<bool, Self::Error> {
                         self.is_low().map(|b| !b)
@@ -898,7 +898,7 @@ macro_rules! gpio {
 
                 // Exti pin impls
 
-                impl<MODE> ExtiPin for $PXi<Input<MODE>> {
+                impl<MODE> ExtiPin for $PX<Input<MODE>, $i> {
                     /// Configure EXTI Line $i to trigger from this pin.
                     fn make_interrupt_source(&mut self, afio: &mut afio::Parts) {
                         let offset = 4 * ($i % 4);
@@ -958,7 +958,7 @@ macro_rules! gpio {
                 // NOTE: The functions in this impl block are "safe", but they
                 // are callable when the pin is in modes where they don't make
                 // sense.
-                impl<MODE> $PXi<MODE> {
+                impl<MODE> $PX<MODE, $i> {
                     /**
                       Set the output of the pin regardless of its mode.
                       Primarily used to set the output value of the pin
@@ -986,7 +986,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl PinMode<$CR> for $PXi<Input<Floating>> {
+                impl PinMode<$CR> for $PX<Input<Floating>, $i> {
                     unsafe fn set_mode(cr: &mut $CR) -> Self {
                         const OFFSET: u32 = (4 * $i) % 32;
                         // Floating input
@@ -1002,11 +1002,11 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
-                        $PXi { mode: Input::_new() }
+                        $PX { mode: Input::_new() }
                     }
                 }
 
-                impl PinMode<$CR> for $PXi<Input<PullDown>> {
+                impl PinMode<$CR> for $PX<Input<PullDown>, $i> {
                     unsafe fn set_mode(cr: &mut $CR) -> Self {
                         const OFFSET: u32 = (4 * $i) % 32;
                         // Pull up/down input
@@ -1026,12 +1026,12 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
-                        $PXi { mode: Input::_new() }
+                        $PX { mode: Input::_new() }
                     }
                 }
 
 
-                impl PinMode<$CR> for $PXi<Input<PullUp>> {
+                impl PinMode<$CR> for $PX<Input<PullUp>, $i> {
                     unsafe fn set_mode(cr: &mut $CR) -> Self {
                         const OFFSET: u32 = (4 * $i) % 32;
                         // Pull up/down input
@@ -1051,11 +1051,11 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
-                        $PXi { mode: Input::_new() }
+                        $PX { mode: Input::_new() }
                     }
                 }
 
-                impl PinMode<$CR> for $PXi<Output<OpenDrain>> {
+                impl PinMode<$CR> for $PX<Output<OpenDrain>, $i> {
                     unsafe fn set_mode(cr: &mut $CR) -> Self {
                         const OFFSET: u32 = (4 * $i) % 32;
                         // General purpose output open-drain
@@ -1070,11 +1070,11 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
-                        $PXi { mode: Output::_new() }
+                        $PX { mode: Output::_new() }
                     }
                 }
 
-                impl PinMode<$CR> for $PXi<Output<PushPull>> {
+                impl PinMode<$CR> for $PX<Output<PushPull>, $i> {
                     unsafe fn set_mode(cr: &mut $CR) -> Self {
                         const OFFSET: u32 = (4 * $i) % 32;
                         // General purpose output push-pull
@@ -1090,11 +1090,11 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
-                        $PXi { mode: Output::_new() }
+                        $PX { mode: Output::_new() }
                     }
                 }
 
-                impl PinMode<$CR> for $PXi<Analog> {
+                impl PinMode<$CR> for $PX<Analog, $i> {
                     unsafe fn set_mode(cr: &mut $CR) -> Self {
                         const OFFSET: u32 = (4 * $i) % 32;
                         // Analog input
@@ -1110,7 +1110,7 @@ macro_rules! gpio {
                                 w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
                             });
 
-                        $PXi { mode: Analog{} }
+                        $PX { mode: Analog{} }
                     }
                 }
             )+
@@ -1236,7 +1236,7 @@ impl_pxx! {
     (gpioe::PEx)
 }
 
-gpio!(GPIOA, gpioa, gpioa, PAx, 0, [
+gpio!(GPIOA, gpioa, gpioa, PAx, 0, PA, [
     PA0: (pa0, 0, Input<Floating>, CRL, exticr1),
     PA1: (pa1, 1, Input<Floating>, CRL, exticr1),
     PA2: (pa2, 2, Input<Floating>, CRL, exticr1),
@@ -1255,7 +1255,7 @@ gpio!(GPIOA, gpioa, gpioa, PAx, 0, [
     PA15: (pa15, 15, Debugger, CRH, exticr4),
 ]);
 
-gpio!(GPIOB, gpiob, gpioa, PBx, 1, [
+gpio!(GPIOB, gpiob, gpioa, PBx, 1, PB, [
     PB0: (pb0, 0, Input<Floating>, CRL, exticr1),
     PB1: (pb1, 1, Input<Floating>, CRL, exticr1),
     PB2: (pb2, 2, Input<Floating>, CRL, exticr1),
@@ -1274,7 +1274,7 @@ gpio!(GPIOB, gpiob, gpioa, PBx, 1, [
     PB15: (pb15, 15, Input<Floating>, CRH, exticr4),
 ]);
 
-gpio!(GPIOC, gpioc, gpioa, PCx, 2, [
+gpio!(GPIOC, gpioc, gpioa, PCx, 2, PC, [
     PC0: (pc0, 0, Input<Floating>, CRL, exticr1),
     PC1: (pc1, 1, Input<Floating>, CRL, exticr1),
     PC2: (pc2, 2, Input<Floating>, CRL, exticr1),
@@ -1293,7 +1293,7 @@ gpio!(GPIOC, gpioc, gpioa, PCx, 2, [
     PC15: (pc15, 15, Input<Floating>, CRH, exticr4),
 ]);
 
-gpio!(GPIOD, gpiod, gpioa, PDx, 3, [
+gpio!(GPIOD, gpiod, gpioa, PDx, 3, PD, [
     PD0: (pd0, 0, Input<Floating>, CRL, exticr1),
     PD1: (pd1, 1, Input<Floating>, CRL, exticr1),
     PD2: (pd2, 2, Input<Floating>, CRL, exticr1),
@@ -1312,7 +1312,7 @@ gpio!(GPIOD, gpiod, gpioa, PDx, 3, [
     PD15: (pd15, 15, Input<Floating>, CRH, exticr4),
 ]);
 
-gpio!(GPIOE, gpioe, gpioa, PEx, 4, [
+gpio!(GPIOE, gpioe, gpioa, PEx, 4, PE, [
     PE0: (pe0, 0, Input<Floating>, CRL, exticr1),
     PE1: (pe1, 1, Input<Floating>, CRL, exticr1),
     PE2: (pe2, 2, Input<Floating>, CRL, exticr1),
