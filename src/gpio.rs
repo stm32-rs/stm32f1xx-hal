@@ -282,7 +282,7 @@ macro_rules! gpio {
                 $(
                     $(
                         /// Pin
-                        pub $pxi: $PX<$MODE, $i>,
+                        pub $pxi: $PXi<$MODE>,
                     )+
                 )+
             }
@@ -299,7 +299,7 @@ macro_rules! gpio {
                         crh: CRH { _0: () },
                         $(
                             $(
-                                $pxi: $PX { mode: <$MODE>::_new() },
+                                $pxi: $PXi::new(<$MODE>::_new()),
                             )+
                         )+
                     }
@@ -465,15 +465,23 @@ macro_rules! gpio {
             impl<MODE> Mode<MODE> for Generic<MODE> {}
 
             /// Pin
-            pub struct $PX<MODE, const N: u8> {
+            pub struct $PX<MODE, CR, const N: u8> {
                 mode: MODE,
+                _cr: PhantomData<CR>,
             }
-            impl<MODE, const N: u8> Mode<MODE> for $PX<MODE, N> {}
-            impl<MODE, const N: u8> $PX<MODE, N> {
+            impl<MODE, CR, const N: u8> $PX<MODE, CR, N> {
+                const fn new(mode: MODE) -> Self {
+                    Self {
+                        mode, _cr: PhantomData
+                    }
+                }
+            }
+            impl<MODE, CR, const N: u8> Mode<MODE> for $PX<MODE, CR, N> {}
+            impl<MODE, CR, const N: u8> $PX<MODE, CR, N> {
                 const OFFSET: u32 = (4 * ({N} as u32)) % 32;
             }
 
-            impl<MODE, const N: u8> $PX<MODE, N> where MODE: Active {
+            impl<MODE, CR, const N: u8> $PX<MODE, CR, N> where MODE: Active {
                 /// Erases the pin number from the type
                 #[inline]
                 fn into_generic(self) -> Generic<MODE> {
@@ -492,13 +500,13 @@ macro_rules! gpio {
                 }
             }
 
-            impl<const N: u8> $PX<Debugger, N> {
+            impl<CR, const N: u8> $PX<Debugger, CR, N> {
                 /// Put the pin in an active state. The caller
                 /// must enforce that the pin is really in this
                 /// state in the hardware.
                 #[allow(dead_code)]
-                pub(crate) unsafe fn activate(self) -> $PX<Input<Floating>, N> {
-                    $PX { mode: Input::_new() }
+                pub(crate) unsafe fn activate(self) -> $PX<Input<Floating>, CR, N> {
+                    $PX::new(Input::_new())
                 }
             }
 
@@ -507,7 +515,7 @@ macro_rules! gpio {
             // NOTE: The functions in this impl block are "safe", but they
             // are callable when the pin is in modes where they don't make
             // sense.
-            impl<MODE, const N: u8> $PX<MODE, N> {
+            impl<MODE, CR, const N: u8> $PX<MODE, CR, N> {
                 /**
                   Set the output of the pin regardless of its mode.
                   Primarily used to set the output value of the pin
@@ -537,7 +545,7 @@ macro_rules! gpio {
 
             // embedded_hal impls
 
-            impl<MODE, const N: u8> OutputPin for $PX<Output<MODE>, N> {
+            impl<MODE, CR, const N: u8> OutputPin for $PX<Output<MODE>, CR, N> {
                 type Error = Infallible;
                 #[inline]
                 fn set_high(&mut self) -> Result<(), Self::Error> {
@@ -552,7 +560,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl<MODE, const N: u8> StatefulOutputPin for $PX<Output<MODE>, N> {
+            impl<MODE, CR, const N: u8> StatefulOutputPin for $PX<Output<MODE>, CR, N> {
                 #[inline]
                 fn is_set_high(&self) -> Result<bool, Self::Error> {
                     self.is_set_low().map(|b| !b)
@@ -564,9 +572,9 @@ macro_rules! gpio {
                 }
             }
 
-            impl<MODE, const N: u8> toggleable::Default for $PX<Output<MODE>, N> {}
+            impl<MODE, CR, const N: u8> toggleable::Default for $PX<Output<MODE>, CR, N> {}
 
-            impl<MODE, const N: u8> InputPin for $PX<Input<MODE>, N> {
+            impl<MODE, CR, const N: u8> InputPin for $PX<Input<MODE>, CR, N> {
                 type Error = Infallible;
                 #[inline]
                 fn is_high(&self) -> Result<bool, Self::Error> {
@@ -580,7 +588,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl<const N: u8> InputPin for $PX<Output<OpenDrain>, N> {
+            impl<CR, const N: u8> InputPin for $PX<Output<OpenDrain>, CR, N> {
                 type Error = Infallible;
                 #[inline]
                 fn is_high(&self) -> Result<bool, Self::Error> {
@@ -592,7 +600,7 @@ macro_rules! gpio {
                     Ok(self._is_low())
                 }
             }
-            impl<const N: u8> OutputPin for $PX<Dynamic, N> {
+            impl<CR, const N: u8> OutputPin for $PX<Dynamic, CR, N> {
                 type Error = PinModeError;
                 fn set_high(&mut self) -> Result<(), Self::Error> {
                     if self.mode.is_output() {
@@ -614,7 +622,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl<const N: u8> InputPin for $PX<Dynamic, N> {
+            impl<CR, const N: u8> InputPin for $PX<Dynamic, CR, N> {
                 type Error = PinModeError;
                 fn is_high(&self) -> Result<bool, Self::Error> {
                     self.is_low().map(|b| !b)
@@ -629,7 +637,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl<MODE, const N: u8> $PX<Input<MODE>, N> {
+            impl<CR, MODE, const N: u8> $PX<Input<MODE>, CR, N> {
                 #[inline(always)]
                 fn _trigger_on_edge(&mut self, exti: &EXTI, edge: Edge) {
                     match edge {
@@ -667,306 +675,425 @@ macro_rules! gpio {
             }
 
             $(
+                impl<MODE, const N: u8> $PX<MODE, $CR, N> where MODE: Active {
+                    /// Configures the pin to operate as an alternate function push-pull output
+                    /// pin.
+                    #[inline]
+                    pub fn into_alternate_push_pull(
+                        self,
+                        cr: &mut $CR,
+                    ) -> $PX<Alternate<PushPull>, $CR, N> {
+                        // Alternate function output push pull
+                        const CNF: u32 = 0b10;
+                        // Output mode, max speed 50 MHz
+                        const MODE: u32 = 0b11;
+                        const BITS: u32 = (CNF << 2) | MODE;
+
+                        // input mode
+                        cr
+                            .cr()
+                            .modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                            });
+
+                        $PX::new(Alternate::_new())
+                    }
+
+                    /// Configures the pin to operate as an alternate function open-drain output
+                    /// pin.
+                    #[inline]
+                    pub fn into_alternate_open_drain(
+                        self,
+                        cr: &mut $CR,
+                    ) -> $PX<Alternate<OpenDrain>, $CR, N> {
+                        // Alternate function output open drain
+                        const CNF: u32 = 0b11;
+                        // Output mode, max speed 50 MHz
+                        const MODE: u32 = 0b11;
+                        const BITS: u32 = (CNF << 2) | MODE;
+
+                        // input mode
+                        cr
+                            .cr()
+                            .modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                            });
+
+                        $PX::new(Alternate::_new())
+                    }
+
+                    /// Configures the pin to operate as a floating input pin
+                    #[inline]
+                    pub fn into_floating_input(
+                        self,
+                        cr: &mut $CR,
+                    ) -> $PX<Input<Floating>, $CR, N> {
+                        unsafe {
+                            $PX::<Input<Floating>, $CR, N>::set_mode(cr)
+                        }
+                    }
+
+                    /// Configures the pin to operate as a pulled down input pin
+                    #[inline]
+                    pub fn into_pull_down_input(
+                        self,
+                        cr: &mut $CR,
+                    ) -> $PX<Input<PullDown>, $CR, N> {
+                        unsafe {
+                            $PX::<Input<PullDown>, $CR, N>::set_mode(cr)
+                        }
+                    }
+
+                    /// Configures the pin to operate as a pulled up input pin
+                    #[inline]
+                    pub fn into_pull_up_input(
+                        self,
+                        cr: &mut $CR,
+                    ) -> $PX<Input<PullUp>, $CR, N> {
+                        unsafe {
+                            $PX::<Input<PullUp>, $CR, N>::set_mode(cr)
+                        }
+                    }
+
+                    /// Configures the pin to operate as an open-drain output pin.
+                    /// Initial state will be low.
+                    #[inline]
+                    pub fn into_open_drain_output(
+                        self,
+                        cr: &mut $CR,
+                    ) -> $PX<Output<OpenDrain>, $CR, N> {
+                        self.into_open_drain_output_with_state(cr, State::Low)
+                    }
+
+                    /// Configures the pin to operate as an open-drain output pin.
+                    /// `initial_state` specifies whether the pin should be initially high or low.
+                    #[inline]
+                    pub fn into_open_drain_output_with_state(
+                        mut self,
+                        cr: &mut $CR,
+                        initial_state: State,
+                    ) -> $PX<Output<OpenDrain>, $CR, N> {
+                        self.set_state(initial_state);
+                        unsafe {
+                            $PX::<Output<OpenDrain>, $CR, N>::set_mode(cr)
+                        }
+                    }
+                    /// Configures the pin to operate as an push-pull output pin.
+                    /// Initial state will be low.
+                    #[inline]
+                    pub fn into_push_pull_output(
+                        self,
+                        cr: &mut $CR,
+                    ) -> $PX<Output<PushPull>, $CR, N> {
+                        self.into_push_pull_output_with_state(cr, State::Low)
+                    }
+
+                    /// Configures the pin to operate as an push-pull output pin.
+                    /// `initial_state` specifies whether the pin should be initially high or low.
+                    #[inline]
+                    pub fn into_push_pull_output_with_state(
+                        mut self,
+                        cr: &mut $CR,
+                        initial_state: State,
+                    ) -> $PX<Output<PushPull>, $CR, N> {
+                        self.set_state(initial_state);
+                        unsafe {
+                            $PX::<Output<PushPull>, $CR, N>::set_mode(cr)
+                        }
+                    }
+
+                    /// Configures the pin to operate as an analog input pin
+                    #[inline]
+                    pub fn into_analog(self, cr: &mut $CR) -> $PX<Analog, $CR, N> {
+                        unsafe {
+                            $PX::<Analog, $CR, N>::set_mode(cr)
+                        }
+                    }
+
+                    /// Configures the pin as a pin that can change between input
+                    /// and output without changing the type. It starts out
+                    /// as a floating input
+                    #[inline]
+                    pub fn into_dynamic(self, cr: &mut $CR) -> $PX<Dynamic, $CR, N> {
+                        self.into_floating_input(cr);
+                        $PX::new(Dynamic::InputFloating)
+                    }
+                }
+
+                // These macros are defined here instead of at the top level in order
+                // to be able to refer to macro variables from the outer layers.
+                macro_rules! impl_temp_output {
+                    (
+                        $fn_name:ident,
+                        $stateful_fn_name:ident,
+                        $mode:ty
+                    ) => {
+                        /**
+                          Temporarily change the mode of the pin.
+
+                          The value of the pin after conversion is undefined. If you
+                          want to control it, use `$stateful_fn_name`
+                        */
+                        #[inline]
+                        pub fn $fn_name(
+                            &mut self,
+                            cr: &mut $CR,
+                            mut f: impl FnMut(&mut $PX<$mode, $CR, N>)
+                        ) {
+                            let mut temp = unsafe { $PX::<$mode, $CR, N>::set_mode(cr) };
+                            f(&mut temp);
+                            unsafe {
+                                Self::set_mode(cr);
+                            }
+                        }
+
+                        /**
+                          Temporarily change the mode of the pin.
+
+                          Note that the new state is set slightly before conversion
+                          happens. This can cause a short output glitch if switching
+                          between output modes
+                        */
+                        #[inline]
+                        pub fn $stateful_fn_name(
+                            &mut self,
+                            cr: &mut $CR,
+                            state: State,
+                            mut f: impl FnMut(&mut $PX<$mode, $CR, N>)
+                        ) {
+                            self.set_state(state);
+                            let mut temp = unsafe { $PX::<$mode, $CR, N>::set_mode(cr) };
+                            f(&mut temp);
+                            unsafe {
+                                Self::set_mode(cr);
+                            }
+                        }
+                    }
+                }
+                macro_rules! impl_temp_input {
+                    (
+                        $fn_name:ident,
+                        $mode:ty
+                    ) => {
+                        /**
+                          Temporarily change the mode of the pin.
+                        */
+                        #[inline]
+                        pub fn $fn_name(
+                            &mut self,
+                            cr: &mut $CR,
+                            mut f: impl FnMut(&mut $PX<$mode, $CR, N>)
+                        ) {
+                            let mut temp = unsafe { $PX::<$mode, $CR, N>::set_mode(cr) };
+                            f(&mut temp);
+                            unsafe {
+                                Self::set_mode(cr);
+                            }
+                        }
+                    }
+                }
+
+                impl<MODE, const N: u8> $PX<MODE, $CR, N> where MODE: Active, Self: PinMode<$CR> {
+                    impl_temp_output!(
+                        as_push_pull_output,
+                        as_push_pull_output_with_state,
+                        Output<PushPull>
+                    );
+                    impl_temp_output!(
+                        as_open_drain_output,
+                        as_open_drain_output_with_state,
+                        Output<OpenDrain>
+                    );
+                    impl_temp_input!(
+                        as_floating_input,
+                        Input<Floating>
+                    );
+                    impl_temp_input!(
+                        as_pull_up_input,
+                        Input<PullUp>
+                    );
+                    impl_temp_input!(
+                        as_pull_down_input,
+                        Input<PullDown>
+                    );
+                }
+
+                impl<MODE, const N: u8> OutputSpeed<$CR> for $PX<Output<MODE>, $CR, N> {
+                    fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
+                        cr.cr().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
+                        });
+                    }
+                }
+
+                impl<const N: u8> OutputSpeed<$CR> for $PX<Alternate<PushPull>, $CR, N> {
+                    fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
+                        cr.cr().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
+                        });
+                    }
+                }
+
+                // Dynamic pin
+                impl<const N: u8> $PX<Dynamic, $CR, N> {
+                    #[inline]
+                    pub fn make_pull_up_input(&mut self, cr: &mut $CR) {
+                        // NOTE(unsafe), we have a mutable reference to the current pin
+                        unsafe { $PX::<Input<PullUp>, $CR, N>::set_mode(cr) };
+                        self.mode = Dynamic::InputPullUp;
+                    }
+                    #[inline]
+                    pub fn make_pull_down_input(&mut self, cr: &mut $CR) {
+                        // NOTE(unsafe), we have a mutable reference to the current pin
+                        unsafe { $PX::<Input<PullDown>, $CR, N>::set_mode(cr) };
+                        self.mode = Dynamic::InputPullDown;
+                    }
+                    #[inline]
+                    pub fn make_floating_input(&mut self, cr: &mut $CR) {
+                        // NOTE(unsafe), we have a mutable reference to the current pin
+                        unsafe { $PX::<Input<Floating>, $CR, N>::set_mode(cr) };
+                        self.mode = Dynamic::InputFloating;
+                    }
+                    #[inline]
+                    pub fn make_push_pull_output(&mut self, cr: &mut $CR) {
+                        // NOTE(unsafe), we have a mutable reference to the current pin
+                        unsafe { $PX::<Output<PushPull>, $CR, N>::set_mode(cr) };
+                        self.mode = Dynamic::OutputPushPull;
+                    }
+                    #[inline]
+                    pub fn make_open_drain_output(&mut self, cr: &mut $CR) {
+                        // NOTE(unsafe), we have a mutable reference to the current pin
+                        unsafe { $PX::<Output<OpenDrain>, $CR, N>::set_mode(cr) };
+                        self.mode = Dynamic::OutputOpenDrain;
+                    }
+                }
+
+                impl<const N: u8> PinMode<$CR> for $PX<Input<Floating>, $CR, N> {
+                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                        // Floating input
+                        const CNF: u32 = 0b01;
+                        // Input mode
+                        const MODE: u32 = 0b00;
+                        const BITS: u32 = (CNF << 2) | MODE;
+
+                        // input mode
+                        cr
+                            .cr()
+                            .modify(|r, w| {
+                                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                            });
+
+                        $PX::new(Input::_new())
+                    }
+                }
+
+                impl<const N: u8> PinMode<$CR> for $PX<Input<PullDown>, $CR, N> {
+                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                        // Pull up/down input
+                        const CNF: u32 = 0b10;
+                        // Input mode
+                        const MODE: u32 = 0b00;
+                        const BITS: u32 = (CNF << 2) | MODE;
+
+                        //pull down:
+                        // NOTE(unsafe) atomic write to a stateless register
+                        (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + {N})));
+
+                        // input mode
+                        cr
+                            .cr()
+                            .modify(|r, w| {
+                                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                            });
+
+                        $PX::new(Input::_new())
+                    }
+                }
+
+                impl<const N: u8> PinMode<$CR> for $PX<Input<PullUp>, $CR, N> {
+                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                        // Pull up/down input
+                        const CNF: u32 = 0b10;
+                        // Input mode
+                        const MODE: u32 = 0b00;
+                        const BITS: u32 = (CNF << 2) | MODE;
+
+                        //pull up:
+                        // NOTE(unsafe) atomic write to a stateless register
+                        (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << {N}));
+
+                        // input mode
+                        cr
+                            .cr()
+                            .modify(|r, w| {
+                                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                            });
+
+                        $PX::new(Input::_new())
+                    }
+                }
+
+                impl<const N: u8> PinMode<$CR> for $PX<Output<OpenDrain>, $CR, N> {
+                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                        // General purpose output open-drain
+                        const CNF: u32 = 0b01;
+                        // Open-Drain Output mode, max speed 50 MHz
+                        const MODE: u32 = 0b11;
+                        const BITS: u32 = (CNF << 2) | MODE;
+
+                        cr
+                            .cr()
+                            .modify(|r, w| {
+                                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                            });
+
+                        $PX::new(Output::_new())
+                    }
+                }
+
+                impl<const N: u8> PinMode<$CR> for $PX<Output<PushPull>, $CR, N> {
+                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                        // General purpose output push-pull
+                        const CNF: u32 = 0b00;
+                        // Output mode, max speed 50 MHz
+                        const MODE: u32 = 0b11;
+                        const BITS: u32 = (CNF << 2) | MODE;
+
+                        cr
+                            .cr()
+                            .modify(|r, w| {
+                                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                            });
+
+                        $PX::new(Output::_new())
+                    }
+                }
+
+                impl<const N: u8> PinMode<$CR> for $PX<Analog, $CR, N> {
+                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                        // Analog input
+                        const CNF: u32 = 0b00;
+                        // Input mode
+                        const MODE: u32 = 0b00;
+                        const BITS: u32 = (CNF << 2) | MODE;
+
+                        // analog mode
+                        cr
+                            .cr()
+                            .modify(|r, w| {
+                                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                            });
+
+                        $PX::new(Analog{})
+                    }
+                }
+
                 $(
-                    pub type $PXi<MODE> = $PX<MODE, $i>;
-
-                    impl<MODE> $PX<MODE, $i> where MODE: Active {
-                        /// Configures the pin to operate as an alternate function push-pull output
-                        /// pin.
-                        #[inline]
-                        pub fn into_alternate_push_pull(
-                            self,
-                            cr: &mut $CR,
-                        ) -> $PX<Alternate<PushPull>, $i> {
-                            // Alternate function output push pull
-                            const CNF: u32 = 0b10;
-                            // Output mode, max speed 50 MHz
-                            const MODE: u32 = 0b11;
-                            const BITS: u32 = (CNF << 2) | MODE;
-
-                            // input mode
-                            cr
-                                .cr()
-                                .modify(|r, w| unsafe {
-                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                                });
-
-                            $PX { mode: Alternate::_new() }
-                        }
-
-                        /// Configures the pin to operate as an alternate function open-drain output
-                        /// pin.
-                        #[inline]
-                        pub fn into_alternate_open_drain(
-                            self,
-                            cr: &mut $CR,
-                        ) -> $PX<Alternate<OpenDrain>, $i> {
-                            // Alternate function output open drain
-                            const CNF: u32 = 0b11;
-                            // Output mode, max speed 50 MHz
-                            const MODE: u32 = 0b11;
-                            const BITS: u32 = (CNF << 2) | MODE;
-
-                            // input mode
-                            cr
-                                .cr()
-                                .modify(|r, w| unsafe {
-                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                                });
-
-                            $PX { mode: Alternate::_new() }
-                        }
-
-                        /// Configures the pin to operate as a floating input pin
-                        #[inline]
-                        pub fn into_floating_input(
-                            self,
-                            cr: &mut $CR,
-                        ) -> $PX<Input<Floating>, $i> {
-                            unsafe {
-                                $PX::<Input<Floating>, $i>::set_mode(cr)
-                            }
-                        }
-
-                        /// Configures the pin to operate as a pulled down input pin
-                        #[inline]
-                        pub fn into_pull_down_input(
-                            self,
-                            cr: &mut $CR,
-                        ) -> $PX<Input<PullDown>, $i> {
-                            unsafe {
-                                $PX::<Input<PullDown>, $i>::set_mode(cr)
-                            }
-                        }
-
-                        /// Configures the pin to operate as a pulled up input pin
-                        #[inline]
-                        pub fn into_pull_up_input(
-                            self,
-                            cr: &mut $CR,
-                        ) -> $PX<Input<PullUp>, $i> {
-                            unsafe {
-                                $PX::<Input<PullUp>, $i>::set_mode(cr)
-                            }
-                        }
-
-                        /// Configures the pin to operate as an open-drain output pin.
-                        /// Initial state will be low.
-                        #[inline]
-                        pub fn into_open_drain_output(
-                            self,
-                            cr: &mut $CR,
-                        ) -> $PX<Output<OpenDrain>, $i> {
-                            self.into_open_drain_output_with_state(cr, State::Low)
-                        }
-
-                        /// Configures the pin to operate as an open-drain output pin.
-                        /// `initial_state` specifies whether the pin should be initially high or low.
-                        #[inline]
-                        pub fn into_open_drain_output_with_state(
-                            mut self,
-                            cr: &mut $CR,
-                            initial_state: State,
-                        ) -> $PX<Output<OpenDrain>, $i> {
-                            self.set_state(initial_state);
-                            unsafe {
-                                $PX::<Output<OpenDrain>, $i>::set_mode(cr)
-                            }
-                        }
-                        /// Configures the pin to operate as an push-pull output pin.
-                        /// Initial state will be low.
-                        #[inline]
-                        pub fn into_push_pull_output(
-                            self,
-                            cr: &mut $CR,
-                        ) -> $PX<Output<PushPull>, $i> {
-                            self.into_push_pull_output_with_state(cr, State::Low)
-                        }
-
-                        /// Configures the pin to operate as an push-pull output pin.
-                        /// `initial_state` specifies whether the pin should be initially high or low.
-                        #[inline]
-                        pub fn into_push_pull_output_with_state(
-                            mut self,
-                            cr: &mut $CR,
-                            initial_state: State,
-                        ) -> $PX<Output<PushPull>, $i> {
-                            self.set_state(initial_state);
-                            unsafe {
-                                $PX::<Output<PushPull>, $i>::set_mode(cr)
-                            }
-                        }
-
-                        /// Configures the pin to operate as an analog input pin
-                        #[inline]
-                        pub fn into_analog(self, cr: &mut $CR) -> $PX<Analog, $i> {
-                            unsafe {
-                                $PX::<Analog, $i>::set_mode(cr)
-                            }
-                        }
-
-                        /// Configures the pin as a pin that can change between input
-                        /// and output without changing the type. It starts out
-                        /// as a floating input
-                        #[inline]
-                        pub fn into_dynamic(self, cr: &mut $CR) -> $PX<Dynamic, $i> {
-                            self.into_floating_input(cr);
-                            $PX::<Dynamic, $i>{mode: Dynamic::InputFloating}
-                        }
-                    }
-
-                    // These macros are defined here instead of at the top level in order
-                    // to be able to refer to macro variables from the outer layers.
-                    macro_rules! impl_temp_output {
-                        (
-                            $fn_name:ident,
-                            $stateful_fn_name:ident,
-                            $mode:ty
-                        ) => {
-                            /**
-                              Temporarily change the mode of the pin.
-
-                              The value of the pin after conversion is undefined. If you
-                              want to control it, use `$stateful_fn_name`
-                            */
-                            #[inline]
-                            pub fn $fn_name(
-                                &mut self,
-                                cr: &mut $CR,
-                                mut f: impl FnMut(&mut $PX<$mode, $i>)
-                            ) {
-                                let mut temp = unsafe { $PX::<$mode, $i>::set_mode(cr) };
-                                f(&mut temp);
-                                unsafe {
-                                    Self::set_mode(cr);
-                                }
-                            }
-
-                            /**
-                              Temporarily change the mode of the pin.
-
-                              Note that the new state is set slightly before conversion
-                              happens. This can cause a short output glitch if switching
-                              between output modes
-                            */
-                            #[inline]
-                            pub fn $stateful_fn_name(
-                                &mut self,
-                                cr: &mut $CR,
-                                state: State,
-                                mut f: impl FnMut(&mut $PX<$mode, $i>)
-                            ) {
-                                self.set_state(state);
-                                let mut temp = unsafe { $PX::<$mode, $i>::set_mode(cr) };
-                                f(&mut temp);
-                                unsafe {
-                                    Self::set_mode(cr);
-                                }
-                            }
-                        }
-                    }
-                    macro_rules! impl_temp_input {
-                        (
-                            $fn_name:ident,
-                            $mode:ty
-                        ) => {
-                            /**
-                              Temporarily change the mode of the pin.
-                            */
-                            #[inline]
-                            pub fn $fn_name(
-                                &mut self,
-                                cr: &mut $CR,
-                                mut f: impl FnMut(&mut $PX<$mode, $i>)
-                            ) {
-                                let mut temp = unsafe { $PX::<$mode, $i>::set_mode(cr) };
-                                f(&mut temp);
-                                unsafe {
-                                    Self::set_mode(cr);
-                                }
-                            }
-                        }
-                    }
-
-                    impl<MODE> $PX<MODE, $i> where MODE: Active, $PX<MODE, $i>: PinMode<$CR> {
-                        impl_temp_output!(
-                            as_push_pull_output,
-                            as_push_pull_output_with_state,
-                            Output<PushPull>
-                        );
-                        impl_temp_output!(
-                            as_open_drain_output,
-                            as_open_drain_output_with_state,
-                            Output<OpenDrain>
-                        );
-                        impl_temp_input!(
-                            as_floating_input,
-                            Input<Floating>
-                        );
-                        impl_temp_input!(
-                            as_pull_up_input,
-                            Input<PullUp>
-                        );
-                        impl_temp_input!(
-                            as_pull_down_input,
-                            Input<PullDown>
-                        );
-                    }
-
-                    impl<MODE> OutputSpeed<$CR> for $PX<Output<MODE>, $i> {
-                        fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
-                            cr.cr().modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
-                            });
-                        }
-                    }
-
-                    impl OutputSpeed<$CR> for $PX<Alternate<PushPull>, $i> {
-                        fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
-                            cr.cr().modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
-                            });
-                        }
-                    }
-
-                    // Dynamic pin
-
-                    impl $PX<Dynamic, $i> {
-                        #[inline]
-                        pub fn make_pull_up_input(&mut self, cr: &mut $CR) {
-                            // NOTE(unsafe), we have a mutable reference to the current pin
-                            unsafe { $PX::<Input<PullUp>, $i>::set_mode(cr) };
-                            self.mode = Dynamic::InputPullUp;
-                        }
-                        #[inline]
-                        pub fn make_pull_down_input(&mut self, cr: &mut $CR) {
-                            // NOTE(unsafe), we have a mutable reference to the current pin
-                            unsafe { $PX::<Input<PullDown>, $i>::set_mode(cr) };
-                            self.mode = Dynamic::InputPullDown;
-                        }
-                        #[inline]
-                        pub fn make_floating_input(&mut self, cr: &mut $CR) {
-                            // NOTE(unsafe), we have a mutable reference to the current pin
-                            unsafe { $PX::<Input<Floating>, $i>::set_mode(cr) };
-                            self.mode = Dynamic::InputFloating;
-                        }
-                        #[inline]
-                        pub fn make_push_pull_output(&mut self, cr: &mut $CR) {
-                            // NOTE(unsafe), we have a mutable reference to the current pin
-                            unsafe { $PX::<Output<PushPull>, $i>::set_mode(cr) };
-                            self.mode = Dynamic::OutputPushPull;
-                        }
-                        #[inline]
-                        pub fn make_open_drain_output(&mut self, cr: &mut $CR) {
-                            // NOTE(unsafe), we have a mutable reference to the current pin
-                            unsafe { $PX::<Output<OpenDrain>, $i>::set_mode(cr) };
-                            self.mode = Dynamic::OutputOpenDrain;
-                        }
-                    }
+                    pub type $PXi<MODE> = $PX<MODE, $CR, $i>;
 
                     // Exti pin impls
 
-                    impl<MODE> ExtiPin for $PX<Input<MODE>, $i> {
+                    impl<MODE> ExtiPin for $PX<Input<MODE>, $CR, $i> {
                         /// Configure EXTI Line $i to trigger from this pin.
                         fn make_interrupt_source(&mut self, afio: &mut afio::Parts) {
                             let offset = 4 * ($i % 4);
@@ -1004,128 +1131,6 @@ macro_rules! gpio {
                         #[inline]
                         fn check_interrupt(&mut self) -> bool {
                             self._check_interrupt()
-                        }
-                    }
-
-                    impl PinMode<$CR> for $PX<Input<Floating>, $i> {
-                        unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            // Floating input
-                            const CNF: u32 = 0b01;
-                            // Input mode
-                            const MODE: u32 = 0b00;
-                            const BITS: u32 = (CNF << 2) | MODE;
-
-                            // input mode
-                            cr
-                                .cr()
-                                .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                                });
-
-                            $PX { mode: Input::_new() }
-                        }
-                    }
-
-                    impl PinMode<$CR> for $PX<Input<PullDown>, $i> {
-                        unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            // Pull up/down input
-                            const CNF: u32 = 0b10;
-                            // Input mode
-                            const MODE: u32 = 0b00;
-                            const BITS: u32 = (CNF << 2) | MODE;
-
-                            //pull down:
-                            // NOTE(unsafe) atomic write to a stateless register
-                            (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + $i)));
-
-                            // input mode
-                            cr
-                                .cr()
-                                .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                                });
-
-                            $PX { mode: Input::_new() }
-                        }
-                    }
-
-
-                    impl PinMode<$CR> for $PX<Input<PullUp>, $i> {
-                        unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            // Pull up/down input
-                            const CNF: u32 = 0b10;
-                            // Input mode
-                            const MODE: u32 = 0b00;
-                            const BITS: u32 = (CNF << 2) | MODE;
-
-                            //pull up:
-                            // NOTE(unsafe) atomic write to a stateless register
-                            (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i));
-
-                            // input mode
-                            cr
-                                .cr()
-                                .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                                });
-
-                            $PX { mode: Input::_new() }
-                        }
-                    }
-
-                    impl PinMode<$CR> for $PX<Output<OpenDrain>, $i> {
-                        unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            // General purpose output open-drain
-                            const CNF: u32 = 0b01;
-                            // Open-Drain Output mode, max speed 50 MHz
-                            const MODE: u32 = 0b11;
-                            const BITS: u32 = (CNF << 2) | MODE;
-
-                            cr
-                                .cr()
-                                .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                                });
-
-                            $PX { mode: Output::_new() }
-                        }
-                    }
-
-                    impl PinMode<$CR> for $PX<Output<PushPull>, $i> {
-                        unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            // General purpose output push-pull
-                            const CNF: u32 = 0b00;
-                            // Output mode, max speed 50 MHz
-                            const MODE: u32 = 0b11;
-                            const BITS: u32 = (CNF << 2) | MODE;
-
-
-                            cr
-                                .cr()
-                                .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                                });
-
-                            $PX { mode: Output::_new() }
-                        }
-                    }
-
-                    impl PinMode<$CR> for $PX<Analog, $i> {
-                        unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            // Analog input
-                            const CNF: u32 = 0b00;
-                            // Input mode
-                            const MODE: u32 = 0b00;
-                            const BITS: u32 = (CNF << 2) | MODE;
-
-                            // analog mode
-                            cr
-                                .cr()
-                                .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                                });
-
-                            $PX { mode: Analog{} }
                         }
                     }
                 )+
