@@ -469,6 +469,9 @@ macro_rules! gpio {
                 mode: MODE,
             }
             impl<MODE, const N: u8> Mode<MODE> for $PX<MODE, N> {}
+            impl<MODE, const N: u8> $PX<MODE, N> {
+                const OFFSET: u32 = (4 * ({N} as u32)) % 32;
+            }
 
             impl<MODE, const N: u8> $PX<MODE, N> where MODE: Active {
                 /// Erases the pin number from the type
@@ -675,7 +678,6 @@ macro_rules! gpio {
                             self,
                             cr: &mut $CR,
                         ) -> $PX<Alternate<PushPull>, $i> {
-                            const OFFSET: u32 = (4 * $i) % 32;
                             // Alternate function output push pull
                             const CNF: u32 = 0b10;
                             // Output mode, max speed 50 MHz
@@ -686,7 +688,7 @@ macro_rules! gpio {
                             cr
                                 .cr()
                                 .modify(|r, w| unsafe {
-                                    w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
+                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                                 });
 
                             $PX { mode: Alternate::_new() }
@@ -699,7 +701,6 @@ macro_rules! gpio {
                             self,
                             cr: &mut $CR,
                         ) -> $PX<Alternate<OpenDrain>, $i> {
-                            const OFFSET: u32 = (4 * $i) % 32;
                             // Alternate function output open drain
                             const CNF: u32 = 0b11;
                             // Output mode, max speed 50 MHz
@@ -710,7 +711,7 @@ macro_rules! gpio {
                             cr
                                 .cr()
                                 .modify(|r, w| unsafe {
-                                    w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
+                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                                 });
 
                             $PX { mode: Alternate::_new() }
@@ -914,20 +915,16 @@ macro_rules! gpio {
 
                     impl<MODE> OutputSpeed<$CR> for $PX<Output<MODE>, $i> {
                         fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
-                            const OFFSET: u32 = (4 * $i) % 32;
-
                             cr.cr().modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b11 << OFFSET)) | ((speed as u32) << OFFSET))
+                                w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
                             });
                         }
                     }
 
                     impl OutputSpeed<$CR> for $PX<Alternate<PushPull>, $i> {
                         fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
-                            const OFFSET: u32 = (4 * $i) % 32;
-
                             cr.cr().modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b11 << OFFSET)) | ((speed as u32) << OFFSET))
+                                w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
                             });
                         }
                     }
@@ -1012,7 +1009,6 @@ macro_rules! gpio {
 
                     impl PinMode<$CR> for $PX<Input<Floating>, $i> {
                         unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            const OFFSET: u32 = (4 * $i) % 32;
                             // Floating input
                             const CNF: u32 = 0b01;
                             // Input mode
@@ -1023,7 +1019,7 @@ macro_rules! gpio {
                             cr
                                 .cr()
                                 .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
+                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                                 });
 
                             $PX { mode: Input::_new() }
@@ -1032,7 +1028,6 @@ macro_rules! gpio {
 
                     impl PinMode<$CR> for $PX<Input<PullDown>, $i> {
                         unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            const OFFSET: u32 = (4 * $i) % 32;
                             // Pull up/down input
                             const CNF: u32 = 0b10;
                             // Input mode
@@ -1047,7 +1042,7 @@ macro_rules! gpio {
                             cr
                                 .cr()
                                 .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
+                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                                 });
 
                             $PX { mode: Input::_new() }
@@ -1057,7 +1052,6 @@ macro_rules! gpio {
 
                     impl PinMode<$CR> for $PX<Input<PullUp>, $i> {
                         unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            const OFFSET: u32 = (4 * $i) % 32;
                             // Pull up/down input
                             const CNF: u32 = 0b10;
                             // Input mode
@@ -1072,7 +1066,7 @@ macro_rules! gpio {
                             cr
                                 .cr()
                                 .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
+                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                                 });
 
                             $PX { mode: Input::_new() }
@@ -1081,7 +1075,6 @@ macro_rules! gpio {
 
                     impl PinMode<$CR> for $PX<Output<OpenDrain>, $i> {
                         unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            const OFFSET: u32 = (4 * $i) % 32;
                             // General purpose output open-drain
                             const CNF: u32 = 0b01;
                             // Open-Drain Output mode, max speed 50 MHz
@@ -1091,7 +1084,7 @@ macro_rules! gpio {
                             cr
                                 .cr()
                                 .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
+                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                                 });
 
                             $PX { mode: Output::_new() }
@@ -1100,7 +1093,6 @@ macro_rules! gpio {
 
                     impl PinMode<$CR> for $PX<Output<PushPull>, $i> {
                         unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            const OFFSET: u32 = (4 * $i) % 32;
                             // General purpose output push-pull
                             const CNF: u32 = 0b00;
                             // Output mode, max speed 50 MHz
@@ -1111,7 +1103,7 @@ macro_rules! gpio {
                             cr
                                 .cr()
                                 .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
+                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                                 });
 
                             $PX { mode: Output::_new() }
@@ -1120,7 +1112,6 @@ macro_rules! gpio {
 
                     impl PinMode<$CR> for $PX<Analog, $i> {
                         unsafe fn set_mode(cr: &mut $CR) -> Self {
-                            const OFFSET: u32 = (4 * $i) % 32;
                             // Analog input
                             const CNF: u32 = 0b00;
                             // Input mode
@@ -1131,7 +1122,7 @@ macro_rules! gpio {
                             cr
                                 .cr()
                                 .modify(|r, w| {
-                                    w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
+                                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                                 });
 
                             $PX { mode: Analog{} }
