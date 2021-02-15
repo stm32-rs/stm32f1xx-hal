@@ -210,8 +210,9 @@ impl Dynamic {
 
 /// NOTE: This trait should ideally be private but must be pub in order to avoid
 /// complaints from the compiler.
-pub trait PinMode<CR> {
-    unsafe fn set_mode(cr: &mut CR) -> Self;
+pub trait PinMode {
+    type CR;
+    unsafe fn set_mode(cr: &mut Self::CR) -> Self;
 }
 
 // These impls are needed because a macro can not brace initialise a ty token
@@ -804,7 +805,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE, const N: u8> $PX<MODE, $CR, N> where MODE: Active, Self: PinMode<$CR> {
+                impl<MODE, const N: u8> $PX<MODE, $CR, N> where MODE: Active, Self: PinMode<CR=$CR> {
                     impl_temp_output!(
                         as_push_pull_output,
                         as_push_pull_output_with_state,
@@ -879,8 +880,9 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<const N: u8> PinMode<$CR> for $PX<Input<Floating>, $CR, N> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                impl<const N: u8> PinMode for $PX<Input<Floating>, $CR, N> {
+                    type CR = $CR;
+                    unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                         // Floating input
                         const CNF: u32 = 0b01;
                         // Input mode
@@ -898,8 +900,9 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<const N: u8> PinMode<$CR> for $PX<Input<PullDown>, $CR, N> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                impl<const N: u8> PinMode for $PX<Input<PullDown>, $CR, N> {
+                    type CR = $CR;
+                    unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                         // Pull up/down input
                         const CNF: u32 = 0b10;
                         // Input mode
@@ -921,8 +924,9 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<const N: u8> PinMode<$CR> for $PX<Input<PullUp>, $CR, N> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                impl<const N: u8> PinMode for $PX<Input<PullUp>, $CR, N> {
+                    type CR = $CR;
+                    unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                         // Pull up/down input
                         const CNF: u32 = 0b10;
                         // Input mode
@@ -944,8 +948,9 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<const N: u8> PinMode<$CR> for $PX<Output<OpenDrain>, $CR, N> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                impl<const N: u8> PinMode for $PX<Output<OpenDrain>, $CR, N> {
+                    type CR = $CR;
+                    unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                         // General purpose output open-drain
                         const CNF: u32 = 0b01;
                         // Open-Drain Output mode, max speed 50 MHz
@@ -962,8 +967,9 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<const N: u8> PinMode<$CR> for $PX<Output<PushPull>, $CR, N> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                impl<const N: u8> PinMode for $PX<Output<PushPull>, $CR, N> {
+                    type CR = $CR;
+                    unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                         // General purpose output push-pull
                         const CNF: u32 = 0b00;
                         // Output mode, max speed 50 MHz
@@ -980,8 +986,9 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<const N: u8> PinMode<$CR> for $PX<Analog, $CR, N> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
+                impl<const N: u8> PinMode for $PX<Analog, $CR, N> {
+                    type CR = $CR;
+                    unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                         // Analog input
                         const CNF: u32 = 0b00;
                         // Input mode
