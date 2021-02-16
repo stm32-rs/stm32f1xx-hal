@@ -21,6 +21,7 @@ nb = "0.1.2"
 cortex-m-rt = "0.6.8"
 stm32f1 = "0.11.0"
 embedded-dma = "0.1.2"
+bxcan = "0.4.0"
 
 [dependencies.void]
 default-features = false
@@ -45,7 +46,7 @@ panic-semihosting = "0.5.2"
 panic-itm = "0.4.1"
 cortex-m-rtic = "0.5"
 cortex-m-semihosting = "0.3.3"
-heapless = "0.4.3"
+heapless = "0.5.6"
 m = "0.1.1"
 mfrc522 = "0.2.0"
 serde_derive = "1.0.90"
@@ -78,7 +79,7 @@ doc = []
 rt = ["stm32f1/rt"]
 stm32f100 = ["stm32f1/stm32f100", "device-selected"]
 stm32f101 = ["stm32f1/stm32f101", "device-selected"]
-stm32f103 = ["stm32f1/stm32f103", "device-selected"]
+stm32f103 = ["stm32f1/stm32f103", "device-selected", "has-can"]
 stm32f105 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
 stm32f107 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
 
@@ -89,7 +90,9 @@ high = ["medium"]
 # Devices with 768 Kb ROM or more
 xl = ["high"]
 # Connectivity line devices (`stm32f105xx` and `stm32f107xx`)
-connectivity = ["medium"]
+connectivity = ["medium", "has-can"]
+# Devices with CAN interface
+has-can = []
 
 [profile.dev]
 incremental = false
@@ -131,3 +134,15 @@ required-features = ["rt", "medium"]
 [[example]]
 name = "exti"
 required-features = ["rt"]
+
+[[example]]
+name = "can-echo"
+required-features = ["has-can"]
+
+[[example]]
+name = "can-loopback"
+required-features = ["has-can"]
+
+[[example]]
+name = "can-rtic"
+required-features = ["has-can", "rt"]
