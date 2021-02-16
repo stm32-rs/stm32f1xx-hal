@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - LSB/MSB bit format selection for `SPI`
+- Support for CAN peripherals with the `bxcan` crate
 
 ### Fixed
 - Fix > 2 byte i2c reads
