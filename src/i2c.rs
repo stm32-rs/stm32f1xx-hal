@@ -222,17 +222,25 @@ macro_rules! wait_for_flag {
     ($i2c:expr, $flag:ident) => {{
         let sr1 = $i2c.sr1.read();
 
+        // Writing 1s in order to only clear the flag we spotted even
+        // if the register gets modified externally
+        // NOTE(unsafe): Writing 1 to registers which are cleared by 0 has no effect.
+        //               Similarly, writing to read-only registers has no effect
         if sr1.berr().bit_is_set() {
-            $i2c.sr1.write(|w| w.berr().clear_bit());
+            $i2c.sr1
+                .write(|w| unsafe { w.bits(0xffff) }.berr().clear_bit());
             Err(Other(Error::Bus))
         } else if sr1.arlo().bit_is_set() {
-            $i2c.sr1.write(|w| w.arlo().clear_bit());
+            $i2c.sr1
+                .write(|w| unsafe { w.bits(0xffff) }.arlo().clear_bit());
             Err(Other(Error::Arbitration))
         } else if sr1.af().bit_is_set() {
-            $i2c.sr1.write(|w| w.af().clear_bit());
+            $i2c.sr1
+                .write(|w| unsafe { w.bits(0xffff) }.af().clear_bit());
             Err(Other(Error::Acknowledge))
         } else if sr1.ovr().bit_is_set() {
-            $i2c.sr1.write(|w| w.ovr().clear_bit());
+            $i2c.sr1
+                .write(|w| unsafe { w.bits(0xffff) }.ovr().clear_bit());
             Err(Other(Error::Overrun))
         } else if sr1.$flag().bit_is_set() {
             Ok(())
@@ -350,6 +358,9 @@ where
 
     /// Generate START condition
     fn send_start(&mut self) {
+        // Clear all pending error bits
+        // NOTE(unsafe): Writing 0 clears the r/w bits and has no effect on the r bits
+        self.i2c.sr1.write(|w| unsafe { w.bits(0) });
         self.i2c.cr1.modify(|_, w| w.start().set_bit());
     }
 
