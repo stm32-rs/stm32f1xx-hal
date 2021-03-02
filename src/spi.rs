@@ -156,7 +156,7 @@ macro_rules! remap {
 remap!(Spi1NoRemap, SPI1, false, PA5, PA6, PA7);
 remap!(Spi1Remap, SPI1, true, PB3, PB4, PB5);
 remap!(Spi2NoRemap, SPI2, false, PB13, PB14, PB15);
-#[cfg(feature = "high")]
+#[cfg(any(feature = "high", feature = "connectivity"))]
 remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
 #[cfg(feature = "connectivity")]
 remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
