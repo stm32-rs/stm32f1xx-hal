@@ -45,7 +45,6 @@ fn main() -> ! {
         .pd2
         .into_push_pull_output_with_state(&mut gpiod.crl, stm32f1xx_hal::gpio::State::High);
 
-
     // The pa15 start out being used by the debugger.
     let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
     let (gpioa_pa15, _gpiob_pb3, _gpiob_pb4) =
@@ -53,7 +52,6 @@ fn main() -> ! {
 
     let key_0 = gpioc.pc5.into_pull_up_input(&mut gpioc.crl);
     let key_1 = gpioa_pa15.into_pull_up_input(&mut gpioa.crh);
-    
     // the key_up is record of key if press the button
     let mut key_up: bool = true;
 
@@ -68,7 +66,6 @@ fn main() -> ! {
         state: true,
         pin: greed_led,
     };
-
 
     loop {
         let key_result = (key_0.is_low().unwrap(), key_1.is_low().unwrap());
