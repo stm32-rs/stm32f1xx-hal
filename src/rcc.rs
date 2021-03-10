@@ -657,6 +657,9 @@ bus! {
 #[cfg(all(feature = "stm32f103", feature = "high",))]
 bus! {
     ADC3 => (APB2, adc3en, adc3rst),
+    DAC => (APB1, dacen, dacrst),
+    UART4 => (APB1, uart4en, uart4rst),
+    UART5 => (APB1, uart5en, uart5rst),
 }
 bus! {
     ADC1 => (APB2, adc1en, adc1rst),
