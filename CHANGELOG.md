@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Added the ability to specify the word size (8 or 9 bits) for `Serial` (USART). When using parity, the parity bit is included in the number of bits of the word.
+- `blocking::serial::Write` for `Tx` and `Serial`. `core::fmt::Write` for `Serial`
 - `Instance` for Timer's, rtic-monotonic fugit impl
 - Serial can now be reconfigured, allowing to change e.g. the baud rate after initialisation.
 
@@ -58,6 +60,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fix SPI3 alternate function remapping
 - Do not enable UART DMA flags unconditionally
 - Fix flash erase verification always failing
+- Fix invalid 8-bit access to USART registers.
 
 ### Changed
 

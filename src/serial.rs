@@ -39,7 +39,7 @@
 //!     p.USART1,
 //!     (pin_tx, pin_rx),
 //!     &mut afio.mapr,
-//!     Config::default().baudrate(9_600.bps()),
+//!     Config::default().baudrate(9_600.bps()).wordlength_9(),
 //!     clocks,
 //! );
 //!
@@ -78,7 +78,6 @@
 
 use core::marker::PhantomData;
 use core::ops::Deref;
-use core::ptr;
 use core::sync::atomic::{self, Ordering};
 
 use crate::pac::{RCC, USART1, USART2, USART3};
@@ -609,6 +608,30 @@ where
     }
 }
 
+impl<USARTX> Rx<USARTX, u8> {
+    pub fn with_u16_data(self) -> Rx<USARTX, u16> {
+        Rx::new()
+    }
+}
+
+impl<USARTX> Rx<USARTX, u16> {
+    pub fn with_u8_data(self) -> Rx<USARTX, u8> {
+        Rx::new()
+    }
+}
+
+impl<USARTX> Tx<USARTX, u8> {
+    pub fn with_u16_data(self) -> Tx<USARTX, u16> {
+        Tx::new()
+    }
+}
+
+impl<USARTX> Tx<USARTX, u16> {
+    pub fn with_u8_data(self) -> Tx<USARTX, u8> {
+        Tx::new()
+    }
+}
+
 impl<USART, PINS, WORD> crate::hal::serial::Read<WORD> for Serial<USART, PINS, WORD>
 where
     USART: Instance,
@@ -666,17 +689,15 @@ where
             // do a read from the sr register followed by a read from the dr
             // register
             // NOTE(read_volatile) see `write_volatile` below
-            unsafe {
-                ptr::read_volatile(&usart.sr as *const _ as *const _);
-                ptr::read_volatile(&usart.dr as *const _ as *const _);
-            }
+            let _ = usart.sr.read();
+            let _ = usart.dr.read();
             Err(nb::Error::Other(err))
         } else {
             // Check if a byte is available
             if sr.rxne().bit_is_set() {
                 // Read the received byte
                 // NOTE(read_volatile) see `write_volatile` below
-                Ok(unsafe { ptr::read_volatile(&usart.dr as *const _ as *const _) })
+                usart.dr.read().dr().bits()
             } else {
                 Err(nb::Error::WouldBlock)
             }
