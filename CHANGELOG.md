@@ -15,15 +15,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add DAC, UART4, UART5 clock in RCC for the f103 high density line
 
 ### Fixed
+
 - Fix > 2 byte i2c reads
 - Send stop after acknowledge errors on i2c
 - Fix i2c interactions after errors
 - Fix SPI3 alternate function remapping.
+- Fix invalid 8-bit access to USART registers.
 
 ### Changed
+
 - Use `cortex-m-rtic` instead of `cortex-m-rtfm` in the examples
 
-## [v0.7.0]- 2020-10-17
+### Breaking changes
+
+- Added the ability to specify the word size (8 or 9 bits) for `Serial` (USART). When using parity, the parity bit is included in the number of bits of the word.
+
+## [v0.7.0] - 2020-10-17
 
 ### Breaking changes
 
