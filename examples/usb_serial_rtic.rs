@@ -26,7 +26,7 @@ const APP: () = {
         static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
 
         let mut flash = cx.device.FLASH.constrain();
-        let mut rcc = cx.device.RCC.constrain();
+        let rcc = cx.device.RCC.constrain();
 
         let clocks = rcc
             .cfgr
