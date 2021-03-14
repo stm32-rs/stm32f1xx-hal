@@ -10,7 +10,7 @@
 
   - `SPI1` can use `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)`.
   - `SPI2` can use `(PB13, PB14, PB15)`
-  - `SPI3` can use `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)`
+  - `SPI3` can use `(PB3, PB4, PB5)` or only in connectivity line devices `(PC10, PC11, PC12)`
 
 
   ## Initialisation example
@@ -156,7 +156,7 @@ macro_rules! remap {
 remap!(Spi1NoRemap, SPI1, false, PA5, PA6, PA7);
 remap!(Spi1Remap, SPI1, true, PB3, PB4, PB5);
 remap!(Spi2NoRemap, SPI2, false, PB13, PB14, PB15);
-#[cfg(feature = "high")]
+#[cfg(any(feature = "high", feature = "connectivity"))]
 remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
 #[cfg(feature = "connectivity")]
 remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
@@ -218,10 +218,35 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI3 in 8bit dataframe mode.
 
+      The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+
+      You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
+    #[cfg(not(feature = "connectivity"))]
+    pub fn spi3<F, POS>(
+        spi: SPI3,
+        pins: PINS,
+        mode: Mode,
+        freq: F,
+        clocks: Clocks,
+        apb: &mut APB1,
+    ) -> Self
+    where
+        F: Into<Hertz>,
+        REMAP: Remap<Periph = SPI3>,
+        PINS: Pins<REMAP, POS>,
+    {
+        Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
+    }
+
+    /**
+      Constructs an SPI instance using SPI3 in 8bit dataframe mode.
+
       The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
+    #[cfg(feature = "connectivity")]
     pub fn spi3<F, POS>(
         spi: SPI3,
         pins: PINS,

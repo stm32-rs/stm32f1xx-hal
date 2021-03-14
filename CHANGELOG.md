@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fix > 2 byte i2c reads
 - Send stop after acknowledge errors on i2c
 - Fix i2c interactions after errors
+- Fix SPI3 alternate function remapping.
 
 ### Changed
 - Use `cortex-m-rtic` instead of `cortex-m-rtfm` in the examples
