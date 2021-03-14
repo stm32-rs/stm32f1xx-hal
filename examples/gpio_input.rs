@@ -1,25 +1,23 @@
-//! Through buttons to control of LED
+//! Through buttons to control the LED.
 //!
-//! This assumes that has tow leds, the red light is connected to pa8 and the green light is connected to pd2.
+//! This assumes that has two LEDs, the red light is connected to pa8 and the green light is connected to pd2.
 //!
-//! Meanwhile, it has tow buttons, we can call them key_0 and key_1.
-//!
+//! Meanwhile, it has two buttons, we can call them key_0 and key_1.
 //! The key_0 is connected to pc5, and the key_1 is connected to pa15.
 //!
-//! We need to set into_pull_up_input for pc5 and pa15, for the reason that the key_0 and key_1 was connected to GND.
+//! We need to set into_pull_up_input for pc5 and pa15, for the reason that the key_0 and key_1 were connected to GND.
 //!
-//! Use key_0 to control of red light, key_1 to control of green light.
+//! Use key_0 to control the red light, key_1 to control the green light.
+//! Only press a button after releasing the button to turns on the led, again turns down the led.
 //!
-//! Only press a button after release the button to turn on the led, again is turn down the led. And long press was nullity.
+//! And the long press was a nullity.
 
 #![deny(unsafe_code)]
 #![no_std]
 #![no_main]
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::toggleable;
-use embedded_hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin};
+use embedded_hal::digital::v2::InputPin;
 use panic_halt as _;
-use stm32f1xx_hal::gpio::{gpioa::PA8, gpiod::PD2, Output, PushPull};
 use stm32f1xx_hal::{delay::Delay, pac, prelude::*};
 
 #[entry]
@@ -30,17 +28,18 @@ fn main() -> ! {
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clock = rcc.cfgr.freeze(&mut flash.acr);
 
     let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
     let mut _gpiob = dp.GPIOB.split(&mut rcc.apb2);
     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
     let mut gpiod = dp.GPIOD.split(&mut rcc.apb2);
 
-    let red_led = gpioa
+    // red_led and green_led
+    let mut red_led = gpioa
         .pa8
         .into_push_pull_output_with_state(&mut gpioa.crh, stm32f1xx_hal::gpio::State::High);
-    let greed_led = gpiod
+    let mut green_led = gpiod
         .pd2
         .into_push_pull_output_with_state(&mut gpiod.crl, stm32f1xx_hal::gpio::State::High);
 
@@ -48,18 +47,14 @@ fn main() -> ! {
     let (gpioa_pa15, _gpiob_pb3, _gpiob_pb4) =
         afio.mapr.disable_jtag(gpioa.pa15, _gpiob.pb3, _gpiob.pb4);
 
+    // key_0 and key_1
     let key_0 = gpioc.pc5.into_pull_up_input(&mut gpioc.crl);
     let key_1 = gpioa_pa15.into_pull_up_input(&mut gpioa.crh);
+
+    // The key_up for check buttons if long press.
+    // if key_up is true, and buttons were not long press.
     let mut key_up: bool = true;
-    let mut delay = Delay::new(cp.SYST, clocks);
-    let mut red_led = RedLedPin {
-        state: true,
-        pin: red_led,
-    };
-    let mut green_led = GreenLedPin {
-        state: true,
-        pin: greed_led,
-    };
+    let mut delay = Delay::new(cp.SYST, clock);
     loop {
         let key_result = (key_0.is_low().unwrap(), key_1.is_low().unwrap());
         if key_up && (key_result.0 || key_result.1) {
@@ -68,10 +63,6 @@ fn main() -> ! {
             match key_result {
                 (x, _) if x == true => red_led.toggle().unwrap(),
                 (_, y) if y == true => green_led.toggle().unwrap(),
-                (x, y) if x == true && y == true => {
-                    red_led.toggle().unwrap();
-                    green_led.toggle().unwrap();
-                }
                 (_, _) => (),
             }
         } else if !key_result.0 && !key_result.1 {
@@ -80,59 +71,3 @@ fn main() -> ! {
         }
     }
 }
-
-struct RedLedPin {
-    state: bool,
-    pin: PA8<Output<PushPull>>,
-}
-struct GreenLedPin {
-    state: bool,
-    pin: PD2<Output<PushPull>>,
-}
-
-impl OutputPin for RedLedPin {
-    type Error = ();
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.state = false;
-        self.pin.set_low().unwrap();
-        Ok(())
-    }
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.state = true;
-        self.pin.set_high().unwrap();
-        Ok(())
-    }
-}
-impl OutputPin for GreenLedPin {
-    type Error = ();
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.state = false;
-        self.pin.set_low().unwrap();
-        Ok(())
-    }
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.state = true;
-        self.pin.set_high().unwrap();
-        Ok(())
-    }
-}
-
-impl StatefulOutputPin for RedLedPin {
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.state)
-    }
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.state)
-    }
-}
-impl StatefulOutputPin for GreenLedPin {
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.state)
-    }
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.state)
-    }
-}
-
-impl toggleable::Default for RedLedPin {}
-impl toggleable::Default for GreenLedPin {}
