@@ -360,8 +360,6 @@ macro_rules! hal {
                     // pause
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
 
-                    let timer_clock = self.clk;
-
                     self.tim.psc.write(|w| w.psc().bits(psc) );
                     self.tim.arr.write(|w| w.arr().bits(arr) );
 
@@ -372,12 +370,15 @@ macro_rules! hal {
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
                 }
 
-                pub fn clk(&mut self) -> u32
-                {
-                    self.clk.0
+                pub fn psc(&self) -> u16 {
+                    self.tim.psc.read().psc().bits()
                 }
 
-                pub fn cnt(&mut self) -> u16 {
+                pub fn arr(&self) -> u16 {
+                    self.tim.arr.read().arr().bits()
+                }
+
+                pub fn cnt(&self) -> u16 {
                     self.tim.cnt.read().cnt().bits()
                 }
 
