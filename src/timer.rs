@@ -314,11 +314,12 @@ macro_rules! hal {
                     }
                 )?
 
+                /// Starts the timer in count down mode with user-defined prescaler and auto-reload register
                 pub fn start_raw(self, psc: u16, arr: u16) -> CountDownTimer<$TIMX>
                 {
                     let Self { tim, clk } = self;
                     let mut timer = CountDownTimer { tim, clk };
-                    timer.start_raw(psc, arr);
+                    timer.restart_raw(psc, arr);
                     timer
                 }
 
@@ -355,7 +356,8 @@ macro_rules! hal {
                     }
                 }
 
-                pub fn start_raw(&mut self, psc: u16, arr: u16)
+                /// Restarts the timer in count down mode with user-defined prescaler and auto-reload register
+                pub fn restart_raw(&mut self, psc: u16, arr: u16)
                 {
                     // pause
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
@@ -370,14 +372,17 @@ macro_rules! hal {
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
                 }
 
+                /// Retrieves the content of the prescaler register. The real prescaler is this value + 1.
                 pub fn psc(&self) -> u16 {
                     self.tim.psc.read().psc().bits()
                 }
 
+                /// Retrieves the value of the auto-reload register.
                 pub fn arr(&self) -> u16 {
                     self.tim.arr.read().arr().bits()
                 }
 
+                /// Retrieves the current timer counter value.
                 pub fn cnt(&self) -> u16 {
                     self.tim.cnt.read().cnt().bits()
                 }
