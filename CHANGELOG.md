@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - LSB/MSB bit format selection for `SPI`
 - Support for CAN peripherals with the `bxcan` crate
 - Add DAC, UART4, UART5 clock in RCC for the f103 high density line
+- `start_raw` function and `arr`, `bsc` getters for more fine grained
+  control over the timer.
 
 ### Fixed
 - Fix > 2 byte i2c reads
