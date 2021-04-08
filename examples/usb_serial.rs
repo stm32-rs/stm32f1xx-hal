@@ -1,5 +1,11 @@
 //! CDC-ACM serial port example using polling in a busy loop.
 //! Target board: Blue Pill
+//!
+//! Note:
+//! When building this since this is a larger program,
+//! one would need to build it using release profile
+//! since debug profiles generates artifacts that
+//! cause FLASH overflow errors due to their size
 #![no_std]
 #![no_main]
 
