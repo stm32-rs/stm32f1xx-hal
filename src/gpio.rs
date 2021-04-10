@@ -1233,7 +1233,9 @@ impl_pxx! {
     (gpiob::PBx),
     (gpioc::PCx),
     (gpiod::PDx),
-    (gpioe::PEx)
+    (gpioe::PEx),
+    (gpiof::PFx),
+    (gpiog::PGx)
 }
 
 gpio!(GPIOA, gpioa, gpioa, PAx, 0, [
@@ -1329,4 +1331,42 @@ gpio!(GPIOE, gpioe, gpioa, PEx, 4, [
     PE13: (pe13, 13, Input<Floating>, CRH, exticr4),
     PE14: (pe14, 14, Input<Floating>, CRH, exticr4),
     PE15: (pe15, 15, Input<Floating>, CRH, exticr4),
+]);
+
+gpio!(GPIOF, gpiof, gpioa, PFx, 5, [
+    PF0:  (pf0, 0, Input<Floating>, CRL, exticr1),
+    PF1:  (pf1, 1, Input<Floating>, CRL, exticr1),
+    PF2:  (pf2, 2, Input<Floating>, CRL, exticr1),
+    PF3:  (pf3, 3, Input<Floating>, CRL, exticr1),
+    PF4:  (pf4, 4, Input<Floating>, CRL, exticr2),
+    PF5:  (pf5, 5, Input<Floating>, CRL, exticr2),
+    PF6:  (pf6, 6, Input<Floating>, CRL, exticr2),
+    PF7:  (pf7, 7, Input<Floating>, CRL, exticr2),
+    PF8:  (pf8, 8, Input<Floating>, CRH, exticr3),
+    PF9:  (pf9, 9, Input<Floating>, CRH, exticr3),
+    PF10: (pf10, 10, Input<Floating>, CRH, exticr3),
+    PF11: (pf11, 11, Input<Floating>, CRH, exticr3),
+    PF12: (pf12, 12, Input<Floating>, CRH, exticr4),
+    PF13: (pf13, 13, Input<Floating>, CRH, exticr4),
+    PF14: (pf14, 14, Input<Floating>, CRH, exticr4),
+    PF15: (pf15, 15, Input<Floating>, CRH, exticr4),
+]);
+
+gpio!(GPIOG, gpiog, gpioa, PGx, 6, [
+    PG0:  (pg0, 0, Input<Floating>, CRL, exticr1),
+    PG1:  (pg1, 1, Input<Floating>, CRL, exticr1),
+    PG2:  (pg2, 2, Input<Floating>, CRL, exticr1),
+    PG3:  (pg3, 3, Input<Floating>, CRL, exticr1),
+    PG4:  (pg4, 4, Input<Floating>, CRL, exticr2),
+    PG5:  (pg5, 5, Input<Floating>, CRL, exticr2),
+    PG6:  (pg6, 6, Input<Floating>, CRL, exticr2),
+    PG7:  (pg7, 7, Input<Floating>, CRL, exticr2),
+    PG8:  (pg8, 8, Input<Floating>, CRH, exticr3),
+    PG9:  (pg9, 9, Input<Floating>, CRH, exticr3),
+    PG10: (pg10, 10, Input<Floating>, CRH, exticr3),
+    PG11: (pg11, 11, Input<Floating>, CRH, exticr3),
+    PG12: (pg12, 12, Input<Floating>, CRH, exticr4),
+    PG13: (pg13, 13, Input<Floating>, CRH, exticr4),
+    PG14: (pg14, 14, Input<Floating>, CRH, exticr4),
+    PG15: (pg15, 15, Input<Floating>, CRH, exticr4),
 ]);
