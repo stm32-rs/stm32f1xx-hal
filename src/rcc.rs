@@ -669,8 +669,6 @@ bus! {
     GPIOC => (APB2, iopcen, iopcrst),
     GPIOD => (APB2, iopden, iopdrst),
     GPIOE => (APB2, iopeen, ioperst),
-    GPIOF => (APB2, iopfen, iopfrst),
-    GPIOG => (APB2, iopgen, iopgrst),
     I2C1 => (APB1, i2c1en, i2c1rst),
     I2C2 => (APB1, i2c2en, i2c2rst),
     SPI1 => (APB2, spi1en, spi1rst),
@@ -679,6 +677,12 @@ bus! {
     USART2 => (APB1, usart2en, usart2rst),
     USART3 => (APB1, usart3en, usart3rst),
     WWDG => (APB1, wwdgen, wwdgrst),
+}
+
+#[cfg(any(feature = "xl", feature = "high"))]
+bus! {
+    GPIOF => (APB2, iopfen, iopfrst),
+    GPIOG => (APB2, iopgen, iopgrst),
 }
 
 #[cfg(any(feature = "high", feature = "connectivity"))]

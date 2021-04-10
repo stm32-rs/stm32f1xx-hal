@@ -1228,6 +1228,16 @@ macro_rules! impl_pxx {
     }
 }
 
+#[cfg(not(any(feature = "xl", feature = "high")))]
+impl_pxx! {
+    (gpioa::PAx),
+    (gpiob::PBx),
+    (gpioc::PCx),
+    (gpiod::PDx),
+    (gpioe::PEx)
+}
+
+#[cfg(any(feature = "xl", feature = "high"))]
 impl_pxx! {
     (gpioa::PAx),
     (gpiob::PBx),
@@ -1333,6 +1343,7 @@ gpio!(GPIOE, gpioe, gpioa, PEx, 4, [
     PE15: (pe15, 15, Input<Floating>, CRH, exticr4),
 ]);
 
+#[cfg(any(feature = "xl", feature = "high"))]
 gpio!(GPIOF, gpiof, gpioa, PFx, 5, [
     PF0:  (pf0, 0, Input<Floating>, CRL, exticr1),
     PF1:  (pf1, 1, Input<Floating>, CRL, exticr1),
@@ -1352,6 +1363,7 @@ gpio!(GPIOF, gpiof, gpioa, PFx, 5, [
     PF15: (pf15, 15, Input<Floating>, CRH, exticr4),
 ]);
 
+#[cfg(any(feature = "xl", feature = "high"))]
 gpio!(GPIOG, gpiog, gpioa, PGx, 6, [
     PG0:  (pg0, 0, Input<Floating>, CRL, exticr1),
     PG1:  (pg1, 1, Input<Floating>, CRL, exticr1),
