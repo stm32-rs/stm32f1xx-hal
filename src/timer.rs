@@ -442,21 +442,8 @@ macro_rules! hal {
                 where
                     T: Into<Hertz>,
                 {
-                    // pause
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
-
                     let (psc, arr) = compute_arr_presc(timeout.into().0, self.clk.0);
-                    self.tim.psc.write(|w| w.psc().bits(psc) );
-
-                    // TODO: Remove this `allow` once this field is made safe for stm32f100
-                    #[allow(unused_unsafe)]
-                    self.tim.arr.write(|w| unsafe { w.arr().bits(arr) });
-
-                    // Trigger an update event to load the prescaler value to the clock
-                    self.reset();
-
-                    // start counter
-                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                    self.restart_raw(psc, arr);
                 }
 
                 fn wait(&mut self) -> nb::Result<(), Void> {
