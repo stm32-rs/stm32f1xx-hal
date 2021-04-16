@@ -363,7 +363,10 @@ macro_rules! hal {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
 
                     self.tim.psc.write(|w| w.psc().bits(psc) );
-                    self.tim.arr.write(|w| w.arr().bits(arr) );
+
+                    // TODO: Remove this `allow` once this field is made safe for stm32f100
+                    #[allow(unused_unsafe)]
+                    self.tim.arr.write(|w| unsafe { w.arr().bits(arr) });
 
                     // Trigger an update event to load the prescaler value to the clock
                     self.reset();
