@@ -26,27 +26,31 @@ impl Delay {
         self.syst
     }
 }
-
+use core::convert::Infallible;
 impl DelayMs<u32> for Delay {
-    fn delay_ms(&mut self, ms: u32) {
-        self.delay_us(ms * 1_000);
+    type Error = Infallible;
+    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
+        self.delay_us(ms * 1_000)
     }
 }
 
 impl DelayMs<u16> for Delay {
-    fn delay_ms(&mut self, ms: u16) {
-        self.delay_ms(u32(ms));
+    type Error = Infallible;
+    fn delay_ms(&mut self, ms: u16) -> Result<(), Self::Error> {
+        self.delay_ms(u32(ms))
     }
 }
 
 impl DelayMs<u8> for Delay {
-    fn delay_ms(&mut self, ms: u8) {
-        self.delay_ms(u32(ms));
+    type Error = Infallible;
+    fn delay_ms(&mut self, ms: u8) -> Result<(), Self::Error> {
+        self.delay_ms(u32(ms))
     }
 }
 
 impl DelayUs<u32> for Delay {
-    fn delay_us(&mut self, us: u32) {
+    type Error = Infallible;
+    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
         // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
         const MAX_RVR: u32 = 0x00FF_FFFF;
 
@@ -70,17 +74,20 @@ impl DelayUs<u32> for Delay {
 
             self.syst.disable_counter();
         }
+        Ok(())
     }
 }
 
 impl DelayUs<u16> for Delay {
-    fn delay_us(&mut self, us: u16) {
+    type Error = Infallible;
+    fn delay_us(&mut self, us: u16) -> Result<(), Self::Error> {
         self.delay_us(u32(us))
     }
 }
 
 impl DelayUs<u8> for Delay {
-    fn delay_us(&mut self, us: u8) {
+    type Error = Infallible;
+    fn delay_us(&mut self, us: u8) -> Result<(), Self::Error> {
         self.delay_us(u32(us))
     }
 }

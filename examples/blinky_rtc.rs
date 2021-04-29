@@ -15,7 +15,7 @@ use panic_halt as _;
 use stm32f1xx_hal::{pac, prelude::*, rtc::Rtc};
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use nb::block;
 
 #[entry]

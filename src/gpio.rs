@@ -245,7 +245,7 @@ macro_rules! gpio {
             use core::convert::Infallible;
             use core::marker::PhantomData;
 
-            use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, toggleable};
+            use crate::hal::digital::{InputPin, OutputPin, StatefulOutputPin, toggleable};
             use crate::pac::{$gpioy, $GPIOX};
             use crate::pac::EXTI;
             use crate::afio;
@@ -1120,7 +1120,7 @@ macro_rules! gpio {
 
 macro_rules! impl_pxx {
     ($(($port:ident :: $pin:ident)),*) => {
-        use embedded_hal::digital::v2::{InputPin, StatefulOutputPin, OutputPin};
+        use embedded_hal::digital::{InputPin, StatefulOutputPin, OutputPin};
         use core::convert::Infallible;
 
         pub enum Pxx<MODE> {

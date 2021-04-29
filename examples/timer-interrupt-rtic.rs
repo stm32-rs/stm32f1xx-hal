@@ -13,7 +13,7 @@ use panic_halt as _;
 
 use rtic::app;
 
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use stm32f1xx_hal::{
     gpio::{gpioc::PC13, Output, PushPull, State},
     pac,

@@ -24,7 +24,7 @@ use crate::hal::{
 use core::cell::RefCell;
 use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 
 // A type definition for the GPIO pin to be used for our LED
 type LEDPIN = gpioc::PC13<Output<PushPull>>;

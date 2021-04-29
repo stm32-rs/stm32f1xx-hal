@@ -73,7 +73,6 @@ use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset, APB1};
 use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
-use void::Void;
 
 use crate::time::Hertz;
 
@@ -173,14 +172,14 @@ impl Timer<SYST> {
         }
     }
 
-    pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<SYST>
+    pub fn start_count_down<T>(self, timeout: T) -> Result<CountDownTimer<SYST>, Error>
     where
         T: Into<Hertz>,
     {
         let Self { tim, clk } = self;
         let mut timer = CountDownTimer { tim, clk };
-        timer.start(timeout);
-        timer
+        timer.start(timeout)?;
+        Ok(timer)
     }
 
     pub fn release(self) -> SYST {
@@ -238,8 +237,9 @@ impl CountDownTimer<SYST> {
 
 impl CountDown for CountDownTimer<SYST> {
     type Time = Hertz;
+    type Error = Error;
 
-    fn start<T>(&mut self, timeout: T)
+    fn start<T>(&mut self, timeout: T) -> Result<(), Self::Error>
     where
         T: Into<Hertz>,
     {
@@ -250,9 +250,10 @@ impl CountDown for CountDownTimer<SYST> {
         self.tim.set_reload(rvr);
         self.tim.clear_current();
         self.tim.enable_counter();
+        Ok(())
     }
 
-    fn wait(&mut self) -> nb::Result<(), Void> {
+    fn wait(&mut self) -> Result<(), nb::Error<Self::Error>> {
         if self.tim.has_wrapped() {
             Ok(())
         } else {
@@ -262,8 +263,6 @@ impl CountDown for CountDownTimer<SYST> {
 }
 
 impl Cancel for CountDownTimer<SYST> {
-    type Error = Error;
-
     fn cancel(&mut self) -> Result<(), Self::Error> {
         if !self.tim.is_counter_enabled() {
             return Err(Self::Error::Canceled);
@@ -290,27 +289,27 @@ macro_rules! hal {
                 }
 
                 /// Starts timer in count down mode at a given frequency
-                pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<$TIMX>
+                pub fn start_count_down<T>(self, timeout: T) -> Result<CountDownTimer<$TIMX>, Error>
                 where
                     T: Into<Hertz>,
                 {
                     let Self { tim, clk } = self;
                     let mut timer = CountDownTimer { tim, clk };
-                    timer.start(timeout);
-                    timer
+                    timer.start(timeout)?;
+                    Ok(timer)
                 }
 
                 $(
                     /// Starts timer in count down mode at a given frequency and additionally configures the timers master mode
-                    pub fn start_master<T>(self, timeout: T, mode: crate::pac::$master_timbase::cr2::MMS_A) -> CountDownTimer<$TIMX>
+                    pub fn start_master<T>(self, timeout: T, mode: crate::pac::$master_timbase::cr2::MMS_A) -> Result<CountDownTimer<$TIMX>, Error>
                     where
                         T: Into<Hertz>,
                     {
                         let Self { tim, clk } = self;
                         let mut timer = CountDownTimer { tim, clk };
                         timer.tim.cr2.modify(|_,w| w.mms().variant(mode));
-                        timer.start(timeout);
-                        timer
+                        timer.start(timeout)?;
+                        Ok(timer)
                     }
                 )?
 
@@ -394,8 +393,9 @@ macro_rules! hal {
 
             impl CountDown for CountDownTimer<$TIMX> {
                 type Time = Hertz;
+                type Error = Error;
 
-                fn start<T>(&mut self, timeout: T)
+                fn start<T>(&mut self, timeout: T) -> Result<(), Self::Error>
                 where
                     T: Into<Hertz>,
                 {
@@ -414,9 +414,10 @@ macro_rules! hal {
 
                     // start counter
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                    Ok(())
                 }
 
-                fn wait(&mut self) -> nb::Result<(), Void> {
+                fn wait(&mut self) -> Result<(), nb::Error<Self::Error>> {
                     if self.tim.sr.read().uif().bit_is_clear() {
                         Err(nb::Error::WouldBlock)
                     } else {
@@ -428,8 +429,6 @@ macro_rules! hal {
 
             impl Cancel for CountDownTimer<$TIMX>
             {
-                type Error = Error;
-
                 fn cancel(&mut self) -> Result<(), Self::Error> {
                     let is_counter_enabled = self.tim.cr1.read().cen().is_enabled();
                     if !is_counter_enabled {

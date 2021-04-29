@@ -24,7 +24,7 @@ use crate::hal::{
 use core::cell::RefCell;
 use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 
 // NOTE You can uncomment 'hprintln' here and in the code below for a bit more
 // verbosity at runtime, at the cost of throwing off the timing of the blink
@@ -87,7 +87,9 @@ fn main() -> ! {
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 
     // Set up a timer expiring after 1s
-    let mut timer = Timer::tim2(dp.TIM2, &clocks, &mut rcc.apb1).start_count_down(1.hz());
+    let mut timer = Timer::tim2(dp.TIM2, &clocks, &mut rcc.apb1)
+        .start_count_down(1.hz())
+        .unwrap();
 
     // Generate an interrupt when the timer expires
     timer.listen(Event::Update);

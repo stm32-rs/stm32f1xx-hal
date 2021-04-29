@@ -9,7 +9,7 @@ use panic_halt as _;
 use nb::block;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use stm32f1xx_hal::{pac, prelude::*, timer::Timer};
 
 #[entry]
@@ -27,7 +27,9 @@ fn main() -> ! {
     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
 
     // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, &clocks).start_count_down(1.hz());
+    let mut timer = Timer::syst(cp.SYST, &clocks)
+        .start_count_down(1.hz())
+        .unwrap();
 
     // Create an array of LEDS to blink
     let mut leds = [

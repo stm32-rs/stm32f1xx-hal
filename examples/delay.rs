@@ -7,7 +7,7 @@
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use stm32f1xx_hal::{delay::Delay, pac, prelude::*};
 
 #[entry]
@@ -35,8 +35,8 @@ fn main() -> ! {
 
     loop {
         led.set_high().unwrap();
-        delay.delay_ms(1_000_u16);
+        delay.delay_ms(1_000_u16).unwrap();
         led.set_low().unwrap();
-        delay.delay_ms(1_000_u16);
+        delay.delay_ms(1_000_u16).unwrap();
     }
 }

@@ -7,7 +7,7 @@
 extern crate panic_semihosting;
 
 use cortex_m::asm::delay;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 use rtic::app;
 use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};

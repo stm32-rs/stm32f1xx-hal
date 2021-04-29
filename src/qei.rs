@@ -8,12 +8,13 @@ use core::u16;
 
 use core::marker::PhantomData;
 
-use crate::hal::{self, Direction};
+use crate::hal::{self, qei::Direction};
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
 use crate::pac::{TIM2, TIM3};
+use core::convert::Infallible;
 
 use crate::afio::MAPR;
 
@@ -179,18 +180,20 @@ macro_rules! hal {
                 }
             }
 
-            impl<REMAP, PINS> hal::Qei for Qei<$TIMX, REMAP, PINS> {
+            impl<REMAP, PINS> hal::qei::Qei for Qei<$TIMX, REMAP, PINS> {
                 type Count = u16;
+                type Error = Infallible;
 
-                fn count(&self) -> u16 {
-                    self.tim.cnt.read().cnt().bits()
+
+                fn count(&self) -> Result<Self::Count, Self::Error> {
+                    Ok(self.tim.cnt.read().cnt().bits())
                 }
 
-                fn direction(&self) -> Direction {
+                fn direction(&self) -> Result<Direction, Self::Error> {
                     if self.tim.cr1.read().dir().bit_is_clear() {
-                        hal::Direction::Upcounting
+                        Ok(Direction::Upcounting)
                     } else {
-                        hal::Direction::Downcounting
+                        Ok(Direction::Downcounting)
                     }
                 }
             }

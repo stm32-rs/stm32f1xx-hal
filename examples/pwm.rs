@@ -57,39 +57,39 @@ fn main() -> ! {
     );
 
     // Enable clock on each of the channels
-    pwm.enable(Channel::C1);
-    pwm.enable(Channel::C2);
-    pwm.enable(Channel::C3);
+    pwm.enable(&Channel::C1).unwrap();
+    pwm.enable(&Channel::C2).unwrap();
+    pwm.enable(&Channel::C3).unwrap();
 
     //// Operations affecting all defined channels on the Timer
 
     // Adjust period to 0.5 seconds
-    pwm.set_period(500.ms());
+    pwm.set_period(500.ms()).unwrap();
 
     asm::bkpt();
 
     // Return to the original frequency
-    pwm.set_period(1.khz());
+    pwm.set_period(1.khz()).unwrap();
 
     asm::bkpt();
 
-    let max = pwm.get_max_duty();
+    let max = pwm.get_max_duty().unwrap();
 
     //// Operations affecting single channels can be accessed through
     //// the Pwm object or via dereferencing to the pin.
 
     // Use the Pwm object to set C3 to full strength
-    pwm.set_duty(Channel::C3, max);
+    pwm.set_duty(&Channel::C3, max).unwrap();
 
     asm::bkpt();
 
     // Use the Pwm object to set C3 to be dim
-    pwm.set_duty(Channel::C3, max / 4);
+    pwm.set_duty(&Channel::C3, max / 4).unwrap();
 
     asm::bkpt();
 
     // Use the Pwm object to set C3 to be zero
-    pwm.set_duty(Channel::C3, 0);
+    pwm.set_duty(&Channel::C3, 0).unwrap();
 
     asm::bkpt();
 
@@ -97,17 +97,17 @@ fn main() -> ! {
     let mut pwm_channel = pwm.split().2;
 
     // Use the PwmChannel object to set C3 to be full strength
-    pwm_channel.set_duty(max);
+    pwm_channel.set_duty(max).unwrap();
 
     asm::bkpt();
 
     // Use the PwmChannel object to set C3 to be dim
-    pwm_channel.set_duty(max / 4);
+    pwm_channel.set_duty(max / 4).unwrap();
 
     asm::bkpt();
 
     // Use the PwmChannel object to set C3 to be zero
-    pwm_channel.set_duty(0);
+    pwm_channel.set_duty(0).unwrap();
 
     asm::bkpt();
 
