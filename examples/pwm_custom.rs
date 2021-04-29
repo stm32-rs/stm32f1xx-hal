@@ -31,28 +31,28 @@ fn main() -> ! {
 
     let pwm = Timer::tim3(p.TIM3, &clocks, &mut rcc.apb1).pwm((p0, p1), &mut afio.mapr, 1.khz());
 
-    let max = pwm.get_max_duty().unwrap();
+    let max = pwm.get_max_duty();
 
     let mut pwm_channels = pwm.split();
 
     // Enable the individual channels
-    pwm_channels.0.enable().unwrap();
-    pwm_channels.1.enable().unwrap();
+    pwm_channels.0.enable();
+    pwm_channels.1.enable();
 
     // full
-    pwm_channels.0.set_duty(max).unwrap();
-    pwm_channels.1.set_duty(max).unwrap();
+    pwm_channels.0.set_duty(max);
+    pwm_channels.1.set_duty(max);
 
     asm::bkpt();
 
     // dim
-    pwm_channels.1.set_duty(max / 4).unwrap();
+    pwm_channels.1.set_duty(max / 4);
 
     asm::bkpt();
 
     // zero
-    pwm_channels.0.set_duty(0).unwrap();
-    pwm_channels.1.set_duty(0).unwrap();
+    pwm_channels.0.set_duty(0);
+    pwm_channels.1.set_duty(0);
 
     asm::bkpt();
 

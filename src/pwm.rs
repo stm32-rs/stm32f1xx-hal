@@ -308,22 +308,90 @@ macro_rules! hal {
                 }
             }
 
-        /*
-        The following implemention of the embedded_hal::Pwm uses Hertz as a time type.  This was choosen
-        because of the timescales of operations being on the order of nanoseconds and not being able to
-        efficently represent a float on the hardware.  It might be possible to change the time type to
-        a different time based using such as the nanosecond.  The issue with doing so is that the max
-        delay would then be at just a little over 2 seconds because of the 32 bit depth of the number.
-        Using milliseconds is also an option, however, using this as a base unit means that only there
-        could be resolution issues when trying to get a specific value, because of the integer nature.
+            /*
+            The following implemention of the embedded_hal::Pwm uses Hertz as a time type.  This was choosen
+            because of the timescales of operations being on the order of nanoseconds and not being able to
+            efficently represent a float on the hardware.  It might be possible to change the time type to
+            a different time based using such as the nanosecond.  The issue with doing so is that the max
+            delay would then be at just a little over 2 seconds because of the 32 bit depth of the number.
+            Using milliseconds is also an option, however, using this as a base unit means that only there
+            could be resolution issues when trying to get a specific value, because of the integer nature.
 
-        To find a middle ground, the Hertz type is used as a base here and the Into trait has been
-        defined for several base time units.  This will allow for calling the set_period method with
-        something that is natural to both the MCU and the end user.
-        */
-        impl<REMAP, P, PINS> hal::pwm::Pwm for Pwm<$TIMX, REMAP, P, PINS> where
-            REMAP: Remap<Periph = $TIMX>,
-            PINS: Pins<REMAP, P>,
+            To find a middle ground, the Hertz type is used as a base here and the Into trait has been
+            defined for several base time units.  This will allow for calling the set_period method with
+            something that is natural to both the MCU and the end user.
+            */
+            impl<REMAP, P, PINS> Pwm<$TIMX, REMAP, P, PINS> where
+                REMAP: Remap<Periph = $TIMX>,
+                PINS: Pins<REMAP, P>,
+            {
+                pub fn enable(&mut self, channel: &Channel) {
+                    match PINS::check_used(*channel) {
+                        Channel::C1 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) },
+                        Channel::C2 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) },
+                        Channel::C3 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) },
+                        Channel::C4 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) }
+                    }
+                }
+
+                pub fn disable(&mut self, channel: &Channel) {
+                    match PINS::check_used(*channel) {
+                        Channel::C1 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) },
+                        Channel::C2 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) },
+                        Channel::C3 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 8) },
+                        Channel::C4 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) },
+                    }
+                }
+
+                pub fn get_duty(&self, channel: &Channel) -> u16 {
+                    match PINS::check_used(*channel) {
+                        Channel::C1 => unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() },
+                        Channel::C2 => unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() },
+                        Channel::C3 => unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() },
+                        Channel::C4 => unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() },
+                    }
+                }
+
+                pub fn set_duty(&mut self, channel: &Channel, duty: u16) {
+                    match PINS::check_used(*channel) {
+                        Channel::C1 => unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) },
+                        Channel::C2 => unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) },
+                        Channel::C3 => unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) },
+                        Channel::C4 => unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) },
+                    }
+                }
+
+                pub fn get_max_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
+                }
+
+                pub fn get_period(&self) -> Hertz {
+                    let clk = self.clk;
+                    let psc: u16 = unsafe{(*$TIMX::ptr()).psc.read().psc().bits()};
+                    let arr: u16 = unsafe{(*$TIMX::ptr()).arr.read().arr().bits()};
+
+                    // Length in ms of an internal clock pulse
+                    (clk.0 / u32(psc * arr)).hz()
+                }
+
+                pub fn set_period<T>(&mut self, period: T)
+                where
+                    T: Into<Hertz>
+                {
+                    let clk = self.clk;
+
+                    let ticks = clk.0 / period.into().0;
+                    let psc = u16(ticks / (1 << 16)).unwrap();
+                    let arr = u16(ticks / u32(psc + 1)).unwrap();
+                    unsafe {
+                        (*$TIMX::ptr()).psc.write(|w| w.psc().bits(psc));
+                        (*$TIMX::ptr()).arr.write(|w| w.arr().bits(arr));
+                    }
+                }
+            }
+            impl<REMAP, P, PINS> hal::pwm::Pwm for Pwm<$TIMX, REMAP, P, PINS> where
+                REMAP: Remap<Periph = $TIMX>,
+                PINS: Pins<REMAP, P>,
             {
                 type Channel = Channel;
                 type Duty = u16;
@@ -331,184 +399,167 @@ macro_rules! hal {
                 type Error = Infallible;
 
                 fn enable(&mut self, channel: &Self::Channel) -> Result<(), Self::Error> {
-                    match PINS::check_used(*channel) {
-                        Channel::C1 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) },
-                        Channel::C2 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) },
-                        Channel::C3 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) },
-                        Channel::C4 => unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) }
-                    }
+                    self.enable(channel);
                     Ok(())
                 }
 
                 fn disable(&mut self, channel: &Self::Channel) -> Result<(), Self::Error> {
-                    match PINS::check_used(*channel) {
-                        Channel::C1 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) },
-                        Channel::C2 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) },
-                        Channel::C3 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 8) },
-                        Channel::C4 => unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) },
-                    }
+                    self.disable(channel);
                     Ok(())
                 }
 
                 fn get_duty(&self, channel: &Self::Channel) -> Result<Self::Duty, Self::Error> {
-                    Ok(match PINS::check_used(*channel) {
-                        Channel::C1 => unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() },
-                        Channel::C2 => unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() },
-                        Channel::C3 => unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() },
-                        Channel::C4 => unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() },
-                    })
+                    Ok(self.get_duty(channel))
                 }
 
                 fn set_duty(&mut self, channel: &Self::Channel, duty: Self::Duty) -> Result<(), Self::Error> {
-                    match PINS::check_used(*channel) {
-                        Channel::C1 => unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) },
-                        Channel::C2 => unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) },
-                        Channel::C3 => unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) },
-                        Channel::C4 => unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) },
-                    }
+                    self.set_duty(channel, duty);
                     Ok(())
                 }
 
                 fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).arr.read().arr().bits() })
+                    Ok(self.get_max_duty())
                 }
 
                 fn get_period(&self) -> Result<Self::Time, Self::Error> {
-                    let clk = self.clk;
-                    let psc: u16 = unsafe{(*$TIMX::ptr()).psc.read().psc().bits()};
-                    let arr: u16 = unsafe{(*$TIMX::ptr()).arr.read().arr().bits()};
-
-                    // Length in ms of an internal clock pulse
-                    Ok((clk.0 / u32(psc * arr)).hz())
+                    Ok(self.get_period())
                 }
 
-                fn set_period<T>(&mut self, period: T) -> Result<(), Self::Error> where
-                    T: Into<Self::Time> {
-                        let clk = self.clk;
-
-                        let ticks = clk.0 / period.into().0;
-                        let psc = u16(ticks / (1 << 16)).unwrap();
-                        let arr = u16(ticks / u32(psc + 1)).unwrap();
-                        unsafe {
-                            (*$TIMX::ptr()).psc.write(|w| w.psc().bits(psc));
-                            (*$TIMX::ptr()).arr.write(|w| w.arr().bits(arr));
-                        }
-                        Ok(())
-                }
-            }
-
-            impl hal::pwm::PwmPin for PwmChannel<$TIMX, C1> {
-                type Duty = u16;
-                type Error = Infallible;
-
-                fn disable(&mut self) -> Result<(), Self::Error> {
-                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) };
-                    Ok(())
-                }
-
-                fn enable(&mut self) -> Result<(), Self::Error> {
-                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) };
-                    Ok(())
-                }
-
-                fn get_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() })
-                }
-
-                fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).arr.read().arr().bits() })
-                }
-
-                fn set_duty(&mut self, duty: u16) -> Result<(), Self::Error> {
-                    unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) };
+                fn set_period<T>(&mut self, period: T) -> Result<(), Self::Error>
+                where
+                    T: Into<Self::Time>
+                {
+                    self.set_period(period);
                     Ok(())
                 }
             }
 
-            impl hal::pwm::PwmPin for PwmChannel<$TIMX, C2> {
-                type Duty = u16;
-                type Error = Infallible;
-
-                fn disable(&mut self) -> Result<(), Self::Error> {
-                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) };
-                    Ok(())
+            impl PwmChannel<$TIMX, C1> {
+                pub fn disable(&mut self) {
+                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) }
                 }
 
-                fn enable(&mut self) -> Result<(), Self::Error> {
-                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) };
-                    Ok(())
+                pub fn enable(&mut self) {
+                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) }
                 }
 
-                fn get_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() })
+                pub fn get_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() }
                 }
 
-                fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).arr.read().arr().bits() })
+                pub fn get_max_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
                 }
 
-                fn set_duty(&mut self, duty: u16) -> Result<(), Self::Error> {
-                    unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) };
-                    Ok(())
+                pub fn set_duty(&mut self, duty: u16) {
+                    unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) }
                 }
             }
 
-            impl hal::pwm::PwmPin for PwmChannel<$TIMX, C3> {
-                type Duty = u16;
-                type Error = Infallible;
+            impl PwmChannel<$TIMX, C2> {
+                pub fn disable(&mut self) {
+                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) }
+                }
 
-                fn disable(&mut self) -> Result<(), Self::Error> {
+                pub fn enable(&mut self) {
+                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) }
+                }
+
+                pub fn get_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() }
+                }
+
+                pub fn get_max_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
+                }
+
+                pub fn set_duty(&mut self, duty: u16) {
+                    unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) }
+                }
+            }
+
+            impl PwmChannel<$TIMX, C3> {
+                pub fn disable(&mut self) {
                     unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 8) }
-                    Ok(())
                 }
 
-                fn enable(&mut self) -> Result<(), Self::Error> {
-                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) };
-                    Ok(())
+                pub fn enable(&mut self) {
+                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) }
                 }
 
-                fn get_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() })
+                pub fn get_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() }
                 }
 
-                fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).arr.read().arr().bits() })
+                pub fn get_max_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
                 }
 
-                fn set_duty(&mut self, duty: u16) -> Result<(), Self::Error> {
-                    unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) };
-                    Ok(())
+                pub fn set_duty(&mut self, duty: u16) {
+                    unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) }
 
                 }
             }
 
-            impl hal::pwm::PwmPin for PwmChannel<$TIMX, C4> {
-                type Duty = u16;
-                type Error = Infallible;
-
-                fn disable(&mut self) -> Result<(), Self::Error> {
-                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) };
-                    Ok(())
+            impl PwmChannel<$TIMX, C4> {
+                pub fn disable(&mut self) {
+                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) }
                 }
 
-                fn enable(&mut self) -> Result<(), Self::Error> {
-                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) };
-                    Ok(())
+                pub fn enable(&mut self) {
+                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) }
                 }
 
-                fn get_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() })
+                pub fn get_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() }
                 }
 
-                fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
-                    Ok(unsafe { (*$TIMX::ptr()).arr.read().arr().bits() })
+                pub fn get_max_duty(&self) -> u16 {
+                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
                 }
 
-                fn set_duty(&mut self, duty: u16) -> Result<(), Self::Error> {
-                    unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) };
-                    Ok(())
+                pub fn set_duty(&mut self, duty: u16) {
+                    unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) }
                 }
             }
+
+            macro_rules! impl_pwmpin {
+                (
+                    $C:ident
+                ) => {
+                    impl hal::pwm::PwmPin for PwmChannel<$TIMX, $C> {
+                        type Duty = u16;
+                        type Error = Infallible;
+
+                        fn disable(&mut self) -> Result<(), Self::Error> {
+                            self.disable();
+                            Ok(())
+                        }
+
+                        fn enable(&mut self) -> Result<(), Self::Error> {
+                            self.enable();
+                            Ok(())
+                        }
+
+                        fn get_duty(&self) -> Result<Self::Duty, Self::Error> {
+                            Ok(self.get_duty())
+                        }
+
+                        fn get_max_duty(&self) -> Result<Self::Duty, Self::Error> {
+                            Ok(self.get_max_duty())
+                        }
+
+                        fn set_duty(&mut self, duty: Self::Duty) -> Result<(), Self::Error> {
+                            self.set_duty(duty);
+                            Ok(())
+                        }
+                    }
+                }
+            }
+            impl_pwmpin!(C1);
+            impl_pwmpin!(C2);
+            impl_pwmpin!(C3);
+            impl_pwmpin!(C4);
         )+
     }
 }

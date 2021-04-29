@@ -47,7 +47,7 @@ fn main() -> ! {
 
     loop {
         let before = qei.count();
-        delay.delay_ms(1_000_u16);
+        delay.delay_ms(1_000_u16).unwrap();
         let after = qei.count();
 
         let elapsed = after.wrapping_sub(before) as i16;

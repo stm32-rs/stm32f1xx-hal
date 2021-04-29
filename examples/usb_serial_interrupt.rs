@@ -7,10 +7,9 @@ extern crate panic_semihosting;
 
 use cortex_m::asm::{delay, wfi};
 use cortex_m_rt::entry;
-use embedded_hal::digital::OutputPin;
 use stm32f1xx_hal::pac::{interrupt, Interrupt};
 use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
-use stm32f1xx_hal::{prelude::*, stm32};
+use stm32f1xx_hal::{prelude::*, pac};
 use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
@@ -74,8 +73,8 @@ fn main() -> ! {
 
     let mut nvic = p.NVIC;
 
-    nvic.enable(Interrupt::USB_HP_CAN_TX);
-    nvic.enable(Interrupt::USB_LP_CAN_RX0);
+    nvic.request(Interrupt::USB_HP_CAN_TX);
+    nvic.request(Interrupt::USB_LP_CAN_RX0);
 
     loop {
         wfi();

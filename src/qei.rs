@@ -180,21 +180,30 @@ macro_rules! hal {
                 }
             }
 
+            impl<REMAP, PINS> Qei<$TIMX, REMAP, PINS> {
+                pub fn count(&self) -> u16 {
+                    self.tim.cnt.read().cnt().bits()
+                }
+
+                pub fn direction(&self) -> Direction {
+                    if self.tim.cr1.read().dir().bit_is_clear() {
+                        Direction::Upcounting
+                    } else {
+                        Direction::Downcounting
+                    }
+                }
+            }
+
             impl<REMAP, PINS> hal::qei::Qei for Qei<$TIMX, REMAP, PINS> {
                 type Count = u16;
                 type Error = Infallible;
 
-
                 fn count(&self) -> Result<Self::Count, Self::Error> {
-                    Ok(self.tim.cnt.read().cnt().bits())
+                    Ok(self.count())
                 }
 
                 fn direction(&self) -> Result<Direction, Self::Error> {
-                    if self.tim.cr1.read().dir().bit_is_clear() {
-                        Ok(Direction::Upcounting)
-                    } else {
-                        Ok(Direction::Downcounting)
-                    }
+                    Ok(self.direction())
                 }
             }
 

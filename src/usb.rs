@@ -26,7 +26,7 @@ unsafe impl UsbPeripheral for Peripheral {
     const EP_MEMORY_SIZE: usize = 512;
 
     fn enable() {
-        let rcc = unsafe { (&*RCC::ptr()) };
+        let rcc = unsafe { &*RCC::ptr() };
 
         cortex_m::interrupt::free(|_| {
             // Enable USB peripheral

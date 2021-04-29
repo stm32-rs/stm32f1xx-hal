@@ -27,9 +27,7 @@ fn main() -> ! {
     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
 
     // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, &clocks)
-        .start_count_down(1.hz())
-        .unwrap();
+    let mut timer = Timer::syst(cp.SYST, &clocks).start_count_down(1.hz());
 
     // Create an array of LEDS to blink
     let mut leds = [

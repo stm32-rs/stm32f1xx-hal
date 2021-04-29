@@ -172,14 +172,14 @@ impl Timer<SYST> {
         }
     }
 
-    pub fn start_count_down<T>(self, timeout: T) -> Result<CountDownTimer<SYST>, Error>
+    pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<SYST>
     where
         T: Into<Hertz>,
     {
         let Self { tim, clk } = self;
         let mut timer = CountDownTimer { tim, clk };
-        timer.start(timeout)?;
-        Ok(timer)
+        timer.start(timeout);
+        timer
     }
 
     pub fn release(self) -> SYST {
@@ -233,13 +233,8 @@ impl CountDownTimer<SYST> {
     pub fn release(self) -> SYST {
         self.stop().release()
     }
-}
 
-impl CountDown for CountDownTimer<SYST> {
-    type Time = Hertz;
-    type Error = Error;
-
-    fn start<T>(&mut self, timeout: T) -> Result<(), Self::Error>
+    pub fn start<T>(&mut self, timeout: T)
     where
         T: Into<Hertz>,
     {
@@ -250,6 +245,18 @@ impl CountDown for CountDownTimer<SYST> {
         self.tim.set_reload(rvr);
         self.tim.clear_current();
         self.tim.enable_counter();
+    }
+}
+
+impl CountDown for CountDownTimer<SYST> {
+    type Time = Hertz;
+    type Error = Error;
+
+    fn start<T>(&mut self, timeout: T) -> Result<(), Self::Error>
+    where
+        T: Into<Hertz>,
+    {
+        self.start(timeout);
         Ok(())
     }
 
@@ -289,27 +296,27 @@ macro_rules! hal {
                 }
 
                 /// Starts timer in count down mode at a given frequency
-                pub fn start_count_down<T>(self, timeout: T) -> Result<CountDownTimer<$TIMX>, Error>
+                pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<$TIMX>
                 where
                     T: Into<Hertz>,
                 {
                     let Self { tim, clk } = self;
                     let mut timer = CountDownTimer { tim, clk };
-                    timer.start(timeout)?;
-                    Ok(timer)
+                    timer.start(timeout);
+                    timer
                 }
 
                 $(
                     /// Starts timer in count down mode at a given frequency and additionally configures the timers master mode
-                    pub fn start_master<T>(self, timeout: T, mode: crate::pac::$master_timbase::cr2::MMS_A) -> Result<CountDownTimer<$TIMX>, Error>
+                    pub fn start_master<T>(self, timeout: T, mode: crate::pac::$master_timbase::cr2::MMS_A) -> CountDownTimer<$TIMX>
                     where
                         T: Into<Hertz>,
                     {
                         let Self { tim, clk } = self;
                         let mut timer = CountDownTimer { tim, clk };
                         timer.tim.cr2.modify(|_,w| w.mms().variant(mode));
-                        timer.start(timeout)?;
-                        Ok(timer)
+                        timer.start(timeout);
+                        timer
                     }
                 )?
 
@@ -389,13 +396,8 @@ macro_rules! hal {
                     self.tim.egr.write(|w| w.ug().set_bit());
                     self.tim.cr1.modify(|_, w| w.urs().clear_bit());
                 }
-            }
 
-            impl CountDown for CountDownTimer<$TIMX> {
-                type Time = Hertz;
-                type Error = Error;
-
-                fn start<T>(&mut self, timeout: T) -> Result<(), Self::Error>
+                pub fn start<T>(&mut self, timeout: T)
                 where
                     T: Into<Hertz>,
                 {
@@ -414,6 +416,18 @@ macro_rules! hal {
 
                     // start counter
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                }
+            }
+
+            impl CountDown for CountDownTimer<$TIMX> {
+                type Time = Hertz;
+                type Error = Error;
+
+                fn start<T>(&mut self, timeout: T) -> Result<(), Self::Error>
+                where
+                    T: Into<Hertz>,
+                {
+                    self.start(timeout);
                     Ok(())
                 }
 
