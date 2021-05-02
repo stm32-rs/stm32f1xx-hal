@@ -314,6 +314,15 @@ macro_rules! hal {
                     }
                 )?
 
+                /// Starts the timer in count down mode with user-defined prescaler and auto-reload register
+                pub fn start_raw(self, psc: u16, arr: u16) -> CountDownTimer<$TIMX>
+                {
+                    let Self { tim, clk } = self;
+                    let mut timer = CountDownTimer { tim, clk };
+                    timer.restart_raw(psc, arr);
+                    timer
+                }
+
                 /// Resets timer peripheral
                 #[inline(always)]
                 pub fn clocking_reset(&mut self, apb: &mut <$TIMX as RccBus>::Bus) {
@@ -345,6 +354,40 @@ macro_rules! hal {
                     match event {
                         Event::Update => self.tim.dier.write(|w| w.uie().clear_bit()),
                     }
+                }
+
+                /// Restarts the timer in count down mode with user-defined prescaler and auto-reload register
+                pub fn restart_raw(&mut self, psc: u16, arr: u16)
+                {
+                    // pause
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+
+                    self.tim.psc.write(|w| w.psc().bits(psc) );
+
+                    // TODO: Remove this `allow` once this field is made safe for stm32f100
+                    #[allow(unused_unsafe)]
+                    self.tim.arr.write(|w| unsafe { w.arr().bits(arr) });
+
+                    // Trigger an update event to load the prescaler value to the clock
+                    self.reset();
+
+                    // start counter
+                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                }
+
+                /// Retrieves the content of the prescaler register. The real prescaler is this value + 1.
+                pub fn psc(&self) -> u16 {
+                    self.tim.psc.read().psc().bits()
+                }
+
+                /// Retrieves the value of the auto-reload register.
+                pub fn arr(&self) -> u16 {
+                    self.tim.arr.read().arr().bits()
+                }
+
+                /// Retrieves the current timer counter value.
+                pub fn cnt(&self) -> u16 {
+                    self.tim.cnt.read().cnt().bits()
                 }
 
                 /// Stops the timer
@@ -399,21 +442,8 @@ macro_rules! hal {
                 where
                     T: Into<Hertz>,
                 {
-                    // pause
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
-
                     let (psc, arr) = compute_arr_presc(timeout.into().0, self.clk.0);
-                    self.tim.psc.write(|w| w.psc().bits(psc) );
-
-                    // TODO: Remove this `allow` once this field is made safe for stm32f100
-                    #[allow(unused_unsafe)]
-                    self.tim.arr.write(|w| unsafe { w.arr().bits(arr) });
-
-                    // Trigger an update event to load the prescaler value to the clock
-                    self.reset();
-
-                    // start counter
-                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                    self.restart_raw(psc, arr);
                 }
 
                 fn wait(&mut self) -> nb::Result<(), Void> {
