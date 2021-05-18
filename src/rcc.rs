@@ -1,9 +1,6 @@
 //! # Reset & Control Clock
 
-use core::cmp;
-
 use crate::pac::{rcc, PWR, RCC};
-use cast::u32;
 
 use crate::flash::ACR;
 use crate::time::Hertz;
@@ -121,6 +118,7 @@ impl CFGR {
     /// Uses HSE (external oscillator) instead of HSI (internal RC oscillator) as the clock source.
     /// Will result in a hang if an external oscillator is not connected or it fails to start.
     /// The frequency specified must be the frequency of the external oscillator
+    #[inline(always)]
     pub fn use_hse<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -130,6 +128,7 @@ impl CFGR {
     }
 
     /// Sets the desired frequency for the HCLK clock
+    #[inline(always)]
     pub fn hclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -139,6 +138,7 @@ impl CFGR {
     }
 
     /// Sets the desired frequency for the PCKL1 clock
+    #[inline(always)]
     pub fn pclk1<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -148,6 +148,7 @@ impl CFGR {
     }
 
     /// Sets the desired frequency for the PCLK2 clock
+    #[inline(always)]
     pub fn pclk2<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -157,6 +158,7 @@ impl CFGR {
     }
 
     /// Sets the desired frequency for the SYSCLK clock
+    #[inline(always)]
     pub fn sysclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -166,6 +168,7 @@ impl CFGR {
     }
 
     /// Sets the desired frequency for the ADCCLK clock
+    #[inline(always)]
     pub fn adcclk<F>(mut self, freq: F) -> Self
     where
         F: Into<Hertz>,
@@ -187,88 +190,27 @@ impl CFGR {
     /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
     /// ```
 
+    #[inline(always)]
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
-        let pllsrcclk = self.hse.unwrap_or(HSI / 2);
+        let cfg = Config::from_cfgr(self);
+        Self::_freeze_with_config(cfg, acr)
+    }
 
-        let pllmul = self.sysclk.unwrap_or(pllsrcclk) / pllsrcclk;
+    #[inline(always)]
+    pub fn freeze_with_config(self, cfg: Config, acr: &mut ACR) -> Clocks {
+        Self::_freeze_with_config(cfg, acr)
+    }
 
-        let (pllmul_bits, sysclk) = if pllmul == 1 {
-            (None, self.hse.unwrap_or(HSI))
-        } else {
-            #[cfg(not(feature = "connectivity"))]
-            let pllmul = cmp::min(cmp::max(pllmul, 1), 16);
-
-            #[cfg(feature = "connectivity")]
-            let pllmul = cmp::min(cmp::max(pllmul, 4), 9);
-
-            (Some(pllmul as u8 - 2), pllsrcclk * pllmul)
-        };
-
-        assert!(sysclk <= 72_000_000);
-
-        let hpre_bits = self
-            .hclk
-            .map(|hclk| match sysclk / hclk {
-                0 => unreachable!(),
-                1 => 0b0111,
-                2 => 0b1000,
-                3..=5 => 0b1001,
-                6..=11 => 0b1010,
-                12..=39 => 0b1011,
-                40..=95 => 0b1100,
-                96..=191 => 0b1101,
-                192..=383 => 0b1110,
-                _ => 0b1111,
-            })
-            .unwrap_or(0b0111);
-
-        let hclk = if hpre_bits >= 0b1100 {
-            sysclk / (1 << (hpre_bits - 0b0110))
-        } else {
-            sysclk / (1 << (hpre_bits - 0b0111))
-        };
-
-        assert!(hclk <= 72_000_000);
-
-        let pclk1 = self.pclk1.unwrap_or_else(|| cmp::min(hclk, 36_000_000));
-        let ppre1_bits = match (hclk + pclk1 - 1) / pclk1 {
-            0 => unreachable!(),
-            1 => 0b011,
-            2 => 0b100,
-            3..=5 => 0b101,
-            6..=11 => 0b110,
-            _ => 0b111,
-        };
-
-        let ppre1 = 1 << (ppre1_bits - 0b011);
-        let pclk1 = hclk / u32(ppre1);
-
-        assert!(pclk1 <= 36_000_000);
-
-        let ppre2_bits = self
-            .pclk2
-            .map(|pclk2| match hclk / pclk2 {
-                0 => unreachable!(),
-                1 => 0b011,
-                2 => 0b100,
-                3..=5 => 0b101,
-                6..=11 => 0b110,
-                _ => 0b111,
-            })
-            .unwrap_or(0b011);
-
-        let ppre2 = 1 << (ppre2_bits - 0b011);
-        let pclk2 = hclk / u32(ppre2);
-
-        assert!(pclk2 <= 72_000_000);
-
+    #[allow(unused_variables)]
+    fn _freeze_with_config(cfg: Config, acr: &mut ACR) -> Clocks {
+        let clocks = cfg.get_clocks();
         // adjust flash wait states
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         unsafe {
             acr.acr().write(|w| {
-                w.latency().bits(if sysclk <= 24_000_000 {
+                w.latency().bits(if clocks.sysclk.0 <= 24_000_000 {
                     0b000
-                } else if sysclk <= 48_000_000 {
+                } else if clocks.sysclk.0 <= 48_000_000 {
                     0b001
                 } else {
                     0b010
@@ -276,33 +218,9 @@ impl CFGR {
             })
         }
 
-        // the USB clock is only valid if an external crystal is used, the PLL is enabled, and the
-        // PLL output frequency is a supported one.
-        // usbpre == false: divide clock by 1.5, otherwise no division
-        let (usbpre, usbclk_valid) = match (self.hse, pllmul_bits, sysclk) {
-            (Some(_), Some(_), 72_000_000) => (false, true),
-            (Some(_), Some(_), 48_000_000) => (true, true),
-            _ => (true, false),
-        };
-
-        let apre_bits: u8 = self
-            .adcclk
-            .map(|adcclk| match pclk2 / adcclk {
-                0..=2 => 0b00,
-                3..=4 => 0b01,
-                5..=7 => 0b10,
-                _ => 0b11,
-            })
-            .unwrap_or(0b11);
-
-        let apre = (apre_bits + 1) << 1;
-        let adcclk = pclk2 / u32(apre);
-
-        assert!(adcclk <= 14_000_000);
-
         let rcc = unsafe { &*RCC::ptr() };
 
-        if self.hse.is_some() {
+        if cfg.hse.is_some() {
             // enable HSE and wait for it to be ready
 
             rcc.cr.modify(|_, w| w.hseon().set_bit());
@@ -310,39 +228,23 @@ impl CFGR {
             while rcc.cr.read().hserdy().bit_is_clear() {}
         }
 
-        if let Some(pllmul_bits) = pllmul_bits {
-            // enable PLL and wait for it to be ready
-
-            #[allow(unused_unsafe)]
-            rcc.cfgr.modify(|_, w| unsafe {
-                w.pllmul()
-                    .bits(pllmul_bits)
-                    .pllsrc()
-                    .bit(self.hse.is_some())
-            });
-
-            rcc.cr.modify(|_, w| w.pllon().set_bit());
-
-            while rcc.cr.read().pllrdy().bit_is_clear() {}
-        }
-
         // set prescalers and clock source
         #[cfg(feature = "connectivity")]
         rcc.cfgr.modify(|_, w| unsafe {
-            w.adcpre().bits(apre_bits);
+            w.adcpre().variant(cfg.adcpre);
             w.ppre2()
-                .bits(ppre2_bits)
+                .bits(cfg.ppre2 as u8)
                 .ppre1()
-                .bits(ppre1_bits)
+                .bits(cfg.ppre1 as u8)
                 .hpre()
-                .bits(hpre_bits)
+                .bits(cfg.hpre as u8)
                 .otgfspre()
-                .bit(usbpre)
+                .variant(cfg.usbpre)
                 .sw()
-                .bits(if pllmul_bits.is_some() {
+                .bits(if cfg.pllmul.is_some() {
                     // PLL
                     0b10
-                } else if self.hse.is_some() {
+                } else if cfg.hse.is_some() {
                     // HSE
                     0b1
                 } else {
@@ -353,20 +255,20 @@ impl CFGR {
 
         #[cfg(feature = "stm32f103")]
         rcc.cfgr.modify(|_, w| unsafe {
-            w.adcpre().bits(apre_bits);
+            w.adcpre().variant(cfg.adcpre);
             w.ppre2()
-                .bits(ppre2_bits)
+                .bits(cfg.ppre2 as u8)
                 .ppre1()
-                .bits(ppre1_bits)
+                .bits(cfg.ppre1 as u8)
                 .hpre()
-                .bits(hpre_bits)
+                .bits(cfg.hpre as u8)
                 .usbpre()
-                .bit(usbpre)
+                .variant(cfg.usbpre)
                 .sw()
-                .bits(if pllmul_bits.is_some() {
+                .bits(if cfg.pllmul.is_some() {
                     // PLL
                     0b10
-                } else if self.hse.is_some() {
+                } else if cfg.hse.is_some() {
                     // HSE
                     0b1
                 } else {
@@ -377,18 +279,18 @@ impl CFGR {
 
         #[cfg(any(feature = "stm32f100", feature = "stm32f101"))]
         rcc.cfgr.modify(|_, w| unsafe {
-            w.adcpre().bits(apre_bits);
+            w.adcpre().variant(cfg.adcpre);
             w.ppre2()
-                .bits(ppre2_bits)
+                .bits(cfg.ppre2 as u8)
                 .ppre1()
-                .bits(ppre1_bits)
+                .bits(cfg.ppre1 as u8)
                 .hpre()
-                .bits(hpre_bits)
+                .bits(cfg.hpre as u8)
                 .sw()
-                .bits(if pllmul_bits.is_some() {
+                .bits(if cfg.pllmul.is_some() {
                     // PLL
                     0b10
-                } else if self.hse.is_some() {
+                } else if cfg.hse.is_some() {
                     // HSE
                     0b1
                 } else {
@@ -397,16 +299,7 @@ impl CFGR {
                 })
         });
 
-        Clocks {
-            hclk: Hertz(hclk),
-            pclk1: Hertz(pclk1),
-            pclk2: Hertz(pclk2),
-            ppre1,
-            ppre2,
-            sysclk: Hertz(sysclk),
-            adcclk: Hertz(adcclk),
-            usbclk_valid,
-        }
+        clocks
     }
 }
 
@@ -451,57 +344,59 @@ pub struct Clocks {
     ppre2: u8,
     sysclk: Hertz,
     adcclk: Hertz,
+    #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
     usbclk_valid: bool,
 }
 
 impl Clocks {
     /// Returns the frequency of the AHB
-    pub fn hclk(&self) -> Hertz {
+    pub const fn hclk(&self) -> Hertz {
         self.hclk
     }
 
     /// Returns the frequency of the APB1
-    pub fn pclk1(&self) -> Hertz {
+    pub const fn pclk1(&self) -> Hertz {
         self.pclk1
     }
 
     /// Returns the frequency of the APB2
-    pub fn pclk2(&self) -> Hertz {
+    pub const fn pclk2(&self) -> Hertz {
         self.pclk2
     }
 
     /// Returns the frequency of the APB1 Timers
-    pub fn pclk1_tim(&self) -> Hertz {
+    pub const fn pclk1_tim(&self) -> Hertz {
         Hertz(self.pclk1.0 * if self.ppre1() == 1 { 1 } else { 2 })
     }
 
     /// Returns the frequency of the APB2 Timers
-    pub fn pclk2_tim(&self) -> Hertz {
+    pub const fn pclk2_tim(&self) -> Hertz {
         Hertz(self.pclk2.0 * if self.ppre2() == 1 { 1 } else { 2 })
     }
 
-    pub(crate) fn ppre1(&self) -> u8 {
+    pub(crate) const fn ppre1(&self) -> u8 {
         self.ppre1
     }
 
     // TODO remove `allow`
     #[allow(dead_code)]
-    pub(crate) fn ppre2(&self) -> u8 {
+    pub(crate) const fn ppre2(&self) -> u8 {
         self.ppre2
     }
 
     /// Returns the system (core) frequency
-    pub fn sysclk(&self) -> Hertz {
+    pub const fn sysclk(&self) -> Hertz {
         self.sysclk
     }
 
     /// Returns the adc clock frequency
-    pub fn adcclk(&self) -> Hertz {
+    pub const fn adcclk(&self) -> Hertz {
         self.adcclk
     }
 
     /// Returns whether the USBCLK clock frequency is valid for the USB peripheral
-    pub fn usbclk_valid(&self) -> bool {
+    #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+    pub const fn usbclk_valid(&self) -> bool {
         self.usbclk_valid
     }
 }
@@ -564,4 +459,248 @@ pub trait Enable: RccBus {
 /// Reset peripheral
 pub trait Reset: RccBus {
     fn reset(rcc: &rcc::RegisterBlock);
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Config {
+    pub hse: Option<u32>,
+    pub pllmul: Option<u8>,
+    pub hpre: HPre,
+    pub ppre1: PPre,
+    pub ppre2: PPre,
+    #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+    pub usbpre: UsbPre,
+    pub adcpre: AdcPre,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            hse: None,
+            pllmul: None,
+            hpre: HPre::DIV1,
+            ppre1: PPre::DIV1,
+            ppre2: PPre::DIV1,
+            #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+            usbpre: UsbPre::DIV1_5,
+            adcpre: AdcPre::DIV2,
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HPre {
+    /// SYSCLK not divided
+    DIV1 = 7,
+    /// SYSCLK divided by 2
+    DIV2 = 8,
+    /// SYSCLK divided by 4
+    DIV4 = 9,
+    /// SYSCLK divided by 8
+    DIV8 = 10,
+    /// SYSCLK divided by 16
+    DIV16 = 11,
+    /// SYSCLK divided by 64
+    DIV64 = 12,
+    /// SYSCLK divided by 128
+    DIV128 = 13,
+    /// SYSCLK divided by 256
+    DIV256 = 14,
+    /// SYSCLK divided by 512
+    DIV512 = 15,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum PPre {
+    /// HCLK not divided
+    DIV1 = 3,
+    /// HCLK divided by 2
+    DIV2 = 4,
+    /// HCLK divided by 4
+    DIV4 = 5,
+    /// HCLK divided by 8
+    DIV8 = 6,
+    /// HCLK divided by 16
+    DIV16 = 7,
+}
+
+#[cfg(feature = "stm32f103")]
+pub type UsbPre = rcc::cfgr::USBPRE_A;
+#[cfg(feature = "connectivity")]
+pub type UsbPre = rcc::cfgr::OTGFSPRE_A;
+pub type AdcPre = rcc::cfgr::ADCPRE_A;
+
+impl Config {
+    pub const fn from_cfgr(cfgr: CFGR) -> Self {
+        let hse = cfgr.hse;
+        let pllsrcclk = if let Some(hse) = hse { hse } else { HSI / 2 };
+
+        let pllmul = if let Some(sysclk) = cfgr.sysclk {
+            sysclk / pllsrcclk
+        } else {
+            1
+        };
+
+        let (pllmul_bits, sysclk) = if pllmul == 1 {
+            (None, if let Some(hse) = hse { hse } else { HSI })
+        } else {
+            #[cfg(not(feature = "connectivity"))]
+            let pllmul = match pllmul {
+                1..=16 => pllmul,
+                0 => 1,
+                _ => 16,
+            };
+
+            #[cfg(feature = "connectivity")]
+            let pllmul = match pllmul {
+                4..=9 => pllmul,
+                0..=3 => 4,
+                _ => 9,
+            };
+
+            (Some(pllmul as u8 - 2), pllsrcclk * pllmul)
+        };
+
+        let hpre_bits = if let Some(hclk) = cfgr.hclk {
+            match sysclk / hclk {
+                0..=1 => HPre::DIV1,
+                2 => HPre::DIV2,
+                3..=5 => HPre::DIV4,
+                6..=11 => HPre::DIV8,
+                12..=39 => HPre::DIV16,
+                40..=95 => HPre::DIV64,
+                96..=191 => HPre::DIV128,
+                192..=383 => HPre::DIV256,
+                _ => HPre::DIV512,
+            }
+        } else {
+            HPre::DIV1
+        };
+
+        let hclk = if hpre_bits as u8 >= 0b1100 {
+            sysclk / (1 << (hpre_bits as u8 - 0b0110))
+        } else {
+            sysclk / (1 << (hpre_bits as u8 - 0b0111))
+        };
+
+        let pclk1 = if let Some(pclk1) = cfgr.pclk1 {
+            pclk1
+        } else if hclk < 36_000_000 {
+            hclk
+        } else {
+            36_000_000
+        };
+        let ppre1_bits = match (hclk + pclk1 - 1) / pclk1 {
+            0 | 1 => PPre::DIV1,
+            2 => PPre::DIV2,
+            3..=5 => PPre::DIV4,
+            6..=11 => PPre::DIV8,
+            _ => PPre::DIV16,
+        };
+
+        let ppre2_bits = if let Some(pclk2) = cfgr.pclk2 {
+            match hclk / pclk2 {
+                0..=1 => PPre::DIV1,
+                2 => PPre::DIV2,
+                3..=5 => PPre::DIV4,
+                6..=11 => PPre::DIV8,
+                _ => PPre::DIV16,
+            }
+        } else {
+            PPre::DIV1
+        };
+
+        let ppre2 = 1 << (ppre2_bits as u8 - 0b011);
+        let pclk2 = hclk / (ppre2 as u32);
+
+        // usbpre == false: divide clock by 1.5, otherwise no division
+        #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+        let usbpre = match (hse, pllmul_bits, sysclk) {
+            (Some(_), Some(_), 72_000_000) => UsbPre::DIV1_5,
+            _ => UsbPre::DIV1,
+        };
+
+        let apre_bits = if let Some(adcclk) = cfgr.adcclk {
+            match pclk2 / adcclk {
+                0..=2 => AdcPre::DIV2,
+                3..=4 => AdcPre::DIV4,
+                5..=7 => AdcPre::DIV6,
+                _ => AdcPre::DIV8,
+            }
+        } else {
+            AdcPre::DIV8
+        };
+
+        Self {
+            hse,
+            pllmul: pllmul_bits,
+            hpre: hpre_bits,
+            ppre1: ppre1_bits,
+            ppre2: ppre2_bits,
+            #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+            usbpre,
+            adcpre: apre_bits,
+        }
+    }
+    pub fn get_clocks(&self) -> Clocks {
+        let sysclk = if let Some(pllmul_bits) = self.pllmul {
+            let pllsrcclk = if let Some(hse) = self.hse {
+                hse
+            } else {
+                HSI / 2
+            };
+            pllsrcclk * (pllmul_bits as u32 + 2)
+        } else {
+            if let Some(hse) = self.hse {
+                hse
+            } else {
+                HSI
+            }
+        };
+
+        let hclk = if self.hpre as u8 >= 0b1100 {
+            sysclk / (1 << (self.hpre as u8 - 0b0110))
+        } else {
+            sysclk / (1 << (self.hpre as u8 - 0b0111))
+        };
+
+        let ppre1 = 1 << (self.ppre1 as u8 - 0b011);
+        let pclk1 = hclk / (ppre1 as u32);
+
+        let ppre2 = 1 << (self.ppre2 as u8 - 0b011);
+        let pclk2 = hclk / (ppre2 as u32);
+
+        let apre = (self.adcpre as u8 + 1) << 1;
+        let adcclk = pclk2 / (apre as u32);
+
+        // the USB clock is only valid if an external crystal is used, the PLL is enabled, and the
+        // PLL output frequency is a supported one.
+        #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+        let usbclk_valid = match (self.hse, self.pllmul, sysclk) {
+            (Some(_), Some(_), 72_000_000) | (Some(_), Some(_), 48_000_000) => true,
+            _ => false,
+        };
+
+        assert!(
+            sysclk <= 72_000_000
+                && hclk <= 72_000_000
+                && pclk1 <= 36_000_000
+                && pclk2 <= 72_000_000
+                && adcclk <= 14_000_000
+        );
+
+        Clocks {
+            hclk: Hertz(hclk),
+            pclk1: Hertz(pclk1),
+            pclk2: Hertz(pclk2),
+            ppre1,
+            ppre2,
+            sysclk: Hertz(sysclk),
+            adcclk: Hertz(adcclk),
+            #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+            usbclk_valid,
+        }
+    }
 }
