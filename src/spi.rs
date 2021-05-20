@@ -579,10 +579,12 @@ macro_rules! spi_dma {
 
         impl<REMAP, PINS> Spi<$SPIi, REMAP, PINS, u8> {
             pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
+                self.spi.cr2.modify(|_, w| w.txdmaen().set_bit());
                 let payload = SpiPayload { spi: self };
                 SpiTxDma { payload, channel }
             }
             pub fn with_rx_dma(self, channel: $RCi) -> SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+                self.spi.cr2.modify(|_, w| w.rxdmaen().set_bit());
                 let payload = SpiPayload { spi: self };
                 SpiRxDma { payload, channel }
             }
@@ -591,6 +593,9 @@ macro_rules! spi_dma {
                 rxchannel: $RCi,
                 txchannel: $TCi,
             ) -> SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+                self.spi
+                    .cr2
+                    .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
                 let payload = SpiPayload { spi: self };
                 SpiRxTxDma {
                     payload,
@@ -600,60 +605,62 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<REMAP, PINS> TransferPayload for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
-            fn start(&mut self) {
-                self.payload
+        impl<REMAP, PINS> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $TCi) {
+                let SpiTxDma { payload, channel } = self;
+                payload.spi.spi.cr2.modify(|_, w| w.txdmaen().clear_bit());
+                (payload.spi, channel)
+            }
+        }
+
+        impl<REMAP, PINS> SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $RCi) {
+                let SpiRxDma { payload, channel } = self;
+                payload.spi.spi.cr2.modify(|_, w| w.rxdmaen().clear_bit());
+                (payload.spi, channel)
+            }
+        }
+
+        impl<REMAP, PINS> SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $RCi, $TCi) {
+                let SpiRxTxDma {
+                    payload,
+                    rxchannel,
+                    txchannel,
+                } = self;
+                payload
                     .spi
                     .spi
                     .cr2
-                    .modify(|_, w| w.txdmaen().set_bit());
+                    .modify(|_, w| w.rxdmaen().clear_bit().txdmaen().clear_bit());
+                (payload.spi, rxchannel, txchannel)
+            }
+        }
+
+        impl<REMAP, PINS> TransferPayload for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
+            fn start(&mut self) {
                 self.channel.start();
             }
             fn stop(&mut self) {
-                self.payload
-                    .spi
-                    .spi
-                    .cr2
-                    .modify(|_, w| w.txdmaen().clear_bit());
                 self.channel.stop();
             }
         }
 
         impl<REMAP, PINS> TransferPayload for SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
             fn start(&mut self) {
-                self.payload
-                    .spi
-                    .spi
-                    .cr2
-                    .modify(|_, w| w.rxdmaen().set_bit());
                 self.channel.start();
             }
             fn stop(&mut self) {
-                self.payload
-                    .spi
-                    .spi
-                    .cr2
-                    .modify(|_, w| w.rxdmaen().clear_bit());
                 self.channel.stop();
             }
         }
 
         impl<REMAP, PINS> TransferPayload for SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
             fn start(&mut self) {
-                self.payload
-                    .spi
-                    .spi
-                    .cr2
-                    .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
                 self.rxchannel.start();
                 self.txchannel.start();
             }
             fn stop(&mut self) {
-                self.payload
-                    .spi
-                    .spi
-                    .cr2
-                    .modify(|_, w| w.txdmaen().clear_bit().rxdmaen().clear_bit());
                 self.txchannel.stop();
                 self.rxchannel.stop();
             }

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   control over the timer
 - Added RxTxDma support support to the DMA infrastructure
 - Added DMA receive support for `SPI`
+- Added `release` functions to SPI DMA
 
 ### Fixed
 - Fix > 2 byte i2c reads
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 - Use `cortex-m-rtic` instead of `cortex-m-rtfm` in the examples
+- Enable SPI DMA in `with_tx_dma`, not in `SpiTxDma::start`
 
 ## [v0.7.0]- 2020-10-17
 
