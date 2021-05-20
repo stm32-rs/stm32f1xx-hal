@@ -563,7 +563,11 @@ macro_rules! serialdma {
             }
 
             impl $rxdma {
+                #[deprecated(since = "0.7.1", note = "Please use release instead")]
                 pub fn split(mut self) -> (Rx<$USARTX>, $dmarxch) {
+                    self.release()
+                }
+                pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
                     self.stop();
                     unsafe { (*$USARTX::ptr()).cr3.write(|w| w.dmar().clear_bit()); }
                     let RxDma {payload, channel} = self;
@@ -575,7 +579,11 @@ macro_rules! serialdma {
             }
 
             impl $txdma {
+                #[deprecated(since = "0.7.1", note = "Please use release instead")]
                 pub fn split(mut self) -> (Tx<$USARTX>, $dmatxch) {
+                    self.release()
+                }
+                pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
                     self.stop();
                     unsafe { (*$USARTX::ptr()).cr3.write(|w| w.dmat().clear_bit()); }
                     let TxDma {payload, channel} = self;
