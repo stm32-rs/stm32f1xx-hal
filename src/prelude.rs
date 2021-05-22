@@ -4,6 +4,7 @@ pub use crate::crc::CrcExt as _stm32_hal_crc_CrcExt;
 pub use crate::dma::CircReadDma as _stm32_hal_dma_CircReadDma;
 pub use crate::dma::DmaExt as _stm32_hal_dma_DmaExt;
 pub use crate::dma::ReadDma as _stm32_hal_dma_ReadDma;
+pub use crate::dma::ReadWriteDma as _stm32_hal_dma_ReadWriteDma;
 pub use crate::dma::WriteDma as _stm32_hal_dma_WriteDma;
 pub use crate::flash::FlashExt as _stm32_hal_flash_FlashExt;
 pub use crate::gpio::GpioExt as _stm32_hal_gpio_GpioExt;
