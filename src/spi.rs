@@ -552,7 +552,11 @@ pub type SpiRxTxDma<SPI, REMAP, PINS, RXCHANNEL, TXCHANNEL> =
     RxTxDma<Spi<SPI, REMAP, PINS, u8>, RXCHANNEL, TXCHANNEL>;
 
 macro_rules! spi_dma {
-    ($SPIi:ident, $RCi:ty, $TCi:ty) => {
+    ($SPIi:ident, $RCi:ty, $TCi:ty, $rxdma:ident, $txdma:ident, $rxtxdma:ident) => {
+        pub type $rxdma<REMAP, PINS> = SpiRxDma<$SPIi, REMAP, PINS, $RCi>;
+        pub type $txdma<REMAP, PINS> = SpiTxDma<$SPIi, REMAP, PINS, $TCi>;
+        pub type $rxtxdma<REMAP, PINS> = SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi>;
+
         impl<REMAP, PINS> Transmit for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
@@ -835,7 +839,7 @@ macro_rules! spi_dma {
     };
 }
 
-spi_dma!(SPI1, dma1::C2, dma1::C3);
-spi_dma!(SPI2, dma1::C4, dma1::C5);
+spi_dma!(SPI1, dma1::C2, dma1::C3, Spi1RxDma, Spi1TxDma, Spi1RxTxDma);
+spi_dma!(SPI2, dma1::C4, dma1::C5, Spi2RxDma, Spi2TxDma, Spi2RxTxDma);
 #[cfg(feature = "connectivity")]
-spi_dma!(SPI3, dma2::C1, dma2::C2);
+spi_dma!(SPI3, dma2::C1, dma2::C2, Spi3RxDma, Spi3TxDma, Spi3RxTxDma);
