@@ -564,7 +564,7 @@ macro_rules! serialdma {
 
             impl $rxdma {
                 #[deprecated(since = "0.7.1", note = "Please use release instead")]
-                pub fn split(mut self) -> (Rx<$USARTX>, $dmarxch) {
+                pub fn split(self) -> (Rx<$USARTX>, $dmarxch) {
                     self.release()
                 }
                 pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
@@ -580,7 +580,7 @@ macro_rules! serialdma {
 
             impl $txdma {
                 #[deprecated(since = "0.7.1", note = "Please use release instead")]
-                pub fn split(mut self) -> (Tx<$USARTX>, $dmatxch) {
+                pub fn split(self) -> (Tx<$USARTX>, $dmatxch) {
                     self.release()
                 }
                 pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
