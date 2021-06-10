@@ -9,7 +9,6 @@ use panic_halt as _;
 use nb::block;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
 use stm32f1xx_hal::{pac, prelude::*, timer::Timer};
 
 #[entry]
@@ -39,11 +38,11 @@ fn main() -> ! {
     loop {
         block!(timer.wait()).unwrap();
         for led in leds.iter_mut() {
-            led.set_high().unwrap();
+            led.set_high();
         }
         block!(timer.wait()).unwrap();
         for led in leds.iter_mut() {
-            led.set_low().unwrap();
+            led.set_low();
         }
     }
 }

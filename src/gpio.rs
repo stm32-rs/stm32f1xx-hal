@@ -74,6 +74,84 @@
 //! let mut mfrc522 = Mfrc522::new(spi, OldOutputPin::from(nss)).unwrap();
 //! ```
 
+mod infallible {
+    use core::convert::Infallible;
+    use embedded_hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, ToggleableOutputPin};
+    pub trait OutputPinInfallible: OutputPin<Error = Infallible> {
+        fn set_low(&mut self);
+        fn set_high(&mut self);
+    }
+
+    pub trait StatefulOutputPinInfallible:
+        StatefulOutputPin + OutputPin<Error = Infallible>
+    {
+        fn is_set_low(&self) -> bool;
+        fn is_set_high(&self) -> bool;
+    }
+
+    pub trait InputPinInfallible: InputPin<Error = Infallible> {
+        fn is_low(&self) -> bool;
+        fn is_high(&self) -> bool;
+    }
+
+    pub trait ToggleableOutputPinInfallible: ToggleableOutputPin<Error = Infallible> {
+        fn toggle(&mut self);
+    }
+
+    impl<T> OutputPinInfallible for T
+    where
+        T: OutputPin<Error = Infallible>,
+    {
+        #[inline(always)]
+        fn set_low(&mut self) {
+            <Self as OutputPin>::set_low(self).unwrap()
+        }
+        #[inline(always)]
+        fn set_high(&mut self) {
+            <Self as OutputPin>::set_high(self).unwrap()
+        }
+    }
+
+    impl<T> StatefulOutputPinInfallible for T
+    where
+        T: StatefulOutputPin + OutputPin<Error = Infallible>,
+    {
+        #[inline(always)]
+        fn is_set_low(&self) -> bool {
+            <Self as StatefulOutputPin>::is_set_low(self).unwrap()
+        }
+        #[inline(always)]
+        fn is_set_high(&self) -> bool {
+            <Self as StatefulOutputPin>::is_set_high(self).unwrap()
+        }
+    }
+
+    impl<T> InputPinInfallible for T
+    where
+        T: InputPin<Error = Infallible>,
+    {
+        #[inline(always)]
+        fn is_low(&self) -> bool {
+            <Self as InputPin>::is_low(self).unwrap()
+        }
+        #[inline(always)]
+        fn is_high(&self) -> bool {
+            <Self as InputPin>::is_high(self).unwrap()
+        }
+    }
+
+    impl<T> ToggleableOutputPinInfallible for T
+    where
+        T: ToggleableOutputPin<Error = Infallible>,
+    {
+        #[inline(always)]
+        fn toggle(&mut self) {
+            <Self as ToggleableOutputPin>::toggle(self).unwrap()
+        }
+    }
+}
+pub use infallible::*;
+
 use core::marker::PhantomData;
 
 use crate::afio;
@@ -1133,13 +1211,13 @@ macro_rules! impl_pxx {
             type Error = Infallible;
             fn set_high(&mut self) -> Result<(), Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.set_high()),*
+                    $(Pxx::$pin(pin) => OutputPin::set_high(pin)),*
                 }
             }
 
             fn set_low(&mut self) -> Result<(), Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.set_low()),*
+                    $(Pxx::$pin(pin) => OutputPin::set_low(pin)),*
                 }
             }
         }
@@ -1147,13 +1225,13 @@ macro_rules! impl_pxx {
         impl<MODE> StatefulOutputPin for Pxx<Output<MODE>> {
             fn is_set_high(&self) -> Result<bool, Self::Error> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_set_high()),*
+                    $(Pxx::$pin(pin) => StatefulOutputPin::is_set_high(pin)),*
                 }
             }
 
             fn is_set_low(&self) -> Result<bool, Self::Error> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_set_low()),*
+                    $(Pxx::$pin(pin) => StatefulOutputPin::is_set_low(pin)),*
                 }
             }
         }
@@ -1162,13 +1240,13 @@ macro_rules! impl_pxx {
             type Error = Infallible;
             fn is_high(&self) -> Result<bool, Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_high()),*
+                    $(Pxx::$pin(pin) => InputPin::is_high(pin)),*
                 }
             }
 
             fn is_low(&self) -> Result<bool, Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_low()),*
+                    $(Pxx::$pin(pin) => InputPin::is_low(pin)),*
                 }
             }
         }
@@ -1177,13 +1255,13 @@ macro_rules! impl_pxx {
             type Error = Infallible;
             fn is_high(&self) -> Result<bool, Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_high()),*
+                    $(Pxx::$pin(pin) => InputPin::is_high(pin)),*
                 }
             }
 
             fn is_low(&self) -> Result<bool, Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_low()),*
+                    $(Pxx::$pin(pin) => InputPin::is_low(pin)),*
                 }
             }
         }

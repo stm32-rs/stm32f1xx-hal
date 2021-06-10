@@ -13,7 +13,6 @@ use panic_halt as _;
 
 use rtic::app;
 
-use embedded_hal::digital::v2::OutputPin;
 use stm32f1xx_hal::{
     gpio::{gpioc::PC13, Output, PushPull, State},
     pac,
@@ -85,10 +84,10 @@ const APP: () = {
 
         if *cx.resources.led_state {
             // Uses resources managed by rtic to turn led off (on bluepill)
-            cx.resources.led.set_high().unwrap();
+            cx.resources.led.set_high();
             *cx.resources.led_state = false;
         } else {
-            cx.resources.led.set_low().unwrap();
+            cx.resources.led.set_low();
             *cx.resources.led_state = true;
         }
         *COUNT += 1;
