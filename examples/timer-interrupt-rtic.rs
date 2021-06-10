@@ -14,6 +14,7 @@ use panic_halt as _;
 use rtic::app;
 
 use stm32f1xx_hal::{
+    gpio::infallible::*,
     gpio::{gpioc::PC13, Output, PushPull, State},
     pac,
     prelude::*,

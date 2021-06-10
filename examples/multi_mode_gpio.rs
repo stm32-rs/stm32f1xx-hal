@@ -8,7 +8,12 @@ use nb::block;
 
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
-use stm32f1xx_hal::{gpio::State, pac, prelude::*, timer::Timer};
+use stm32f1xx_hal::{
+    gpio::{infallible::*, State},
+    pac,
+    prelude::*,
+    timer::Timer,
+};
 
 #[entry]
 fn main() -> ! {

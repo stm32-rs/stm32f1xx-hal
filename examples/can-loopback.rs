@@ -12,7 +12,7 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use nb::block;
-use stm32f1xx_hal::{can::Can, pac, prelude::*};
+use stm32f1xx_hal::{can::Can, gpio::infallible::*, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {

@@ -9,7 +9,7 @@ use panic_halt as _;
 use nb::block;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{pac, prelude::*, timer::Timer};
+use stm32f1xx_hal::{gpio::infallible::*, pac, prelude::*, timer::Timer};
 
 #[entry]
 fn main() -> ! {

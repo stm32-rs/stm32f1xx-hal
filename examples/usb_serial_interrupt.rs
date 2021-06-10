@@ -7,9 +7,12 @@ extern crate panic_semihosting;
 
 use cortex_m::asm::{delay, wfi};
 use cortex_m_rt::entry;
-use stm32f1xx_hal::pac::{self, interrupt, Interrupt};
-use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
-use stm32f1xx_hal::{prelude::*, stm32};
+use stm32f1xx_hal::{
+    gpio::infallible::*,
+    pac::{self, interrupt, Interrupt},
+    prelude::*,
+    usb::{Peripheral, UsbBus, UsbBusType},
+};
 use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 

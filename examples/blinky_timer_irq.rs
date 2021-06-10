@@ -15,7 +15,7 @@ use panic_halt as _;
 use stm32f1xx_hal as hal;
 
 use crate::hal::{
-    gpio::{gpioc, Output, PushPull},
+    gpio::{gpioc, infallible::*, Output, PushPull},
     pac::{interrupt, Interrupt, Peripherals, TIM2},
     prelude::*,
     timer::{CountDownTimer, Event, Timer},

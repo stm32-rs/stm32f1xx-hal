@@ -7,10 +7,6 @@ pub use crate::dma::ReadDma as _stm32_hal_dma_ReadDma;
 pub use crate::dma::WriteDma as _stm32_hal_dma_WriteDma;
 pub use crate::flash::FlashExt as _stm32_hal_flash_FlashExt;
 pub use crate::gpio::GpioExt as _stm32_hal_gpio_GpioExt;
-pub use crate::gpio::InputPinInfallible as _stm32_hal_gpio_InputPinInfallible;
-pub use crate::gpio::OutputPinInfallible as _stm32_hal_gpio_OutputPinInfallible;
-pub use crate::gpio::StatefulOutputPinInfallible as _stm32_hal_gpio_StatefulOutputPinInfallible;
-pub use crate::gpio::ToggleableOutputPinInfallible as _stm32_hal_gpio_ToggleableOutputPinInfallible;
 pub use crate::rcc::RccExt as _stm32_hal_rcc_RccExt;
 pub use crate::time::U32Ext as _stm32_hal_time_U32Ext;
 

@@ -12,7 +12,7 @@
 
 use panic_halt as _;
 
-use stm32f1xx_hal::{pac, prelude::*, rtc::Rtc};
+use stm32f1xx_hal::{gpio::infallible::*, pac, prelude::*, rtc::Rtc};
 
 use cortex_m_rt::entry;
 use nb::block;

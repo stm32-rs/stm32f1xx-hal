@@ -7,7 +7,7 @@
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{delay::Delay, pac, prelude::*};
+use stm32f1xx_hal::{delay::Delay, gpio::infallible::*, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {

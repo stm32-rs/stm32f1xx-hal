@@ -9,7 +9,7 @@ use cortex_m::iprintln;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v1_compat::OldOutputPin;
 use mfrc522::Mfrc522;
-use stm32f1xx_hal::{pac, prelude::*, spi::Spi};
+use stm32f1xx_hal::{gpio::infallible::*, pac, prelude::*, spi::Spi};
 
 #[entry]
 fn main() -> ! {

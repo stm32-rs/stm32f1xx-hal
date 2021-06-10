@@ -74,7 +74,7 @@
 //! let mut mfrc522 = Mfrc522::new(spi, OldOutputPin::from(nss)).unwrap();
 //! ```
 
-mod infallible {
+pub mod infallible {
     use core::convert::Infallible;
     use embedded_hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, ToggleableOutputPin};
     pub trait OutputPinInfallible: OutputPin<Error = Infallible> {
@@ -150,7 +150,6 @@ mod infallible {
         }
     }
 }
-pub use infallible::*;
 
 use core::marker::PhantomData;
 

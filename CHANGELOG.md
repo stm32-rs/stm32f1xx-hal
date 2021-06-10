@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - `InputPin`, `OutputPin`, `StatefulOutputPin`, `ToggleableOutputPin` traits.
-  Add them to prelude instead of `embedded_hal`'s
+  Remove `embedded_hal` gpio traits from prelude.
 - Support for OpenDrain pin configuration on SPI CLK and MOSI pins
 - LSB/MSB bit format selection for `SPI`
 - Support for CAN peripherals with the `bxcan` crate
