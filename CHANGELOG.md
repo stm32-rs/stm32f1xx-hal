@@ -17,10 +17,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Support for CAN peripherals with the `bxcan` crate
 - Add DAC, UART4, UART5 clock in RCC for the f103 high density line
 - `start_raw` function and `arr`, `bsc` getters for more fine grained
-  control over the timer
+  control over the timer.
 - Added RxTxDma support support to the DMA infrastructure
 - Added DMA receive support for `SPI`
 - Added `release` functions to SPI DMA
+- Add GPIOF/GPIOG support for high/xl density lines
 
 ### Fixed
 - Fix > 2 byte i2c reads

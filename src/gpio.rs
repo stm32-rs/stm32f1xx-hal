@@ -659,6 +659,7 @@ pub struct Cr<CR, const P: char> {
 
 macro_rules! cr {
     ($CR:ident, $cr:ident) => {
+        #[doc(hidden)]
         pub struct $CR {
             _0: (),
         }
@@ -1140,12 +1141,24 @@ macro_rules! impl_pxx {
     }
 }
 
+#[cfg(not(any(feature = "xl", feature = "high")))]
 impl_pxx! {
     ('A'::PAx),
     ('B'::PBx),
     ('C'::PCx),
     ('D'::PDx),
     ('E'::PEx)
+}
+
+#[cfg(any(feature = "xl", feature = "high"))]
+impl_pxx! {
+    ('A'::PAx),
+    ('B'::PBx),
+    ('C'::PCx),
+    ('D'::PDx),
+    ('E'::PEx),
+    ('F'::PFx),
+    ('G'::PGx)
 }
 
 gpio!(GPIOA, gpioa, PAx, 'A', [
@@ -1243,6 +1256,46 @@ gpio!(GPIOE, gpioe, PEx, 'E', [
     PE15: (pe15, 15, Input<Floating>, CRH),
 ]);
 
+#[cfg(any(feature = "xl", feature = "high"))]
+gpio!(GPIOF, gpiof, PFx, 'F', [
+    PF0:  (pf0, 0, Input<Floating>, CRL),
+    PF1:  (pf1, 1, Input<Floating>, CRL),
+    PF2:  (pf2, 2, Input<Floating>, CRL),
+    PF3:  (pf3, 3, Input<Floating>, CRL),
+    PF4:  (pf4, 4, Input<Floating>, CRL),
+    PF5:  (pf5, 5, Input<Floating>, CRL),
+    PF6:  (pf6, 6, Input<Floating>, CRL),
+    PF7:  (pf7, 7, Input<Floating>, CRL),
+    PF8:  (pf8, 8, Input<Floating>, CRH),
+    PF9:  (pf9, 9, Input<Floating>, CRH),
+    PF10: (pf10, 10, Input<Floating>, CRH),
+    PF11: (pf11, 11, Input<Floating>, CRH),
+    PF12: (pf12, 12, Input<Floating>, CRH),
+    PF13: (pf13, 13, Input<Floating>, CRH),
+    PF14: (pf14, 14, Input<Floating>, CRH),
+    PF15: (pf15, 15, Input<Floating>, CRH),
+]);
+
+#[cfg(any(feature = "xl", feature = "high"))]
+gpio!(GPIOG, gpiog, PGx, 'G', [
+    PG0:  (pg0, 0, Input<Floating>, CRL),
+    PG1:  (pg1, 1, Input<Floating>, CRL),
+    PG2:  (pg2, 2, Input<Floating>, CRL),
+    PG3:  (pg3, 3, Input<Floating>, CRL),
+    PG4:  (pg4, 4, Input<Floating>, CRL),
+    PG5:  (pg5, 5, Input<Floating>, CRL),
+    PG6:  (pg6, 6, Input<Floating>, CRL),
+    PG7:  (pg7, 7, Input<Floating>, CRL),
+    PG8:  (pg8, 8, Input<Floating>, CRH),
+    PG9:  (pg9, 9, Input<Floating>, CRH),
+    PG10: (pg10, 10, Input<Floating>, CRH),
+    PG11: (pg11, 11, Input<Floating>, CRH),
+    PG12: (pg12, 12, Input<Floating>, CRH),
+    PG13: (pg13, 13, Input<Floating>, CRH),
+    PG14: (pg14, 14, Input<Floating>, CRH),
+    PG15: (pg15, 15, Input<Floating>, CRH),
+]);
+
 struct Gpio<const P: char>;
 impl<const P: char> Gpio<P> {
     const fn ptr() -> *const crate::pac::gpioa::RegisterBlock {
@@ -1252,6 +1305,10 @@ impl<const P: char> Gpio<P> {
             'C' => crate::pac::GPIOC::ptr() as _,
             'D' => crate::pac::GPIOD::ptr() as _,
             'E' => crate::pac::GPIOE::ptr() as _,
+            #[cfg(any(feature = "xl", feature = "high"))]
+            'F' => crate::pac::GPIOF::ptr() as _,
+            #[cfg(any(feature = "xl", feature = "high"))]
+            'G' => crate::pac::GPIOG::ptr() as _,
             _ => crate::pac::GPIOA::ptr(),
         }
     }
