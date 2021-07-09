@@ -340,18 +340,19 @@ macro_rules! gpio {
     ]) => {
         /// GPIO
         pub mod $gpiox {
+            use core::marker::PhantomData;
             use crate::pac::$GPIOX;
             use crate::rcc::{APB2, Enable, Reset};
-            use super::{Active, Floating, GpioExt, Input, Generic, Pxx, Pin, CRL, CRH, Crl, Crh};
+            use super::{Active, Floating, GpioExt, Input, Generic, Pxx, Pin, CRL, CRH, Cr};
             #[allow(unused)]
             use super::Debugger;
 
             /// GPIO parts
             pub struct Parts {
                 /// Opaque CRL register
-                pub crl: Crl<$port_id>,
+                pub crl: Cr<CRL, $port_id>,
                 /// Opaque CRH register
-                pub crh: Crh<$port_id>,
+                pub crh: Cr<CRH, $port_id>,
                 $(
                     /// Pin
                     pub $pxi: $PXi<$MODE>,
@@ -370,8 +371,8 @@ macro_rules! gpio {
                     $GPIOX::reset(apb);
 
                     Parts {
-                        crl: Crl::<$port_id> { _0: () },
-                        crh: Crh::<$port_id> { _0: () },
+                        crl: Cr::<CRL, $port_id> { _cr: PhantomData },
+                        crh: Cr::<CRH, $port_id> { _cr: PhantomData },
                         $(
                             $pxi: $PXi::new(<$MODE>::_new()),
                         )+
@@ -652,16 +653,18 @@ impl<CR, const P: char, const N: u8> InputPin for Pin<Output<OpenDrain>, CR, P, 
     }
 }
 
-macro_rules! cr {
-    ($CR:ident, $Cr:ident, $cr:ident) => {
-        pub struct $CR;
+/// Opaque CR register
+pub struct Cr<CR, const P: char> {
+    _cr: PhantomData<CR>,
+}
 
-        /// Opaque CR register
-        pub struct $Cr<const P: char> {
+macro_rules! cr {
+    ($CR:ident, $cr:ident) => {
+        pub struct $CR {
             _0: (),
         }
 
-        impl<const P: char> $Cr<P> {
+        impl<const P: char> Cr<$CR, P> {
             // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
             #[allow(dead_code)]
             pub(crate) fn cr(&mut self) -> &pac::gpioa::$CR {
@@ -678,7 +681,7 @@ macro_rules! cr {
             #[inline]
             pub fn into_alternate_push_pull(
                 self,
-                cr: &mut $Cr<P>,
+                cr: &mut Cr<$CR, P>,
             ) -> Pin<Alternate<PushPull>, $CR, P, N> {
                 // Alternate function output push pull
                 const CNF: u32 = 0b10;
@@ -699,7 +702,7 @@ macro_rules! cr {
             #[inline]
             pub fn into_alternate_open_drain(
                 self,
-                cr: &mut $Cr<P>,
+                cr: &mut Cr<$CR, P>,
             ) -> Pin<Alternate<OpenDrain>, $CR, P, N> {
                 // Alternate function output open drain
                 const CNF: u32 = 0b11;
@@ -717,19 +720,25 @@ macro_rules! cr {
 
             /// Configures the pin to operate as a floating input pin
             #[inline]
-            pub fn into_floating_input(self, cr: &mut $Cr<P>) -> Pin<Input<Floating>, $CR, P, N> {
+            pub fn into_floating_input(
+                self,
+                cr: &mut Cr<$CR, P>,
+            ) -> Pin<Input<Floating>, $CR, P, N> {
                 unsafe { Pin::<Input<Floating>, $CR, P, N>::set_mode(cr) }
             }
 
             /// Configures the pin to operate as a pulled down input pin
             #[inline]
-            pub fn into_pull_down_input(self, cr: &mut $Cr<P>) -> Pin<Input<PullDown>, $CR, P, N> {
+            pub fn into_pull_down_input(
+                self,
+                cr: &mut Cr<$CR, P>,
+            ) -> Pin<Input<PullDown>, $CR, P, N> {
                 unsafe { Pin::<Input<PullDown>, $CR, P, N>::set_mode(cr) }
             }
 
             /// Configures the pin to operate as a pulled up input pin
             #[inline]
-            pub fn into_pull_up_input(self, cr: &mut $Cr<P>) -> Pin<Input<PullUp>, $CR, P, N> {
+            pub fn into_pull_up_input(self, cr: &mut Cr<$CR, P>) -> Pin<Input<PullUp>, $CR, P, N> {
                 unsafe { Pin::<Input<PullUp>, $CR, P, N>::set_mode(cr) }
             }
 
@@ -738,7 +747,7 @@ macro_rules! cr {
             #[inline]
             pub fn into_open_drain_output(
                 self,
-                cr: &mut $Cr<P>,
+                cr: &mut Cr<$CR, P>,
             ) -> Pin<Output<OpenDrain>, $CR, P, N> {
                 self.into_open_drain_output_with_state(cr, State::Low)
             }
@@ -748,7 +757,7 @@ macro_rules! cr {
             #[inline]
             pub fn into_open_drain_output_with_state(
                 mut self,
-                cr: &mut $Cr<P>,
+                cr: &mut Cr<$CR, P>,
                 initial_state: State,
             ) -> Pin<Output<OpenDrain>, $CR, P, N> {
                 self.set_state(initial_state);
@@ -759,7 +768,7 @@ macro_rules! cr {
             #[inline]
             pub fn into_push_pull_output(
                 self,
-                cr: &mut $Cr<P>,
+                cr: &mut Cr<$CR, P>,
             ) -> Pin<Output<PushPull>, $CR, P, N> {
                 self.into_push_pull_output_with_state(cr, State::Low)
             }
@@ -769,7 +778,7 @@ macro_rules! cr {
             #[inline]
             pub fn into_push_pull_output_with_state(
                 mut self,
-                cr: &mut $Cr<P>,
+                cr: &mut Cr<$CR, P>,
                 initial_state: State,
             ) -> Pin<Output<PushPull>, $CR, P, N> {
                 self.set_state(initial_state);
@@ -778,7 +787,7 @@ macro_rules! cr {
 
             /// Configures the pin to operate as an analog input pin
             #[inline]
-            pub fn into_analog(self, cr: &mut $Cr<P>) -> Pin<Analog, $CR, P, N> {
+            pub fn into_analog(self, cr: &mut Cr<$CR, P>) -> Pin<Analog, $CR, P, N> {
                 unsafe { Pin::<Analog, $CR, P, N>::set_mode(cr) }
             }
 
@@ -786,7 +795,7 @@ macro_rules! cr {
             /// and output without changing the type. It starts out
             /// as a floating input
             #[inline]
-            pub fn into_dynamic(self, cr: &mut $Cr<P>) -> Pin<Dynamic, $CR, P, N> {
+            pub fn into_dynamic(self, cr: &mut Cr<$CR, P>) -> Pin<Dynamic, $CR, P, N> {
                 self.into_floating_input(cr);
                 Pin::new(Dynamic::InputFloating)
             }
@@ -803,7 +812,7 @@ macro_rules! cr {
                 #[inline]
                 pub fn $fn_name(
                     &mut self,
-                    cr: &mut $Cr<P>,
+                    cr: &mut Cr<$CR, P>,
                     mut f: impl FnMut(&mut Pin<$mode, $CR, P, N>),
                 ) {
                     let mut temp = unsafe { Pin::<$mode, $CR, P, N>::set_mode(cr) };
@@ -821,7 +830,7 @@ macro_rules! cr {
                 #[inline]
                 pub fn $stateful_fn_name(
                     &mut self,
-                    cr: &mut $Cr<P>,
+                    cr: &mut Cr<$CR, P>,
                     state: State,
                     mut f: impl FnMut(&mut Pin<$mode, $CR, P, N>),
                 ) {
@@ -840,7 +849,7 @@ macro_rules! cr {
                 #[inline]
                 pub fn $fn_name(
                     &mut self,
-                    cr: &mut $Cr<P>,
+                    cr: &mut Cr<$CR, P>,
                     mut f: impl FnMut(&mut Pin<$mode, $CR, P, N>),
                 ) {
                     let mut temp = unsafe { Pin::<$mode, $CR, P, N>::set_mode(cr) };
@@ -855,7 +864,7 @@ macro_rules! cr {
         impl<MODE, const P: char, const N: u8> Pin<MODE, $CR, P, N>
         where
             MODE: Active,
-            Self: PinMode<CR = $Cr<P>>,
+            Self: PinMode<CR = Cr<$CR, P>>,
         {
             impl_temp_output!(
                 as_push_pull_output,
@@ -872,20 +881,20 @@ macro_rules! cr {
             impl_temp_input!(as_pull_down_input, Input<PullDown>);
         }
 
-        impl<MODE, const P: char, const N: u8> OutputSpeed<$Cr<P>>
+        impl<MODE, const P: char, const N: u8> OutputSpeed<Cr<$CR, P>>
             for Pin<Output<MODE>, $CR, P, N>
         {
-            fn set_speed(&mut self, cr: &mut $Cr<P>, speed: IOPinSpeed) {
+            fn set_speed(&mut self, cr: &mut Cr<$CR, P>, speed: IOPinSpeed) {
                 cr.cr().modify(|r, w| unsafe {
                     w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
                 });
             }
         }
 
-        impl<const P: char, const N: u8> OutputSpeed<$Cr<P>>
+        impl<const P: char, const N: u8> OutputSpeed<Cr<$CR, P>>
             for Pin<Alternate<PushPull>, $CR, P, N>
         {
-            fn set_speed(&mut self, cr: &mut $Cr<P>, speed: IOPinSpeed) {
+            fn set_speed(&mut self, cr: &mut Cr<$CR, P>, speed: IOPinSpeed) {
                 cr.cr().modify(|r, w| unsafe {
                     w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
                 });
@@ -896,31 +905,31 @@ macro_rules! cr {
 
         impl<const P: char, const N: u8> Pin<Dynamic, $CR, P, N> {
             #[inline]
-            pub fn make_pull_up_input(&mut self, cr: &mut $Cr<P>) {
+            pub fn make_pull_up_input(&mut self, cr: &mut Cr<$CR, P>) {
                 // NOTE(unsafe), we have a mutable reference to the current pin
                 unsafe { Pin::<Input<PullUp>, $CR, P, N>::set_mode(cr) };
                 self.mode = Dynamic::InputPullUp;
             }
             #[inline]
-            pub fn make_pull_down_input(&mut self, cr: &mut $Cr<P>) {
+            pub fn make_pull_down_input(&mut self, cr: &mut Cr<$CR, P>) {
                 // NOTE(unsafe), we have a mutable reference to the current pin
                 unsafe { Pin::<Input<PullDown>, $CR, P, N>::set_mode(cr) };
                 self.mode = Dynamic::InputPullDown;
             }
             #[inline]
-            pub fn make_floating_input(&mut self, cr: &mut $Cr<P>) {
+            pub fn make_floating_input(&mut self, cr: &mut Cr<$CR, P>) {
                 // NOTE(unsafe), we have a mutable reference to the current pin
                 unsafe { Pin::<Input<Floating>, $CR, P, N>::set_mode(cr) };
                 self.mode = Dynamic::InputFloating;
             }
             #[inline]
-            pub fn make_push_pull_output(&mut self, cr: &mut $Cr<P>) {
+            pub fn make_push_pull_output(&mut self, cr: &mut Cr<$CR, P>) {
                 // NOTE(unsafe), we have a mutable reference to the current pin
                 unsafe { Pin::<Output<PushPull>, $CR, P, N>::set_mode(cr) };
                 self.mode = Dynamic::OutputPushPull;
             }
             #[inline]
-            pub fn make_open_drain_output(&mut self, cr: &mut $Cr<P>) {
+            pub fn make_open_drain_output(&mut self, cr: &mut Cr<$CR, P>) {
                 // NOTE(unsafe), we have a mutable reference to the current pin
                 unsafe { Pin::<Output<OpenDrain>, $CR, P, N>::set_mode(cr) };
                 self.mode = Dynamic::OutputOpenDrain;
@@ -928,7 +937,7 @@ macro_rules! cr {
         }
 
         impl<const P: char, const N: u8> PinMode for Pin<Input<Floating>, $CR, P, N> {
-            type CR = $Cr<P>;
+            type CR = Cr<$CR, P>;
 
             unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // Floating input
@@ -947,7 +956,7 @@ macro_rules! cr {
         }
 
         impl<const P: char, const N: u8> PinMode for Pin<Input<PullDown>, $CR, P, N> {
-            type CR = $Cr<P>;
+            type CR = Cr<$CR, P>;
 
             unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // Pull up/down input
@@ -970,7 +979,7 @@ macro_rules! cr {
         }
 
         impl<const P: char, const N: u8> PinMode for Pin<Input<PullUp>, $CR, P, N> {
-            type CR = $Cr<P>;
+            type CR = Cr<$CR, P>;
 
             unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // Pull up/down input
@@ -993,7 +1002,7 @@ macro_rules! cr {
         }
 
         impl<const P: char, const N: u8> PinMode for Pin<Output<OpenDrain>, $CR, P, N> {
-            type CR = $Cr<P>;
+            type CR = Cr<$CR, P>;
 
             unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // General purpose output open-drain
@@ -1011,7 +1020,7 @@ macro_rules! cr {
         }
 
         impl<const P: char, const N: u8> PinMode for Pin<Output<PushPull>, $CR, P, N> {
-            type CR = $Cr<P>;
+            type CR = Cr<$CR, P>;
 
             unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // General purpose output push-pull
@@ -1029,7 +1038,7 @@ macro_rules! cr {
         }
 
         impl<const P: char, const N: u8> PinMode for Pin<Analog, $CR, P, N> {
-            type CR = $Cr<P>;
+            type CR = Cr<$CR, P>;
 
             unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // Analog input
@@ -1049,8 +1058,8 @@ macro_rules! cr {
     };
 }
 
-cr!(CRH, Crh, crh);
-cr!(CRL, Crl, crl);
+cr!(CRH, crh);
+cr!(CRL, crl);
 
 macro_rules! impl_pxx {
     ($(($port_id:literal :: $pin:ident)),*) => {
