@@ -308,11 +308,11 @@ impl Dynamic {
     }
 }
 
-pub trait PinMode<CR> {
-    /// # Safety
-    /// This trait should ideally be private but must be pub in order to avoid
-    /// complaints from the compiler.
-    unsafe fn set_mode(cr: &mut CR) -> Self;
+/// NOTE: This trait should ideally be private but must be pub in order to avoid
+/// complaints from the compiler.
+pub trait PinMode {
+    type CR;
+    unsafe fn set_mode(cr: &mut Self::CR) -> Self;
 }
 
 // These impls are needed because a macro can not brace initialise a ty token
@@ -488,6 +488,8 @@ pub struct Pin<MODE, CR, const P: char, const N: u8> {
 }
 
 impl<MODE, CR, const P: char, const N: u8> Pin<MODE, CR, P, N> {
+    const OFFSET: u32 = (4 * (N as u32)) % 32;
+
     const fn new(mode: MODE) -> Self {
         Self {
             mode,
@@ -693,7 +695,7 @@ macro_rules! cr {
 
                 // input mode
                 cr.cr().modify(|r, w| unsafe {
-                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                 });
 
                 Pin::new(Alternate::_new())
@@ -714,7 +716,7 @@ macro_rules! cr {
 
                 // input mode
                 cr.cr().modify(|r, w| unsafe {
-                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                 });
 
                 Pin::new(Alternate::_new())
@@ -860,7 +862,7 @@ macro_rules! cr {
         impl<MODE, const P: char, const N: u8> Pin<MODE, $CR, P, N>
         where
             MODE: Active,
-            Self: PinMode<$Cr<P>>,
+            Self: PinMode<CR = $Cr<P>>,
         {
             impl_temp_output!(
                 as_push_pull_output,
@@ -882,9 +884,7 @@ macro_rules! cr {
         {
             fn set_speed(&mut self, cr: &mut $Cr<P>, speed: IOPinSpeed) {
                 cr.cr().modify(|r, w| unsafe {
-                    w.bits(
-                        (r.bits() & !(0b11 << ((4 * N) % 32))) | ((speed as u32) << ((4 * N) % 32)),
-                    )
+                    w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
                 });
             }
         }
@@ -894,9 +894,7 @@ macro_rules! cr {
         {
             fn set_speed(&mut self, cr: &mut $Cr<P>, speed: IOPinSpeed) {
                 cr.cr().modify(|r, w| unsafe {
-                    w.bits(
-                        (r.bits() & !(0b11 << ((4 * N) % 32))) | ((speed as u32) << ((4 * N) % 32)),
-                    )
+                    w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
                 });
             }
         }
@@ -936,8 +934,10 @@ macro_rules! cr {
             }
         }
 
-        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Input<Floating>, $CR, P, N> {
-            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+        impl<const P: char, const N: u8> PinMode for Pin<Input<Floating>, $CR, P, N> {
+            type CR = $Cr<P>;
+
+            unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // Floating input
                 const CNF: u32 = 0b01;
                 // Input mode
@@ -946,15 +946,17 @@ macro_rules! cr {
 
                 // input mode
                 cr.cr().modify(|r, w| {
-                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                 });
 
                 Pin::new(Input::_new())
             }
         }
 
-        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Input<PullDown>, $CR, P, N> {
-            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+        impl<const P: char, const N: u8> PinMode for Pin<Input<PullDown>, $CR, P, N> {
+            type CR = $Cr<P>;
+
+            unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // Pull up/down input
                 const CNF: u32 = 0b10;
                 // Input mode
@@ -967,15 +969,17 @@ macro_rules! cr {
 
                 // input mode
                 cr.cr().modify(|r, w| {
-                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                 });
 
                 Pin::new(Input::_new())
             }
         }
 
-        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Input<PullUp>, $CR, P, N> {
-            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+        impl<const P: char, const N: u8> PinMode for Pin<Input<PullUp>, $CR, P, N> {
+            type CR = $Cr<P>;
+
+            unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // Pull up/down input
                 const CNF: u32 = 0b10;
                 // Input mode
@@ -988,15 +992,17 @@ macro_rules! cr {
 
                 // input mode
                 cr.cr().modify(|r, w| {
-                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                 });
 
                 Pin::new(Input::_new())
             }
         }
 
-        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Output<OpenDrain>, $CR, P, N> {
-            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+        impl<const P: char, const N: u8> PinMode for Pin<Output<OpenDrain>, $CR, P, N> {
+            type CR = $Cr<P>;
+
+            unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // General purpose output open-drain
                 const CNF: u32 = 0b01;
                 // Open-Drain Output mode, max speed 50 MHz
@@ -1004,15 +1010,17 @@ macro_rules! cr {
                 const BITS: u32 = (CNF << 2) | MODE;
 
                 cr.cr().modify(|r, w| {
-                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                 });
 
                 Pin::new(Output::_new())
             }
         }
 
-        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Output<PushPull>, $CR, P, N> {
-            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+        impl<const P: char, const N: u8> PinMode for Pin<Output<PushPull>, $CR, P, N> {
+            type CR = $Cr<P>;
+
+            unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // General purpose output push-pull
                 const CNF: u32 = 0b00;
                 // Output mode, max speed 50 MHz
@@ -1020,15 +1028,17 @@ macro_rules! cr {
                 const BITS: u32 = (CNF << 2) | MODE;
 
                 cr.cr().modify(|r, w| {
-                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                 });
 
                 Pin::new(Output::_new())
             }
         }
 
-        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Analog, $CR, P, N> {
-            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+        impl<const P: char, const N: u8> PinMode for Pin<Analog, $CR, P, N> {
+            type CR = $Cr<P>;
+
+            unsafe fn set_mode(cr: &mut Self::CR) -> Self {
                 // Analog input
                 const CNF: u32 = 0b00;
                 // Input mode
@@ -1037,7 +1047,7 @@ macro_rules! cr {
 
                 // analog mode
                 cr.cr().modify(|r, w| {
-                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
                 });
 
                 Pin::new(Analog {})
