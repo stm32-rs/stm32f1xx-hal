@@ -24,8 +24,8 @@ use crate::timer::sealed::{Ch1, Ch2, Remap};
 impl<TIM, REMAP, P1, P2> Pins<REMAP> for (P1, P2)
 where
     REMAP: Remap<Periph = TIM>,
-    P1: Ch1<REMAP> + gpio::Mode<Input<Floating>>,
-    P2: Ch2<REMAP> + gpio::Mode<Input<Floating>>,
+    P1: Ch1<REMAP> + gpio::PinExt<Mode = Input<Floating>>,
+    P2: Ch2<REMAP> + gpio::PinExt<Mode = Input<Floating>>,
 {
 }
 

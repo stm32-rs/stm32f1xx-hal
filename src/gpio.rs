@@ -117,9 +117,6 @@ pub trait GpioExt {
     fn split(self, apb2: &mut APB2) -> Self::Parts;
 }
 
-/// Marker trait for pin mode detection.
-pub trait Mode<MODE> {}
-
 /// Marker trait for active states.
 pub trait Active {}
 
@@ -479,8 +476,6 @@ impl<const P: char> InputPin for Generic<Output<OpenDrain>, P> {
     }
 }
 
-impl<MODE, const P: char> Mode<MODE> for Generic<MODE, P> {}
-
 /// Pin
 pub struct Pin<MODE, CR, const P: char, const N: u8> {
     mode: MODE,
@@ -510,8 +505,6 @@ impl<MODE, CR, const P: char, const N: u8> PinExt for Pin<MODE, CR, P, N> {
         P as u8 - 0x41
     }
 }
-
-impl<MODE, CR, const P: char, const N: u8> Mode<MODE> for Pin<MODE, CR, P, N> {}
 
 impl<CR, const P: char, const N: u8> Pin<Debugger, CR, P, N> {
     /// Put the pin in an active state. The caller

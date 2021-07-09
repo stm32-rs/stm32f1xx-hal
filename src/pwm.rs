@@ -109,7 +109,7 @@ macro_rules! pins_impl {
             impl<TIM, REMAP, $($PINX,)+> Pins<REMAP, ($($ENCHX),+)> for ($($PINX),+)
             where
                 REMAP: Remap<Periph = TIM>,
-                $($PINX: $TRAIT<REMAP> + gpio::Mode<Alternate<PushPull>>,)+
+                $($PINX: $TRAIT<REMAP> + gpio::PinExt<Mode=Alternate<PushPull>>,)+
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(PwmChannel<TIM, $ENCHX>),+);
