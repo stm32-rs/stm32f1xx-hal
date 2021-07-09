@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Do not enable UART DMA flags unconditionally
 
 ### Changed
+
+- Change internal implementation of pins using const generics
 - Use `cortex-m-rtic` instead of `cortex-m-rtfm` in the examples
 - Renamed `serial`'s `RxDma`/`TxDma`'s `split` method into `release`
 - Renamed I2C's `free` method into `release`

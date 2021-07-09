@@ -74,10 +74,12 @@
 //! let mut mfrc522 = Mfrc522::new(spi, OldOutputPin::from(nss)).unwrap();
 //! ```
 
+use core::convert::Infallible;
 use core::marker::PhantomData;
 
 use crate::afio;
-use crate::pac::EXTI;
+use crate::hal::digital::v2::{toggleable, InputPin, OutputPin, StatefulOutputPin};
+use crate::pac::{self, EXTI};
 use crate::rcc::APB2;
 
 /// Slew rates available for Output and relevant AlternateMode Pins
@@ -336,49 +338,32 @@ impl Debugger {
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $PXx:ident, $port_id:expr, [
+    ($GPIOX:ident, $gpiox:ident, $PXx:ident, $port_id:expr, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $CR:ident),)+
     ]) => {
         /// GPIO
         pub mod $gpiox {
-            use core::convert::Infallible;
-            use core::marker::PhantomData;
-
-            use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, toggleable};
-            use crate::pac::{$gpioy, $GPIOX};
+            use crate::pac::$GPIOX;
             use crate::rcc::{APB2, Enable, Reset};
-            use super::{
-                Alternate, Floating, GpioExt, Input,
-                OpenDrain,
-                Output,
-                PullDown,
-                PullUp,
-                PushPull,
-                Analog,
-                State,
-                Active,
-                Debugger,
-                Pxx,
-                Mode,
-                PinMode,
-                Dynamic,
-                PinModeError,
-                OutputSpeed,
-                IOPinSpeed,
-                PinExt,
-            };
+            use super::{Active, Floating, GpioExt, Input, Generic, Pxx, Pin, CRL, CRH, Crl, Crh};
+            #[allow(unused)]
+            use super::Debugger;
 
             /// GPIO parts
             pub struct Parts {
                 /// Opaque CRL register
-                pub crl: CRL,
+                pub crl: Crl<$port_id>,
                 /// Opaque CRH register
-                pub crh: CRH,
+                pub crh: Crh<$port_id>,
                 $(
                     /// Pin
                     pub $pxi: $PXi<$MODE>,
                 )+
             }
+
+            $(
+                pub type $PXi<MODE> = Pin<MODE, $CR, $port_id, $i>;
+            )+
 
             impl GpioExt for $GPIOX {
                 type Parts = Parts;
@@ -388,739 +373,687 @@ macro_rules! gpio {
                     $GPIOX::reset(apb);
 
                     Parts {
-                        crl: CRL { _0: () },
-                        crh: CRH { _0: () },
+                        crl: Crl::<$port_id> { _0: () },
+                        crh: Crh::<$port_id> { _0: () },
                         $(
-                            $pxi: $PXi { mode: <$MODE>::_new() },
+                            $pxi: $PXi::new(<$MODE>::_new()),
                         )+
                     }
                 }
             }
 
-            /// Opaque CRL register
-            pub struct CRL {
-                _0: (),
-            }
-
-            impl CRL {
-                // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
-                #[allow(dead_code)]
-                pub(crate) fn cr(&mut self) -> &$gpioy::CRL {
-                    unsafe { &(*$GPIOX::ptr()).crl }
-                }
-            }
-
-            /// Opaque CRH register
-            pub struct CRH {
-                _0: (),
-            }
-
-            impl CRH {
-                pub(crate) fn cr(&mut self) -> &$gpioy::CRH {
-                    unsafe { &(*$GPIOX::ptr()).crh }
-                }
-            }
-
-            /// Partially erased pin. Only used in the Pxx enum
-            pub struct Generic<MODE> {
-                i: u8,
-                _mode: PhantomData<MODE>,
-            }
-
-            impl<MODE> PinExt for Generic<MODE> {
-                type Mode = MODE;
-
-                #[inline(always)]
-                fn pin_id(&self) -> u8 {
-                    self.i
-                }
-                #[inline(always)]
-                fn port_id(&self) -> u8 {
-                    $port_id
-                }
-            }
-
-            impl<MODE> Generic<MODE> {
+            impl<MODE> Generic<MODE, $port_id> {
                 pub fn downgrade(self) -> Pxx<MODE> {
                     Pxx::$PXx(self)
                 }
             }
 
-            impl<MODE> OutputPin for Generic<Output<MODE>> {
-                type Error = Infallible;
-                fn set_high(&mut self) -> Result<(), Self::Error> {
-                    // NOTE(unsafe) atomic write to a stateless register
-                    Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << self.i)) })
-                }
-
-                fn set_low(&mut self) -> Result<(), Self::Error> {
-                    // NOTE(unsafe) atomic write to a stateless register
-                    Ok(unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + self.i))) })
-                }
-            }
-
-            impl<MODE> InputPin for Generic<Input<MODE>> {
-                type Error = Infallible;
-                fn is_high(&self) -> Result<bool, Self::Error> {
-                    self.is_low().map(|b| !b)
-                }
-
-                fn is_low(&self) -> Result<bool, Self::Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 })
+            impl<MODE, CR, const N: u8> Pin<MODE, CR, $port_id, N>
+            where
+                MODE: Active,
+            {
+                /// Erases the pin number and port from the type
+                ///
+                /// This is useful when you want to collect the pins into an array where you
+                /// need all the elements to have the same type
+                pub fn downgrade(self) -> Pxx<MODE> {
+                    self.into_generic().downgrade()
                 }
             }
-
-            impl <MODE> StatefulOutputPin for Generic<Output<MODE>> {
-                fn is_set_high(&self) -> Result<bool, Self::Error> {
-                    self.is_set_low().map(|b| !b)
-                }
-
-                fn is_set_low(&self) -> Result<bool, Self::Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    Ok(unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << self.i) == 0 })
-                }
-            }
-
-            impl <MODE> toggleable::Default for Generic<Output<MODE>> {}
-
-            impl InputPin for Generic<Output<OpenDrain>> {
-                type Error = Infallible;
-                fn is_high(&self) -> Result<bool, Self::Error> {
-                    self.is_low().map(|b| !b)
-                }
-
-                fn is_low(&self) -> Result<bool, Self::Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << self.i) == 0 })
-                }
-            }
-
-            pub type $PXx<MODE> = Pxx<MODE>;
-
-
-            impl<MODE> Mode<MODE> for Generic<MODE> {}
-
-
-            $(
-                /// Pin
-                pub struct $PXi<MODE> {
-                    mode: MODE,
-                }
-
-                impl<MODE> PinExt for $PXi<MODE> {
-                    type Mode = MODE;
-
-                    #[inline(always)]
-                    fn pin_id(&self) -> u8 {
-                        $i
-                    }
-                    #[inline(always)]
-                    fn port_id(&self) -> u8 {
-                        $port_id
-                    }
-                }
-
-                impl<MODE> Mode<MODE> for $PXi<MODE> {}
-
-                impl $PXi<Debugger> {
-                    /// Put the pin in an active state. The caller
-                    /// must enforce that the pin is really in this
-                    /// state in the hardware.
-                    #[allow(dead_code)]
-                    pub(crate) unsafe fn activate(self) -> $PXi<Input<Floating>> {
-                        $PXi { mode: Input::_new() }
-                    }
-                }
-
-                impl<MODE> $PXi<MODE> where MODE: Active {
-                    /// Configures the pin to operate as an alternate function push-pull output
-                    /// pin.
-                    #[inline]
-                    pub fn into_alternate_push_pull(
-                        self,
-                        cr: &mut $CR,
-                    ) -> $PXi<Alternate<PushPull>> {
-                        const OFFSET: u32 = (4 * $i) % 32;
-                        // Alternate function output push pull
-                        const CNF: u32 = 0b10;
-                        // Output mode, max speed 50 MHz
-                        const MODE: u32 = 0b11;
-                        const BITS: u32 = (CNF << 2) | MODE;
-
-                        // input mode
-                        cr
-                            .cr()
-                            .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
-                            });
-
-                        $PXi { mode: Alternate::_new() }
-                    }
-
-                    /// Configures the pin to operate as an alternate function open-drain output
-                    /// pin.
-                    #[inline]
-                    pub fn into_alternate_open_drain(
-                        self,
-                        cr: &mut $CR,
-                    ) -> $PXi<Alternate<OpenDrain>> {
-                        const OFFSET: u32 = (4 * $i) % 32;
-                        // Alternate function output open drain
-                        const CNF: u32 = 0b11;
-                        // Output mode, max speed 50 MHz
-                        const MODE: u32 = 0b11;
-                        const BITS: u32 = (CNF << 2) | MODE;
-
-                        // input mode
-                        cr
-                            .cr()
-                            .modify(|r, w| unsafe {
-                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
-                            });
-
-                        $PXi { mode: Alternate::_new() }
-                    }
-
-                    /// Configures the pin to operate as a floating input pin
-                    #[inline]
-                    pub fn into_floating_input(
-                        self,
-                        cr: &mut $CR,
-                    ) -> $PXi<Input<Floating>> {
-                        unsafe {
-                            $PXi::<Input<Floating>>::set_mode(cr)
-                        }
-                    }
-
-                    /// Configures the pin to operate as a pulled down input pin
-                    #[inline]
-                    pub fn into_pull_down_input(
-                        self,
-                        cr: &mut $CR,
-                    ) -> $PXi<Input<PullDown>> {
-                        unsafe {
-                            $PXi::<Input<PullDown>>::set_mode(cr)
-                        }
-                    }
-
-                    /// Configures the pin to operate as a pulled up input pin
-                    #[inline]
-                    pub fn into_pull_up_input(
-                        self,
-                        cr: &mut $CR,
-                    ) -> $PXi<Input<PullUp>> {
-                        unsafe {
-                            $PXi::<Input<PullUp>>::set_mode(cr)
-                        }
-                    }
-
-                    /// Configures the pin to operate as an open-drain output pin.
-                    /// Initial state will be low.
-                    #[inline]
-                    pub fn into_open_drain_output(
-                        self,
-                        cr: &mut $CR,
-                    ) -> $PXi<Output<OpenDrain>> {
-                        self.into_open_drain_output_with_state(cr, State::Low)
-                    }
-
-                    /// Configures the pin to operate as an open-drain output pin.
-                    /// `initial_state` specifies whether the pin should be initially high or low.
-                    #[inline]
-                    pub fn into_open_drain_output_with_state(
-                        mut self,
-                        cr: &mut $CR,
-                        initial_state: State,
-                    ) -> $PXi<Output<OpenDrain>> {
-                        self.set_state(initial_state);
-                        unsafe {
-                            $PXi::<Output<OpenDrain>>::set_mode(cr)
-                        }
-                    }
-                    /// Configures the pin to operate as an push-pull output pin.
-                    /// Initial state will be low.
-                    #[inline]
-                    pub fn into_push_pull_output(
-                        self,
-                        cr: &mut $CR,
-                    ) -> $PXi<Output<PushPull>> {
-                        self.into_push_pull_output_with_state(cr, State::Low)
-                    }
-
-                    /// Configures the pin to operate as an push-pull output pin.
-                    /// `initial_state` specifies whether the pin should be initially high or low.
-                    #[inline]
-                    pub fn into_push_pull_output_with_state(
-                        mut self,
-                        cr: &mut $CR,
-                        initial_state: State,
-                    ) -> $PXi<Output<PushPull>> {
-                        self.set_state(initial_state);
-                        unsafe {
-                            $PXi::<Output<PushPull>>::set_mode(cr)
-                        }
-                    }
-
-                    /// Configures the pin to operate as an analog input pin
-                    #[inline]
-                    pub fn into_analog(self, cr: &mut $CR) -> $PXi<Analog> {
-                        unsafe {
-                            $PXi::<Analog>::set_mode(cr)
-                        }
-                    }
-
-                    /// Configures the pin as a pin that can change between input
-                    /// and output without changing the type. It starts out
-                    /// as a floating input
-                    #[inline]
-                    pub fn into_dynamic(self, cr: &mut $CR) -> $PXi<Dynamic> {
-                        self.into_floating_input(cr);
-                        $PXi::<Dynamic>{mode: Dynamic::InputFloating}
-                    }
-                }
-
-                // These macros are defined here instead of at the top level in order
-                // to be able to refer to macro variables from the outer layers.
-                macro_rules! impl_temp_output {
-                    (
-                        $fn_name:ident,
-                        $stateful_fn_name:ident,
-                        $mode:ty
-                    ) => {
-                        /**
-                          Temporarily change the mode of the pin.
-
-                          The value of the pin after conversion is undefined. If you
-                          want to control it, use `$stateful_fn_name`
-                        */
-                        #[inline]
-                        pub fn $fn_name(
-                            &mut self,
-                            cr: &mut $CR,
-                            mut f: impl FnMut(&mut $PXi<$mode>)
-                        ) {
-                            let mut temp = unsafe { $PXi::<$mode>::set_mode(cr) };
-                            f(&mut temp);
-                            unsafe {
-                                Self::set_mode(cr);
-                            }
-                        }
-
-                        /**
-                          Temporarily change the mode of the pin.
-
-                          Note that the new state is set slightly before conversion
-                          happens. This can cause a short output glitch if switching
-                          between output modes
-                        */
-                        #[inline]
-                        pub fn $stateful_fn_name(
-                            &mut self,
-                            cr: &mut $CR,
-                            state: State,
-                            mut f: impl FnMut(&mut $PXi<$mode>)
-                        ) {
-                            self.set_state(state);
-                            let mut temp = unsafe { $PXi::<$mode>::set_mode(cr) };
-                            f(&mut temp);
-                            unsafe {
-                                Self::set_mode(cr);
-                            }
-                        }
-                    }
-                }
-                macro_rules! impl_temp_input {
-                    (
-                        $fn_name:ident,
-                        $mode:ty
-                    ) => {
-                        /**
-                          Temporarily change the mode of the pin.
-                        */
-                        #[inline]
-                        pub fn $fn_name(
-                            &mut self,
-                            cr: &mut $CR,
-                            mut f: impl FnMut(&mut $PXi<$mode>)
-                        ) {
-                            let mut temp = unsafe { $PXi::<$mode>::set_mode(cr) };
-                            f(&mut temp);
-                            unsafe {
-                                Self::set_mode(cr);
-                            }
-                        }
-                    }
-                }
-
-                impl<MODE> $PXi<MODE> where MODE: Active, $PXi<MODE>: PinMode<$CR> {
-                    impl_temp_output!(
-                        as_push_pull_output,
-                        as_push_pull_output_with_state,
-                        Output<PushPull>
-                    );
-                    impl_temp_output!(
-                        as_open_drain_output,
-                        as_open_drain_output_with_state,
-                        Output<OpenDrain>
-                    );
-                    impl_temp_input!(
-                        as_floating_input,
-                        Input<Floating>
-                    );
-                    impl_temp_input!(
-                        as_pull_up_input,
-                        Input<PullUp>
-                    );
-                    impl_temp_input!(
-                        as_pull_down_input,
-                        Input<PullDown>
-                    );
-                }
-
-                impl<MODE> $PXi<MODE> where MODE: Active {
-                    /// Erases the pin number from the type
-                    #[inline]
-                    fn into_generic(self) -> Generic<MODE> {
-                        Generic {
-                            i: $i,
-                            _mode: PhantomData,
-                        }
-                    }
-
-                    /// Erases the pin number and port from the type
-                    ///
-                    /// This is useful when you want to collect the pins into an array where you
-                    /// need all the elements to have the same type
-                    pub fn downgrade(self) -> Pxx<MODE> {
-                        self.into_generic().downgrade()
-                    }
-                }
-
-                // embedded_hal impls
-
-                impl<MODE> OutputPin for $PXi<Output<MODE>> {
-                    type Error = Infallible;
-                    #[inline]
-                    fn set_high(&mut self) -> Result<(), Self::Error> {
-                        // NOTE(unsafe) atomic write to a stateless register
-                        Ok(self.set_state(State::High))
-                    }
-
-                    #[inline]
-                    fn set_low(&mut self) -> Result<(), Self::Error> {
-                        // NOTE(unsafe) atomic write to a stateless register
-                        Ok(self.set_state(State::Low))
-                    }
-                }
-
-                impl<MODE> StatefulOutputPin for $PXi<Output<MODE>> {
-                    #[inline]
-                    fn is_set_high(&self) -> Result<bool, Self::Error> {
-                        self.is_set_low().map(|b| !b)
-                    }
-
-                    #[inline]
-                    fn is_set_low(&self) -> Result<bool, Self::Error> {
-                        Ok(self._is_set_low())
-                    }
-                }
-
-                impl<MODE> OutputSpeed<$CR> for $PXi<Output<MODE>> {
-                    fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
-                        const OFFSET: u32 = (4 * $i) % 32;
-
-                        cr.cr().modify(|r, w| unsafe {
-                            w.bits((r.bits() & !(0b11 << OFFSET)) | ((speed as u32) << OFFSET))
-                        });
-                    }
-                }
-
-                impl OutputSpeed<$CR> for $PXi<Alternate<PushPull>> {
-                    fn set_speed(&mut self, cr: &mut $CR, speed: IOPinSpeed){
-                        const OFFSET: u32 = (4 * $i) % 32;
-
-                        cr.cr().modify(|r, w| unsafe {
-                            w.bits((r.bits() & !(0b11 << OFFSET)) | ((speed as u32) << OFFSET))
-                        });
-                    }
-                }
-
-                impl<MODE> toggleable::Default for $PXi<Output<MODE>> {}
-
-                impl<MODE> InputPin for $PXi<Input<MODE>> {
-                    type Error = Infallible;
-                    #[inline]
-                    fn is_high(&self) -> Result<bool, Self::Error> {
-                        self.is_low().map(|b| !b)
-                    }
-
-                    #[inline]
-                    fn is_low(&self) -> Result<bool, Self::Error> {
-                        // NOTE(unsafe) atomic read with no side effects
-                        Ok(self._is_low())
-                    }
-                }
-
-                impl InputPin for $PXi<Output<OpenDrain>> {
-                    type Error = Infallible;
-                    #[inline]
-                    fn is_high(&self) -> Result<bool, Self::Error> {
-                        self.is_low().map(|b| !b)
-                    }
-
-                    #[inline]
-                    fn is_low(&self) -> Result<bool, Self::Error> {
-                        Ok(self._is_low())
-                    }
-                }
-
-
-                // Dynamic pin
-
-                impl $PXi<Dynamic> {
-                    #[inline]
-                    pub fn make_pull_up_input(&mut self, cr: &mut $CR) {
-                        // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Input<PullUp>>::set_mode(cr) };
-                        self.mode = Dynamic::InputPullUp;
-                    }
-                    #[inline]
-                    pub fn make_pull_down_input(&mut self, cr: &mut $CR) {
-                        // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Input<PullDown>>::set_mode(cr) };
-                        self.mode = Dynamic::InputPullDown;
-                    }
-                    #[inline]
-                    pub fn make_floating_input(&mut self, cr: &mut $CR) {
-                        // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Input<Floating>>::set_mode(cr) };
-                        self.mode = Dynamic::InputFloating;
-                    }
-                    #[inline]
-                    pub fn make_push_pull_output(&mut self, cr: &mut $CR) {
-                        // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Output<PushPull>>::set_mode(cr) };
-                        self.mode = Dynamic::OutputPushPull;
-                    }
-                    #[inline]
-                    pub fn make_open_drain_output(&mut self, cr: &mut $CR) {
-                        // NOTE(unsafe), we have a mutable reference to the current pin
-                        unsafe { $PXi::<Output<OpenDrain>>::set_mode(cr) };
-                        self.mode = Dynamic::OutputOpenDrain;
-                    }
-                }
-
-                impl OutputPin for $PXi<Dynamic> {
-                    type Error = PinModeError;
-                    fn set_high(&mut self) -> Result<(), Self::Error> {
-                        if self.mode.is_output() {
-                            self.set_state(State::High);
-                            Ok(())
-                        }
-                        else {
-                            Err(PinModeError::IncorrectMode)
-                        }
-                    }
-                    fn set_low(&mut self) -> Result<(), Self::Error> {
-                        if self.mode.is_output() {
-                            self.set_state(State::Low);
-                            Ok(())
-                        }
-                        else {
-                            Err(PinModeError::IncorrectMode)
-                        }
-                    }
-                }
-
-                impl InputPin for $PXi<Dynamic> {
-                    type Error = PinModeError;
-                    fn is_high(&self) -> Result<bool, Self::Error> {
-                        self.is_low().map(|b| !b)
-                    }
-                    fn is_low(&self) -> Result<bool, Self::Error> {
-                        if self.mode.is_input() {
-                            Ok(self._is_low())
-                        }
-                        else {
-                            Err(PinModeError::IncorrectMode)
-                        }
-                    }
-                }
-
-                // Internal helper functions
-
-                // NOTE: The functions in this impl block are "safe", but they
-                // are callable when the pin is in modes where they don't make
-                // sense.
-                impl<MODE> $PXi<MODE> {
-                    /**
-                      Set the output of the pin regardless of its mode.
-                      Primarily used to set the output value of the pin
-                      before changing its mode to an output to avoid
-                      a short spike of an incorrect value
-                    */
-                    fn set_state(&mut self, state: State) {
-                        match state {
-                            State::High => unsafe {
-                                (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i))
-                            }
-                            State::Low => unsafe {
-                                (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + $i)))
-                            }
-                        }
-                    }
-
-                    fn _is_set_low(&self) -> bool {
-                        unsafe { (*$GPIOX::ptr()).odr.read().bits() & (1 << $i) == 0 }
-                    }
-
-                    fn _is_low(&self) -> bool {
-                        // NOTE(unsafe) atomic read with no side effects
-                        unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << $i) == 0 }
-                    }
-                }
-
-                impl PinMode<$CR> for $PXi<Input<Floating>> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
-                        const OFFSET: u32 = (4 * $i) % 32;
-                        // Floating input
-                        const CNF: u32 = 0b01;
-                        // Input mode
-                        const MODE: u32 = 0b00;
-                        const BITS: u32 = (CNF << 2) | MODE;
-
-                        // input mode
-                        cr
-                            .cr()
-                            .modify(|r, w| {
-                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
-                            });
-
-                        $PXi { mode: Input::_new() }
-                    }
-                }
-
-                impl PinMode<$CR> for $PXi<Input<PullDown>> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
-                        const OFFSET: u32 = (4 * $i) % 32;
-                        // Pull up/down input
-                        const CNF: u32 = 0b10;
-                        // Input mode
-                        const MODE: u32 = 0b00;
-                        const BITS: u32 = (CNF << 2) | MODE;
-
-                        //pull down:
-                        // NOTE(unsafe) atomic write to a stateless register
-                        (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + $i)));
-
-                        // input mode
-                        cr
-                            .cr()
-                            .modify(|r, w| {
-                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
-                            });
-
-                        $PXi { mode: Input::_new() }
-                    }
-                }
-
-
-                impl PinMode<$CR> for $PXi<Input<PullUp>> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
-                        const OFFSET: u32 = (4 * $i) % 32;
-                        // Pull up/down input
-                        const CNF: u32 = 0b10;
-                        // Input mode
-                        const MODE: u32 = 0b00;
-                        const BITS: u32 = (CNF << 2) | MODE;
-
-                        //pull up:
-                        // NOTE(unsafe) atomic write to a stateless register
-                        (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i));
-
-                        // input mode
-                        cr
-                            .cr()
-                            .modify(|r, w| {
-                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
-                            });
-
-                        $PXi { mode: Input::_new() }
-                    }
-                }
-
-                impl PinMode<$CR> for $PXi<Output<OpenDrain>> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
-                        const OFFSET: u32 = (4 * $i) % 32;
-                        // General purpose output open-drain
-                        const CNF: u32 = 0b01;
-                        // Open-Drain Output mode, max speed 50 MHz
-                        const MODE: u32 = 0b11;
-                        const BITS: u32 = (CNF << 2) | MODE;
-
-                        cr
-                            .cr()
-                            .modify(|r, w| {
-                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
-                            });
-
-                        $PXi { mode: Output::_new() }
-                    }
-                }
-
-                impl PinMode<$CR> for $PXi<Output<PushPull>> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
-                        const OFFSET: u32 = (4 * $i) % 32;
-                        // General purpose output push-pull
-                        const CNF: u32 = 0b00;
-                        // Output mode, max speed 50 MHz
-                        const MODE: u32 = 0b11;
-                        const BITS: u32 = (CNF << 2) | MODE;
-
-
-                        cr
-                            .cr()
-                            .modify(|r, w| {
-                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
-                            });
-
-                        $PXi { mode: Output::_new() }
-                    }
-                }
-
-                impl PinMode<$CR> for $PXi<Analog> {
-                    unsafe fn set_mode(cr: &mut $CR) -> Self {
-                        const OFFSET: u32 = (4 * $i) % 32;
-                        // Analog input
-                        const CNF: u32 = 0b00;
-                        // Input mode
-                        const MODE: u32 = 0b00;
-                        const BITS: u32 = (CNF << 2) | MODE;
-
-                        // analog mode
-                        cr
-                            .cr()
-                            .modify(|r, w| {
-                                w.bits((r.bits() & !(0b1111 << OFFSET)) | (BITS << OFFSET))
-                            });
-
-                        $PXi { mode: Analog{} }
-                    }
-                }
-            )+
         }
     }
 }
 
-macro_rules! impl_pxx {
-    ($(($port:ident :: $pin:ident)),*) => {
-        use embedded_hal::digital::v2::{InputPin, StatefulOutputPin, OutputPin};
-        use core::convert::Infallible;
+/// Partially erased pin. Only used in the Pxx enum
+pub struct Generic<MODE, const P: char> {
+    i: u8,
+    _mode: PhantomData<MODE>,
+}
 
+impl<MODE, const P: char> PinExt for Generic<MODE, P> {
+    type Mode = MODE;
+
+    #[inline(always)]
+    fn pin_id(&self) -> u8 {
+        self.i
+    }
+    #[inline(always)]
+    fn port_id(&self) -> u8 {
+        P as u8 - 0x41
+    }
+}
+
+impl<MODE, const P: char> OutputPin for Generic<Output<MODE>, P> {
+    type Error = Infallible;
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        // NOTE(unsafe) atomic write to a stateless register
+        unsafe { (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << self.i)) };
+        Ok(())
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        // NOTE(unsafe) atomic write to a stateless register
+        unsafe {
+            (*Gpio::<P>::ptr())
+                .bsrr
+                .write(|w| w.bits(1 << (16 + self.i)))
+        };
+        Ok(())
+    }
+}
+
+impl<MODE, const P: char> InputPin for Generic<Input<MODE>, P> {
+    type Error = Infallible;
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        self.is_low().map(|b| !b)
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        // NOTE(unsafe) atomic read with no side effects
+        Ok(unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.i) == 0 })
+    }
+}
+
+impl<MODE, const P: char> StatefulOutputPin for Generic<Output<MODE>, P> {
+    fn is_set_high(&self) -> Result<bool, Self::Error> {
+        self.is_set_low().map(|b| !b)
+    }
+
+    fn is_set_low(&self) -> Result<bool, Self::Error> {
+        // NOTE(unsafe) atomic read with no side effects
+        Ok(unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << self.i) == 0 })
+    }
+}
+
+impl<MODE, const P: char> toggleable::Default for Generic<Output<MODE>, P> {}
+
+impl<const P: char> InputPin for Generic<Output<OpenDrain>, P> {
+    type Error = Infallible;
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        self.is_low().map(|b| !b)
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        // NOTE(unsafe) atomic read with no side effects
+        Ok(unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.i) == 0 })
+    }
+}
+
+impl<MODE, const P: char> Mode<MODE> for Generic<MODE, P> {}
+
+/// Pin
+pub struct Pin<MODE, CR, const P: char, const N: u8> {
+    mode: MODE,
+    _cr: PhantomData<CR>,
+}
+
+impl<MODE, CR, const P: char, const N: u8> Pin<MODE, CR, P, N> {
+    const fn new(mode: MODE) -> Self {
+        Self {
+            mode,
+            _cr: PhantomData,
+        }
+    }
+}
+
+impl<MODE, CR, const P: char, const N: u8> PinExt for Pin<MODE, CR, P, N> {
+    type Mode = MODE;
+
+    #[inline(always)]
+    fn pin_id(&self) -> u8 {
+        N
+    }
+    #[inline(always)]
+    fn port_id(&self) -> u8 {
+        P as u8 - 0x41
+    }
+}
+
+impl<MODE, CR, const P: char, const N: u8> Mode<MODE> for Pin<MODE, CR, P, N> {}
+
+impl<CR, const P: char, const N: u8> Pin<Debugger, CR, P, N> {
+    /// Put the pin in an active state. The caller
+    /// must enforce that the pin is really in this
+    /// state in the hardware.
+    #[allow(dead_code)]
+    pub(crate) unsafe fn activate(self) -> Pin<Input<Floating>, CR, P, N> {
+        Pin::new(Input::_new())
+    }
+}
+
+impl<CR, const P: char, const N: u8> OutputPin for Pin<Dynamic, CR, P, N> {
+    type Error = PinModeError;
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        if self.mode.is_output() {
+            self.set_state(State::High);
+            Ok(())
+        } else {
+            Err(PinModeError::IncorrectMode)
+        }
+    }
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        if self.mode.is_output() {
+            self.set_state(State::Low);
+            Ok(())
+        } else {
+            Err(PinModeError::IncorrectMode)
+        }
+    }
+}
+
+impl<CR, const P: char, const N: u8> InputPin for Pin<Dynamic, CR, P, N> {
+    type Error = PinModeError;
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        self.is_low().map(|b| !b)
+    }
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        if self.mode.is_input() {
+            Ok(self._is_low())
+        } else {
+            Err(PinModeError::IncorrectMode)
+        }
+    }
+}
+
+// Internal helper functions
+
+// NOTE: The functions in this impl block are "safe", but they
+// are callable when the pin is in modes where they don't make
+// sense.
+impl<MODE, CR, const P: char, const N: u8> Pin<MODE, CR, P, N> {
+    /**
+      Set the output of the pin regardless of its mode.
+      Primarily used to set the output value of the pin
+      before changing its mode to an output to avoid
+      a short spike of an incorrect value
+    */
+    fn set_state(&mut self, state: State) {
+        match state {
+            State::High => unsafe { (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << N)) },
+            State::Low => unsafe { (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << (16 + N))) },
+        }
+    }
+
+    fn _is_set_low(&self) -> bool {
+        unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << N) == 0 }
+    }
+
+    fn _is_low(&self) -> bool {
+        // NOTE(unsafe) atomic read with no side effects
+        unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << N) == 0 }
+    }
+}
+
+impl<MODE, CR, const P: char, const N: u8> Pin<MODE, CR, P, N>
+where
+    MODE: Active,
+{
+    /// Erases the pin number from the type
+    #[inline]
+    fn into_generic(self) -> Generic<MODE, P> {
+        Generic {
+            i: N,
+            _mode: PhantomData,
+        }
+    }
+}
+
+// embedded_hal impls
+impl<MODE, CR, const P: char, const N: u8> OutputPin for Pin<Output<MODE>, CR, P, N> {
+    type Error = Infallible;
+    #[inline]
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        // NOTE(unsafe) atomic write to a stateless register
+        self.set_state(State::High);
+        Ok(())
+    }
+
+    #[inline]
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        // NOTE(unsafe) atomic write to a stateless register
+        self.set_state(State::Low);
+        Ok(())
+    }
+}
+
+impl<MODE, CR, const P: char, const N: u8> StatefulOutputPin for Pin<Output<MODE>, CR, P, N> {
+    #[inline]
+    fn is_set_high(&self) -> Result<bool, Self::Error> {
+        self.is_set_low().map(|b| !b)
+    }
+
+    #[inline]
+    fn is_set_low(&self) -> Result<bool, Self::Error> {
+        Ok(self._is_set_low())
+    }
+}
+
+impl<MODE, CR, const P: char, const N: u8> toggleable::Default for Pin<Output<MODE>, CR, P, N> {}
+
+impl<MODE, CR, const P: char, const N: u8> InputPin for Pin<Input<MODE>, CR, P, N> {
+    type Error = Infallible;
+    #[inline]
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        self.is_low().map(|b| !b)
+    }
+
+    #[inline]
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        // NOTE(unsafe) atomic read with no side effects
+        Ok(self._is_low())
+    }
+}
+
+impl<CR, const P: char, const N: u8> InputPin for Pin<Output<OpenDrain>, CR, P, N> {
+    type Error = Infallible;
+    #[inline]
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        self.is_low().map(|b| !b)
+    }
+
+    #[inline]
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        Ok(self._is_low())
+    }
+}
+
+macro_rules! cr {
+    ($CR:ident, $Cr:ident, $cr:ident) => {
+        pub struct $CR;
+
+        /// Opaque CR register
+        pub struct $Cr<const P: char> {
+            _0: (),
+        }
+
+        impl<const P: char> $Cr<P> {
+            // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
+            #[allow(dead_code)]
+            pub(crate) fn cr(&mut self) -> &pac::gpioa::$CR {
+                unsafe { &(*Gpio::<P>::ptr()).$cr }
+            }
+        }
+
+        impl<MODE, const P: char, const N: u8> Pin<MODE, $CR, P, N>
+        where
+            MODE: Active,
+        {
+            /// Configures the pin to operate as an alternate function push-pull output
+            /// pin.
+            #[inline]
+            pub fn into_alternate_push_pull(
+                self,
+                cr: &mut $Cr<P>,
+            ) -> Pin<Alternate<PushPull>, $CR, P, N> {
+                // Alternate function output push pull
+                const CNF: u32 = 0b10;
+                // Output mode, max speed 50 MHz
+                const MODE: u32 = 0b11;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                // input mode
+                cr.cr().modify(|r, w| unsafe {
+                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                });
+
+                Pin::new(Alternate::_new())
+            }
+
+            /// Configures the pin to operate as an alternate function open-drain output
+            /// pin.
+            #[inline]
+            pub fn into_alternate_open_drain(
+                self,
+                cr: &mut $Cr<P>,
+            ) -> Pin<Alternate<OpenDrain>, $CR, P, N> {
+                // Alternate function output open drain
+                const CNF: u32 = 0b11;
+                // Output mode, max speed 50 MHz
+                const MODE: u32 = 0b11;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                // input mode
+                cr.cr().modify(|r, w| unsafe {
+                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                });
+
+                Pin::new(Alternate::_new())
+            }
+
+            /// Configures the pin to operate as a floating input pin
+            #[inline]
+            pub fn into_floating_input(self, cr: &mut $Cr<P>) -> Pin<Input<Floating>, $CR, P, N> {
+                unsafe { Pin::<Input<Floating>, $CR, P, N>::set_mode(cr) }
+            }
+
+            /// Configures the pin to operate as a pulled down input pin
+            #[inline]
+            pub fn into_pull_down_input(self, cr: &mut $Cr<P>) -> Pin<Input<PullDown>, $CR, P, N> {
+                unsafe { Pin::<Input<PullDown>, $CR, P, N>::set_mode(cr) }
+            }
+
+            /// Configures the pin to operate as a pulled up input pin
+            #[inline]
+            pub fn into_pull_up_input(self, cr: &mut $Cr<P>) -> Pin<Input<PullUp>, $CR, P, N> {
+                unsafe { Pin::<Input<PullUp>, $CR, P, N>::set_mode(cr) }
+            }
+
+            /// Configures the pin to operate as an open-drain output pin.
+            /// Initial state will be low.
+            #[inline]
+            pub fn into_open_drain_output(
+                self,
+                cr: &mut $Cr<P>,
+            ) -> Pin<Output<OpenDrain>, $CR, P, N> {
+                self.into_open_drain_output_with_state(cr, State::Low)
+            }
+
+            /// Configures the pin to operate as an open-drain output pin.
+            /// `initial_state` specifies whether the pin should be initially high or low.
+            #[inline]
+            pub fn into_open_drain_output_with_state(
+                mut self,
+                cr: &mut $Cr<P>,
+                initial_state: State,
+            ) -> Pin<Output<OpenDrain>, $CR, P, N> {
+                self.set_state(initial_state);
+                unsafe { Pin::<Output<OpenDrain>, $CR, P, N>::set_mode(cr) }
+            }
+            /// Configures the pin to operate as an push-pull output pin.
+            /// Initial state will be low.
+            #[inline]
+            pub fn into_push_pull_output(
+                self,
+                cr: &mut $Cr<P>,
+            ) -> Pin<Output<PushPull>, $CR, P, N> {
+                self.into_push_pull_output_with_state(cr, State::Low)
+            }
+
+            /// Configures the pin to operate as an push-pull output pin.
+            /// `initial_state` specifies whether the pin should be initially high or low.
+            #[inline]
+            pub fn into_push_pull_output_with_state(
+                mut self,
+                cr: &mut $Cr<P>,
+                initial_state: State,
+            ) -> Pin<Output<PushPull>, $CR, P, N> {
+                self.set_state(initial_state);
+                unsafe { Pin::<Output<PushPull>, $CR, P, N>::set_mode(cr) }
+            }
+
+            /// Configures the pin to operate as an analog input pin
+            #[inline]
+            pub fn into_analog(self, cr: &mut $Cr<P>) -> Pin<Analog, $CR, P, N> {
+                unsafe { Pin::<Analog, $CR, P, N>::set_mode(cr) }
+            }
+
+            /// Configures the pin as a pin that can change between input
+            /// and output without changing the type. It starts out
+            /// as a floating input
+            #[inline]
+            pub fn into_dynamic(self, cr: &mut $Cr<P>) -> Pin<Dynamic, $CR, P, N> {
+                self.into_floating_input(cr);
+                Pin::new(Dynamic::InputFloating)
+            }
+        }
+
+        // These macros are defined here instead of at the top level in order
+        // to be able to refer to macro variables from the outer layers.
+        macro_rules! impl_temp_output {
+            ($fn_name:ident, $stateful_fn_name:ident, $mode:ty) => {
+                /// Temporarily change the mode of the pin.
+                ///
+                /// The value of the pin after conversion is undefined. If you
+                /// want to control it, use `$stateful_fn_name`
+                #[inline]
+                pub fn $fn_name(
+                    &mut self,
+                    cr: &mut $Cr<P>,
+                    mut f: impl FnMut(&mut Pin<$mode, $CR, P, N>),
+                ) {
+                    let mut temp = unsafe { Pin::<$mode, $CR, P, N>::set_mode(cr) };
+                    f(&mut temp);
+                    unsafe {
+                        Self::set_mode(cr);
+                    }
+                }
+
+                /// Temporarily change the mode of the pin.
+                ///
+                /// Note that the new state is set slightly before conversion
+                /// happens. This can cause a short output glitch if switching
+                /// between output modes
+                #[inline]
+                pub fn $stateful_fn_name(
+                    &mut self,
+                    cr: &mut $Cr<P>,
+                    state: State,
+                    mut f: impl FnMut(&mut Pin<$mode, $CR, P, N>),
+                ) {
+                    self.set_state(state);
+                    let mut temp = unsafe { Pin::<$mode, $CR, P, N>::set_mode(cr) };
+                    f(&mut temp);
+                    unsafe {
+                        Self::set_mode(cr);
+                    }
+                }
+            };
+        }
+        macro_rules! impl_temp_input {
+            ($fn_name:ident, $mode:ty) => {
+                /// Temporarily change the mode of the pin.
+                #[inline]
+                pub fn $fn_name(
+                    &mut self,
+                    cr: &mut $Cr<P>,
+                    mut f: impl FnMut(&mut Pin<$mode, $CR, P, N>),
+                ) {
+                    let mut temp = unsafe { Pin::<$mode, $CR, P, N>::set_mode(cr) };
+                    f(&mut temp);
+                    unsafe {
+                        Self::set_mode(cr);
+                    }
+                }
+            };
+        }
+
+        impl<MODE, const P: char, const N: u8> Pin<MODE, $CR, P, N>
+        where
+            MODE: Active,
+            Self: PinMode<$Cr<P>>,
+        {
+            impl_temp_output!(
+                as_push_pull_output,
+                as_push_pull_output_with_state,
+                Output<PushPull>
+            );
+            impl_temp_output!(
+                as_open_drain_output,
+                as_open_drain_output_with_state,
+                Output<OpenDrain>
+            );
+            impl_temp_input!(as_floating_input, Input<Floating>);
+            impl_temp_input!(as_pull_up_input, Input<PullUp>);
+            impl_temp_input!(as_pull_down_input, Input<PullDown>);
+        }
+
+        impl<MODE, const P: char, const N: u8> OutputSpeed<$Cr<P>>
+            for Pin<Output<MODE>, $CR, P, N>
+        {
+            fn set_speed(&mut self, cr: &mut $Cr<P>, speed: IOPinSpeed) {
+                cr.cr().modify(|r, w| unsafe {
+                    w.bits(
+                        (r.bits() & !(0b11 << ((4 * N) % 32))) | ((speed as u32) << ((4 * N) % 32)),
+                    )
+                });
+            }
+        }
+
+        impl<const P: char, const N: u8> OutputSpeed<$Cr<P>>
+            for Pin<Alternate<PushPull>, $CR, P, N>
+        {
+            fn set_speed(&mut self, cr: &mut $Cr<P>, speed: IOPinSpeed) {
+                cr.cr().modify(|r, w| unsafe {
+                    w.bits(
+                        (r.bits() & !(0b11 << ((4 * N) % 32))) | ((speed as u32) << ((4 * N) % 32)),
+                    )
+                });
+            }
+        }
+
+        // Dynamic pin
+
+        impl<const P: char, const N: u8> Pin<Dynamic, $CR, P, N> {
+            #[inline]
+            pub fn make_pull_up_input(&mut self, cr: &mut $Cr<P>) {
+                // NOTE(unsafe), we have a mutable reference to the current pin
+                unsafe { Pin::<Input<PullUp>, $CR, P, N>::set_mode(cr) };
+                self.mode = Dynamic::InputPullUp;
+            }
+            #[inline]
+            pub fn make_pull_down_input(&mut self, cr: &mut $Cr<P>) {
+                // NOTE(unsafe), we have a mutable reference to the current pin
+                unsafe { Pin::<Input<PullDown>, $CR, P, N>::set_mode(cr) };
+                self.mode = Dynamic::InputPullDown;
+            }
+            #[inline]
+            pub fn make_floating_input(&mut self, cr: &mut $Cr<P>) {
+                // NOTE(unsafe), we have a mutable reference to the current pin
+                unsafe { Pin::<Input<Floating>, $CR, P, N>::set_mode(cr) };
+                self.mode = Dynamic::InputFloating;
+            }
+            #[inline]
+            pub fn make_push_pull_output(&mut self, cr: &mut $Cr<P>) {
+                // NOTE(unsafe), we have a mutable reference to the current pin
+                unsafe { Pin::<Output<PushPull>, $CR, P, N>::set_mode(cr) };
+                self.mode = Dynamic::OutputPushPull;
+            }
+            #[inline]
+            pub fn make_open_drain_output(&mut self, cr: &mut $Cr<P>) {
+                // NOTE(unsafe), we have a mutable reference to the current pin
+                unsafe { Pin::<Output<OpenDrain>, $CR, P, N>::set_mode(cr) };
+                self.mode = Dynamic::OutputOpenDrain;
+            }
+        }
+
+        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Input<Floating>, $CR, P, N> {
+            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+                // Floating input
+                const CNF: u32 = 0b01;
+                // Input mode
+                const MODE: u32 = 0b00;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                // input mode
+                cr.cr().modify(|r, w| {
+                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                });
+
+                Pin::new(Input::_new())
+            }
+        }
+
+        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Input<PullDown>, $CR, P, N> {
+            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+                // Pull up/down input
+                const CNF: u32 = 0b10;
+                // Input mode
+                const MODE: u32 = 0b00;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                //pull down:
+                // NOTE(unsafe) atomic write to a stateless register
+                (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << (16 + N)));
+
+                // input mode
+                cr.cr().modify(|r, w| {
+                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                });
+
+                Pin::new(Input::_new())
+            }
+        }
+
+        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Input<PullUp>, $CR, P, N> {
+            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+                // Pull up/down input
+                const CNF: u32 = 0b10;
+                // Input mode
+                const MODE: u32 = 0b00;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                //pull up:
+                // NOTE(unsafe) atomic write to a stateless register
+                (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << N));
+
+                // input mode
+                cr.cr().modify(|r, w| {
+                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                });
+
+                Pin::new(Input::_new())
+            }
+        }
+
+        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Output<OpenDrain>, $CR, P, N> {
+            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+                // General purpose output open-drain
+                const CNF: u32 = 0b01;
+                // Open-Drain Output mode, max speed 50 MHz
+                const MODE: u32 = 0b11;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                cr.cr().modify(|r, w| {
+                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                });
+
+                Pin::new(Output::_new())
+            }
+        }
+
+        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Output<PushPull>, $CR, P, N> {
+            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+                // General purpose output push-pull
+                const CNF: u32 = 0b00;
+                // Output mode, max speed 50 MHz
+                const MODE: u32 = 0b11;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                cr.cr().modify(|r, w| {
+                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                });
+
+                Pin::new(Output::_new())
+            }
+        }
+
+        impl<const P: char, const N: u8> PinMode<$Cr<P>> for Pin<Analog, $CR, P, N> {
+            unsafe fn set_mode(cr: &mut $Cr<P>) -> Self {
+                // Analog input
+                const CNF: u32 = 0b00;
+                // Input mode
+                const MODE: u32 = 0b00;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                // analog mode
+                cr.cr().modify(|r, w| {
+                    w.bits((r.bits() & !(0b1111 << ((4 * N) % 32))) | (BITS << ((4 * N) % 32)))
+                });
+
+                Pin::new(Analog {})
+            }
+        }
+    };
+}
+
+cr!(CRH, Crh, crh);
+cr!(CRL, Crl, crl);
+
+macro_rules! impl_pxx {
+    ($(($port_id:literal :: $pin:ident)),*) => {
         pub enum Pxx<MODE> {
             $(
-                $pin($port::Generic<MODE>)
+                $pin(Generic<MODE, $port_id>)
             ),*
         }
 
@@ -1203,14 +1136,14 @@ macro_rules! impl_pxx {
 }
 
 impl_pxx! {
-    (gpioa::PAx),
-    (gpiob::PBx),
-    (gpioc::PCx),
-    (gpiod::PDx),
-    (gpioe::PEx)
+    ('A'::PAx),
+    ('B'::PBx),
+    ('C'::PCx),
+    ('D'::PDx),
+    ('E'::PEx)
 }
 
-gpio!(GPIOA, gpioa, gpioa, PAx, 0, [
+gpio!(GPIOA, gpioa, PAx, 'A', [
     PA0: (pa0, 0, Input<Floating>, CRL),
     PA1: (pa1, 1, Input<Floating>, CRL),
     PA2: (pa2, 2, Input<Floating>, CRL),
@@ -1229,7 +1162,7 @@ gpio!(GPIOA, gpioa, gpioa, PAx, 0, [
     PA15: (pa15, 15, Debugger, CRH),
 ]);
 
-gpio!(GPIOB, gpiob, gpioa, PBx, 1, [
+gpio!(GPIOB, gpiob, PBx, 'B', [
     PB0: (pb0, 0, Input<Floating>, CRL),
     PB1: (pb1, 1, Input<Floating>, CRL),
     PB2: (pb2, 2, Input<Floating>, CRL),
@@ -1248,7 +1181,7 @@ gpio!(GPIOB, gpiob, gpioa, PBx, 1, [
     PB15: (pb15, 15, Input<Floating>, CRH),
 ]);
 
-gpio!(GPIOC, gpioc, gpioa, PCx, 2, [
+gpio!(GPIOC, gpioc, PCx, 'C', [
     PC0: (pc0, 0, Input<Floating>, CRL),
     PC1: (pc1, 1, Input<Floating>, CRL),
     PC2: (pc2, 2, Input<Floating>, CRL),
@@ -1267,7 +1200,7 @@ gpio!(GPIOC, gpioc, gpioa, PCx, 2, [
     PC15: (pc15, 15, Input<Floating>, CRH),
 ]);
 
-gpio!(GPIOD, gpiod, gpioa, PDx, 3, [
+gpio!(GPIOD, gpiod, PDx, 'D', [
     PD0: (pd0, 0, Input<Floating>, CRL),
     PD1: (pd1, 1, Input<Floating>, CRL),
     PD2: (pd2, 2, Input<Floating>, CRL),
@@ -1286,7 +1219,7 @@ gpio!(GPIOD, gpiod, gpioa, PDx, 3, [
     PD15: (pd15, 15, Input<Floating>, CRH),
 ]);
 
-gpio!(GPIOE, gpioe, gpioa, PEx, 4, [
+gpio!(GPIOE, gpioe, PEx, 'E', [
     PE0: (pe0, 0, Input<Floating>, CRL),
     PE1: (pe1, 1, Input<Floating>, CRL),
     PE2: (pe2, 2, Input<Floating>, CRL),
@@ -1304,3 +1237,17 @@ gpio!(GPIOE, gpioe, gpioa, PEx, 4, [
     PE14: (pe14, 14, Input<Floating>, CRH),
     PE15: (pe15, 15, Input<Floating>, CRH),
 ]);
+
+struct Gpio<const P: char>;
+impl<const P: char> Gpio<P> {
+    const fn ptr() -> *const crate::pac::gpioa::RegisterBlock {
+        match P {
+            'A' => crate::pac::GPIOA::ptr(),
+            'B' => crate::pac::GPIOB::ptr() as _,
+            'C' => crate::pac::GPIOC::ptr() as _,
+            'D' => crate::pac::GPIOD::ptr() as _,
+            'E' => crate::pac::GPIOE::ptr() as _,
+            _ => crate::pac::GPIOA::ptr(),
+        }
+    }
+}
