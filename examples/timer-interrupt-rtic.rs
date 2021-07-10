@@ -13,9 +13,8 @@ use panic_halt as _;
 
 use rtic::app;
 
-use embedded_hal::digital::v2::OutputPin;
 use stm32f1xx_hal::{
-    gpio::{gpioc::PC13, Output, PushPull, State},
+    gpio::{gpioc::PC13, Output, PinState, PushPull},
     pac,
     prelude::*,
     timer::{CountDownTimer, Event, Timer},
@@ -49,7 +48,7 @@ const APP: () = {
         // function in order to configure the port. For pins 0-7, crl should be passed instead
         let led = gpioc
             .pc13
-            .into_push_pull_output_with_state(&mut gpioc.crh, State::High);
+            .into_push_pull_output_with_state(&mut gpioc.crh, PinState::High);
         // Configure the syst timer to trigger an update every second and enables interrupt
         let mut timer =
             Timer::tim1(cx.device.TIM1, &clocks, &mut rcc.apb2).start_count_down(1.hz());
@@ -85,10 +84,10 @@ const APP: () = {
 
         if *cx.resources.led_state {
             // Uses resources managed by rtic to turn led off (on bluepill)
-            cx.resources.led.set_high().unwrap();
+            cx.resources.led.set_high();
             *cx.resources.led_state = false;
         } else {
-            cx.resources.led.set_low().unwrap();
+            cx.resources.led.set_low();
             *cx.resources.led_state = true;
         }
         *COUNT += 1;

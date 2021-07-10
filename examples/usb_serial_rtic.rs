@@ -7,7 +7,6 @@
 extern crate panic_semihosting;
 
 use cortex_m::asm::delay;
-use embedded_hal::digital::v2::OutputPin;
 use rtic::app;
 use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
@@ -45,7 +44,7 @@ const APP: () = {
         // This forced reset is needed only for development, without it host
         // will not reset your device when you upload new firmware.
         let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
-        usb_dp.set_low().unwrap();
+        usb_dp.set_low();
         delay(clocks.sysclk().0 / 100);
 
         let usb_dm = gpioa.pa11;

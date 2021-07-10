@@ -11,7 +11,6 @@ use bxcan::{
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::OutputPin;
 use nb::block;
 use stm32f1xx_hal::{can::Can, pac, prelude::*};
 
@@ -111,7 +110,7 @@ fn main() -> ! {
 
     let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
     let mut led = gpiob.pb9.into_push_pull_output(&mut gpiob.crh);
-    led.set_high().unwrap();
+    led.set_high();
 
     loop {}
 }
