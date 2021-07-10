@@ -342,7 +342,7 @@ macro_rules! gpio {
             use core::marker::PhantomData;
             use crate::pac::$GPIOX;
             use crate::rcc::{APB2, Enable, Reset};
-            use super::{Active, Floating, GpioExt, Input, Generic, Pxx, Pin, CRL, CRH, Cr};
+            use super::{Active, Floating, GpioExt, Input, PEPin, EPin, Pin, CRL, CRH, Cr};
             #[allow(unused)]
             use super::Debugger;
 
@@ -379,9 +379,9 @@ macro_rules! gpio {
                 }
             }
 
-            impl<MODE> Generic<MODE, $port_id> {
-                pub fn downgrade(self) -> Pxx<MODE> {
-                    Pxx::$PXx(self)
+            impl<MODE> PEPin<MODE, $port_id> {
+                pub fn erase(self) -> EPin<MODE> {
+                    EPin::$PXx(self)
                 }
             }
 
@@ -393,8 +393,8 @@ macro_rules! gpio {
                 ///
                 /// This is useful when you want to collect the pins into an array where you
                 /// need all the elements to have the same type
-                pub fn downgrade(self) -> Pxx<MODE> {
-                    self.into_generic().downgrade()
+                pub fn erase(self) -> EPin<MODE> {
+                    self.erase_number().erase()
                 }
             }
         }
@@ -402,12 +402,12 @@ macro_rules! gpio {
 }
 
 /// Partially erased pin. Only used in the Pxx enum
-pub struct Generic<MODE, const P: char> {
+pub struct PEPin<MODE, const P: char> {
     i: u8,
     _mode: PhantomData<MODE>,
 }
 
-impl<MODE, const P: char> PinExt for Generic<MODE, P> {
+impl<MODE, const P: char> PinExt for PEPin<MODE, P> {
     type Mode = MODE;
 
     #[inline(always)]
@@ -420,7 +420,7 @@ impl<MODE, const P: char> PinExt for Generic<MODE, P> {
     }
 }
 
-impl<MODE, const P: char> OutputPin for Generic<Output<MODE>, P> {
+impl<MODE, const P: char> OutputPin for PEPin<Output<MODE>, P> {
     type Error = Infallible;
     fn set_high(&mut self) -> Result<(), Self::Error> {
         // NOTE(unsafe) atomic write to a stateless register
@@ -439,7 +439,7 @@ impl<MODE, const P: char> OutputPin for Generic<Output<MODE>, P> {
     }
 }
 
-impl<MODE, const P: char> InputPin for Generic<Input<MODE>, P> {
+impl<MODE, const P: char> InputPin for PEPin<Input<MODE>, P> {
     type Error = Infallible;
     fn is_high(&self) -> Result<bool, Self::Error> {
         self.is_low().map(|b| !b)
@@ -451,7 +451,7 @@ impl<MODE, const P: char> InputPin for Generic<Input<MODE>, P> {
     }
 }
 
-impl<MODE, const P: char> StatefulOutputPin for Generic<Output<MODE>, P> {
+impl<MODE, const P: char> StatefulOutputPin for PEPin<Output<MODE>, P> {
     fn is_set_high(&self) -> Result<bool, Self::Error> {
         self.is_set_low().map(|b| !b)
     }
@@ -462,9 +462,9 @@ impl<MODE, const P: char> StatefulOutputPin for Generic<Output<MODE>, P> {
     }
 }
 
-impl<MODE, const P: char> toggleable::Default for Generic<Output<MODE>, P> {}
+impl<MODE, const P: char> toggleable::Default for PEPin<Output<MODE>, P> {}
 
-impl<const P: char> InputPin for Generic<Output<OpenDrain>, P> {
+impl<const P: char> InputPin for PEPin<Output<OpenDrain>, P> {
     type Error = Infallible;
     fn is_high(&self) -> Result<bool, Self::Error> {
         self.is_low().map(|b| !b)
@@ -585,8 +585,8 @@ where
 {
     /// Erases the pin number from the type
     #[inline]
-    fn into_generic(self) -> Generic<MODE, P> {
-        Generic {
+    pub fn erase_number(self) -> PEPin<MODE, P> {
+        PEPin {
             i: N,
             _mode: PhantomData,
         }
@@ -1057,84 +1057,85 @@ cr!(CRL, crl);
 
 macro_rules! impl_pxx {
     ($(($port_id:literal :: $pin:ident)),*) => {
-        pub enum Pxx<MODE> {
+        /// Erased pin
+        pub enum EPin<MODE> {
             $(
-                $pin(Generic<MODE, $port_id>)
+                $pin(PEPin<MODE, $port_id>)
             ),*
         }
 
-        impl<MODE> PinExt for Pxx<MODE> {
+        impl<MODE> PinExt for EPin<MODE> {
             type Mode = MODE;
 
             #[inline(always)]
             fn pin_id(&self) -> u8 {
                 match self {
-                    $(Pxx::$pin(pin) => pin.pin_id()),*
+                    $(Self::$pin(pin) => pin.pin_id()),*
                 }
             }
             #[inline(always)]
             fn port_id(&self) -> u8 {
                 match self {
-                    $(Pxx::$pin(pin) => pin.port_id()),*
+                    $(Self::$pin(pin) => pin.port_id()),*
                 }
             }
         }
 
-        impl<MODE> OutputPin for Pxx<Output<MODE>> {
+        impl<MODE> OutputPin for EPin<Output<MODE>> {
             type Error = Infallible;
             fn set_high(&mut self) -> Result<(), Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.set_high()),*
+                    $(Self::$pin(pin) => pin.set_high()),*
                 }
             }
 
             fn set_low(&mut self) -> Result<(), Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.set_low()),*
+                    $(Self::$pin(pin) => pin.set_low()),*
                 }
             }
         }
 
-        impl<MODE> StatefulOutputPin for Pxx<Output<MODE>> {
+        impl<MODE> StatefulOutputPin for EPin<Output<MODE>> {
             fn is_set_high(&self) -> Result<bool, Self::Error> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_set_high()),*
+                    $(Self::$pin(pin) => pin.is_set_high()),*
                 }
             }
 
             fn is_set_low(&self) -> Result<bool, Self::Error> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_set_low()),*
+                    $(Self::$pin(pin) => pin.is_set_low()),*
                 }
             }
         }
 
-        impl<MODE> InputPin for Pxx<Input<MODE>> {
+        impl<MODE> InputPin for EPin<Input<MODE>> {
             type Error = Infallible;
             fn is_high(&self) -> Result<bool, Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_high()),*
+                    $(Self::$pin(pin) => pin.is_high()),*
                 }
             }
 
             fn is_low(&self) -> Result<bool, Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_low()),*
+                    $(Self::$pin(pin) => pin.is_low()),*
                 }
             }
         }
 
-        impl InputPin for Pxx<Output<OpenDrain>> {
+        impl InputPin for EPin<Output<OpenDrain>> {
             type Error = Infallible;
             fn is_high(&self) -> Result<bool, Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_high()),*
+                    $(Self::$pin(pin) => pin.is_high()),*
                 }
             }
 
             fn is_low(&self) -> Result<bool, Infallible> {
                 match self {
-                    $(Pxx::$pin(pin) => pin.is_low()),*
+                    $(Self::$pin(pin) => pin.is_low()),*
                 }
             }
         }
