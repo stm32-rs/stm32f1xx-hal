@@ -45,7 +45,7 @@ use crate::afio::MAPR;
 use crate::dma::dma1::{C3, C5};
 #[cfg(feature = "connectivity")]
 use crate::dma::dma2::C2;
-use crate::dma::{Transfer, TransferPayload, Transmit, TxDma, R};
+use crate::dma::{TransferPayload, TransferR, Transmit, TxDma};
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
@@ -567,13 +567,12 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<B, REMAP, PIN> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
-        where
-            B: StaticReadBuffer<Word = u8>,
-        {
-            fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
-                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                // until the end of the transfer.
+        impl<REMAP, PINS> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
+            #[inline(always)]
+            fn configure_write<B>(&mut self, buffer: &B)
+            where
+                B: StaticReadBuffer<Word = u8>,
+            {
                 let (ptr, len) = unsafe { buffer.static_read_buffer() };
                 self.channel.set_peripheral_address(
                     unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
@@ -604,9 +603,31 @@ macro_rules! spi_dma {
                         .dir()
                         .set_bit()
                 });
-                self.start();
+            }
+        }
 
-                Transfer::r(buffer, self)
+        impl<B, REMAP, PIN> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
+        where
+            B: StaticReadBuffer<Word = u8>,
+        {
+            fn write(mut self, buffer: B) -> TransferR<B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                self.configure_write(&buffer);
+                self.start();
+                TransferR::new(buffer, self)
+            }
+        }
+
+        impl<B, REMAP, PIN> crate::dma::BlockingWriteDma<B, u8>
+            for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
+        where
+            B: StaticReadBuffer<Word = u8>,
+        {
+            fn blocking_write(&mut self, buffer: &B) {
+                self.configure_write(buffer);
+                self.start();
+                self.channel.wait_transfer();
             }
         }
     };
