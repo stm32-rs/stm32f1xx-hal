@@ -385,8 +385,13 @@ where
     }
 
     /// Releases the I2C peripheral and associated pins
-    pub fn free(self) -> (I2C, PINS) {
+    pub fn release(self) -> (I2C, PINS) {
         (self.i2c, self.pins)
+    }
+
+    #[deprecated(since = "0.7.1", note = "Please use release instead")]
+    pub fn free(self) -> (I2C, PINS) {
+        self.release()
     }
 }
 
