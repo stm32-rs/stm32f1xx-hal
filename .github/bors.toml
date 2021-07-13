@@ -1,0 +1,11 @@
+required_approvals = 1
+block_labels = ["wip"]
+delete_merged_branches = true
+status = [
+    "Rustfmt",
+    "ci (stm32f100, stable)",
+    "ci (stm32f101, stable)",
+    "ci (stm32f103, stable)",
+    "ci (stm32f105, stable)",
+    "ci (stm32f107, stable)",
+]
