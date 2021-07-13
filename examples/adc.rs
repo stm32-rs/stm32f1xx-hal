@@ -14,7 +14,7 @@ fn main() -> ! {
     // Acquire peripherals
     let p = pac::Peripherals::take().unwrap();
     let mut flash = p.FLASH.constrain();
-    let mut rcc = p.RCC.constrain();
+    let rcc = p.RCC.constrain();
 
     // Configure ADC clocks
     // Default value is the slowest possible ADC clock: PCLK2 / 8. Meanwhile ADC
@@ -25,13 +25,13 @@ fn main() -> ! {
     hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
 
     // Setup ADC
-    let mut adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks);
+    let mut adc1 = adc::Adc::adc1(p.ADC1, clocks);
 
     #[cfg(feature = "stm32f103")]
-    let mut adc2 = adc::Adc::adc2(p.ADC2, &mut rcc.apb2, clocks);
+    let mut adc2 = adc::Adc::adc2(p.ADC2, clocks);
 
     // Setup GPIOB
-    let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
+    let mut gpiob = p.GPIOB.split();
 
     // Configure pb0, pb1 as an analog input
     let mut ch0 = gpiob.pb0.into_analog(&mut gpiob.crl);

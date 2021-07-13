@@ -25,14 +25,14 @@ fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
+    let rcc = dp.RCC.constrain();
 
     let clock = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
-    let mut _gpiob = dp.GPIOB.split(&mut rcc.apb2);
-    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
-    let mut gpiod = dp.GPIOD.split(&mut rcc.apb2);
+    let mut gpioa = dp.GPIOA.split();
+    let mut _gpiob = dp.GPIOB.split();
+    let mut gpioc = dp.GPIOC.split();
+    let mut gpiod = dp.GPIOD.split();
 
     // red_led and green_led
     let mut red_led = gpioa
@@ -42,7 +42,7 @@ fn main() -> ! {
         .pd2
         .into_push_pull_output_with_state(&mut gpiod.crl, PinState::High);
 
-    let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = dp.AFIO.constrain();
     let (gpioa_pa15, _gpiob_pb3, _gpiob_pb4) =
         afio.mapr.disable_jtag(gpioa.pa15, _gpiob.pb3, _gpiob.pb4);
 

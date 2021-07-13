@@ -25,17 +25,17 @@ fn main() -> ! {
     // Take ownership over the raw flash and rcc devices and convert them into the corresponding
     // HAL structs
     let mut flash = p.FLASH.constrain();
-    let mut rcc = p.RCC.constrain();
+    let rcc = p.RCC.constrain();
 
     // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
     // `clocks`
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     // Prepare the alternate function I/O registers
-    let mut afio = p.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = p.AFIO.constrain();
 
     // Prepare the GPIOB peripheral
-    let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
+    let mut gpiob = p.GPIOB.split();
 
     // USART1
     // let tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
@@ -66,7 +66,6 @@ fn main() -> ! {
             .stopbits(serial::StopBits::STOP2)
             .parity_odd(),
         clocks,
-        &mut rcc.apb1,
     );
 
     // Split the serial struct into a receiving and a transmitting part

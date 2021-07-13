@@ -69,7 +69,7 @@ const APP: () = {
     #[init]
     fn init(cx: init::Context) -> init::LateResources {
         let mut flash = cx.device.FLASH.constrain();
-        let mut rcc = cx.device.RCC.constrain();
+        let rcc = cx.device.RCC.constrain();
 
         let _clocks = rcc
             .cfgr
@@ -81,16 +81,16 @@ const APP: () = {
             .freeze(&mut flash.acr);
 
         #[cfg(not(feature = "connectivity"))]
-        let can = Can::new(cx.device.CAN1, &mut rcc.apb1, cx.device.USB);
+        let can = Can::new(cx.device.CAN1, cx.device.USB);
 
         #[cfg(feature = "connectivity")]
-        let can = Can::new(cx.device.CAN1, &mut rcc.apb1);
+        let can = Can::new(cx.device.CAN1);
 
         // Select pins for CAN1.
-        let mut gpioa = cx.device.GPIOA.split(&mut rcc.apb2);
+        let mut gpioa = cx.device.GPIOA.split();
         let can_rx_pin = gpioa.pa11.into_floating_input(&mut gpioa.crh);
         let can_tx_pin = gpioa.pa12.into_alternate_push_pull(&mut gpioa.crh);
-        let mut afio = cx.device.AFIO.constrain(&mut rcc.apb2);
+        let mut afio = cx.device.AFIO.constrain();
         can.assign_pins((can_tx_pin, can_rx_pin), &mut afio.mapr);
 
         let mut can = bxcan::Can::new(can);

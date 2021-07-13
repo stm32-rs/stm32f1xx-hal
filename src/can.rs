@@ -27,12 +27,11 @@ use crate::gpio::{
     gpiob::{PB8, PB9},
     Alternate, Floating, Input, PushPull,
 };
-use crate::pac::CAN1;
 #[cfg(feature = "connectivity")]
 use crate::pac::CAN2;
 #[cfg(not(feature = "connectivity"))]
 use crate::pac::USB;
-use crate::rcc::APB1;
+use crate::pac::{CAN1, RCC};
 
 mod sealed {
     pub trait Sealed {}
@@ -96,22 +95,26 @@ pub struct Can<Instance> {
 
 impl<Instance> Can<Instance>
 where
-    Instance: crate::rcc::Enable<Bus = APB1>,
+    Instance: crate::rcc::Enable,
 {
     /// Creates a CAN interaface.
     ///
     /// CAN shares SRAM with the USB peripheral. Take ownership of USB to
     /// prevent accidental shared usage.
     #[cfg(not(feature = "connectivity"))]
-    pub fn new(can: Instance, apb: &mut APB1, _usb: USB) -> Can<Instance> {
-        Instance::enable(apb);
+    pub fn new(can: Instance, _usb: USB) -> Can<Instance> {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        Instance::enable(rcc);
+
         Can { _peripheral: can }
     }
 
     /// Creates a CAN interaface.
     #[cfg(feature = "connectivity")]
-    pub fn new(can: Instance, apb: &mut APB1) -> Can<Instance> {
-        Instance::enable(apb);
+    pub fn new(can: Instance) -> Can<Instance> {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        Instance::enable(rcc);
+
         Can { _peripheral: can }
     }
 

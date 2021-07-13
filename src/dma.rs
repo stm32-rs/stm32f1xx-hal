@@ -7,8 +7,6 @@ use core::{
 };
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 
-use crate::rcc::AHB;
-
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
@@ -52,7 +50,7 @@ where
 pub trait DmaExt {
     type Channels;
 
-    fn split(self, ahb: &mut AHB) -> Self::Channels;
+    fn split(self) -> Self::Channels;
 }
 
 pub trait TransferPayload {
@@ -126,10 +124,10 @@ macro_rules! dma {
             pub mod $dmaX {
                 use core::{sync::atomic::{self, Ordering}, ptr, mem};
 
-                use crate::pac::{$DMAX, dma1};
+                use crate::pac::{RCC, $DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, RxTxDma, TransferPayload};
-                use crate::rcc::{AHB, Enable};
+                use crate::rcc::Enable;
 
                 #[allow(clippy::manual_non_exhaustive)]
                 pub struct Channels((), $(pub $CX),+);
@@ -448,8 +446,9 @@ macro_rules! dma {
                 impl DmaExt for $DMAX {
                     type Channels = Channels;
 
-                    fn split(self, ahb: &mut AHB) -> Channels {
-                        $DMAX::enable(ahb);
+                    fn split(self) -> Channels {
+                        let rcc = unsafe { &(*RCC::ptr()) };
+                        $DMAX::enable(rcc);
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(

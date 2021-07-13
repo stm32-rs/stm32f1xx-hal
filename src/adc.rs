@@ -6,16 +6,16 @@ use embedded_hal::adc::{Channel, OneShot};
 use crate::dma::{dma1::C1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
-use crate::rcc::{Clocks, Enable, Reset, APB2};
+use crate::rcc::{Clocks, Enable, Reset};
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 use embedded_dma::StaticWriteBuffer;
 
-use crate::pac::ADC1;
 #[cfg(feature = "stm32f103")]
 use crate::pac::ADC2;
 #[cfg(all(feature = "stm32f103", feature = "high",))]
 use crate::pac::ADC3;
+use crate::pac::{ADC1, RCC};
 
 /// Continuous mode
 pub struct Continuous;
@@ -168,16 +168,16 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $adc(adc: $ADC, apb2: &mut APB2, clocks: Clocks) -> Self {
+                pub fn $adc(adc: $ADC, clocks: Clocks) -> Self {
                     let mut s = Self {
                         rb: adc,
                         sample_time: SampleTime::default(),
                         align: Align::default(),
                         clocks,
                     };
-                    s.enable_clock(apb2);
+                    s.enable_clock();
                     s.power_down();
-                    s.reset(apb2);
+                    s.reset();
                     s.setup_oneshot();
                     s.power_up();
 
@@ -255,16 +255,19 @@ macro_rules! adc_hal {
                     self.rb.cr2.modify(|_, w| w.adon().clear_bit());
                 }
 
-                fn reset(&mut self, apb2: &mut APB2) {
-                    $ADC::reset(apb2);
+                fn reset(&mut self) {
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    $ADC::reset(rcc);
                 }
 
-                fn enable_clock(&mut self, apb2: &mut APB2) {
-                    $ADC::enable(apb2);
+                fn enable_clock(&mut self) {
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    $ADC::enable(rcc);
                 }
 
-                fn disable_clock(&mut self, apb2: &mut APB2) {
-                    $ADC::disable(apb2);
+                fn disable_clock(&mut self) {
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    $ADC::disable(rcc);
                 }
 
                 fn calibrate(&mut self) {
@@ -393,9 +396,9 @@ macro_rules! adc_hal {
                 }
 
                 /// Powers down the ADC, disables the ADC clock and releases the ADC Peripheral
-                pub fn release(mut self, apb2: &mut APB2) -> $ADC {
+                pub fn release(mut self) -> $ADC {
                     self.power_down();
-                    self.disable_clock(apb2);
+                    self.disable_clock();
                     self.rb
                 }
             }

@@ -21,14 +21,14 @@ fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
-    let mut rcc = p.RCC.constrain();
+    let rcc = p.RCC.constrain();
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut afio = p.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = p.AFIO.constrain();
 
-    let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
-    // let mut gpiob = p.GPIOB.split(&mut rcc.apb2);
+    let mut gpioa = p.GPIOA.split();
+    // let mut gpiob = p.GPIOB.split();
 
     // TIM2
     let c1 = gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl);
@@ -50,11 +50,8 @@ fn main() -> ! {
     // let c3 = gpiob.pb8.into_alternate_push_pull(&mut gpiob.crh);
     // let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
-    let mut pwm = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1).pwm::<Tim2NoRemap, _, _, _>(
-        pins,
-        &mut afio.mapr,
-        1.khz(),
-    );
+    let mut pwm =
+        Timer::tim2(p.TIM2, &clocks).pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz());
 
     // Enable clock on each of the channels
     pwm.enable(Channel::C1);

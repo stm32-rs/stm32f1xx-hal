@@ -31,9 +31,9 @@ fn main() -> ! {
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut afio = p.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = p.AFIO.constrain();
 
-    let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
+    let mut gpioa = p.GPIOA.split();
 
     let tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
     let rx = gpioa.pa10;
@@ -44,7 +44,6 @@ fn main() -> ! {
         &mut afio.mapr,
         115_200.bps(),
         clocks,
-        &mut rcc.apb2,
     );
 
     let mut rx = serial.split().1;
@@ -54,7 +53,6 @@ fn main() -> ! {
         &mut afio.mapr,
         1.khz(),
         clocks,
-        &mut rcc.apb1,
     );
 
     let max_duty = pwm.get_max_duty() as i16;

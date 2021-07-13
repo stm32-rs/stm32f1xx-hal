@@ -44,10 +44,9 @@ fn main() -> ! {
     {
         // the scope ensures that the int_pin reference is dropped before the first ISR can be executed.
 
-        let mut rcc = p.RCC.constrain();
-        let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
-        let mut gpioc = p.GPIOC.split(&mut rcc.apb2);
-        let mut afio = p.AFIO.constrain(&mut rcc.apb2);
+        let mut gpioa = p.GPIOA.split();
+        let mut gpioc = p.GPIOC.split();
+        let mut afio = p.AFIO.constrain();
 
         let led = unsafe { &mut *LED.as_mut_ptr() };
         *led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);

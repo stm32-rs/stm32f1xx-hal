@@ -14,7 +14,7 @@ fn main() -> ! {
     // Acquire peripherals
     let p = pac::Peripherals::take().unwrap();
     let mut flash = p.FLASH.constrain();
-    let mut rcc = p.RCC.constrain();
+    let rcc = p.RCC.constrain();
 
     let clocks = rcc
         .cfgr
@@ -27,7 +27,7 @@ fn main() -> ! {
     hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
 
     // Setup ADC
-    let mut adc = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks);
+    let mut adc = adc::Adc::adc1(p.ADC1, clocks);
 
     // Read temperature sensor
     loop {

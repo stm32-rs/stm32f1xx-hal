@@ -42,7 +42,7 @@ use core::ops::Deref;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
 
-use crate::pac::{USART1, USART2, USART3};
+use crate::pac::{RCC, USART1, USART2, USART3};
 use core::convert::Infallible;
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 use embedded_hal::serial::Write;
@@ -54,7 +54,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
-use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
+use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
 
 /// Interrupt event
@@ -295,14 +295,14 @@ macro_rules! hal {
                     mapr: &mut MAPR,
                     config: Config,
                     clocks: Clocks,
-                    apb: &mut $APBx,
                 ) -> Self
                 where
                     PINS: Pins<$USARTX>,
                 {
                     // enable and reset $USARTX
-                    $USARTX::enable(apb);
-                    $USARTX::reset(apb);
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    $USARTX::enable(rcc);
+                    $USARTX::reset(rcc);
 
                     #[allow(unused_unsafe)]
                     mapr.modify_mapr(|_, w| unsafe{
