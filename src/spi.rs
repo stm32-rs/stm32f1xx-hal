@@ -79,37 +79,19 @@ mod sealed {
     pub trait Sck<REMAP> {}
     pub trait Miso<REMAP> {}
     pub trait Mosi<REMAP> {}
-    pub struct _Sck;
-    pub struct _Miso;
-    pub struct _Mosi;
 }
-use sealed::{Miso, Mosi, Remap, Sck};
+pub use sealed::Remap;
+use sealed::{Miso, Mosi, Sck};
 
-pub trait Pins<REMAP, P> {
-    type _Pos;
-}
-macro_rules! pins_impl {
-    ( $( ( $($PINX:ident),+ ), ( $($TRAIT:ident),+ ), ( $($POS:ident),* ); )+ ) => {
-        $(
-            #[allow(unused_parens)]
-            impl<REMAP, $($PINX,)+> Pins<REMAP, ($(sealed::$POS),+)> for ($($PINX),+)
-            where
-                $($PINX: $TRAIT<REMAP>,)+
-            {
-                type _Pos = ($(sealed::$POS),+);
-            }
-        )+
-    };
-}
+pub trait Pins<REMAP> {}
 
-pins_impl!(
-    (SCK, MISO, MOSI), (Sck, Miso, Mosi), (_Sck, _Miso, _Mosi);
-    (SCK, MOSI, MISO), (Sck, Mosi, Miso), (_Sck, _Mosi, _Miso);
-    (MOSI, SCK, MISO), (Mosi, Sck, Miso), (_Mosi, _Sck, _Miso);
-    (MOSI, MISO, SCK), (Mosi, Miso, Sck), (_Mosi, _Miso, _Sck);
-    (MISO, MOSI, SCK), (Miso, Mosi, Sck), (_Miso, _Mosi, _Sck);
-    (MISO, SCK, MOSI), (Miso, Sck, Mosi), (_Miso, _Sck, _Mosi);
-);
+impl<REMAP, SCK, MISO, MOSI> Pins<REMAP> for (SCK, MISO, MOSI)
+where
+    SCK: Sck<REMAP>,
+    MISO: Miso<REMAP>,
+    MOSI: Mosi<REMAP>,
+{
+}
 
 pub struct Spi<SPI, REMAP, PINS, FRAMESIZE> {
     spi: SPI,
@@ -169,7 +151,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn spi1<F, POS>(
+    pub fn spi1<F>(
         spi: SPI1,
         pins: PINS,
         mapr: &mut MAPR,
@@ -181,7 +163,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI1>,
-        PINS: Pins<REMAP, POS>,
+        PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
         Spi::<SPI1, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
@@ -196,7 +178,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn spi2<F, POS>(
+    pub fn spi2<F>(
         spi: SPI2,
         pins: PINS,
         mode: Mode,
@@ -207,7 +189,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI2>,
-        PINS: Pins<REMAP, POS>,
+        PINS: Pins<REMAP>,
     {
         Spi::<SPI2, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
     }
@@ -223,7 +205,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
     #[cfg(not(feature = "connectivity"))]
-    pub fn spi3<F, POS>(
+    pub fn spi3<F>(
         spi: SPI3,
         pins: PINS,
         mode: Mode,
@@ -234,7 +216,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI3>,
-        PINS: Pins<REMAP, POS>,
+        PINS: Pins<REMAP>,
     {
         Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
     }
@@ -247,7 +229,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
     #[cfg(feature = "connectivity")]
-    pub fn spi3<F, POS>(
+    pub fn spi3<F>(
         spi: SPI3,
         pins: PINS,
         mapr: &mut MAPR,
@@ -259,7 +241,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI3>,
-        PINS: Pins<REMAP, POS>,
+        PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi3_remap().bit(REMAP::REMAP));
         Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
