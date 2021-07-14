@@ -208,9 +208,10 @@ impl Dynamic {
     }
 }
 
-/// NOTE: This trait should ideally be private but must be pub in order to avoid
-/// complaints from the compiler.
 pub trait PinMode<CR> {
+    /// # Safety
+    /// This trait should ideally be private but must be pub in order to avoid
+    /// complaints from the compiler.
     unsafe fn set_mode(cr: &mut CR) -> Self;
 }
 

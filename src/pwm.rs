@@ -55,7 +55,6 @@
 
 use core::marker::Copy;
 use core::marker::PhantomData;
-use core::mem;
 
 use crate::hal;
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
@@ -90,6 +89,8 @@ pub trait Pins<REMAP, P> {
             panic!("Unused channel")
         }
     }
+
+    fn split() -> Self::Channels;
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -102,7 +103,7 @@ pub enum Channel {
 
 use crate::timer::sealed::{Ch1, Ch2, Ch3, Ch4, Remap};
 macro_rules! pins_impl {
-    ( $( ( $($PINX:ident),+ ), ( $($TRAIT:ident),+ ), ( $($ENCHX:ident),* ); )+ ) => {
+    ( $( ( $($PINX:ident),+ ), ( $($TRAIT:ident),+ ), ( $($ENCHX:ident),+ ); )+ ) => {
         $(
             #[allow(unused_parens)]
             impl<TIM, REMAP, $($PINX,)+> Pins<REMAP, ($($ENCHX),+)> for ($($PINX),+)
@@ -112,6 +113,9 @@ macro_rules! pins_impl {
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(PwmChannel<TIM, $ENCHX>),+);
+                fn split() -> Self::Channels {
+                    ($(PwmChannel::<TIM, $ENCHX> { _channel: PhantomData, _tim: PhantomData }),+)
+                }
             }
         )+
     };
@@ -232,7 +236,7 @@ where
     PINS: Pins<REMAP, P>,
 {
     pub fn split(self) -> PINS::Channels {
-        unsafe { mem::MaybeUninit::uninit().assume_init() }
+        PINS::split()
     }
 }
 
@@ -302,7 +306,7 @@ macro_rules! hal {
                 );
 
                 Pwm {
-                    clk: clk,
+                    clk,
                     _pins: PhantomData
                 }
             }

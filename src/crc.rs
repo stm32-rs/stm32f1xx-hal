@@ -6,6 +6,7 @@ use crate::rcc::{Enable, AHB};
 /// Extension trait to constrain the CRC peripheral
 pub trait CrcExt {
     /// Constrains the CRC peripheral to play nicely with the other abstractions
+    #[allow(clippy::wrong_self_convention, clippy::new_ret_no_self)]
     fn new(self, ahb: &mut AHB) -> Crc;
 }
 

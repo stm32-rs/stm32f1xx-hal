@@ -17,6 +17,7 @@ use nb::{Error as NbError, Result as NbResult};
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum Error {
     /// Bus error
     Bus,
@@ -29,8 +30,6 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
-    #[doc(hidden)]
-    _Extensible,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -129,6 +128,7 @@ impl<PINS> I2c<I2C1, PINS> {
 
 impl<PINS> BlockingI2c<I2C1, PINS> {
     /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 using the embedded-hal `BlockingI2c` trait.
+    #[allow(clippy::too_many_arguments)]
     pub fn i2c1(
         i2c: I2C1,
         pins: PINS,
@@ -171,6 +171,7 @@ impl<PINS> I2c<I2C2, PINS> {
 
 impl<PINS> BlockingI2c<I2C2, PINS> {
     /// Creates a blocking I2C2 object on pins PB10 and PB1
+    #[allow(clippy::too_many_arguments)]
     pub fn i2c2(
         i2c: I2C2,
         pins: PINS,
@@ -325,10 +326,10 @@ where
 
                 self.i2c.ccr.write(|w| {
                     let (freq, duty) = match duty_cycle {
-                        &DutyCycle::Ratio2to1 => {
+                        DutyCycle::Ratio2to1 => {
                             (((self.pclk1 / (freq.0 * 3)) as u16).max(1), false)
                         }
-                        &DutyCycle::Ratio16to9 => {
+                        DutyCycle::Ratio16to9 => {
                             (((self.pclk1 / (freq.0 * 25)) as u16).max(1), true)
                         }
                     };
@@ -400,6 +401,7 @@ where
     I2C: Deref<Target = I2cRegisterBlock> + Enable + Reset,
     I2C::Bus: GetBusFreq,
 {
+    #[allow(clippy::too_many_arguments)]
     fn _i2c(
         i2c: I2C,
         pins: PINS,
@@ -434,7 +436,7 @@ where
         while retries_left > 0 {
             self.nb.send_start();
             last_ret = busy_wait_cycles!(self.nb.wait_after_sent_start(), self.start_timeout);
-            if let Err(_) = last_ret {
+            if last_ret.is_err() {
                 self.nb.reset();
             } else {
                 break;

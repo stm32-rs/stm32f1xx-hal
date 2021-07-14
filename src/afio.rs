@@ -92,6 +92,7 @@ impl MAPR {
     }
 
     /// Disables the JTAG to free up pa15, pb3 and pb4 for normal use
+    #[allow(clippy::redundant_field_names, clippy::type_complexity)]
     pub fn disable_jtag(
         &mut self,
         pa15: PA15<Debugger>,
