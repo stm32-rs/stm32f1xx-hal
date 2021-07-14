@@ -1,15 +1,19 @@
 use super::*;
 
+pub type EPin<MODE> = ErasedPin<MODE>;
+
 macro_rules! impl_pxx {
     ($(($port_id:literal :: $pin:ident)),*) => {
         /// Erased pin
-        pub enum EPin<MODE> {
+        ///
+        /// `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
+        pub enum ErasedPin<MODE> {
             $(
-                $pin(PEPin<MODE, $port_id>)
+                $pin(PartiallyErasedPin<MODE, $port_id>)
             ),*
         }
 
-        impl<MODE> PinExt for EPin<MODE> {
+        impl<MODE> PinExt for ErasedPin<MODE> {
             type Mode = MODE;
 
             #[inline(always)]
@@ -26,7 +30,7 @@ macro_rules! impl_pxx {
             }
         }
 
-        impl<MODE> EPin<Output<MODE>> {
+        impl<MODE> ErasedPin<Output<MODE>> {
             pub fn set_high(&mut self) {
                 match self {
                     $(Self::$pin(pin) => pin.set_high()),*
@@ -52,7 +56,7 @@ macro_rules! impl_pxx {
             }
         }
 
-        impl<MODE> EPin<Input<MODE>> {
+        impl<MODE> ErasedPin<Input<MODE>> {
             pub fn is_high(&self) -> bool {
                 match self {
                     $(Self::$pin(pin) => pin.is_high()),*
@@ -66,7 +70,7 @@ macro_rules! impl_pxx {
             }
         }
 
-        impl EPin<Output<OpenDrain>> {
+        impl ErasedPin<Output<OpenDrain>> {
             pub fn is_high(&self) -> bool {
                 match self {
                     $(Self::$pin(pin) => pin.is_high()),*
@@ -82,7 +86,7 @@ macro_rules! impl_pxx {
     }
 }
 
-impl<MODE> EPin<Output<MODE>> {
+impl<MODE> ErasedPin<Output<MODE>> {
     #[inline(always)]
     pub fn get_state(&self) -> PinState {
         if self.is_set_low() {
@@ -110,7 +114,7 @@ impl<MODE> EPin<Output<MODE>> {
     }
 }
 
-impl<MODE> OutputPin for EPin<Output<MODE>> {
+impl<MODE> OutputPin for ErasedPin<Output<MODE>> {
     type Error = Infallible;
     fn set_high(&mut self) -> Result<(), Infallible> {
         self.set_high();
@@ -123,7 +127,7 @@ impl<MODE> OutputPin for EPin<Output<MODE>> {
     }
 }
 
-impl<MODE> StatefulOutputPin for EPin<Output<MODE>> {
+impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
     fn is_set_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_set_high())
     }
@@ -133,7 +137,7 @@ impl<MODE> StatefulOutputPin for EPin<Output<MODE>> {
     }
 }
 
-impl<MODE> InputPin for EPin<Input<MODE>> {
+impl<MODE> InputPin for ErasedPin<Input<MODE>> {
     type Error = Infallible;
     fn is_high(&self) -> Result<bool, Infallible> {
         Ok(self.is_high())
@@ -144,7 +148,7 @@ impl<MODE> InputPin for EPin<Input<MODE>> {
     }
 }
 
-impl InputPin for EPin<Output<OpenDrain>> {
+impl InputPin for ErasedPin<Output<OpenDrain>> {
     type Error = Infallible;
     fn is_high(&self) -> Result<bool, Infallible> {
         Ok(self.is_high())

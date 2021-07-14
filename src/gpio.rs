@@ -21,6 +21,8 @@
 //! output.set_high();
 //! ```
 //!
+//! ## Modes
+//!
 //! Each GPIO pin can be set to various modes:
 //!
 //! - **Alternate**: Pin mode required when the pin is driven by other peripherals
@@ -83,9 +85,9 @@ use crate::pac::{self, EXTI};
 use crate::rcc::APB2;
 
 mod partially_erased;
-pub use partially_erased::PEPin;
+pub use partially_erased::{PEPin, PartiallyErasedPin};
 mod erased;
-pub use erased::EPin;
+pub use erased::{EPin, ErasedPin};
 
 /// Slew rates available for Output and relevant AlternateMode Pins
 ///
@@ -349,7 +351,7 @@ macro_rules! gpio {
             use core::marker::PhantomData;
             use crate::pac::$GPIOX;
             use crate::rcc::{APB2, Enable, Reset};
-            use super::{Active, Floating, GpioExt, Input, PEPin, EPin, Pin, CRL, CRH, Cr};
+            use super::{Active, Floating, GpioExt, Input, PartiallyErasedPin, ErasedPin, Pin, CRL, CRH, Cr};
             #[allow(unused)]
             use super::Debugger;
 
@@ -386,9 +388,9 @@ macro_rules! gpio {
                 }
             }
 
-            impl<MODE> PEPin<MODE, $port_id> {
-                pub fn erase(self) -> EPin<MODE> {
-                    EPin::$PXx(self)
+            impl<MODE> PartiallyErasedPin<MODE, $port_id> {
+                pub fn erase(self) -> ErasedPin<MODE> {
+                    ErasedPin::$PXx(self)
                 }
             }
 
@@ -400,7 +402,7 @@ macro_rules! gpio {
                 ///
                 /// This is useful when you want to collect the pins into an array where you
                 /// need all the elements to have the same type
-                pub fn erase(self) -> EPin<MODE> {
+                pub fn erase(self) -> ErasedPin<MODE> {
                     self.erase_number().erase()
                 }
             }
@@ -408,7 +410,12 @@ macro_rules! gpio {
     }
 }
 
-/// Pin
+/// Generic pin type
+///
+/// - `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
+/// - `CR` represents high or low configuration register (`CRH` or `CRL`).
+/// - `P` is port name: `A` for GPIOA, `B` for GPIOB, etc.
+/// - `N` is pin number: from `0` to `15`.
 pub struct Pin<MODE, CR, const P: char, const N: u8> {
     mode: MODE,
     _cr: PhantomData<CR>,
@@ -434,7 +441,7 @@ impl<MODE, CR, const P: char, const N: u8> PinExt for Pin<MODE, CR, P, N> {
     }
     #[inline(always)]
     fn port_id(&self) -> u8 {
-        P as u8 - 0x41
+        P as u8 - b'A'
     }
 }
 
@@ -514,6 +521,7 @@ impl<MODE, CR, const P: char, const N: u8> Pin<MODE, CR, P, N> {
 
     #[inline(always)]
     fn _is_set_low(&self) -> bool {
+        // NOTE(unsafe) atomic read with no side effects
         unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << N) == 0 }
     }
     #[inline(always)]
@@ -529,12 +537,11 @@ where
 {
     /// Erases the pin number from the type
     #[inline]
-    pub fn erase_number(self) -> PEPin<MODE, P> {
-        PEPin::new(N)
+    pub fn erase_number(self) -> PartiallyErasedPin<MODE, P> {
+        PartiallyErasedPin::new(N)
     }
 }
 
-// embedded_hal impls
 impl<MODE, CR, const P: char, const N: u8> Pin<Output<MODE>, CR, P, N> {
     #[inline]
     pub fn set_high(&mut self) {
@@ -673,7 +680,6 @@ macro_rules! cr {
         }
 
         impl<const P: char> Cr<$CR, P> {
-            // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
             #[allow(dead_code)]
             pub(crate) fn cr(&mut self) -> &pac::gpioa::$CR {
                 unsafe { &(*Gpio::<P>::ptr()).$cr }
@@ -691,18 +697,7 @@ macro_rules! cr {
                 self,
                 cr: &mut Cr<$CR, P>,
             ) -> Pin<Alternate<PushPull>, $CR, P, N> {
-                // Alternate function output push pull
-                const CNF: u32 = 0b10;
-                // Output mode, max speed 50 MHz
-                const MODE: u32 = 0b11;
-                const BITS: u32 = (CNF << 2) | MODE;
-
-                // input mode
-                cr.cr().modify(|r, w| unsafe {
-                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                });
-
-                Pin::new(Alternate::_new())
+                Pin::<Alternate<PushPull>, $CR, P, N>::set_mode(cr)
             }
 
             /// Configures the pin to operate as an alternate function open-drain output
@@ -712,18 +707,7 @@ macro_rules! cr {
                 self,
                 cr: &mut Cr<$CR, P>,
             ) -> Pin<Alternate<OpenDrain>, $CR, P, N> {
-                // Alternate function output open drain
-                const CNF: u32 = 0b11;
-                // Output mode, max speed 50 MHz
-                const MODE: u32 = 0b11;
-                const BITS: u32 = (CNF << 2) | MODE;
-
-                // input mode
-                cr.cr().modify(|r, w| unsafe {
-                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
-                });
-
-                Pin::new(Alternate::_new())
+                Pin::<Alternate<OpenDrain>, $CR, P, N>::set_mode(cr)
             }
 
             /// Configures the pin to operate as a floating input pin
@@ -1055,6 +1039,44 @@ macro_rules! cr {
                 });
 
                 Self::new(Analog {})
+            }
+        }
+
+        impl<const P: char, const N: u8> PinMode for Pin<Alternate<PushPull>, $CR, P, N> {
+            type CR = Cr<$CR, P>;
+
+            fn set_mode(cr: &mut Self::CR) -> Self {
+                // Alternate function output push pull
+                const CNF: u32 = 0b10;
+                // Output mode, max speed 50 MHz
+                const MODE: u32 = 0b11;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                // input mode
+                cr.cr().modify(|r, w| unsafe {
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                });
+
+                Pin::new(Alternate::_new())
+            }
+        }
+
+        impl<const P: char, const N: u8> PinMode for Pin<Alternate<OpenDrain>, $CR, P, N> {
+            type CR = Cr<$CR, P>;
+
+            fn set_mode(cr: &mut Self::CR) -> Self {
+                // Alternate function output open drain
+                const CNF: u32 = 0b11;
+                // Output mode, max speed 50 MHz
+                const MODE: u32 = 0b11;
+                const BITS: u32 = (CNF << 2) | MODE;
+
+                // input mode
+                cr.cr().modify(|r, w| unsafe {
+                    w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (BITS << Self::OFFSET))
+                });
+
+                Pin::new(Alternate::_new())
             }
         }
     };
