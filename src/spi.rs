@@ -42,10 +42,10 @@ use crate::pac::SPI3;
 use crate::pac::{SPI1, SPI2};
 
 use crate::afio::MAPR;
-use crate::dma::dma1::{C3, C5};
+use crate::dma::dma1;
 #[cfg(feature = "connectivity")]
-use crate::dma::dma2::C2;
-use crate::dma::{Transfer, TransferPayload, Transmit, TxDma, R};
+use crate::dma::dma2;
+use crate::dma::{Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma, R, W};
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
@@ -55,7 +55,7 @@ use crate::rcc::{Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
-use embedded_dma::StaticReadBuffer;
+use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 
 /// SPI error
 #[derive(Debug)]
@@ -528,42 +528,168 @@ where
 
 // DMA
 
-pub struct SpiPayload<SPI, REMAP, PINS> {
-    spi: Spi<SPI, REMAP, PINS, u8>,
-}
-
-pub type SpiTxDma<SPI, REMAP, PINS, CHANNEL> = TxDma<SpiPayload<SPI, REMAP, PINS>, CHANNEL>;
+pub type SpiTxDma<SPI, REMAP, PINS, CHANNEL> = TxDma<Spi<SPI, REMAP, PINS, u8>, CHANNEL>;
+pub type SpiRxDma<SPI, REMAP, PINS, CHANNEL> = RxDma<Spi<SPI, REMAP, PINS, u8>, CHANNEL>;
+pub type SpiRxTxDma<SPI, REMAP, PINS, RXCHANNEL, TXCHANNEL> =
+    RxTxDma<Spi<SPI, REMAP, PINS, u8>, RXCHANNEL, TXCHANNEL>;
 
 macro_rules! spi_dma {
-    ($SPIi:ident, $TCi:ident) => {
+    ($SPIi:ident, $RCi:ty, $TCi:ty, $rxdma:ident, $txdma:ident, $rxtxdma:ident) => {
+        pub type $rxdma<REMAP, PINS> = SpiRxDma<$SPIi, REMAP, PINS, $RCi>;
+        pub type $txdma<REMAP, PINS> = SpiTxDma<$SPIi, REMAP, PINS, $TCi>;
+        pub type $rxtxdma<REMAP, PINS> = SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi>;
+
         impl<REMAP, PINS> Transmit for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
+        impl<REMAP, PINS> Receive for SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+            type RxChannel = $RCi;
+            type TransmittedWord = u8;
+        }
+
+        impl<REMAP, PINS> Transmit for SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+            type TxChannel = $TCi;
+            type ReceivedWord = u8;
+        }
+
+        impl<REMAP, PINS> Receive for SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+            type RxChannel = $RCi;
+            type TransmittedWord = u8;
+        }
+
         impl<REMAP, PINS> Spi<$SPIi, REMAP, PINS, u8> {
             pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
-                let payload = SpiPayload { spi: self };
-                SpiTxDma { payload, channel }
+                self.spi.cr2.modify(|_, w| w.txdmaen().set_bit());
+                SpiTxDma {
+                    payload: self,
+                    channel,
+                }
+            }
+            pub fn with_rx_dma(self, channel: $RCi) -> SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+                self.spi.cr2.modify(|_, w| w.rxdmaen().set_bit());
+                SpiRxDma {
+                    payload: self,
+                    channel,
+                }
+            }
+            pub fn with_rx_tx_dma(
+                self,
+                rxchannel: $RCi,
+                txchannel: $TCi,
+            ) -> SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+                self.spi
+                    .cr2
+                    .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
+                SpiRxTxDma {
+                    payload: self,
+                    rxchannel,
+                    txchannel,
+                }
+            }
+        }
+
+        impl<REMAP, PINS> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $TCi) {
+                let SpiTxDma { payload, channel } = self;
+                payload.spi.cr2.modify(|_, w| w.txdmaen().clear_bit());
+                (payload, channel)
+            }
+        }
+
+        impl<REMAP, PINS> SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $RCi) {
+                let SpiRxDma { payload, channel } = self;
+                payload.spi.cr2.modify(|_, w| w.rxdmaen().clear_bit());
+                (payload, channel)
+            }
+        }
+
+        impl<REMAP, PINS> SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $RCi, $TCi) {
+                let SpiRxTxDma {
+                    payload,
+                    rxchannel,
+                    txchannel,
+                } = self;
+                payload
+                    .spi
+                    .cr2
+                    .modify(|_, w| w.rxdmaen().clear_bit().txdmaen().clear_bit());
+                (payload, rxchannel, txchannel)
             }
         }
 
         impl<REMAP, PINS> TransferPayload for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
             fn start(&mut self) {
-                self.payload
-                    .spi
-                    .spi
-                    .cr2
-                    .modify(|_, w| w.txdmaen().set_bit());
                 self.channel.start();
             }
             fn stop(&mut self) {
-                self.payload
-                    .spi
-                    .spi
-                    .cr2
-                    .modify(|_, w| w.txdmaen().clear_bit());
                 self.channel.stop();
+            }
+        }
+
+        impl<REMAP, PINS> TransferPayload for SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+            fn start(&mut self) {
+                self.channel.start();
+            }
+            fn stop(&mut self) {
+                self.channel.stop();
+            }
+        }
+
+        impl<REMAP, PINS> TransferPayload for SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+            fn start(&mut self) {
+                self.rxchannel.start();
+                self.txchannel.start();
+            }
+            fn stop(&mut self) {
+                self.txchannel.stop();
+                self.rxchannel.stop();
+            }
+        }
+
+        impl<B, REMAP, PIN> crate::dma::ReadDma<B, u8> for SpiRxDma<$SPIi, REMAP, PIN, $RCi>
+        where
+            B: StaticWriteBuffer<Word = u8>,
+        {
+            fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len);
+
+                atomic::compiler_fence(Ordering::Release);
+                self.channel.ch().cr.modify(|_, w| {
+                    w
+                        // memory to memory mode disabled
+                        .mem2mem()
+                        .clear_bit()
+                        // medium channel priority level
+                        .pl()
+                        .medium()
+                        // 8-bit memory size
+                        .msize()
+                        .bits8()
+                        // 8-bit peripheral size
+                        .psize()
+                        .bits8()
+                        // circular mode disabled
+                        .circ()
+                        .clear_bit()
+                        // write to memory
+                        .dir()
+                        .clear_bit()
+                });
+                self.start();
+
+                Transfer::w(buffer, self)
             }
         }
 
@@ -609,10 +735,93 @@ macro_rules! spi_dma {
                 Transfer::r(buffer, self)
             }
         }
+
+        impl<RXB, TXB, REMAP, PIN> crate::dma::ReadWriteDma<RXB, TXB, u8>
+            for SpiRxTxDma<$SPIi, REMAP, PIN, $RCi, $TCi>
+        where
+            RXB: StaticWriteBuffer<Word = u8>,
+            TXB: StaticReadBuffer<Word = u8>,
+        {
+            fn read_write(
+                mut self,
+                mut rxbuffer: RXB,
+                txbuffer: TXB,
+            ) -> Transfer<W, (RXB, TXB), Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (rxptr, rxlen) = unsafe { rxbuffer.static_write_buffer() };
+                let (txptr, txlen) = unsafe { txbuffer.static_read_buffer() };
+
+                if rxlen != txlen {
+                    panic!("receive and send buffer lengths do not match!");
+                }
+
+                self.rxchannel.set_peripheral_address(
+                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.rxchannel.set_memory_address(rxptr as u32, true);
+                self.rxchannel.set_transfer_length(rxlen);
+
+                self.txchannel.set_peripheral_address(
+                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.txchannel.set_memory_address(txptr as u32, true);
+                self.txchannel.set_transfer_length(txlen);
+
+                atomic::compiler_fence(Ordering::Release);
+                self.rxchannel.ch().cr.modify(|_, w| {
+                    w
+                        // memory to memory mode disabled
+                        .mem2mem()
+                        .clear_bit()
+                        // medium channel priority level
+                        .pl()
+                        .medium()
+                        // 8-bit memory size
+                        .msize()
+                        .bits8()
+                        // 8-bit peripheral size
+                        .psize()
+                        .bits8()
+                        // circular mode disabled
+                        .circ()
+                        .clear_bit()
+                        // write to memory
+                        .dir()
+                        .clear_bit()
+                });
+                self.txchannel.ch().cr.modify(|_, w| {
+                    w
+                        // memory to memory mode disabled
+                        .mem2mem()
+                        .clear_bit()
+                        // medium channel priority level
+                        .pl()
+                        .medium()
+                        // 8-bit memory size
+                        .msize()
+                        .bits8()
+                        // 8-bit peripheral size
+                        .psize()
+                        .bits8()
+                        // circular mode disabled
+                        .circ()
+                        .clear_bit()
+                        // read from memory
+                        .dir()
+                        .set_bit()
+                });
+                self.start();
+
+                Transfer::w((rxbuffer, txbuffer), self)
+            }
+        }
     };
 }
 
-spi_dma!(SPI1, C3);
-spi_dma!(SPI2, C5);
+spi_dma!(SPI1, dma1::C2, dma1::C3, Spi1RxDma, Spi1TxDma, Spi1RxTxDma);
+spi_dma!(SPI2, dma1::C4, dma1::C5, Spi2RxDma, Spi2TxDma, Spi2RxTxDma);
 #[cfg(feature = "connectivity")]
-spi_dma!(SPI3, C2);
+spi_dma!(SPI3, dma2::C1, dma2::C2, Spi3RxDma, Spi3TxDma, Spi3RxTxDma);

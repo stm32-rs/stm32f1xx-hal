@@ -128,7 +128,7 @@ macro_rules! dma {
 
                 use crate::pac::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, TransferPayload};
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, RxTxDma, TransferPayload};
                 use crate::rcc::{AHB, Enable};
 
                 #[allow(clippy::manual_non_exhaustive)]
@@ -371,6 +371,45 @@ macro_rules! dma {
                         }
                     }
 
+                    impl<BUFFER, PAYLOAD, MODE, TXC> Transfer<MODE, BUFFER, RxTxDma<PAYLOAD, $CX, TXC>>
+                    where
+                        RxTxDma<PAYLOAD, $CX, TXC>: TransferPayload,
+                    {
+                        pub fn is_done(&self) -> bool {
+                            !self.payload.rxchannel.in_progress()
+                        }
+
+                        pub fn wait(mut self) -> (BUFFER, RxTxDma<PAYLOAD, $CX, TXC>) {
+                            while !self.is_done() {}
+
+                            atomic::compiler_fence(Ordering::Acquire);
+
+                            self.payload.stop();
+
+                            // we need a read here to make the Acquire fence effective
+                            // we do *not* need this if `dma.stop` does a RMW operation
+                            unsafe { ptr::read_volatile(&0); }
+
+                            // we need a fence here for the same reason we need one in `Transfer.wait`
+                            atomic::compiler_fence(Ordering::Acquire);
+
+                            // `Transfer` needs to have a `Drop` implementation, because we accept
+                            // managed buffers that can free their memory on drop. Because of that
+                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
+                            // and `mem::forget`.
+                            //
+                            // NOTE(unsafe) There is no panic branch between getting the resources
+                            // and forgetting `self`.
+                            unsafe {
+                                let buffer = ptr::read(&self.buffer);
+                                let payload = ptr::read(&self.payload);
+                                mem::forget(self);
+                                (buffer, payload)
+                            }
+                        }
+                    }
+
+
                     impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, RxDma<PAYLOAD, $CX>>
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
@@ -382,6 +421,23 @@ macro_rules! dma {
                             let pending = self.payload.channel.get_ndtr() as usize;
 
                             let slice = self.buffer.as_ref();
+                            let capacity = slice.len();
+
+                            &slice[..(capacity - pending)]
+                        }
+                    }
+
+                    impl<RXBUFFER, TXBUFFER, PAYLOAD, TXC> Transfer<W, (RXBUFFER, TXBUFFER), RxTxDma<PAYLOAD, $CX, TXC>>
+                    where
+                        RxTxDma<PAYLOAD, $CX, TXC>: TransferPayload,
+                    {
+                        pub fn peek<T>(&self) -> &[T]
+                        where
+                            RXBUFFER: AsRef<[T]>,
+                        {
+                            let pending = self.payload.rxchannel.get_ndtr() as usize;
+
+                            let slice = self.buffer.0.as_ref();
                             let capacity = slice.len();
 
                             &slice[..(capacity - pending)]
@@ -531,4 +587,14 @@ where
     Self: core::marker::Sized + TransferPayload,
 {
     fn write(self, buffer: B) -> Transfer<R, B, Self>;
+}
+
+/// Trait for DMA simultaneously reading and writing within one synchronous operation. Panics if both buffers are not of equal length.
+pub trait ReadWriteDma<RXB, TXB, TS>: Transmit
+where
+    RXB: StaticWriteBuffer<Word = TS>,
+    TXB: StaticReadBuffer<Word = TS>,
+    Self: core::marker::Sized + TransferPayload,
+{
+    fn read_write(self, rx_buffer: RXB, tx_buffer: TXB) -> Transfer<W, (RXB, TXB), Self>;
 }

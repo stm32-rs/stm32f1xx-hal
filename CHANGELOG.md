@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Support for CAN peripherals with the `bxcan` crate
 - Add DAC, UART4, UART5 clock in RCC for the f103 high density line
 - `start_raw` function and `arr`, `bsc` getters for more fine grained
-  control over the timer.
+  control over the timer
+- Added RxTxDma support support to the DMA infrastructure
+- Added DMA receive support for `SPI`
+- Added `release` functions to SPI DMA
 
 ### Fixed
 - Fix > 2 byte i2c reads
@@ -27,6 +30,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use `cortex-m-rtic` instead of `cortex-m-rtfm` in the examples
 - Renamed `serial`'s `RxDma`/`TxDma`'s `split` method into `release`
 - Renamed I2C's `free` method into `release`
+- Enable SPI DMA in `with_tx_dma`, not in `SpiTxDma::start`
 
 ## [v0.7.0]- 2020-10-17
 
