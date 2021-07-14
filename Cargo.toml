@@ -146,3 +146,7 @@ required-features = ["has-can"]
 [[example]]
 name = "can-rtic"
 required-features = ["has-can", "rt"]
+
+[[example]]
+name = "gpio_input"
+required-features = ["stm32f103"]
