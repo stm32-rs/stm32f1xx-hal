@@ -12,15 +12,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- `exti_rtic` example
 - Support for OpenDrain pin configuration on SPI CLK and MOSI pins
 - LSB/MSB bit format selection for `SPI`
 - Support for CAN peripherals with the `bxcan` crate
 - Add DAC, UART4, UART5 clock in RCC for the f103 high density line
 - `start_raw` function and `arr`, `bsc` getters for more fine grained
-  control over the timer
+  control over the timer.
 - Added RxTxDma support support to the DMA infrastructure
 - Added DMA receive support for `SPI`
 - Added `release` functions to SPI DMA
+- Add GPIOF/GPIOG support for high/xl density lines
 
 ### Fixed
 - Fix > 2 byte i2c reads
@@ -30,6 +32,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Do not enable UART DMA flags unconditionally
 
 ### Changed
+
+- Change internal implementation of pins using const generics
 - Use `cortex-m-rtic` instead of `cortex-m-rtfm` in the examples
 - Renamed `serial`'s `RxDma`/`TxDma`'s `split` method into `release`
 - Renamed I2C's `free` method into `release`

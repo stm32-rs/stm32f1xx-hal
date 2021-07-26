@@ -16,9 +16,8 @@
 #![no_std]
 #![no_main]
 use cortex_m_rt::entry;
-use embedded_hal::digital::v2::InputPin;
 use panic_halt as _;
-use stm32f1xx_hal::{delay::Delay, pac, prelude::*};
+use stm32f1xx_hal::{delay::Delay, gpio::PinState, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -38,10 +37,10 @@ fn main() -> ! {
     // red_led and green_led
     let mut red_led = gpioa
         .pa8
-        .into_push_pull_output_with_state(&mut gpioa.crh, stm32f1xx_hal::gpio::State::High);
+        .into_push_pull_output_with_state(&mut gpioa.crh, PinState::High);
     let mut green_led = gpiod
         .pd2
-        .into_push_pull_output_with_state(&mut gpiod.crl, stm32f1xx_hal::gpio::State::High);
+        .into_push_pull_output_with_state(&mut gpiod.crl, PinState::High);
 
     let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
     let (gpioa_pa15, _gpiob_pb3, _gpiob_pb4) =
@@ -56,13 +55,13 @@ fn main() -> ! {
     let mut key_up: bool = true;
     let mut delay = Delay::new(cp.SYST, clock);
     loop {
-        let key_result = (key_0.is_low().unwrap(), key_1.is_low().unwrap());
+        let key_result = (key_0.is_low(), key_1.is_low());
         if key_up && (key_result.0 || key_result.1) {
             key_up = false;
             delay.delay_ms(10u8);
             match key_result {
-                (x, _) if x == true => red_led.toggle().unwrap(),
-                (_, y) if y == true => green_led.toggle().unwrap(),
+                (x, _) if x == true => red_led.toggle(),
+                (_, y) if y == true => green_led.toggle(),
                 (_, _) => (),
             }
         } else if !key_result.0 && !key_result.1 {

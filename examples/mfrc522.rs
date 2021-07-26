@@ -7,7 +7,7 @@ use panic_itm as _;
 use cortex_m::iprintln;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::{v1_compat::OldOutputPin, v2::OutputPin};
+use embedded_hal::digital::v1_compat::OldOutputPin;
 use mfrc522::Mfrc522;
 use stm32f1xx_hal::{pac, prelude::*, spi::Spi};
 
@@ -42,7 +42,7 @@ fn main() -> ! {
     let mut mfrc522 = Mfrc522::new(spi, OldOutputPin::from(nss)).unwrap();
 
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    led.set_high().unwrap();
+    led.set_high();
 
     loop {
         if let Ok(atqa) = mfrc522.reqa() {

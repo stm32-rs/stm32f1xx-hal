@@ -679,6 +679,12 @@ bus! {
     WWDG => (APB1, wwdgen, wwdgrst),
 }
 
+#[cfg(any(feature = "xl", feature = "high"))]
+bus! {
+    GPIOF => (APB2, iopfen, iopfrst),
+    GPIOG => (APB2, iopgen, iopgrst),
+}
+
 #[cfg(any(feature = "high", feature = "connectivity"))]
 bus! {
     SPI3 => (APB1, spi3en, spi3rst),

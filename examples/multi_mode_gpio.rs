@@ -8,8 +8,7 @@ use nb::block;
 
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
-use embedded_hal::digital::v2::{InputPin, OutputPin};
-use stm32f1xx_hal::{gpio::State, pac, prelude::*, timer::Timer};
+use stm32f1xx_hal::{gpio::PinState, pac, prelude::*, timer::Timer};
 
 #[entry]
 fn main() -> ! {
@@ -37,16 +36,16 @@ fn main() -> ! {
     // Wait for the timer to trigger an update and change the state of the LED
     loop {
         block!(timer.wait()).unwrap();
-        hprintln!("{}", pin.is_high().unwrap()).unwrap();
+        hprintln!("{}", pin.is_high()).unwrap();
         pin.as_push_pull_output(&mut gpioc.crh, |out| {
-            out.set_high().unwrap();
+            out.set_high();
             block!(timer.wait()).unwrap();
-            out.set_low().unwrap();
+            out.set_low();
             block!(timer.wait()).unwrap();
         });
-        pin.as_push_pull_output_with_state(&mut gpioc.crh, State::High, |out| {
+        pin.as_push_pull_output_with_state(&mut gpioc.crh, PinState::High, |out| {
             block!(timer.wait()).unwrap();
-            out.set_low().unwrap();
+            out.set_low();
             block!(timer.wait()).unwrap();
         });
     }
