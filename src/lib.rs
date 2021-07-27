@@ -180,10 +180,7 @@ pub mod spi;
 pub mod time;
 #[cfg(feature = "device-selected")]
 pub mod timer;
-#[cfg(all(
-    feature = "stm32-usbd",
-    any(feature = "stm32f102", feature = "stm32f103")
-))]
+#[cfg(all(feature = "device-selected", feature = "stm32-usbd"))]
 pub mod usb;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;

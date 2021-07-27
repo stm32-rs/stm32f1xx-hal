@@ -5,6 +5,7 @@
 //! for usage examples.
 
 use crate::pac::{RCC, USB};
+use crate::rcc::{Enable, Reset};
 use stm32_usbd::UsbPeripheral;
 
 use crate::gpio::gpioa::{PA11, PA12};
@@ -24,18 +25,17 @@ unsafe impl UsbPeripheral for Peripheral {
     const DP_PULL_UP_FEATURE: bool = false;
     const EP_MEMORY: *const () = 0x4000_6000 as _;
     const EP_MEMORY_SIZE: usize = 512;
+    const EP_MEMORY_ACCESS_2X16: bool = false;
 
     fn enable() {
-        let rcc = unsafe { (&*RCC::ptr()) };
+        unsafe {
+            let rcc = &*RCC::ptr();
 
-        cortex_m::interrupt::free(|_| {
             // Enable USB peripheral
-            rcc.apb1enr.modify(|_, w| w.usben().set_bit());
-
+            USB::enable(rcc);
             // Reset USB peripheral
-            rcc.apb1rstr.modify(|_, w| w.usbrst().set_bit());
-            rcc.apb1rstr.modify(|_, w| w.usbrst().clear_bit());
-        });
+            USB::reset(rcc);
+        }
     }
 
     fn startup_delay() {
