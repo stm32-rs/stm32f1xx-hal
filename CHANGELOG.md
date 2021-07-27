@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Breaking changes
 
+- Bump `stm32-usbd` dependency (`0.6.0`)
 - Use bit-banding for Peripheral enable/reset.
   Don't require APBs in initializers.
 - Rename `gpio::Edge::{RISING, FALLING, RISING_FALLING}` to `Rising`, `Falling`, `RisingFalling`, respectively
@@ -36,6 +37,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- USB driver is now enabled by default for all devices supporting it
 - Updated `bxcan` dependency
 - Change internal implementation of pins using const generics
 - Use `cortex-m-rtic` instead of `cortex-m-rtfm` in the examples
