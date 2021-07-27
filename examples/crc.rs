@@ -14,14 +14,13 @@ use stm32f1xx_hal::{pac, prelude::*};
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut rcc = p.RCC.constrain();
-    let mut crc = p.CRC.new(&mut rcc.ahb);
+    let mut crc = p.CRC.new();
 
     crc.reset();
     crc.write(0x12345678);
 
     let val = crc.read();
-    hprintln!("found={:08x}, expected={:08x}", val, 0xdf8a8a2bu32).ok();
+    hprintln!("found={:08x}, expected={:08x}", val, 0xdf8a8a2b_u32).ok();
 
     loop {}
 }

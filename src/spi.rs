@@ -39,7 +39,7 @@ use core::ptr;
 pub use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 #[cfg(any(feature = "high", feature = "connectivity"))]
 use crate::pac::SPI3;
-use crate::pac::{SPI1, SPI2};
+use crate::pac::{RCC, SPI1, SPI2};
 
 use crate::afio::MAPR;
 use crate::dma::dma1;
@@ -51,7 +51,7 @@ use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
 use crate::gpio::gpioc::{PC10, PC11, PC12};
 use crate::gpio::{Alternate, Floating, Input, OpenDrain, PushPull};
-use crate::rcc::{Clocks, Enable, GetBusFreq, Reset, APB1, APB2};
+use crate::rcc::{Clocks, Enable, GetBusFreq, Reset};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
@@ -158,7 +158,6 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
         mode: Mode,
         freq: F,
         clocks: Clocks,
-        apb: &mut APB2,
     ) -> Self
     where
         F: Into<Hertz>,
@@ -166,7 +165,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
-        Spi::<SPI1, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
+        Spi::<SPI1, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks)
     }
 }
 
@@ -178,20 +177,13 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn spi2<F>(
-        spi: SPI2,
-        pins: PINS,
-        mode: Mode,
-        freq: F,
-        clocks: Clocks,
-        apb: &mut APB1,
-    ) -> Self
+    pub fn spi2<F>(spi: SPI2, pins: PINS, mode: Mode, freq: F, clocks: Clocks) -> Self
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI2>,
         PINS: Pins<REMAP>,
     {
-        Spi::<SPI2, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
+        Spi::<SPI2, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks)
     }
 }
 
@@ -205,20 +197,13 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
     #[cfg(not(feature = "connectivity"))]
-    pub fn spi3<F>(
-        spi: SPI3,
-        pins: PINS,
-        mode: Mode,
-        freq: F,
-        clocks: Clocks,
-        apb: &mut APB1,
-    ) -> Self
+    pub fn spi3<F>(spi: SPI3, pins: PINS, mode: Mode, freq: F, clocks: Clocks) -> Self
     where
         F: Into<Hertz>,
         REMAP: Remap<Periph = SPI3>,
         PINS: Pins<REMAP>,
     {
-        Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
+        Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks)
     }
 
     /**
@@ -236,7 +221,6 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
         mode: Mode,
         freq: F,
         clocks: Clocks,
-        apb: &mut APB1,
     ) -> Self
     where
         F: Into<Hertz>,
@@ -244,7 +228,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi3_remap().bit(REMAP::REMAP));
-        Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks, apb)
+        Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks)
     }
 }
 
@@ -344,17 +328,11 @@ where
     SPI: Deref<Target = SpiRegisterBlock> + Enable + Reset,
     SPI::Bus: GetBusFreq,
 {
-    fn _spi(
-        spi: SPI,
-        pins: PINS,
-        mode: Mode,
-        freq: Hertz,
-        clocks: Clocks,
-        apb: &mut SPI::Bus,
-    ) -> Self {
+    fn _spi(spi: SPI, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self {
         // enable or reset SPI
-        SPI::enable(apb);
-        SPI::reset(apb);
+        let rcc = unsafe { &(*RCC::ptr()) };
+        SPI::enable(rcc);
+        SPI::reset(rcc);
 
         // disable SS output
         spi.cr2.write(|w| w.ssoe().clear_bit());

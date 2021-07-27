@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 ### Breaking changes
+
+- Use bit-banding for Peripheral enable/reset.
+  Don't require APBs in initializers.
 - Rename `gpio::Edge::{RISING, FALLING, RISING_FALLING}` to `Rising`, `Falling`, `RisingFalling`, respectively
 
 ### Added

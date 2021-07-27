@@ -34,7 +34,7 @@ fn main() -> ! {
 
     assert!(clocks.usbclk_valid());
 
-    let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
+    let mut gpioa = dp.GPIOA.split();
 
     // BluePill board has a pull-up resistor on the D+ line.
     // Pull the D+ pin down to send a RESET condition to the USB bus.

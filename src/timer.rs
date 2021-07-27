@@ -48,6 +48,7 @@
 */
 
 use crate::hal::timer::{Cancel, CountDown, Periodic};
+use crate::pac::RCC;
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
@@ -67,9 +68,7 @@ use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
 #[cfg(feature = "stm32f100")]
 use crate::pac::{TIM15, TIM16, TIM17};
 
-#[cfg(not(feature = "stm32f101"))]
-use crate::rcc::APB2;
-use crate::rcc::{sealed::RccBus, Clocks, Enable, GetBusFreq, Reset, APB1};
+use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
 use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
@@ -281,10 +280,11 @@ macro_rules! hal {
         $(
             impl Timer<$TIMX> {
                 /// Initialize timer
-                pub fn $timX(tim: $TIMX, clocks: &Clocks, apb: &mut $APBx) -> Self {
+                pub fn $timX(tim: $TIMX, clocks: &Clocks) -> Self {
                     // enable and reset peripheral to a clean slate state
-                    $TIMX::enable(apb);
-                    $TIMX::reset(apb);
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    $TIMX::enable(rcc);
+                    $TIMX::reset(rcc);
 
                     Self { tim, clk: <$TIMX as RccBus>::Bus::get_timer_frequency(&clocks) }
                 }
@@ -325,8 +325,9 @@ macro_rules! hal {
 
                 /// Resets timer peripheral
                 #[inline(always)]
-                pub fn clocking_reset(&mut self, apb: &mut <$TIMX as RccBus>::Bus) {
-                    $TIMX::reset(apb);
+                pub fn clocking_reset(&mut self) {
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    $TIMX::reset(rcc);
                 }
 
                 /// Stopping timer in debug mode can cause troubles when sampling the signal

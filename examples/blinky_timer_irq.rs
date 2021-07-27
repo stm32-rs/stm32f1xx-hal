@@ -69,7 +69,7 @@ fn TIM2() {
 fn main() -> ! {
     let dp = Peripherals::take().unwrap();
 
-    let mut rcc = dp.RCC.constrain();
+    let rcc = dp.RCC.constrain();
     let mut flash = dp.FLASH.constrain();
     let clocks = rcc
         .cfgr
@@ -78,7 +78,7 @@ fn main() -> ! {
         .freeze(&mut flash.acr);
 
     // Configure PC13 pin to blink LED
-    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
+    let mut gpioc = dp.GPIOC.split();
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
     let _ = led.set_high(); // Turn off
 
@@ -86,7 +86,7 @@ fn main() -> ! {
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 
     // Set up a timer expiring after 1s
-    let mut timer = Timer::tim2(dp.TIM2, &clocks, &mut rcc.apb1).start_count_down(1.hz());
+    let mut timer = Timer::tim2(dp.TIM2, &clocks).start_count_down(1.hz());
 
     // Generate an interrupt when the timer expires
     timer.listen(Event::Update);

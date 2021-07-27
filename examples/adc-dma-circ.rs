@@ -15,7 +15,7 @@ fn main() -> ! {
     // Acquire peripherals
     let p = pac::Peripherals::take().unwrap();
     let mut flash = p.FLASH.constrain();
-    let mut rcc = p.RCC.constrain();
+    let rcc = p.RCC.constrain();
 
     // Configure ADC clocks
     // Default value is the slowest possible ADC clock: PCLK2 / 8. Meanwhile ADC
@@ -24,13 +24,13 @@ fn main() -> ! {
     // prescaler values 2/4/6/8.
     let clocks = rcc.cfgr.adcclk(2.mhz()).freeze(&mut flash.acr);
 
-    let dma_ch1 = p.DMA1.split(&mut rcc.ahb).1;
+    let dma_ch1 = p.DMA1.split().1;
 
     // Setup ADC
-    let adc1 = adc::Adc::adc1(p.ADC1, &mut rcc.apb2, clocks);
+    let adc1 = adc::Adc::adc1(p.ADC1, clocks);
 
     // Setup GPIOA
-    let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
+    let mut gpioa = p.GPIOA.split();
 
     // Configure pa0 as an analog input
     let adc_ch0 = gpioa.pa0.into_analog(&mut gpioa.crl);

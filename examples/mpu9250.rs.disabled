@@ -29,10 +29,10 @@ fn main() -> ! {
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = dp.AFIO.constrain();
 
-    let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
-    // let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+    let mut gpioa = dp.GPIOA.split();
+    // let mut gpiob = dp.GPIOB.split();
 
     let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
 
@@ -53,7 +53,6 @@ fn main() -> ! {
         mpu9250::MODE,
         1.mhz(),
         clocks,
-        &mut rcc.apb2,
     );
 
     let mut delay = Delay::new(cp.SYST, clocks);

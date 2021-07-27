@@ -21,13 +21,12 @@ const APP: () = {
 
     #[init]
     fn init(mut ctx: init::Context) -> init::LateResources {
-        let mut rcc = ctx.device.RCC.constrain();
-        let mut afio = ctx.device.AFIO.constrain(&mut rcc.apb2);
+        let mut afio = ctx.device.AFIO.constrain();
 
-        let mut gpioc = ctx.device.GPIOC.split(&mut rcc.apb2);
+        let mut gpioc = ctx.device.GPIOC.split();
         let led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 
-        let mut gpioa = ctx.device.GPIOA.split(&mut rcc.apb2);
+        let mut gpioa = ctx.device.GPIOA.split();
         let mut button = gpioa.pa0.into_pull_down_input(&mut gpioa.crl);
         button.make_interrupt_source(&mut afio);
         button.enable_interrupt(&mut ctx.device.EXTI);

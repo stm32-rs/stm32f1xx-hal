@@ -56,9 +56,9 @@ fn main() -> ! {
     let dp = stm32f103xx::Peripherals::take().unwrap();
 
     let mut rcc = dp.RCC.constrain();
-    let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = dp.AFIO.constrain();
     let mut flash = dp.FLASH.constrain();
-    let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
+    let mut gpioa = dp.GPIOA.split();
     let _stim = &mut cp.ITM.stim[0];
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
@@ -66,7 +66,7 @@ fn main() -> ! {
     cp.DWT.enable_cycle_counter();
 
     // LED
-    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
+    let mut gpioc = dp.GPIOC.split();
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
     // turn the LED off during initialization
     led.set_high();
@@ -84,7 +84,6 @@ fn main() -> ! {
         enc28j60::MODE,
         1.mhz(),
         clocks,
-        &mut rcc.apb2,
     );
 
     // ENC28J60

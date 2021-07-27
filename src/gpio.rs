@@ -6,11 +6,8 @@
 //! ```rust
 //! // Acquire the GPIOC peripheral
 //! // NOTE: `dp` is the device peripherals from the `PAC` crate
-//! let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
+//! let mut gpioa = dp.GPIOA.split();
 //! ```
-//!
-//! See the documentation for [rcc::APB2](../rcc/struct.APB2.html) for details about the input parameter to
-//! `split`.
 //!
 //! This gives you a struct containing two control registers `crl` and `crh`, and all the pins
 //! `px0..px15`. These structs are what you use to interract with the pins to change their modes,
@@ -82,7 +79,6 @@ use core::marker::PhantomData;
 use crate::afio;
 use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, ToggleableOutputPin};
 use crate::pac::{self, EXTI};
-use crate::rcc::APB2;
 
 mod partially_erased;
 pub use partially_erased::{PEPin, PartiallyErasedPin};
@@ -121,7 +117,7 @@ pub trait GpioExt {
     type Parts;
 
     /// Splits the GPIO block into independent pins and registers
-    fn split(self, apb2: &mut APB2) -> Self::Parts;
+    fn split(self) -> Self::Parts;
 }
 
 /// Marker trait for active states.
@@ -349,8 +345,8 @@ macro_rules! gpio {
         /// GPIO
         pub mod $gpiox {
             use core::marker::PhantomData;
-            use crate::pac::$GPIOX;
-            use crate::rcc::{APB2, Enable, Reset};
+            use crate::pac::{$GPIOX, RCC};
+            use crate::rcc::{Enable, Reset};
             use super::{Active, Floating, GpioExt, Input, PartiallyErasedPin, ErasedPin, Pin, CRL, CRH, Cr};
             #[allow(unused)]
             use super::Debugger;
@@ -374,9 +370,10 @@ macro_rules! gpio {
             impl GpioExt for $GPIOX {
                 type Parts = Parts;
 
-                fn split(self, apb: &mut APB2) -> Parts {
-                    $GPIOX::enable(apb);
-                    $GPIOX::reset(apb);
+                fn split(self) -> Parts {
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    $GPIOX::enable(rcc);
+                    $GPIOX::reset(rcc);
 
                     Parts {
                         crl: Cr::<CRL, $port_id> { _cr: PhantomData },

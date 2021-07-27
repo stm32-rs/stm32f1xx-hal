@@ -17,14 +17,14 @@ fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
+    let rcc = dp.RCC.constrain();
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = dp.AFIO.constrain();
 
-    // let gpioa = dp.GPIOA.split(&mut rcc.apb2);
-    let gpiob = dp.GPIOB.split(&mut rcc.apb2);
+    // let gpioa = dp.GPIOA.split();
+    let gpiob = dp.GPIOB.split();
 
     // TIM2
     // let c1 = gpioa.pa0;
@@ -38,11 +38,7 @@ fn main() -> ! {
     let c1 = gpiob.pb6;
     let c2 = gpiob.pb7;
 
-    let qei = Timer::tim4(dp.TIM4, &clocks, &mut rcc.apb1).qei(
-        (c1, c2),
-        &mut afio.mapr,
-        QeiOptions::default(),
-    );
+    let qei = Timer::tim4(dp.TIM4, &clocks).qei((c1, c2), &mut afio.mapr, QeiOptions::default());
     let mut delay = Delay::new(cp.SYST, clocks);
 
     loop {

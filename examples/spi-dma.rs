@@ -21,14 +21,14 @@ fn main() -> ! {
     // Take ownership over the raw flash and rcc devices and convert them into the corresponding
     // HAL structs
     let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
+    let rcc = dp.RCC.constrain();
 
     // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
     // `clocks`
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     // Acquire the GPIOB peripheral
-    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+    let mut gpiob = dp.GPIOB.split();
 
     let pins = (
         gpiob.pb13.into_alternate_push_pull(&mut gpiob.crh),
@@ -40,10 +40,10 @@ fn main() -> ! {
         polarity: Polarity::IdleLow,
         phase: Phase::CaptureOnFirstTransition,
     };
-    let spi = Spi::spi2(dp.SPI2, pins, spi_mode, 100.khz(), clocks, &mut rcc.apb1);
+    let spi = Spi::spi2(dp.SPI2, pins, spi_mode, 100.khz(), clocks);
 
     // Set up the DMA device
-    let dma = dp.DMA1.split(&mut rcc.ahb);
+    let dma = dp.DMA1.split();
 
     // Connect the SPI device to the DMA
     let spi_dma = spi.with_tx_dma(dma.5);

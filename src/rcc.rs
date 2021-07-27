@@ -10,6 +10,8 @@ use crate::time::Hertz;
 
 use crate::backup_domain::BackupDomain;
 
+mod enable;
+
 /// Extension trait that constrains the `RCC` peripheral
 pub trait RccExt {
     /// Constrains the `RCC` peripheral so it plays nicely with the other abstractions
@@ -19,9 +21,6 @@ pub trait RccExt {
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
-            ahb: AHB { _0: () },
-            apb1: APB1 { _0: () },
-            apb2: APB2 { _0: () },
             cfgr: CFGR {
                 hse: None,
                 hclk: None,
@@ -45,92 +44,56 @@ impl RccExt for RCC {
 /// let mut rcc = dp.RCC.constrain();
 /// ```
 pub struct Rcc {
-    /// AMBA High-performance Bus (AHB) registers
-    pub ahb: AHB,
-    /// Advanced Peripheral Bus 1 (APB1) registers
-    pub apb1: APB1,
-    /// Advanced Peripheral Bus 2 (APB2) registers
-    pub apb2: APB2,
     pub cfgr: CFGR,
     pub bkp: BKP,
 }
 
 /// AMBA High-performance Bus (AHB) registers
-///
-/// Aquired through the `Rcc` registers:
-///
-/// ```rust
-/// let dp = pac::Peripherals::take().unwrap();
-/// let mut rcc = dp.RCC.constrain();
-/// function_that_uses_ahb(&mut rcc.ahb)
-/// ```
 pub struct AHB {
     _0: (),
 }
 
 impl AHB {
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHBENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahbenr }
+    fn enr(rcc: &rcc::RegisterBlock) -> &rcc::AHBENR {
+        &rcc.ahbenr
     }
 }
 
 /// Advanced Peripheral Bus 1 (APB1) registers
-///
-/// Aquired through the `Rcc` registers:
-///
-/// ```rust
-/// let dp = pac::Peripherals::take().unwrap();
-/// let mut rcc = dp.RCC.constrain();
-/// function_that_uses_apb1(&mut rcc.apb1)
-/// ```
 pub struct APB1 {
     _0: (),
 }
 
 impl APB1 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr }
+    fn enr(rcc: &rcc::RegisterBlock) -> &rcc::APB1ENR {
+        &rcc.apb1enr
     }
 
-    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr }
+    fn rstr(rcc: &rcc::RegisterBlock) -> &rcc::APB1RSTR {
+        &rcc.apb1rstr
     }
 }
 
 impl APB1 {
     /// Set power interface clock (PWREN) bit in RCC_APB1ENR
-    pub fn set_pwren(&mut self) {
-        self.enr().modify(|_r, w| w.pwren().set_bit())
+    pub fn set_pwren() {
+        let rcc = unsafe { &*RCC::ptr() };
+        PWR::enable(rcc);
     }
 }
 
 /// Advanced Peripheral Bus 2 (APB2) registers
-///
-/// Aquired through the `Rcc` registers:
-///
-/// ```rust
-/// let dp = pac::Peripherals::take().unwrap();
-/// let mut rcc = dp.RCC.constrain();
-/// function_that_uses_apb2(&mut rcc.apb2);
-/// ```
 pub struct APB2 {
     _0: (),
 }
 
 impl APB2 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2enr }
+    fn enr(rcc: &rcc::RegisterBlock) -> &rcc::APB2ENR {
+        &rcc.apb2enr
     }
 
-    pub(crate) fn rstr(&mut self) -> &rcc::APB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2rstr }
+    fn rstr(rcc: &rcc::RegisterBlock) -> &rcc::APB2RSTR {
+        &rcc.apb2rstr
     }
 }
 
@@ -455,10 +418,10 @@ pub struct BKP {
 
 impl BKP {
     /// Enables write access to the registers in the backup domain
-    pub fn constrain(self, bkp: crate::pac::BKP, apb1: &mut APB1, pwr: &mut PWR) -> BackupDomain {
+    pub fn constrain(self, bkp: crate::pac::BKP, pwr: &mut PWR) -> BackupDomain {
         // Enable the backup interface by setting PWREN and BKPEN
-        apb1.enr()
-            .modify(|_r, w| w.bkpen().set_bit().pwren().set_bit());
+        let rcc = unsafe { &(*RCC::ptr()) };
+        crate::pac::BKP::enable(rcc);
 
         // Enable access to the backup registers
         pwr.cr.modify(|_r, w| w.dbp().set_bit());
@@ -577,190 +540,23 @@ impl GetBusFreq for APB2 {
 }
 
 pub(crate) mod sealed {
-    /// Bus associated to peripheral
-    pub trait RccBus {
-        /// Bus type;
-        type Bus;
-    }
+
+    pub trait Sealed {}
 }
-use sealed::RccBus;
+use sealed::Sealed;
+
+/// Bus associated to peripheral
+pub trait RccBus {
+    /// Bus type;
+    type Bus;
+}
 
 /// Enable/disable peripheral
 pub trait Enable: RccBus {
-    fn enable(apb: &mut Self::Bus);
-    fn disable(apb: &mut Self::Bus);
+    fn enable(rcc: &rcc::RegisterBlock);
+    fn disable(rcc: &rcc::RegisterBlock);
 }
-
 /// Reset peripheral
 pub trait Reset: RccBus {
-    fn reset(apb: &mut Self::Bus);
-}
-
-macro_rules! bus {
-    ($($PER:ident => ($apbX:ty, $peren:ident, $perrst:ident),)+) => {
-        $(
-            impl RccBus for crate::pac::$PER {
-                type Bus = $apbX;
-            }
-            impl Enable for crate::pac::$PER {
-                #[inline(always)]
-                fn enable(apb: &mut Self::Bus) {
-                    apb.enr().modify(|_, w| w.$peren().set_bit());
-                }
-                #[inline(always)]
-                fn disable(apb: &mut Self::Bus) {
-                    apb.enr().modify(|_, w| w.$peren().clear_bit());
-                }
-            }
-            impl Reset for crate::pac::$PER {
-                #[inline(always)]
-                fn reset(apb: &mut Self::Bus) {
-                    apb.rstr().modify(|_, w| w.$perrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$perrst().clear_bit());
-                }
-            }
-        )+
-    }
-}
-
-macro_rules! ahb_bus {
-    ($($PER:ident => ($peren:ident),)+) => {
-        $(
-            impl RccBus for crate::pac::$PER {
-                type Bus = AHB;
-            }
-            impl Enable for crate::pac::$PER {
-                #[inline(always)]
-                fn enable(apb: &mut Self::Bus) {
-                    apb.enr().modify(|_, w| w.$peren().set_bit());
-                }
-                #[inline(always)]
-                fn disable(apb: &mut Self::Bus) {
-                    apb.enr().modify(|_, w| w.$peren().clear_bit());
-                }
-            }
-        )+
-    }
-}
-
-#[cfg(feature = "stm32f103")]
-bus! {
-    ADC2 => (APB2, adc2en, adc2rst),
-    CAN1 => (APB1, canen, canrst),
-}
-#[cfg(feature = "connectivity")]
-bus! {
-    ADC2 => (APB2, adc2en, adc2rst),
-    CAN1 => (APB1, can1en, can1rst),
-    CAN2 => (APB1, can2en, can2rst),
-}
-#[cfg(all(feature = "stm32f103", feature = "high",))]
-bus! {
-    ADC3 => (APB2, adc3en, adc3rst),
-    DAC => (APB1, dacen, dacrst),
-    UART4 => (APB1, uart4en, uart4rst),
-    UART5 => (APB1, uart5en, uart5rst),
-}
-bus! {
-    ADC1 => (APB2, adc1en, adc1rst),
-    AFIO => (APB2, afioen, afiorst),
-    GPIOA => (APB2, iopaen, ioparst),
-    GPIOB => (APB2, iopben, iopbrst),
-    GPIOC => (APB2, iopcen, iopcrst),
-    GPIOD => (APB2, iopden, iopdrst),
-    GPIOE => (APB2, iopeen, ioperst),
-    I2C1 => (APB1, i2c1en, i2c1rst),
-    I2C2 => (APB1, i2c2en, i2c2rst),
-    SPI1 => (APB2, spi1en, spi1rst),
-    SPI2 => (APB1, spi2en, spi2rst),
-    USART1 => (APB2, usart1en, usart1rst),
-    USART2 => (APB1, usart2en, usart2rst),
-    USART3 => (APB1, usart3en, usart3rst),
-    WWDG => (APB1, wwdgen, wwdgrst),
-}
-
-#[cfg(any(feature = "xl", feature = "high"))]
-bus! {
-    GPIOF => (APB2, iopfen, iopfrst),
-    GPIOG => (APB2, iopgen, iopgrst),
-}
-
-#[cfg(any(feature = "high", feature = "connectivity"))]
-bus! {
-    SPI3 => (APB1, spi3en, spi3rst),
-}
-
-ahb_bus! {
-    CRC => (crcen),
-    DMA1 => (dma1en),
-    DMA2 => (dma2en),
-}
-
-#[cfg(feature = "high")]
-ahb_bus! {
-    FSMC => (fsmcen),
-}
-
-bus! {
-    TIM2 => (APB1, tim2en, tim2rst),
-    TIM3 => (APB1, tim3en, tim3rst),
-}
-
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
-bus! {
-    TIM1 => (APB2, tim1en, tim1rst),
-}
-
-#[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity"))]
-bus! {
-    TIM6 => (APB1, tim6en, tim6rst),
-}
-
-#[cfg(any(
-    all(feature = "high", any(feature = "stm32f101", feature = "stm32f103")),
-    any(feature = "stm32f100", feature = "connectivity")
-))]
-bus! {
-    TIM7 => (APB1, tim7en, tim7rst),
-}
-
-#[cfg(feature = "stm32f100")]
-bus! {
-    TIM15 => (APB2, tim15en, tim15rst),
-    TIM16 => (APB2, tim16en, tim16rst),
-    TIM17 => (APB2, tim17en, tim17rst),
-}
-
-#[cfg(feature = "medium")]
-bus! {
-    TIM4 => (APB1, tim4en, tim4rst),
-}
-
-#[cfg(any(feature = "high", feature = "connectivity"))]
-bus! {
-    TIM5 => (APB1, tim5en, tim5rst),
-}
-
-#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high",)))]
-bus! {
-    TIM12 => (APB1, tim12en, tim12rst),
-    TIM13 => (APB1, tim13en, tim13rst),
-    TIM14 => (APB1, tim14en, tim14rst),
-}
-
-#[cfg(all(feature = "stm32f103", feature = "high",))]
-bus! {
-    TIM8 => (APB2, tim8en, tim8rst),
-}
-
-#[cfg(feature = "xl")]
-bus! {
-    TIM9 => (APB2, tim9en, tim9rst),
-    TIM10 => (APB2, tim10en, tim10rst),
-    TIM11 => (APB2, tim11en, tim11rst),
-}
-
-#[cfg(any(feature = "stm32f102", feature = "stm32f103"))]
-bus! {
-    USB => (APB1, usben, usbrst),
+    fn reset(rcc: &rcc::RegisterBlock);
 }

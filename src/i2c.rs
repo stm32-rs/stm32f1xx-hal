@@ -8,8 +8,8 @@ use crate::afio::MAPR;
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
-use crate::pac::{DWT, I2C1, I2C2};
-use crate::rcc::{Clocks, Enable, GetBusFreq, Reset, APB1};
+use crate::pac::{DWT, I2C1, I2C2, RCC};
+use crate::rcc::{Clocks, Enable, GetBusFreq, Reset};
 use crate::time::Hertz;
 use core::ops::Deref;
 use nb::Error::{Other, WouldBlock};
@@ -110,19 +110,12 @@ pub struct BlockingI2c<I2C, PINS> {
 
 impl<PINS> I2c<I2C1, PINS> {
     /// Creates a generic I2C1 object on pins PB6 and PB7 or PB8 and PB9 (if remapped)
-    pub fn i2c1(
-        i2c: I2C1,
-        pins: PINS,
-        mapr: &mut MAPR,
-        mode: Mode,
-        clocks: Clocks,
-        apb: &mut APB1,
-    ) -> Self
+    pub fn i2c1(i2c: I2C1, pins: PINS, mapr: &mut MAPR, mode: Mode, clocks: Clocks) -> Self
     where
         PINS: Pins<I2C1>,
     {
         mapr.modify_mapr(|_, w| w.i2c1_remap().bit(PINS::REMAP));
-        I2c::<I2C1, _>::_i2c(i2c, pins, mode, clocks, apb)
+        I2c::<I2C1, _>::_i2c(i2c, pins, mode, clocks)
     }
 }
 
@@ -135,7 +128,6 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
         mapr: &mut MAPR,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut APB1,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
@@ -150,7 +142,6 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
             pins,
             mode,
             clocks,
-            apb,
             start_timeout_us,
             start_retries,
             addr_timeout_us,
@@ -161,11 +152,11 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
 
 impl<PINS> I2c<I2C2, PINS> {
     /// Creates a generic I2C2 object on pins PB10 and PB11 using the embedded-hal `BlockingI2c` trait.
-    pub fn i2c2(i2c: I2C2, pins: PINS, mode: Mode, clocks: Clocks, apb: &mut APB1) -> Self
+    pub fn i2c2(i2c: I2C2, pins: PINS, mode: Mode, clocks: Clocks) -> Self
     where
         PINS: Pins<I2C2>,
     {
-        I2c::<I2C2, _>::_i2c(i2c, pins, mode, clocks, apb)
+        I2c::<I2C2, _>::_i2c(i2c, pins, mode, clocks)
     }
 }
 
@@ -177,7 +168,6 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
         pins: PINS,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut APB1,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
@@ -191,7 +181,6 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
             pins,
             mode,
             clocks,
-            apb,
             start_timeout_us,
             start_retries,
             addr_timeout_us,
@@ -276,9 +265,10 @@ where
     I2C::Bus: GetBusFreq,
 {
     /// Configures the I2C peripheral to work in master mode
-    fn _i2c(i2c: I2C, pins: PINS, mode: Mode, clocks: Clocks, apb: &mut I2C::Bus) -> Self {
-        I2C::enable(apb);
-        I2C::reset(apb);
+    fn _i2c(i2c: I2C, pins: PINS, mode: Mode, clocks: Clocks) -> Self {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        I2C::enable(rcc);
+        I2C::reset(rcc);
 
         let pclk1 = I2C::Bus::get_frequency(&clocks).0;
 
@@ -407,14 +397,13 @@ where
         pins: PINS,
         mode: Mode,
         clocks: Clocks,
-        apb: &mut I2C::Bus,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> Self {
         blocking_i2c(
-            I2c::<I2C, _>::_i2c(i2c, pins, mode, clocks, apb),
+            I2c::<I2C, _>::_i2c(i2c, pins, mode, clocks),
             clocks,
             start_timeout_us,
             start_retries,
