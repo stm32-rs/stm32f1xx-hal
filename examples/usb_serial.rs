@@ -14,7 +14,7 @@ extern crate panic_semihosting;
 use cortex_m::asm::delay;
 use cortex_m_rt::entry;
 use stm32f1xx_hal::usb::{Peripheral, UsbBus};
-use stm32f1xx_hal::{prelude::*, stm32};
+use stm32f1xx_hal::{pac, prelude::*};
 use usb_device::prelude::*;
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
@@ -23,7 +23,7 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
+    let rcc = dp.RCC.constrain();
 
     let clocks = rcc
         .cfgr
