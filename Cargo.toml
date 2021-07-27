@@ -21,7 +21,7 @@ nb = "0.1.2"
 cortex-m-rt = "0.6.8"
 stm32f1 = "0.11.0"
 embedded-dma = "0.1.2"
-bxcan = "0.4.0"
+bxcan = ">=0.4, <0.6"
 
 [dependencies.void]
 default-features = false

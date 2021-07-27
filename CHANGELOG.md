@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Updated `bxcan` dependency
 - Change internal implementation of pins using const generics
 - Use `cortex-m-rtic` instead of `cortex-m-rtfm` in the examples
 - Renamed `serial`'s `RxDma`/`TxDma`'s `split` method into `release`
