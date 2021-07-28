@@ -41,7 +41,7 @@ fn main() -> ! {
     // HAL structs
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
-    let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+    let mut afio = dp.AFIO.constrain();
     // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
     // `clocks`
     let clocks = if 1 == 1 {
@@ -58,7 +58,7 @@ fn main() -> ! {
     };
 
     // Acquire the GPIOB peripheral
-    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+    let mut gpiob = dp.GPIOB.split();
 
     let scl = gpiob.pb6.into_alternate_open_drain(&mut gpiob.crl);
     let sda = gpiob.pb7.into_alternate_open_drain(&mut gpiob.crl);
@@ -72,7 +72,6 @@ fn main() -> ! {
             duty_cycle: DutyCycle::Ratio16to9,
         },
         clocks,
-        &mut rcc.apb1,
         1000,
         10,
         1000,
