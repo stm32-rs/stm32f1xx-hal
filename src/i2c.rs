@@ -71,6 +71,23 @@ impl Mode {
     }
 }
 
+impl<F> From<F> for Mode
+where
+    F: Into<Hertz>,
+{
+    fn from(frequency: F) -> Self {
+        let frequency: Hertz = frequency.into();
+        if frequency.0 <= 100_000 {
+            Self::Standard { frequency }
+        } else {
+            Self::Fast {
+                frequency,
+                duty_cycle: DutyCycle::Ratio2to1,
+            }
+        }
+    }
+}
+
 /// Helper trait to ensure that the correct I2C pins are used for the corresponding interface
 pub trait Pins<I2C> {
     const REMAP: bool;
@@ -110,7 +127,13 @@ pub struct BlockingI2c<I2C, PINS> {
 
 impl<PINS> I2c<I2C1, PINS> {
     /// Creates a generic I2C1 object on pins PB6 and PB7 or PB8 and PB9 (if remapped)
-    pub fn i2c1(i2c: I2C1, pins: PINS, mapr: &mut MAPR, mode: Mode, clocks: Clocks) -> Self
+    pub fn i2c1<M: Into<Mode>>(
+        i2c: I2C1,
+        pins: PINS,
+        mapr: &mut MAPR,
+        mode: M,
+        clocks: Clocks,
+    ) -> Self
     where
         PINS: Pins<I2C1>,
     {
@@ -122,11 +145,11 @@ impl<PINS> I2c<I2C1, PINS> {
 impl<PINS> BlockingI2c<I2C1, PINS> {
     /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 using the embedded-hal `BlockingI2c` trait.
     #[allow(clippy::too_many_arguments)]
-    pub fn i2c1(
+    pub fn i2c1<M: Into<Mode>>(
         i2c: I2C1,
         pins: PINS,
         mapr: &mut MAPR,
-        mode: Mode,
+        mode: M,
         clocks: Clocks,
         start_timeout_us: u32,
         start_retries: u8,
@@ -152,7 +175,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
 
 impl<PINS> I2c<I2C2, PINS> {
     /// Creates a generic I2C2 object on pins PB10 and PB11 using the embedded-hal `BlockingI2c` trait.
-    pub fn i2c2(i2c: I2C2, pins: PINS, mode: Mode, clocks: Clocks) -> Self
+    pub fn i2c2<M: Into<Mode>>(i2c: I2C2, pins: PINS, mode: M, clocks: Clocks) -> Self
     where
         PINS: Pins<I2C2>,
     {
@@ -163,10 +186,10 @@ impl<PINS> I2c<I2C2, PINS> {
 impl<PINS> BlockingI2c<I2C2, PINS> {
     /// Creates a blocking I2C2 object on pins PB10 and PB1
     #[allow(clippy::too_many_arguments)]
-    pub fn i2c2(
+    pub fn i2c2<M: Into<Mode>>(
         i2c: I2C2,
         pins: PINS,
-        mode: Mode,
+        mode: M,
         clocks: Clocks,
         start_timeout_us: u32,
         start_retries: u8,
@@ -265,7 +288,8 @@ where
     I2C::Bus: GetBusFreq,
 {
     /// Configures the I2C peripheral to work in master mode
-    fn _i2c(i2c: I2C, pins: PINS, mode: Mode, clocks: Clocks) -> Self {
+    fn _i2c<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: Clocks) -> Self {
+        let mode = mode.into();
         let rcc = unsafe { &(*RCC::ptr()) };
         I2C::enable(rcc);
         I2C::reset(rcc);
@@ -392,10 +416,10 @@ where
     I2C::Bus: GetBusFreq,
 {
     #[allow(clippy::too_many_arguments)]
-    fn _i2c(
+    fn _i2c<M: Into<Mode>>(
         i2c: I2C,
         pins: PINS,
-        mode: Mode,
+        mode: M,
         clocks: Clocks,
         start_timeout_us: u32,
         start_retries: u8,
