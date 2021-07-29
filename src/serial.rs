@@ -362,7 +362,7 @@ where
 }
 
 macro_rules! hal {
-    ($(
+    (
         $(#[$meta:meta])*
         $USARTX:ident: (
             $usartX:ident,
@@ -370,110 +370,110 @@ macro_rules! hal {
             $bit:ident,
             $closure:expr,
         ),
-    )+) => {
-        $(
-            $(#[$meta])*
-            /// The behaviour of the functions is equal for all three USARTs.
-            /// Except that they are using the corresponding USART hardware and pins.
-            impl<PINS> Serial<$USARTX, PINS> {
+    ) => {
+        $(#[$meta])*
+        /// The behaviour of the functions is equal for all three USARTs.
+        /// Except that they are using the corresponding USART hardware and pins.
+        impl<PINS> Serial<$USARTX, PINS> {
+            /// Configures the serial interface and creates the interface
+            /// struct.
+            ///
+            /// `Bps` is the baud rate of the interface.
+            ///
+            /// `Clocks` passes information about the current frequencies of
+            /// the clocks.  The existence of the struct ensures that the
+            /// clock settings are fixed.
+            ///
+            /// The `serial` struct takes ownership over the `USARTX` device
+            /// registers and the specified `PINS`
+            ///
+            /// `MAPR` and `APBX` are register handles which are passed for
+            /// configuration. (`MAPR` is used to map the USART to the
+            /// corresponding pins. `APBX` is used to reset the USART.)
+            pub fn $usartX(
+                usart: $USARTX,
+                pins: PINS,
+                mapr: &mut MAPR,
+                config: Config,
+                clocks: Clocks,
+            ) -> Self
+            where
+                PINS: Pins<$USARTX>,
+            {
+                #[allow(unused_unsafe)]
+                Serial { usart, pins }.init(config, clocks, || {
+                    mapr.modify_mapr(|_, w| unsafe {
+                        #[allow(clippy::redundant_closure_call)]
+                        w.$usartX_remap().$bit(($closure)(PINS::REMAP))
+                    })
+                })
+            }
+        }
 
-                /// Configures the serial interface and creates the interface
-                /// struct.
-                ///
-                /// `Bps` is the baud rate of the interface.
-                ///
-                /// `Clocks` passes information about the current frequencies of
-                /// the clocks.  The existence of the struct ensures that the
-                /// clock settings are fixed.
-                ///
-                /// The `serial` struct takes ownership over the `USARTX` device
-                /// registers and the specified `PINS`
-                ///
-                /// `MAPR` and `APBX` are register handles which are passed for
-                /// configuration. (`MAPR` is used to map the USART to the
-                /// corresponding pins. `APBX` is used to reset the USART.)
-                pub fn $usartX(
-                    usart: $USARTX,
-                    pins: PINS,
-                    mapr: &mut MAPR,
-                    config: Config,
-                    clocks: Clocks,
-                ) -> Self
-                where
-                    PINS: Pins<$USARTX>,
-                {
-                    #[allow(unused_unsafe)]
-                    Serial { usart, pins }.init(
-                        config,
-                        clocks,
-                        || mapr.modify_mapr(|_, w| unsafe{
-                            #[allow(clippy::redundant_closure_call)]
-                            w.$usartX_remap().$bit(($closure)(PINS::REMAP))
-                        }))
-                }
-
+        impl Tx<$USARTX> {
+            pub fn listen(&mut self) {
+                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
             }
 
-            impl Tx<$USARTX> {
-                pub fn listen(&mut self) {
-                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
-                }
+            pub fn unlisten(&mut self) {
+                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().clear_bit()) };
+            }
+        }
 
-                pub fn unlisten(&mut self) {
-                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().clear_bit()) };
-                }
+        impl Rx<$USARTX> {
+            pub fn listen(&mut self) {
+                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
             }
 
-            impl Rx<$USARTX> {
-                pub fn listen(&mut self) {
-                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
-                }
-
-                pub fn unlisten(&mut self) {
-                    unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
-                }
+            pub fn unlisten(&mut self) {
+                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
             }
+        }
 
-            impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
-                type Error = Error;
+        impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
+            type Error = Error;
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
-                    unsafe { &*$USARTX::ptr() }.read()
-                }
+            fn read(&mut self) -> nb::Result<u8, Error> {
+                unsafe { &*$USARTX::ptr() }.read()
             }
+        }
 
-            impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
-                type Error = Infallible;
+        impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
+            type Error = Infallible;
 
-                fn flush(&mut self) -> nb::Result<(), Self::Error> {
-                    unsafe { &*$USARTX::ptr() }.flush()
-                }
-                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-                    unsafe { &*$USARTX::ptr() }.write(byte)
-                }
+            fn flush(&mut self) -> nb::Result<(), Self::Error> {
+                unsafe { &*$USARTX::ptr() }.flush()
             }
-
-            impl<PINS> crate::hal::serial::Read<u8> for Serial<$USARTX, PINS> {
-                type Error = Error;
-
-                fn read(&mut self) -> nb::Result<u8, Error> {
-                    self.usart.deref().read()
-                }
+            fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+                unsafe { &*$USARTX::ptr() }.write(byte)
             }
+        }
+    };
+}
 
-            impl<PINS> crate::hal::serial::Write<u8> for Serial<$USARTX, PINS> {
-                type Error = Infallible;
+impl<USART, PINS> crate::hal::serial::Read<u8> for Serial<USART, PINS>
+where
+    USART: Instance,
+{
+    type Error = Error;
 
-                fn flush(&mut self) -> nb::Result<(), Self::Error> {
-                    self.usart.deref().flush()
-                }
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        self.usart.deref().read()
+    }
+}
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-                    self.usart.deref().write(byte)
-                }
-            }
+impl<USART, PINS> crate::hal::serial::Write<u8> for Serial<USART, PINS>
+where
+    USART: Instance,
+{
+    type Error = Infallible;
 
-        )+
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        self.usart.deref().flush()
+    }
+
+    fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+        self.usart.deref().write(byte)
     }
 }
 
@@ -497,6 +497,8 @@ hal! {
         bit,
         |remap| remap == 1,
     ),
+}
+hal! {
     /// # USART2 functions
     USART2: (
         usart2,
@@ -504,6 +506,8 @@ hal! {
         bit,
         |remap| remap == 1,
     ),
+}
+hal! {
     /// # USART3 functions
     USART3: (
         usart3,
