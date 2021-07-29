@@ -1,0 +1,29 @@
+[package]
+name = "i2c-bme280"
+version = "0.1.0"
+license = "Apache-2.0"
+description = "I2C example for real peripheral"
+repository = "https://github.com/stm32-rs/stm32f1xx-hal"
+edition = "2018"
+publish = false
+
+[dependencies]
+bme280 = "0.2.1"
+cortex-m-semihosting = "0.3.3"
+panic-semihosting = "0.5.2"
+cortex-m-rt = "0.6.8"
+cortex-m = "0.6.0"
+
+[dependencies.stm32f1xx-hal]
+path = "../.."
+version = "0.7.0"
+features = ["stm32f103", "rt", "stm32-usbd"]
+
+[profile.dev]
+incremental = false
+codegen-units = 1
+
+[profile.release]
+codegen-units = 1
+debug = true
+lto = true
