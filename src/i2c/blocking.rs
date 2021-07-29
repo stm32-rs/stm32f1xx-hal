@@ -1,4 +1,6 @@
 use super::*;
+use nb::Error::{Other, WouldBlock};
+use nb::{Error as NbError, Result as NbResult};
 
 /// embedded-hal compatible blocking I2C implementation
 ///
@@ -6,7 +8,6 @@ use super::*;
 /// [DWT::enable_cycle_counter] method.
 pub struct BlockingI2c<I2C, PINS> {
     nb: I2c<I2C, PINS>,
-    start_retries: u8,
     timeouts: DwtTimeouts,
 }
 
@@ -77,12 +78,14 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
     }
 }
 
-impl<I2C, PINS> I2c<I2C, PINS> {
+impl<I2C, PINS> I2c<I2C, PINS>
+where
+    I2C: Instance,
+{
     /// Generates a blocking I2C instance from a universal I2C object
     pub fn blocking(
         self,
         start_timeout_us: u32,
-        start_retries: u8,
         addr_timeout_us: u32,
         data_timeout_us: u32,
         clocks: Clocks,
@@ -90,7 +93,6 @@ impl<I2C, PINS> I2c<I2C, PINS> {
         let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
         BlockingI2c {
             nb: self,
-            start_retries,
             timeouts: DwtTimeouts {
                 start: start_timeout_us * sysclk_mhz,
                 addr: addr_timeout_us * sysclk_mhz,
@@ -102,7 +104,6 @@ impl<I2C, PINS> I2c<I2C, PINS> {
         let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
         BlockingI2c {
             nb: self,
-            start_retries: 10,
             timeouts: DwtTimeouts {
                 start: 1000 * sysclk_mhz,
                 addr: 1000 * sysclk_mhz,
@@ -176,9 +177,8 @@ where
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> Self {
-        I2c::<I2C, _>::_i2c(i2c, pins, mode, clocks).blocking(
+        I2c::<I2C, _>::_i2c(i2c, pins, mode, start_retries, clocks).blocking(
             start_timeout_us,
-            start_retries,
             addr_timeout_us,
             data_timeout_us,
             clocks,
@@ -211,7 +211,7 @@ where
     fn send_start_and_wait(&mut self) -> NbResult<(), Error> {
         // According to http://www.st.com/content/ccc/resource/technical/document/errata_sheet/f5/50/c9/46/56/db/4a/f6/CD00197763.pdf/files/CD00197763.pdf/jcr:content/translations/en.CD00197763.pdf
         // 2.14.4 Wrong behavior of I2C peripheral in master mode after a misplaced STOP
-        let mut retries_left = self.start_retries;
+        let mut retries_left = self.nb.start_retries;
         let mut last_ret: NbResult<(), Error> = Err(WouldBlock);
         while retries_left > 0 {
             self.nb.send_start();
