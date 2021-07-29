@@ -212,22 +212,24 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
     }
 }
 
-/// Generates a blocking I2C instance from a universal I2C object
-fn blocking_i2c<I2C, PINS>(
-    i2c: I2c<I2C, PINS>,
-    clocks: Clocks,
-    start_timeout_us: u32,
-    start_retries: u8,
-    addr_timeout_us: u32,
-    data_timeout_us: u32,
-) -> BlockingI2c<I2C, PINS> {
-    let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
-    BlockingI2c {
-        nb: i2c,
-        start_timeout: start_timeout_us * sysclk_mhz,
-        start_retries,
-        addr_timeout: addr_timeout_us * sysclk_mhz,
-        data_timeout: data_timeout_us * sysclk_mhz,
+impl<I2C, PINS> I2c<I2C, PINS> {
+    /// Generates a blocking I2C instance from a universal I2C object
+    pub fn blocking(
+        self,
+        start_timeout_us: u32,
+        start_retries: u8,
+        addr_timeout_us: u32,
+        data_timeout_us: u32,
+        clocks: Clocks,
+    ) -> BlockingI2c<I2C, PINS> {
+        let sysclk_mhz = clocks.sysclk().0 / 1_000_000;
+        BlockingI2c {
+            nb: self,
+            start_timeout: start_timeout_us * sysclk_mhz,
+            start_retries,
+            addr_timeout: addr_timeout_us * sysclk_mhz,
+            data_timeout: data_timeout_us * sysclk_mhz,
+        }
     }
 }
 
@@ -426,13 +428,12 @@ where
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> Self {
-        blocking_i2c(
-            I2c::<I2C, _>::_i2c(i2c, pins, mode, clocks),
-            clocks,
+        I2c::<I2C, _>::_i2c(i2c, pins, mode, clocks).blocking(
             start_timeout_us,
             start_retries,
             addr_timeout_us,
             data_timeout_us,
+            clocks,
         )
     }
 }
