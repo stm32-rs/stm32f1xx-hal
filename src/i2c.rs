@@ -116,6 +116,14 @@ pub struct I2c<I2C, PINS> {
     pclk1: u32,
 }
 
+pub trait Instance:
+    crate::Sealed + Deref<Target = crate::pac::i2c1::RegisterBlock> + Enable + Reset + GetBusFreq
+{
+}
+
+impl Instance for I2C1 {}
+impl Instance for I2C2 {}
+
 impl<PINS> I2c<I2C1, PINS> {
     /// Creates a generic I2C1 object on pins PB6 and PB7 or PB8 and PB9 (if remapped)
     pub fn i2c1<M: Into<Mode>>(
@@ -143,12 +151,9 @@ impl<PINS> I2c<I2C2, PINS> {
     }
 }
 
-pub type I2cRegisterBlock = crate::pac::i2c1::RegisterBlock;
-
 impl<I2C, PINS> I2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock> + Enable + Reset,
-    I2C::Bus: GetBusFreq,
+    I2C: Instance,
 {
     /// Configures the I2C peripheral to work in master mode
     fn _i2c<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: Clocks) -> Self {
@@ -157,7 +162,7 @@ where
         I2C::enable(rcc);
         I2C::reset(rcc);
 
-        let pclk1 = I2C::Bus::get_frequency(&clocks).0;
+        let pclk1 = I2C::get_frequency(&clocks).0;
 
         assert!(mode.get_frequency().0 <= 400_000);
 
@@ -174,7 +179,7 @@ where
 
 impl<I2C, PINS> I2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock>,
+    I2C: Instance,
 {
     /// Initializes I2C. Configures the `I2C_TRISE`, `I2C_CRX`, and `I2C_CCR` registers
     /// according to the system frequency and I2C mode.

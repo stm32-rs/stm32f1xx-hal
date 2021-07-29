@@ -187,3 +187,10 @@ pub mod timer;
 pub mod usb;
 #[cfg(feature = "device-selected")]
 pub mod watchdog;
+
+#[cfg(feature = "device-selected")]
+mod sealed {
+    pub trait Sealed {}
+}
+#[cfg(feature = "device-selected")]
+use sealed::Sealed;

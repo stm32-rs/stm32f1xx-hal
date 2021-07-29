@@ -33,16 +33,12 @@ use crate::pac::CAN2;
 use crate::pac::USB;
 use crate::pac::{CAN1, RCC};
 
-mod sealed {
-    pub trait Sealed {}
-}
-
-pub trait Pins: sealed::Sealed {
+pub trait Pins: crate::Sealed {
     type Instance;
     fn remap(mapr: &mut MAPR);
 }
 
-impl sealed::Sealed for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {}
+impl crate::Sealed for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {}
 impl Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
     type Instance = CAN1;
 
@@ -54,7 +50,7 @@ impl Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
     }
 }
 
-impl sealed::Sealed for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {}
+impl crate::Sealed for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {}
 impl Pins for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {
     type Instance = CAN1;
 
@@ -67,7 +63,7 @@ impl Pins for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {
 }
 
 #[cfg(feature = "connectivity")]
-impl sealed::Sealed for (PB13<Alternate<PushPull>>, PB12<Input<Floating>>) {}
+impl crate::Sealed for (PB13<Alternate<PushPull>>, PB12<Input<Floating>>) {}
 #[cfg(feature = "connectivity")]
 impl Pins for (PB13<Alternate<PushPull>>, PB12<Input<Floating>>) {
     type Instance = CAN2;
@@ -78,7 +74,7 @@ impl Pins for (PB13<Alternate<PushPull>>, PB12<Input<Floating>>) {
 }
 
 #[cfg(feature = "connectivity")]
-impl sealed::Sealed for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {}
+impl crate::Sealed for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {}
 #[cfg(feature = "connectivity")]
 impl Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
     type Instance = CAN2;

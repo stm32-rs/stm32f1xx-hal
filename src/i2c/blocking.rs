@@ -163,8 +163,7 @@ macro_rules! busy_wait_cycles {
 
 impl<I2C, PINS> BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock> + Enable + Reset,
-    I2C::Bus: GetBusFreq,
+    I2C: Instance,
 {
     #[allow(clippy::too_many_arguments)]
     fn _i2c<M: Into<Mode>>(
@@ -189,7 +188,7 @@ where
 
 impl<I2C, PINS> BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock>,
+    I2C: Instance,
 {
     /// Check if START condition is generated. If the condition is not generated, this
     /// method returns `WouldBlock` so the program can act accordingly
@@ -266,7 +265,7 @@ where
 
 impl<I2C, PINS> Write for BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock>,
+    I2C: Instance,
 {
     type Error = NbError<Error>;
 
@@ -281,7 +280,7 @@ where
 
 impl<I2C, PINS> Read for BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock>,
+    I2C: Instance,
 {
     type Error = NbError<Error>;
 
@@ -353,7 +352,7 @@ where
 
 impl<I2C, PINS> WriteRead for BlockingI2c<I2C, PINS>
 where
-    I2C: Deref<Target = I2cRegisterBlock>,
+    I2C: Instance,
 {
     type Error = NbError<Error>;
 

@@ -515,6 +515,19 @@ pub trait GetBusFreq {
     }
 }
 
+impl<T> GetBusFreq for T
+where
+    T: RccBus,
+    T::Bus: GetBusFreq,
+{
+    fn get_frequency(clocks: &Clocks) -> Hertz {
+        T::Bus::get_frequency(clocks)
+    }
+    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+        T::Bus::get_timer_frequency(clocks)
+    }
+}
+
 impl GetBusFreq for AHB {
     fn get_frequency(clocks: &Clocks) -> Hertz {
         clocks.hclk
@@ -539,14 +552,8 @@ impl GetBusFreq for APB2 {
     }
 }
 
-pub(crate) mod sealed {
-
-    pub trait Sealed {}
-}
-use sealed::Sealed;
-
 /// Bus associated to peripheral
-pub trait RccBus {
+pub trait RccBus: crate::Sealed {
     /// Bus type;
     type Bus;
 }
