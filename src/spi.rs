@@ -143,6 +143,16 @@ remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
 #[cfg(feature = "connectivity")]
 remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
 
+pub trait Instance:
+    crate::Sealed + Deref<Target = crate::pac::spi1::RegisterBlock> + Enable + Reset + GetBusFreq
+{
+}
+
+impl Instance for SPI1 {}
+impl Instance for SPI2 {}
+#[cfg(any(feature = "high", feature = "connectivity"))]
+impl Instance for SPI3 {}
+
 impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
@@ -232,8 +242,6 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     }
 }
 
-pub type SpiRegisterBlock = crate::pac::spi1::RegisterBlock;
-
 pub trait SpiReadWrite<T> {
     fn read_data_reg(&mut self) -> T;
     fn write_data_reg(&mut self, data: T);
@@ -242,7 +250,7 @@ pub trait SpiReadWrite<T> {
 
 impl<SPI, REMAP, PINS, FrameSize> SpiReadWrite<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize>
 where
-    SPI: Deref<Target = SpiRegisterBlock>,
+    SPI: Instance,
     FrameSize: Copy,
 {
     fn read_data_reg(&mut self) -> FrameSize {
@@ -303,7 +311,7 @@ where
 
 impl<SPI, REMAP, PINS, FrameSize> Spi<SPI, REMAP, PINS, FrameSize>
 where
-    SPI: Deref<Target = SpiRegisterBlock>,
+    SPI: Instance,
     FrameSize: Copy,
 {
     #[deprecated(since = "0.6.0", note = "Please use release instead")]
@@ -325,8 +333,7 @@ where
 
 impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8>
 where
-    SPI: Deref<Target = SpiRegisterBlock> + Enable + Reset,
-    SPI::Bus: GetBusFreq,
+    SPI: Instance,
 {
     fn _spi(spi: SPI, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self {
         // enable or reset SPI
@@ -337,7 +344,7 @@ where
         // disable SS output
         spi.cr2.write(|w| w.ssoe().clear_bit());
 
-        let br = match SPI::Bus::get_frequency(&clocks).0 / freq.0 {
+        let br = match SPI::get_frequency(&clocks).0 / freq.0 {
             0 => unreachable!(),
             1..=2 => 0b000,
             3..=5 => 0b001,
@@ -409,7 +416,7 @@ where
 
 impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u16>
 where
-    SPI: Deref<Target = SpiRegisterBlock>,
+    SPI: Instance,
 {
     /// Converts from 16bit dataframe to 8bit.
     pub fn frame_size_8bit(self) -> Spi<SPI, REMAP, PINS, u8> {
@@ -428,7 +435,7 @@ where
 impl<SPI, REMAP, PINS, FrameSize> crate::hal::spi::FullDuplex<FrameSize>
     for Spi<SPI, REMAP, PINS, FrameSize>
 where
-    SPI: Deref<Target = SpiRegisterBlock>,
+    SPI: Instance,
     FrameSize: Copy,
 {
     type Error = Error;
@@ -473,14 +480,14 @@ where
 impl<SPI, REMAP, PINS, FrameSize> crate::hal::blocking::spi::transfer::Default<FrameSize>
     for Spi<SPI, REMAP, PINS, FrameSize>
 where
-    SPI: Deref<Target = SpiRegisterBlock>,
+    SPI: Instance,
     FrameSize: Copy,
 {
 }
 
 impl<SPI, REMAP, PINS> crate::hal::blocking::spi::Write<u8> for Spi<SPI, REMAP, PINS, u8>
 where
-    SPI: Deref<Target = SpiRegisterBlock>,
+    SPI: Instance,
 {
     type Error = Error;
 
@@ -495,7 +502,7 @@ where
 
 impl<SPI, REMAP, PINS> crate::hal::blocking::spi::Write<u16> for Spi<SPI, REMAP, PINS, u16>
 where
-    SPI: Deref<Target = SpiRegisterBlock>,
+    SPI: Instance,
 {
     type Error = Error;
 
