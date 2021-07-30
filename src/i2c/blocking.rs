@@ -117,17 +117,25 @@ macro_rules! wait_for_flag {
     ($i2c:expr, $flag:ident) => {{
         let sr1 = $i2c.sr1.read();
 
+        // Writing 1s in order to only clear the flag we spotted even
+        // if the register gets modified externally
+        // NOTE(unsafe): Writing 1 to registers which are cleared by 0 has no effect.
+        //               Similarly, writing to read-only registers has no effect
         if sr1.berr().bit_is_set() {
-            $i2c.sr1.write(|w| w.berr().clear_bit());
+            $i2c.sr1
+                .write(|w| unsafe { w.bits(0xffff).berr().clear_bit() });
             Err(Other(Error::Bus))
         } else if sr1.arlo().bit_is_set() {
-            $i2c.sr1.write(|w| w.arlo().clear_bit());
+            $i2c.sr1
+                .write(|w| unsafe { w.bits(0xffff).arlo().clear_bit() });
             Err(Other(Error::Arbitration))
         } else if sr1.af().bit_is_set() {
-            $i2c.sr1.write(|w| w.af().clear_bit());
+            $i2c.sr1
+                .write(|w| unsafe { w.bits(0xffff).af().clear_bit() });
             Err(Other(Error::Acknowledge))
         } else if sr1.ovr().bit_is_set() {
-            $i2c.sr1.write(|w| w.ovr().clear_bit());
+            $i2c.sr1
+                .write(|w| unsafe { w.bits(0xffff).ovr().clear_bit() });
             Err(Other(Error::Overrun))
         } else if sr1.$flag().bit_is_set() {
             Ok(())
@@ -237,8 +245,7 @@ where
     }
 
     fn write_bytes_and_wait(&mut self, bytes: &[u8]) -> NbResult<(), Error> {
-        self.nb.i2c.sr1.read();
-        self.nb.i2c.sr2.read();
+        self.nb.clear_addr_flag();
 
         self.nb.i2c.dr.write(|w| w.dr().bits(bytes[0]));
 
@@ -291,8 +298,7 @@ where
         match buffer.len() {
             1 => {
                 self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
-                self.nb.i2c.sr1.read();
-                self.nb.i2c.sr2.read();
+                self.nb.clear_addr_flag();
                 self.nb.send_stop();
 
                 busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.timeouts.data)?;
@@ -306,8 +312,7 @@ where
                     .i2c
                     .cr1
                     .modify(|_, w| w.pos().set_bit().ack().set_bit());
-                self.nb.i2c.sr1.read();
-                self.nb.i2c.sr2.read();
+                self.nb.clear_addr_flag();
                 self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
 
                 busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.timeouts.data)?;
@@ -324,8 +329,7 @@ where
             }
             buffer_len => {
                 self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
-                self.nb.i2c.sr1.read();
-                self.nb.i2c.sr2.read();
+                self.nb.clear_addr_flag();
 
                 let (first_bytes, last_two_bytes) = buffer.split_at_mut(buffer_len - 3);
                 for byte in first_bytes {

@@ -246,6 +246,9 @@ where
 
     /// Generate START condition
     fn send_start(&mut self) {
+        // Clear all pending error bits
+        // NOTE(unsafe): Writing 0 clears the r/w bits and has no effect on the r bits
+        self.i2c.sr1.reset();
         self.i2c.cr1.modify(|_, w| w.start().set_bit());
     }
 
@@ -260,6 +263,12 @@ where
     /// Generate STOP condition
     fn send_stop(&self) {
         self.i2c.cr1.modify(|_, w| w.stop().set_bit());
+    }
+
+    /// Clears the I2C ADDR pending flag
+    fn clear_addr_flag(&self) {
+        self.i2c.sr1.read();
+        self.i2c.sr2.read();
     }
 
     /// Releases the I2C peripheral and associated pins
@@ -279,21 +288,34 @@ where
 {
     fn check_and_clear_error_flags(&self) -> Result<pac::i2c1::sr1::R, Error> {
         let sr1 = self.i2c.sr1.read();
-        if sr1.berr().bit_is_set() {
-            self.i2c.sr1.write(|w| w.berr().clear_bit());
-            Err(Error::Bus)
-        } else if sr1.arlo().bit_is_set() {
-            self.i2c.sr1.write(|w| w.arlo().clear_bit());
-            Err(Error::Arbitration)
-        } else if sr1.af().bit_is_set() {
-            self.i2c.sr1.write(|w| w.af().clear_bit());
-            Err(Error::Acknowledge)
-        } else if sr1.ovr().bit_is_set() {
-            self.i2c.sr1.write(|w| w.ovr().clear_bit());
-            Err(Error::Overrun)
-        } else {
-            Ok(sr1)
+        if sr1.bits() != 0 {
+            // Writing 1s in order to only clear the flag we spotted even
+            // if the register gets modified externally
+            // NOTE(unsafe): Writing 1 to registers which are cleared by 0 has no effect.
+            //               Similarly, writing to read-only registers has no effect
+            if sr1.berr().bit_is_set() {
+                self.i2c
+                    .sr1
+                    .write(|w| unsafe { w.bits(0xffff).berr().clear_bit() });
+                return Err(Error::Bus);
+            } else if sr1.arlo().bit_is_set() {
+                self.i2c
+                    .sr1
+                    .write(|w| unsafe { w.bits(0xffff).arlo().clear_bit() });
+                return Err(Error::Arbitration);
+            } else if sr1.af().bit_is_set() {
+                self.i2c
+                    .sr1
+                    .write(|w| unsafe { w.bits(0xffff).af().clear_bit() });
+                return Err(Error::Acknowledge);
+            } else if sr1.ovr().bit_is_set() {
+                self.i2c
+                    .sr1
+                    .write(|w| unsafe { w.bits(0xffff).ovr().clear_bit() });
+                return Err(Error::Overrun);
+            }
         }
+        Ok(sr1)
     }
 
     /// Check if STOP condition is generated
@@ -339,19 +361,17 @@ where
                         break Ok(());
                     }
                 }
-                Err(e) => {
-                    if let Error::Acknowledge = e {
-                        self.send_stop();
-                    }
-                    break Err(e);
+                Err(Error::Acknowledge) => {
+                    self.send_stop();
+                    break Err(Error::Acknowledge);
                 }
+                Err(e) => break Err(e),
             }
         }
     }
 
     fn write_bytes_and_wait(&mut self, bytes: &[u8]) -> Result<(), Error> {
-        self.i2c.sr1.read();
-        self.i2c.sr2.read();
+        self.clear_addr_flag();
 
         self.i2c.dr.write(|w| w.dr().bits(bytes[0]));
 
@@ -404,8 +424,7 @@ where
         match buffer.len() {
             1 => {
                 self.i2c.cr1.modify(|_, w| w.ack().clear_bit());
-                self.i2c.sr1.read();
-                self.i2c.sr2.read();
+                self.clear_addr_flag();
                 self.send_stop();
 
                 while self.check_and_clear_error_flags()?.rx_ne().bit_is_clear() {}
@@ -418,8 +437,7 @@ where
                 self.i2c
                     .cr1
                     .modify(|_, w| w.pos().set_bit().ack().set_bit());
-                self.i2c.sr1.read();
-                self.i2c.sr2.read();
+                self.clear_addr_flag();
                 self.i2c.cr1.modify(|_, w| w.ack().clear_bit());
 
                 while self.check_and_clear_error_flags()?.btf().bit_is_clear() {}
@@ -435,10 +453,9 @@ where
             }
             buffer_len => {
                 self.i2c.cr1.modify(|_, w| w.ack().set_bit());
-                self.i2c.sr1.read();
-                self.i2c.sr2.read();
+                self.clear_addr_flag();
 
-                let (first_bytes, last_two_bytes) = buffer.split_at_mut(buffer_len - 3);
+                let (first_bytes, last_3_bytes) = buffer.split_at_mut(buffer_len - 3);
                 for byte in first_bytes {
                     while self.check_and_clear_error_flags()?.rx_ne().bit_is_clear() {}
                     *byte = self.i2c.dr.read().dr().bits();
@@ -446,11 +463,11 @@ where
 
                 while self.check_and_clear_error_flags()?.btf().bit_is_clear() {}
                 self.i2c.cr1.modify(|_, w| w.ack().clear_bit());
-                last_two_bytes[0] = self.i2c.dr.read().dr().bits();
+                last_3_bytes[0] = self.i2c.dr.read().dr().bits();
                 self.send_stop();
-                last_two_bytes[1] = self.i2c.dr.read().dr().bits();
+                last_3_bytes[1] = self.i2c.dr.read().dr().bits();
                 while self.check_and_clear_error_flags()?.rx_ne().bit_is_clear() {}
-                last_two_bytes[2] = self.i2c.dr.read().dr().bits();
+                last_3_bytes[2] = self.i2c.dr.read().dr().bits();
 
                 self.wait_for_stop();
                 self.i2c.cr1.modify(|_, w| w.ack().set_bit());
