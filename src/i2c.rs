@@ -130,30 +130,23 @@ impl<PINS> I2c<I2C1, PINS> {
         pins: PINS,
         mapr: &mut MAPR,
         mode: M,
-        start_retries: u8,
         clocks: Clocks,
     ) -> Self
     where
         PINS: Pins<I2C1>,
     {
         mapr.modify_mapr(|_, w| w.i2c1_remap().bit(PINS::REMAP));
-        I2c::<I2C1, _>::_i2c(i2c, pins, mode, start_retries, clocks)
+        I2c::<I2C1, _>::_i2c(i2c, pins, mode, clocks)
     }
 }
 
 impl<PINS> I2c<I2C2, PINS> {
     /// Creates a generic I2C2 object on pins PB10 and PB11 using the embedded-hal `BlockingI2c` trait.
-    pub fn i2c2<M: Into<Mode>>(
-        i2c: I2C2,
-        pins: PINS,
-        mode: M,
-        start_retries: u8,
-        clocks: Clocks,
-    ) -> Self
+    pub fn i2c2<M: Into<Mode>>(i2c: I2C2, pins: PINS, mode: M, clocks: Clocks) -> Self
     where
         PINS: Pins<I2C2>,
     {
-        I2c::<I2C2, _>::_i2c(i2c, pins, mode, start_retries, clocks)
+        I2c::<I2C2, _>::_i2c(i2c, pins, mode, clocks)
     }
 }
 
@@ -162,13 +155,7 @@ where
     I2C: Instance,
 {
     /// Configures the I2C peripheral to work in master mode
-    fn _i2c<M: Into<Mode>>(
-        i2c: I2C,
-        pins: PINS,
-        mode: M,
-        start_retries: u8,
-        clocks: Clocks,
-    ) -> Self {
+    fn _i2c<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: Clocks) -> Self {
         let mode = mode.into();
         let rcc = unsafe { &(*RCC::ptr()) };
         I2C::enable(rcc);
@@ -183,10 +170,15 @@ where
             pins,
             mode,
             clk,
-            start_retries,
+            start_retries: 1,
         };
         i2c.init();
         i2c
+    }
+
+    fn retries(mut self, start_retries: u8) -> Self {
+        self.start_retries = start_retries;
+        self
     }
 }
 
@@ -421,19 +413,19 @@ where
         self.send_start_and_wait()?;
         self.send_addr_and_wait(addr, true)?;
 
-        match buffer.len() {
-            1 => {
+        match buffer {
+            [b0] => {
                 self.i2c.cr1.modify(|_, w| w.ack().clear_bit());
                 self.clear_addr_flag();
                 self.send_stop();
 
                 while self.check_and_clear_error_flags()?.rx_ne().bit_is_clear() {}
-                buffer[0] = self.i2c.dr.read().dr().bits();
+                *b0 = self.i2c.dr.read().dr().bits();
 
                 self.wait_for_stop();
                 self.i2c.cr1.modify(|_, w| w.ack().set_bit());
             }
-            2 => {
+            [b0, b1] => {
                 self.i2c
                     .cr1
                     .modify(|_, w| w.pos().set_bit().ack().set_bit());
@@ -442,8 +434,8 @@ where
 
                 while self.check_and_clear_error_flags()?.btf().bit_is_clear() {}
                 self.send_stop();
-                buffer[0] = self.i2c.dr.read().dr().bits();
-                buffer[1] = self.i2c.dr.read().dr().bits();
+                *b0 = self.i2c.dr.read().dr().bits();
+                *b1 = self.i2c.dr.read().dr().bits();
 
                 self.wait_for_stop();
                 self.i2c
@@ -451,11 +443,11 @@ where
                     .modify(|_, w| w.pos().clear_bit().ack().clear_bit());
                 self.i2c.cr1.modify(|_, w| w.ack().set_bit());
             }
-            buffer_len => {
+            _ => {
                 self.i2c.cr1.modify(|_, w| w.ack().set_bit());
                 self.clear_addr_flag();
 
-                let (first_bytes, last_3_bytes) = buffer.split_at_mut(buffer_len - 3);
+                let (first_bytes, last_3_bytes) = buffer.split_at_mut(buffer.len() - 3);
                 for byte in first_bytes {
                     while self.check_and_clear_error_flags()?.rx_ne().bit_is_clear() {}
                     *byte = self.i2c.dr.read().dr().bits();

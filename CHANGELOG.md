@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Implementation of blocking i2c without timeouts
 - `From<Into<Hertz>>` for `i2c::Mode`
 - `exti_rtic` example
 - Support for OpenDrain pin configuration on SPI CLK and MOSI pins

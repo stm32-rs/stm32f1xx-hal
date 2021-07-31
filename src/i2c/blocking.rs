@@ -185,12 +185,9 @@ where
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> Self {
-        I2c::<I2C, _>::_i2c(i2c, pins, mode, start_retries, clocks).blocking(
-            start_timeout_us,
-            addr_timeout_us,
-            data_timeout_us,
-            clocks,
-        )
+        I2c::<I2C, _>::_i2c(i2c, pins, mode, clocks)
+            .retries(start_retries)
+            .blocking(start_timeout_us, addr_timeout_us, data_timeout_us, clocks)
     }
 }
 
@@ -295,19 +292,19 @@ where
         self.send_start_and_wait()?;
         self.send_addr_and_wait(addr, true)?;
 
-        match buffer.len() {
-            1 => {
+        match buffer {
+            [b0] => {
                 self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
                 self.nb.clear_addr_flag();
                 self.nb.send_stop();
 
                 busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.timeouts.data)?;
-                buffer[0] = self.nb.i2c.dr.read().dr().bits();
+                *b0 = self.nb.i2c.dr.read().dr().bits();
 
                 busy_wait_cycles!(self.wait_for_stop(), self.timeouts.data)?;
                 self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
             }
-            2 => {
+            [b0, b1] => {
                 self.nb
                     .i2c
                     .cr1
@@ -317,8 +314,8 @@ where
 
                 busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.timeouts.data)?;
                 self.nb.send_stop();
-                buffer[0] = self.nb.i2c.dr.read().dr().bits();
-                buffer[1] = self.nb.i2c.dr.read().dr().bits();
+                *b0 = self.nb.i2c.dr.read().dr().bits();
+                *b1 = self.nb.i2c.dr.read().dr().bits();
 
                 busy_wait_cycles!(self.wait_for_stop(), self.timeouts.data)?;
                 self.nb
@@ -327,11 +324,11 @@ where
                     .modify(|_, w| w.pos().clear_bit().ack().clear_bit());
                 self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
             }
-            buffer_len => {
+            _ => {
                 self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
                 self.nb.clear_addr_flag();
 
-                let (first_bytes, last_two_bytes) = buffer.split_at_mut(buffer_len - 3);
+                let (first_bytes, last_3_bytes) = buffer.split_at_mut(buffer.len() - 3);
                 for byte in first_bytes {
                     busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.timeouts.data)?;
                     *byte = self.nb.i2c.dr.read().dr().bits();
@@ -339,11 +336,11 @@ where
 
                 busy_wait_cycles!(wait_for_flag!(self.nb.i2c, btf), self.timeouts.data)?;
                 self.nb.i2c.cr1.modify(|_, w| w.ack().clear_bit());
-                last_two_bytes[0] = self.nb.i2c.dr.read().dr().bits();
+                last_3_bytes[0] = self.nb.i2c.dr.read().dr().bits();
                 self.nb.send_stop();
-                last_two_bytes[1] = self.nb.i2c.dr.read().dr().bits();
+                last_3_bytes[1] = self.nb.i2c.dr.read().dr().bits();
                 busy_wait_cycles!(wait_for_flag!(self.nb.i2c, rx_ne), self.timeouts.data)?;
-                last_two_bytes[2] = self.nb.i2c.dr.read().dr().bits();
+                last_3_bytes[2] = self.nb.i2c.dr.read().dr().bits();
 
                 busy_wait_cycles!(self.wait_for_stop(), self.timeouts.data)?;
                 self.nb.i2c.cr1.modify(|_, w| w.ack().set_bit());
