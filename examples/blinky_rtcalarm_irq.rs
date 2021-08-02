@@ -7,6 +7,7 @@
 //! GPIOs PC13 to PC15 in output mode is restricted: the speed has to be limited to 2MHz with
 //! a maximum load of 30pF and these IOs must not be used as a current source (e.g. to drive a LED)"
 
+#![cfg(not(feature = "stm32f101"))]
 #![no_std]
 #![no_main]
 
@@ -38,16 +39,6 @@ static G_EXTI: Mutex<RefCell<Option<EXTI>>> = Mutex::new(RefCell::new(None));
 // Toggle LED every 3 seconds
 const TOGGLE_INTERVAL_SECONDS: u32 = 3;
 
-// The f100 does not have an RTC, so this example is disabled
-#[cfg(feature = "stm32f101")]
-#[entry]
-fn main() -> ! {
-    loop {
-        continue;
-    }
-}
-
-#[cfg(not(feature = "stm32f101"))]
 #[interrupt]
 fn RTCALARM() {
     static mut LED: Option<LEDPIN> = None;
@@ -70,7 +61,6 @@ fn RTCALARM() {
     let _ = led.toggle();
 }
 
-#[cfg(not(feature = "stm32f101"))]
 #[entry]
 fn main() -> ! {
     let dp = Peripherals::take().unwrap();
