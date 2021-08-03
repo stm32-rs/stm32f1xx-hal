@@ -12,8 +12,8 @@
 //! let mut flash = p.FLASH.constrain();
 //! let mut rcc = p.RCC.constrain();
 //! let clocks = rcc.cfgr.freeze(&mut flash.acr);
-//! let mut afio = p.AFIO.constrain(&mut rcc.apb2);
-//! let mut gpioa = p.GPIOA.split(&mut rcc.apb2);
+//! let mut afio = p.AFIO.constrain();
+//! let mut gpioa = p.GPIOA.split();
 //!
 //! // USART1 on Pins A9 and A10
 //! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
@@ -25,7 +25,6 @@
 //!     &mut afio.mapr,
 //!     Config::default().baudrate(9_600.bps()),
 //!     clocks,
-//!     &mut rcc.apb2,
 //! );
 //!
 //! // separate into tx and rx channels
@@ -176,6 +175,8 @@ impl Default for Config {
     }
 }
 
+use crate::pac::usart1 as uart_base;
+
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
     usart: USART,
@@ -183,13 +184,11 @@ pub struct Serial<USART, PINS> {
 }
 
 pub trait Instance:
-    crate::Sealed + Deref<Target = crate::pac::usart1::RegisterBlock> + Enable + Reset + GetBusFreq
+    crate::Sealed + Deref<Target = uart_base::RegisterBlock> + Enable + Reset + GetBusFreq
 {
+    #[doc(hidden)]
+    fn ptr() -> *const uart_base::RegisterBlock;
 }
-
-impl Instance for USART1 {}
-impl Instance for USART2 {}
-impl Instance for USART3 {}
 
 /// Serial receiver
 pub struct Rx<USART> {
@@ -201,70 +200,21 @@ pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
-/// Internal trait for the serial read / write logic.
-trait UsartReadWrite: Deref<Target = crate::pac::usart1::RegisterBlock> {
-    fn read(&self) -> nb::Result<u8, Error> {
-        let sr = self.sr.read();
-
-        // Check for any errors
-        let err = if sr.pe().bit_is_set() {
-            Some(Error::Parity)
-        } else if sr.fe().bit_is_set() {
-            Some(Error::Framing)
-        } else if sr.ne().bit_is_set() {
-            Some(Error::Noise)
-        } else if sr.ore().bit_is_set() {
-            Some(Error::Overrun)
-        } else {
-            None
-        };
-
-        if let Some(err) = err {
-            // Some error occurred. In order to clear that error flag, you have to
-            // do a read from the sr register followed by a read from the dr
-            // register
-            // NOTE(read_volatile) see `write_volatile` below
-            unsafe {
-                ptr::read_volatile(&self.sr as *const _ as *const _);
-                ptr::read_volatile(&self.dr as *const _ as *const _);
-            }
-            Err(nb::Error::Other(err))
-        } else {
-            // Check if a byte is available
-            if sr.rxne().bit_is_set() {
-                // Read the received byte
-                // NOTE(read_volatile) see `write_volatile` below
-                Ok(unsafe { ptr::read_volatile(&self.dr as *const _ as *const _) })
-            } else {
-                Err(nb::Error::WouldBlock)
-            }
-        }
-    }
-
-    fn write(&self, byte: u8) -> nb::Result<(), Infallible> {
-        let sr = self.sr.read();
-
-        if sr.txe().bit_is_set() {
-            // NOTE(unsafe) atomic write to stateless register
-            // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-            unsafe { ptr::write_volatile(&self.dr as *const _ as *mut _, byte) }
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
-    }
-
-    fn flush(&self) -> nb::Result<(), Infallible> {
-        let sr = self.sr.read();
-
-        if sr.tc().bit_is_set() {
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
+impl<USART> Rx<USART> {
+    fn new() -> Self {
+        Self {
+            _usart: PhantomData,
         }
     }
 }
-impl UsartReadWrite for &crate::pac::usart1::RegisterBlock {}
+
+impl<USART> Tx<USART> {
+    fn new() -> Self {
+        Self {
+            _usart: PhantomData,
+        }
+    }
+}
 
 impl<USART, PINS> Serial<USART, PINS>
 where
@@ -348,12 +298,12 @@ where
     }
 
     /// Return true if the tx register is empty (and can accept data)
-    pub fn is_txe(&self) -> bool {
+    pub fn is_tx_empty(&self) -> bool {
         self.usart.sr.read().txe().bit_is_set()
     }
 
     /// Return true if the rx register is not empty (and can be read)
-    pub fn is_rxne(&self) -> bool {
+    pub fn is_rx_not_empty(&self) -> bool {
         self.usart.sr.read().rxne().bit_is_set()
     }
 
@@ -365,14 +315,7 @@ where
     /// Separates the serial struct into separate channel objects for sending (Tx) and
     /// receiving (Rx)
     pub fn split(self) -> (Tx<USART>, Rx<USART>) {
-        (
-            Tx {
-                _usart: PhantomData,
-            },
-            Rx {
-                _usart: PhantomData,
-            },
-        )
+        (Tx::new(), Rx::new())
     }
 }
 
@@ -386,6 +329,12 @@ macro_rules! hal {
             $closure:expr,
         ),
     ) => {
+        impl Instance for $USARTX {
+            fn ptr() -> *const uart_base::RegisterBlock {
+                <$USARTX>::ptr() as *const _
+            }
+        }
+
         $(#[$meta])*
         /// The behaviour of the functions is equal for all three USARTs.
         /// Except that they are using the corresponding USART hardware and pins.
@@ -425,65 +374,129 @@ macro_rules! hal {
             }
         }
 
-        impl Tx<$USARTX> {
-            pub fn listen(&mut self) {
-                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
-            }
-
-            pub fn unlisten(&mut self) {
-                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().clear_bit()) };
-            }
-
-            pub fn is_txe(&self) -> bool {
-                unsafe { (*$USARTX::ptr()).sr.read().txe().bit_is_set() }
-            }
-        }
-
-        impl Rx<$USARTX> {
-            pub fn listen(&mut self) {
-                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
-            }
-
-            pub fn unlisten(&mut self) {
-                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
-            }
-
-            pub fn listen_idle(&mut self) {
-                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.idleie().set_bit()) };
-            }
-
-            pub fn unlisten_idle(&mut self) {
-                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.idleie().clear_bit()) };
-            }
-
-            pub fn is_idle(&self) -> bool {
-                unsafe { (*$USARTX::ptr()).sr.read().idle().bit_is_set() }
-            }
-
-            pub fn is_rxne(&self) -> bool {
-                unsafe { (*$USARTX::ptr()).sr.read().rxne().bit_is_set() }
-            }
-        }
-
-        impl crate::hal::serial::Read<u8> for Rx<$USARTX> {
-            type Error = Error;
-
-            fn read(&mut self) -> nb::Result<u8, Error> {
-                unsafe { &*$USARTX::ptr() }.read()
-            }
-        }
-
-        impl crate::hal::serial::Write<u8> for Tx<$USARTX> {
-            type Error = Infallible;
-
-            fn flush(&mut self) -> nb::Result<(), Self::Error> {
-                unsafe { &*$USARTX::ptr() }.flush()
-            }
-            fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-                unsafe { &*$USARTX::ptr() }.write(byte)
-            }
-        }
     };
+}
+
+impl<USART> Tx<USART>
+where
+    USART: Instance,
+{
+    pub fn listen(&mut self) {
+        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
+    }
+
+    pub fn unlisten(&mut self) {
+        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.txeie().clear_bit()) };
+    }
+
+    pub fn is_tx_empty(&self) -> bool {
+        unsafe { (*USART::ptr()).sr.read().txe().bit_is_set() }
+    }
+}
+
+impl<USART> Rx<USART>
+where
+    USART: Instance,
+{
+    pub fn listen(&mut self) {
+        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
+    }
+
+    pub fn unlisten(&mut self) {
+        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
+    }
+
+    pub fn listen_idle(&mut self) {
+        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.idleie().set_bit()) };
+    }
+
+    pub fn unlisten_idle(&mut self) {
+        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.idleie().clear_bit()) };
+    }
+
+    pub fn is_idle(&self) -> bool {
+        unsafe { (*USART::ptr()).sr.read().idle().bit_is_set() }
+    }
+
+    pub fn is_rx_not_empty(&self) -> bool {
+        unsafe { (*USART::ptr()).sr.read().rxne().bit_is_set() }
+    }
+}
+
+impl<USART> crate::hal::serial::Read<u8> for Rx<USART>
+where
+    USART: Instance,
+{
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        let usart = unsafe { &*USART::ptr() };
+        let sr = usart.sr.read();
+
+        // Check for any errors
+        let err = if sr.pe().bit_is_set() {
+            Some(Error::Parity)
+        } else if sr.fe().bit_is_set() {
+            Some(Error::Framing)
+        } else if sr.ne().bit_is_set() {
+            Some(Error::Noise)
+        } else if sr.ore().bit_is_set() {
+            Some(Error::Overrun)
+        } else {
+            None
+        };
+
+        if let Some(err) = err {
+            // Some error occurred. In order to clear that error flag, you have to
+            // do a read from the sr register followed by a read from the dr
+            // register
+            // NOTE(read_volatile) see `write_volatile` below
+            unsafe {
+                ptr::read_volatile(&usart.sr as *const _ as *const _);
+                ptr::read_volatile(&usart.dr as *const _ as *const _);
+            }
+            Err(nb::Error::Other(err))
+        } else {
+            // Check if a byte is available
+            if sr.rxne().bit_is_set() {
+                // Read the received byte
+                // NOTE(read_volatile) see `write_volatile` below
+                Ok(unsafe { ptr::read_volatile(&usart.dr as *const _ as *const _) })
+            } else {
+                Err(nb::Error::WouldBlock)
+            }
+        }
+    }
+}
+
+impl<USART> crate::hal::serial::Write<u8> for Tx<USART>
+where
+    USART: Instance,
+{
+    type Error = Infallible;
+
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        let sr = unsafe { &*USART::ptr() }.sr.read();
+
+        if sr.tc().bit_is_set() {
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+    fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+        let usart = unsafe { &*USART::ptr() };
+        let sr = usart.sr.read();
+
+        if sr.txe().bit_is_set() {
+            // NOTE(unsafe) atomic write to stateless register
+            // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
+            unsafe { ptr::write_volatile(&usart.dr as *const _ as *mut _, byte) }
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
 }
 
 impl<USART, PINS> crate::hal::serial::Read<u8> for Serial<USART, PINS>
@@ -493,7 +506,7 @@ where
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
-        self.usart.deref().read()
+        Rx::<USART>::new().read()
     }
 }
 
@@ -504,11 +517,11 @@ where
     type Error = Infallible;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.usart.deref().flush()
+        Tx::<USART>::new().flush()
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        self.usart.deref().write(byte)
+        Tx::<USART>::new().write(byte)
     }
 }
 

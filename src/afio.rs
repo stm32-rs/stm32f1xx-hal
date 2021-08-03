@@ -42,7 +42,7 @@ impl AfioExt for AFIO {
 /// ```rust
 /// let p = pac::Peripherals::take().unwrap();
 /// let mut rcc = p.RCC.constrain();
-/// let mut afio = p.AFIO.constrain(&mut rcc.apb2);
+/// let mut afio = p.AFIO.constrain();
 pub struct Parts {
     pub evcr: EVCR,
     pub mapr: MAPR,
@@ -70,7 +70,7 @@ impl EVCR {
 /// ```rust
 /// let dp = pac::Peripherals::take().unwrap();
 /// let mut rcc = dp.RCC.constrain();
-/// let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+/// let mut afio = dp.AFIO.constrain();
 /// function_using_mapr(&mut afio.mapr);
 /// ```
 pub struct MAPR {

@@ -153,4 +153,3 @@ required-features = ["stm32f103"]
 [[example]]
 name = "serial-interrupt-idle"
 required-features = ["stm32f103", "rt", "medium"]
-default-target = "thumbv7m-none-eabi"

@@ -82,7 +82,7 @@ unsafe fn write(buf: &[u8]) {
 unsafe fn USART1() {
     cortex_m::interrupt::free(|_| {
         if let Some(rx) = RX.as_mut() {
-            if rx.is_rxne() {
+            if rx.is_rx_not_empty() {
                 if let Ok(w) = nb::block!(rx.read()) {
                     BUFFER[WIDX] = w;
                     WIDX += 1;
