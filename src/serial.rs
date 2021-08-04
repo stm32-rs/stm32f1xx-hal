@@ -99,7 +99,7 @@ impl Pins<USART2> for (PA2<Alternate<PushPull>>, PA3<Input<Floating>>) {
 }
 
 impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
-    const REMAP: u8 = 0;
+    const REMAP: u8 = 1;
 }
 
 impl Pins<USART3> for (PB10<Alternate<PushPull>>, PB11<Input<Floating>>) {
@@ -181,6 +181,8 @@ use crate::pac::usart1 as uart_base;
 pub struct Serial<USART, PINS> {
     usart: USART,
     pins: PINS,
+    tx: Tx<USART>,
+    rx: Rx<USART>,
 }
 
 pub trait Instance:
@@ -315,7 +317,7 @@ where
     /// Separates the serial struct into separate channel objects for sending (Tx) and
     /// receiving (Rx)
     pub fn split(self) -> (Tx<USART>, Rx<USART>) {
-        (Tx::new(), Rx::new())
+        (self.tx, self.rx)
     }
 }
 
@@ -365,7 +367,7 @@ macro_rules! hal {
                 PINS: Pins<$USARTX>,
             {
                 #[allow(unused_unsafe)]
-                Serial { usart, pins }.init(config, clocks, || {
+                Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config, clocks, || {
                     mapr.modify_mapr(|_, w| unsafe {
                         #[allow(clippy::redundant_closure_call)]
                         w.$usartX_remap().$bit(($closure)(PINS::REMAP))
@@ -506,7 +508,7 @@ where
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
-        Rx::<USART>::new().read()
+        self.rx.read()
     }
 }
 
@@ -517,11 +519,11 @@ where
     type Error = Infallible;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        Tx::<USART>::new().flush()
+        self.tx.flush()
     }
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
-        Tx::<USART>::new().write(byte)
+        self.tx.write(byte)
     }
 }
 

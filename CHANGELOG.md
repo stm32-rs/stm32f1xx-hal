@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add GPIOF/GPIOG support for high/xl density lines
 
 ### Fixed
+
+- USART2 remap
 - Fix > 2 byte i2c reads
 - Send stop after acknowledge errors on i2c
 - Fix i2c interactions after errors
@@ -38,6 +40,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Move Tx & Rx in Serial. `Read` and `Write` now implemented on `Rx` and `Tx`
 - USB driver is now enabled by default for all devices supporting it
 - Updated `bxcan` dependency
 - Change internal implementation of pins using const generics
