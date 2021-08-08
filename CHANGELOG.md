@@ -28,7 +28,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added DMA receive support for `SPI`
 - Added `release` functions to SPI DMA
 - Add GPIOF/GPIOG support for high/xl density lines
-- Allow using `Input<PullUp>` and `Input<PullDown>` for timers' pwm and qei inputs.
+- Allow using `Input<PullUp>` and `Input<PullDown>` for all alternate
+  function inputs.
 
 ### Fixed
 - Fix > 2 byte i2c reads

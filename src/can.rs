@@ -3,7 +3,7 @@
 //! ## Alternate function remapping
 //!
 //! TX: Alternate Push-Pull Output
-//! RX: Input Floating Input
+//! RX: Input
 //!
 //! ### CAN1
 //!
@@ -25,7 +25,7 @@ use crate::gpio::gpiob::{PB12, PB13, PB5, PB6};
 use crate::gpio::{
     gpioa::{PA11, PA12},
     gpiob::{PB8, PB9},
-    Alternate, Floating, Input, PushPull,
+    Alternate, Input, PushPull,
 };
 #[cfg(feature = "connectivity")]
 use crate::pac::CAN2;
@@ -38,8 +38,8 @@ pub trait Pins: crate::Sealed {
     fn remap(mapr: &mut MAPR);
 }
 
-impl crate::Sealed for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {}
-impl Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
+impl<MODE> crate::Sealed for (PA12<Alternate<PushPull>>, PA11<Input<MODE>>) {}
+impl<MODE> Pins for (PA12<Alternate<PushPull>>, PA11<Input<MODE>>) {
     type Instance = CAN1;
 
     fn remap(mapr: &mut MAPR) {
@@ -50,8 +50,8 @@ impl Pins for (PA12<Alternate<PushPull>>, PA11<Input<Floating>>) {
     }
 }
 
-impl crate::Sealed for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {}
-impl Pins for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {
+impl<MODE> crate::Sealed for (PB9<Alternate<PushPull>>, PB8<Input<MODE>>) {}
+impl<MODE> Pins for (PB9<Alternate<PushPull>>, PB8<Input<MODE>>) {
     type Instance = CAN1;
 
     fn remap(mapr: &mut MAPR) {
@@ -63,9 +63,9 @@ impl Pins for (PB9<Alternate<PushPull>>, PB8<Input<Floating>>) {
 }
 
 #[cfg(feature = "connectivity")]
-impl crate::Sealed for (PB13<Alternate<PushPull>>, PB12<Input<Floating>>) {}
+impl<MODE> crate::Sealed for (PB13<Alternate<PushPull>>, PB12<Input<MODE>>) {}
 #[cfg(feature = "connectivity")]
-impl Pins for (PB13<Alternate<PushPull>>, PB12<Input<Floating>>) {
+impl<MODE> Pins for (PB13<Alternate<PushPull>>, PB12<Input<MODE>>) {
     type Instance = CAN2;
 
     fn remap(mapr: &mut MAPR) {
@@ -74,9 +74,9 @@ impl Pins for (PB13<Alternate<PushPull>>, PB12<Input<Floating>>) {
 }
 
 #[cfg(feature = "connectivity")]
-impl crate::Sealed for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {}
+impl<MODE> crate::Sealed for (PB6<Alternate<PushPull>>, PB5<Input<MODE>>) {}
 #[cfg(feature = "connectivity")]
-impl Pins for (PB6<Alternate<PushPull>>, PB5<Input<Floating>>) {
+impl<MODE> Pins for (PB6<Alternate<PushPull>>, PB5<Input<MODE>>) {
     type Instance = CAN2;
 
     fn remap(mapr: &mut MAPR) {
