@@ -12,7 +12,7 @@ use crate::pac::TIM4;
 use crate::pac::{TIM2, TIM3};
 
 use crate::afio::MAPR;
-use crate::gpio::{self, Floating, Input};
+use crate::gpio::{self, Input};
 use crate::rcc::{Clocks, GetBusFreq, RccBus};
 use crate::time::Hertz;
 use crate::timer::Timer;
@@ -21,11 +21,11 @@ pub trait Pins<REMAP> {}
 
 use crate::timer::sealed::{Ch1, Ch2, Remap};
 
-impl<TIM, REMAP, P1, P2> Pins<REMAP> for (P1, P2)
+impl<TIM, REMAP, P1, P2, MODE1, MODE2> Pins<REMAP> for (P1, P2)
 where
     REMAP: Remap<Periph = TIM>,
-    P1: Ch1<REMAP> + gpio::PinExt<Mode = Input<Floating>>,
-    P2: Ch2<REMAP> + gpio::PinExt<Mode = Input<Floating>>,
+    P1: Ch1<REMAP> + gpio::PinExt<Mode = Input<MODE1>>,
+    P2: Ch2<REMAP> + gpio::PinExt<Mode = Input<MODE2>>,
 {
 }
 
