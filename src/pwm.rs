@@ -66,7 +66,7 @@ use cast::{u16, u32};
 
 use crate::afio::MAPR;
 use crate::bb;
-use crate::gpio::{self, Alternate, PushPull};
+use crate::gpio::{self, Alternate};
 use crate::time::Hertz;
 use crate::time::U32Ext;
 use crate::timer::Timer;
@@ -106,10 +106,10 @@ macro_rules! pins_impl {
     ( $( ( $($PINX:ident),+ ), ( $($TRAIT:ident),+ ), ( $($ENCHX:ident),+ ); )+ ) => {
         $(
             #[allow(unused_parens)]
-            impl<TIM, REMAP, $($PINX,)+> Pins<REMAP, ($($ENCHX),+)> for ($($PINX),+)
+            impl<TIM, REMAP, OUTMODE, $($PINX,)+> Pins<REMAP, ($($ENCHX),+)> for ($($PINX),+)
             where
                 REMAP: Remap<Periph = TIM>,
-                $($PINX: $TRAIT<REMAP> + gpio::PinExt<Mode=Alternate<PushPull>>,)+
+                $($PINX: $TRAIT<REMAP> + gpio::PinExt<Mode=Alternate<OUTMODE>>,)+
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(PwmChannel<TIM, $ENCHX>),+);

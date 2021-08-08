@@ -50,7 +50,7 @@ use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
 use crate::gpio::gpioc::{PC10, PC11, PC12};
-use crate::gpio::{Alternate, Input, OpenDrain, PushPull};
+use crate::gpio::{Alternate, Input};
 use crate::rcc::{Clocks, Enable, GetBusFreq, Reset};
 use crate::time::Hertz;
 
@@ -127,11 +127,9 @@ macro_rules! remap {
             type Periph = $SPIX;
             const REMAP: bool = $state;
         }
-        impl Sck<$name> for $SCK<Alternate<PushPull>> {}
-        impl Sck<$name> for $SCK<Alternate<OpenDrain>> {}
+        impl<MODE> Sck<$name> for $SCK<Alternate<MODE>> {}
         impl<MODE> Miso<$name> for $MISO<Input<MODE>> {}
-        impl Mosi<$name> for $MOSI<Alternate<PushPull>> {}
-        impl Mosi<$name> for $MOSI<Alternate<OpenDrain>> {}
+        impl<MODE> Mosi<$name> for $MOSI<Alternate<MODE>> {}
     };
 }
 
