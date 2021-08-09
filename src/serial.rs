@@ -342,6 +342,21 @@ where
         }
     }
 
+    /// Return true if the line idle status is set
+    pub fn is_idle(&self) -> bool {
+        self.usart.sr.read().idle().bit_is_set();
+    }
+
+    /// Return true if the tx register is empty (and can accept data)
+    pub fn is_txe(&self) -> bool {
+        self.usart.sr.read().txe().bit_is_set();
+    }
+
+    /// Return true if the rx register is not empty (and can be read)
+    pub fn is_rxne(&self) -> bool {
+        self.usart.sr.read().rxne().bit_is_set();
+    }
+
     /// Returns ownership of the borrowed register handles
     pub fn release(self) -> (USART, PINS) {
         (self.usart, self.pins)
@@ -418,6 +433,10 @@ macro_rules! hal {
             pub fn unlisten(&mut self) {
                 unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.txeie().clear_bit()) };
             }
+
+            pub fn is_txe(&self) -> bool {
+                unsafe { (*$USARTX::ptr()).sr.read().txe().bit_is_set() }
+            }
         }
 
         impl Rx<$USARTX> {
@@ -427,6 +446,22 @@ macro_rules! hal {
 
             pub fn unlisten(&mut self) {
                 unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
+            }
+
+            pub fn listen_idle(&mut self) {
+                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.idleie().set_bit()) };
+            }
+
+            pub fn unlisten_idle(&mut self) {
+                unsafe { (*$USARTX::ptr()).cr1.modify(|_, w| w.idleie().clear_bit()) };
+            }
+
+            pub fn is_idle(&self) -> bool {
+                unsafe { (*$USARTX::ptr()).sr.read().idle().bit_is_set() }
+            }
+
+            pub fn is_rxne(&self) -> bool {
+                unsafe { (*$USARTX::ptr()).sr.read().rxne().bit_is_set() }
             }
         }
 
