@@ -344,17 +344,17 @@ where
 
     /// Return true if the line idle status is set
     pub fn is_idle(&self) -> bool {
-        self.usart.sr.read().idle().bit_is_set();
+        self.usart.sr.read().idle().bit_is_set()
     }
 
     /// Return true if the tx register is empty (and can accept data)
     pub fn is_txe(&self) -> bool {
-        self.usart.sr.read().txe().bit_is_set();
+        self.usart.sr.read().txe().bit_is_set()
     }
 
     /// Return true if the rx register is not empty (and can be read)
     pub fn is_rxne(&self) -> bool {
-        self.usart.sr.read().rxne().bit_is_set();
+        self.usart.sr.read().rxne().bit_is_set()
     }
 
     /// Returns ownership of the borrowed register handles
