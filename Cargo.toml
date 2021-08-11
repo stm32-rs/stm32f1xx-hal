@@ -149,3 +149,7 @@ required-features = ["has-can", "rt"]
 [[example]]
 name = "gpio_input"
 required-features = ["stm32f103"]
+
+[[example]]
+name = "serial-interrupt-idle"
+required-features = ["stm32f103", "rt", "medium"]

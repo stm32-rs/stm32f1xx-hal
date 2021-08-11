@@ -24,7 +24,7 @@
   // Set up the timer as a PWM output. If selected pins may correspond to different remap options,
   // then you must specify the remap generic parameter. Otherwise, if there is no such ambiguity,
   // the remap generic parameter can be omitted without complains from the compiler.
-  let (c1, c2, c3, c4) = Timer::tim2(p.TIM2, &clocks, &mut rcc.apb1)
+  let (c1, c2, c3, c4) = Timer::tim2(p.TIM2, &clocks)
       .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz())
       .3;
 
@@ -43,7 +43,7 @@
 
     // Put the timer in PWM mode using the specified pins
     // with a frequency of 100 hz.
-    let (c0, c1, c2, c3) = Timer::tim2(device.TIM2, &clocks, &mut rcc.apb1)
+    let (c0, c1, c2, c3) = Timer::tim2(device.TIM2, &clocks)
         .pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 100.hz());
 
     // Set the duty cycle of channel 0 to 50%
