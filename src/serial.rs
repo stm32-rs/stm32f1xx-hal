@@ -175,6 +175,12 @@ impl Default for Config {
     }
 }
 
+impl From<Bps> for Config {
+    fn from(baud: Bps) -> Self {
+        Config::default().baudrate(baud)
+    }
+}
+
 use crate::pac::usart1 as uart_base;
 
 /// Serial abstraction
@@ -368,14 +374,14 @@ macro_rules! hal {
                 usart: $USARTX,
                 pins: PINS,
                 mapr: &mut MAPR,
-                config: Config,
+                config: impl Into<Config>,
                 clocks: Clocks,
             ) -> Self
             where
                 PINS: Pins<$USARTX>,
             {
                 #[allow(unused_unsafe)]
-                Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config, clocks, || {
+                Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config.into(), clocks, || {
                     mapr.modify_mapr(|_, w| unsafe {
                         #[allow(clippy::redundant_closure_call)]
                         w.$usartX_remap().$bit(($closure)(PINS::REMAP))
