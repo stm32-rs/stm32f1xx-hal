@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fix i2c interactions after errors
 - Fix SPI3 alternate function remapping
 - Do not enable UART DMA flags unconditionally
+- Fix flash erase verification always failing
 
 ### Changed
 

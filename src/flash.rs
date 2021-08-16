@@ -170,7 +170,7 @@ impl<'a> FlashWriter<'a> {
                 // 'start_offset' was.
                 let size = self.sector_sz.kbytes() as u32;
                 let start = start_offset & !(size - 1);
-                for idx in start..start + size {
+                for idx in (start..start + size).step_by(2) {
                     let write_address = (FLASH_START + idx as u32) as *const u16;
                     let verify: u16 = unsafe { core::ptr::read_volatile(write_address) };
                     if verify != 0xFFFF {
