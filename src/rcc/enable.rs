@@ -73,7 +73,7 @@ bus! {
     CAN1 => (APB1, 25),
     CAN2 => (APB1, 26),
 }
-#[cfg(all(feature = "stm32f103", feature = "high"))]
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 bus! {
     ADC3 => (APB2, 15),
     DAC => (APB1, 29),
