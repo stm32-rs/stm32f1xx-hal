@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `From<Bps>` for `serial::Config`
 - `From<Into<Hertz>>` for `i2c::Mode`
 - `exti_rtic` example
-- Support for OpenDrain pin configuration on SPI CLK and MOSI pins
+- Support for OpenDrain pin configuration on CAN, SPI, UART, PWM output pins
 - LSB/MSB bit format selection for `SPI`
 - Support for CAN peripherals with the `bxcan` crate
 - Add DAC, UART4, UART5 clock in RCC for the f103 high density line
@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added DMA receive support for `SPI`
 - Added `release` functions to SPI DMA
 - Add GPIOF/GPIOG support for high/xl density lines
+- Allow using `Input<PullUp>` and `Input<PullDown>` for all alternate
+  function inputs.
 
 ### Fixed
 

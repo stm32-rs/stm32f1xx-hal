@@ -52,7 +52,7 @@ use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
-use crate::gpio::{Alternate, Floating, Input, PushPull};
+use crate::gpio::{Alternate, Input};
 use crate::rcc::{Clocks, Enable, GetBusFreq, Reset};
 use crate::time::{Bps, U32Ext};
 
@@ -86,31 +86,31 @@ pub trait Pins<USART> {
     const REMAP: u8;
 }
 
-impl Pins<USART1> for (PA9<Alternate<PushPull>>, PA10<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART1> for (PA9<Alternate<OUTMODE>>, PA10<Input<INMODE>>) {
     const REMAP: u8 = 0;
 }
 
-impl Pins<USART1> for (PB6<Alternate<PushPull>>, PB7<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART1> for (PB6<Alternate<OUTMODE>>, PB7<Input<INMODE>>) {
     const REMAP: u8 = 1;
 }
 
-impl Pins<USART2> for (PA2<Alternate<PushPull>>, PA3<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART2> for (PA2<Alternate<OUTMODE>>, PA3<Input<INMODE>>) {
     const REMAP: u8 = 0;
 }
 
-impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART2> for (PD5<Alternate<OUTMODE>>, PD6<Input<INMODE>>) {
     const REMAP: u8 = 1;
 }
 
-impl Pins<USART3> for (PB10<Alternate<PushPull>>, PB11<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (PB10<Alternate<OUTMODE>>, PB11<Input<INMODE>>) {
     const REMAP: u8 = 0;
 }
 
-impl Pins<USART3> for (PC10<Alternate<PushPull>>, PC11<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (PC10<Alternate<OUTMODE>>, PC11<Input<INMODE>>) {
     const REMAP: u8 = 1;
 }
 
-impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (PD8<Alternate<OUTMODE>>, PD9<Input<INMODE>>) {
     const REMAP: u8 = 0b11;
 }
 
