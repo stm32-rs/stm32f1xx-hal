@@ -53,8 +53,12 @@ use crate::dma::dma2;
 use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
-use crate::gpio::gpioc::{PC10, PC11, PC12};
-use crate::gpio::gpiod::{PD2, PD5, PD6, PD8, PD9};
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
+use crate::gpio::gpioc::PC12;
+use crate::gpio::gpioc::{PC10, PC11};
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
+use crate::gpio::gpiod::PD2;
+use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Floating, Input, PushPull};
 use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
@@ -260,6 +264,7 @@ macro_rules! usart_stop_bits {
     };
 }
 
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 macro_rules! uart_stop_bits {
     ($UARTX:ident) => {
         impl Stopbits for $UARTX {
@@ -282,7 +287,9 @@ macro_rules! uart_stop_bits {
 usart_stop_bits! {USART1}
 usart_stop_bits! {USART2}
 usart_stop_bits! {USART3}
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 uart_stop_bits! {UART4}
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 uart_stop_bits! {UART5}
 
 macro_rules! hal {
@@ -625,7 +632,9 @@ pub type Rx2 = Rx<USART2>;
 pub type Tx2 = Tx<USART2>;
 pub type Rx3 = Rx<USART3>;
 pub type Tx3 = Tx<USART3>;
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 pub type Rx4 = Rx<UART4>;
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 pub type Tx4 = Tx<UART4>;
 
 use crate::dma::{Receive, TransferPayload, Transmit};
