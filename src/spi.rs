@@ -17,7 +17,7 @@
 
   ```rust
     // Acquire the GPIOB peripheral
-    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+    let mut gpiob = dp.GPIOB.split();
 
     let pins = (
         gpiob.pb13.into_alternate_push_pull(&mut gpiob.crh),
@@ -29,7 +29,7 @@
         polarity: Polarity::IdleLow,
         phase: Phase::CaptureOnFirstTransition,
     };
-    let spi = Spi::spi2(dp.SPI2, pins, spi_mode, 100.khz(), clocks, &mut rcc.apb1);
+    let spi = Spi::spi2(dp.SPI2, pins, spi_mode, 100.khz(), clocks);
   ```
 */
 

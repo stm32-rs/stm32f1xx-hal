@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- `From<Bps>` for `serial::Config`
 - `From<Into<Hertz>>` for `i2c::Mode`
 - `exti_rtic` example
 - Support for OpenDrain pin configuration on CAN, SPI, UART, PWM output pins
@@ -32,14 +33,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   function inputs.
 
 ### Fixed
+
+- USART2 remap
 - Fix > 2 byte i2c reads
 - Send stop after acknowledge errors on i2c
 - Fix i2c interactions after errors
 - Fix SPI3 alternate function remapping
 - Do not enable UART DMA flags unconditionally
+- Fix flash erase verification always failing
 
 ### Changed
 
+- Move Tx & Rx in Serial. `Read` and `Write` now implemented on `Rx` and `Tx`
 - USB driver is now enabled by default for all devices supporting it
 - Updated `bxcan` dependency
 - Change internal implementation of pins using const generics
