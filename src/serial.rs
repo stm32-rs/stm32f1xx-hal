@@ -270,7 +270,7 @@ macro_rules! uart_stop_bits {
         impl Stopbits for $UARTX {
             fn config_stop_bits(stopbits: StopBits) {
                 assert!(
-                    (stopbits == StopBits::STOP0P5) || (stopbits == StopBits::STOP1P5),
+                    (stopbits == StopBits::STOP1) || (stopbits == StopBits::STOP2),
                     "The 0.5 Stop bit and 1.5 Stop bit are not available for UART4 & UART5."
                 );
                 let uart = unsafe { &(*$UARTX::ptr()) };
