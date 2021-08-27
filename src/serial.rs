@@ -59,7 +59,7 @@ use crate::gpio::gpioc::{PC10, PC11};
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 use crate::gpio::gpiod::PD2;
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
-use crate::gpio::{Alternate, Floating, Input, PushPull};
+use crate::gpio::{Alternate, Input};
 use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
 
@@ -93,53 +93,53 @@ pub trait Pins<USART> {
     fn remap(&self, _mapr: &mut MAPR) {}
 }
 
-impl Pins<USART1> for (PA9<Alternate<PushPull>>, PA10<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART1> for (PA9<Alternate<OUTMODE>>, PA10<Input<INMODE>>) {
     fn remap(&self, mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| w.usart1_remap().clear_bit())
     }
 }
 
-impl Pins<USART1> for (PB6<Alternate<PushPull>>, PB7<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART1> for (PB6<Alternate<OUTMODE>>, PB7<Input<INMODE>>) {
     fn remap(&self, mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| w.usart1_remap().set_bit())
     }
 }
 
-impl Pins<USART2> for (PA2<Alternate<PushPull>>, PA3<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART2> for (PA2<Alternate<OUTMODE>>, PA3<Input<INMODE>>) {
     fn remap(&self, mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| w.usart2_remap().clear_bit())
     }
 }
 
-impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART2> for (PD5<Alternate<OUTMODE>>, PD6<Input<INMODE>>) {
     fn remap(&self, mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| w.usart2_remap().set_bit())
     }
 }
 
-impl Pins<USART3> for (PB10<Alternate<PushPull>>, PB11<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (PB10<Alternate<OUTMODE>>, PB11<Input<INMODE>>) {
     fn remap(&self, mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| unsafe { w.usart3_remap().bits(0) })
     }
 }
 
-impl Pins<USART3> for (PC10<Alternate<PushPull>>, PC11<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (PC10<Alternate<OUTMODE>>, PC11<Input<INMODE>>) {
     fn remap(&self, mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| unsafe { w.usart3_remap().bits(1) })
     }
 }
 
-impl Pins<USART3> for (PD8<Alternate<PushPull>>, PD9<Input<Floating>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (PD8<Alternate<OUTMODE>>, PD9<Input<INMODE>>) {
     fn remap(&self, mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| unsafe { w.usart3_remap().bits(0b11) })
     }
 }
 
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
-impl Pins<UART4> for (PC10<Alternate<PushPull>>, PC11<Input<Floating>>) {}
+impl<INMODE, OUTMODE> Pins<UART4> for (PC10<Alternate<OUTMODE>>, PC11<Input<INMODE>>) {}
 
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
-impl Pins<UART5> for (PC12<Alternate<PushPull>>, PD2<Input<Floating>>) {}
+impl<INMODE, OUTMODE> Pins<UART5> for (PC12<Alternate<OUTMODE>>, PD2<Input<INMODE>>) {}
 
 pub enum Parity {
     ParityNone,

@@ -2,7 +2,7 @@
   # Serial Peripheral Interface
   To construct the SPI instances, use the `Spi::spiX` functions.
 
-  The pin parameter is a tuple containing `(sck, miso, mosi)` which should be configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+  The pin parameter is a tuple containing `(sck, miso, mosi)` which should be configured as `(Alternate<...>, Input<...>, Alternate<...>)`.
   As some STM32F1xx chips have 5V tolerant SPI pins, it is also possible to configure Sck and Mosi outputs as `Alternate<PushPull>`. Then
   a simple Pull-Up to 5V can be used to use SPI on a 5V bus without a level shifter.
 
@@ -50,7 +50,7 @@ use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
 use crate::gpio::gpioc::{PC10, PC11, PC12};
-use crate::gpio::{Alternate, Floating, Input, OpenDrain, PushPull};
+use crate::gpio::{Alternate, Input};
 use crate::rcc::{Clocks, Enable, GetBusFreq, Reset};
 use crate::time::Hertz;
 
@@ -127,11 +127,9 @@ macro_rules! remap {
             type Periph = $SPIX;
             const REMAP: bool = $state;
         }
-        impl Sck<$name> for $SCK<Alternate<PushPull>> {}
-        impl Sck<$name> for $SCK<Alternate<OpenDrain>> {}
-        impl Miso<$name> for $MISO<Input<Floating>> {}
-        impl Mosi<$name> for $MOSI<Alternate<PushPull>> {}
-        impl Mosi<$name> for $MOSI<Alternate<OpenDrain>> {}
+        impl<MODE> Sck<$name> for $SCK<Alternate<MODE>> {}
+        impl<MODE> Miso<$name> for $MISO<Input<MODE>> {}
+        impl<MODE> Mosi<$name> for $MOSI<Alternate<MODE>> {}
     };
 }
 
@@ -157,7 +155,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
-      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Alternate<...>, Input<...>, Alternate<...>)`.
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
@@ -183,7 +181,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI2 in 8bit dataframe mode.
 
-      The pin parameter tuple (sck, miso, mosi) should be `(PB13, PB14, PB15)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+      The pin parameter tuple (sck, miso, mosi) should be `(PB13, PB14, PB15)` configured as `(Alternate<...>, Input<...>, Alternate<...>)`.
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
@@ -202,7 +200,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI3 in 8bit dataframe mode.
 
-      The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+      The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` configured as `(Alternate<...>, Input<...>, Alternate<...>)`.
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
@@ -219,7 +217,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI3 in 8bit dataframe mode.
 
-      The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)` configured as `(Alternate<PushPull>, Input<Floating>, Alternate<PushPull>)`.
+      The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)` configured as `(Alternate<...>, Input<...>, Alternate<...>)`.
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
