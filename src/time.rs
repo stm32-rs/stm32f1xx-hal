@@ -33,7 +33,7 @@ use cortex_m::peripheral::{DCB, DWT};
 use crate::rcc::Clocks;
 
 /// Bits per second
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct Bps(pub u32);
 
 /// Hertz
@@ -52,7 +52,7 @@ pub struct Bps(pub u32);
 ///
 /// let freq = 60.hz();
 /// ```
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct Hertz(pub u32);
 
 /// Kilohertz
@@ -74,7 +74,7 @@ pub struct Hertz(pub u32);
 ///
 /// let freq = 100.khz();
 /// ```
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct KiloHertz(pub u32);
 
 /// Megahertz
@@ -95,7 +95,7 @@ pub struct KiloHertz(pub u32);
 ///
 /// let freq = 8.mhz();
 /// ```
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct MegaHertz(pub u32);
 
 /// Time unit
