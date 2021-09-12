@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add GPIOF/GPIOG support for high/xl density lines
 - Allow using `Input<PullUp>` and `Input<PullDown>` for all alternate
   function inputs.
+- Add `PartialOrd` derivation for `Bps`, `Hertz`, `KiloHertz`, and `MegaHertz`
 
 ### Fixed
 
