@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Renamed `serial`'s `RxDma`/`TxDma`'s `split` method into `release`
 - Renamed I2C's `free` method into `release`
 - Enable SPI DMA in `with_tx_dma`, not in `SpiTxDma::start`
+- Use maximum frequency of 36 MHz on PCLK1
+- Round up when calculating the PCLK1 prescaler
 
 ## [v0.7.0]- 2020-10-17
 

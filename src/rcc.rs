@@ -230,17 +230,15 @@ impl CFGR {
 
         assert!(hclk <= 72_000_000);
 
-        let ppre1_bits = self
-            .pclk1
-            .map(|pclk1| match hclk / pclk1 {
-                0 => unreachable!(),
-                1 => 0b011,
-                2 => 0b100,
-                3..=5 => 0b101,
-                6..=11 => 0b110,
-                _ => 0b111,
-            })
-            .unwrap_or(0b011);
+        let pclk1 = self.pclk1.unwrap_or_else(|| cmp::min(hclk, 36_000_000));
+        let ppre1_bits = match (hclk + pclk1 - 1) / pclk1 {
+            0 => unreachable!(),
+            1 => 0b011,
+            2 => 0b100,
+            3..=5 => 0b101,
+            6..=11 => 0b110,
+            _ => 0b111,
+        };
 
         let ppre1 = 1 << (ppre1_bits - 0b011);
         let pclk1 = hclk / u32(ppre1);
