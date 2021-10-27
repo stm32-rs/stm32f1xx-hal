@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Breaking changes
 
+- Bump `stm32f1` to `0.14.0`, `cortex-m-rtic` to `0.6.0-rc2` and others
 - Bump `stm32-usbd` dependency (`0.6.0`)
 - Use bit-banding for Peripheral enable/reset.
   Don't require APBs in initializers.

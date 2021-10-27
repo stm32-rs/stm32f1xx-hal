@@ -4,26 +4,27 @@
 #![no_std]
 #![allow(non_snake_case)]
 
-extern crate panic_semihosting;
+use panic_semihosting as _;
 
-use cortex_m::asm::delay;
-use rtic::app;
-use stm32f1xx_hal::prelude::*;
-use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
-use usb_device::bus;
-use usb_device::prelude::*;
-use usbd_serial::{SerialPort, USB_CLASS_CDC};
+#[rtic::app(device = stm32f1xx_hal::pac)]
+mod app {
+    use cortex_m::asm::delay;
+    use stm32f1xx_hal::prelude::*;
+    use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
+    use usb_device::prelude::*;
 
-#[app(device = stm32f1xx_hal::stm32, peripherals = true)]
-const APP: () = {
-    struct Resources {
+    #[shared]
+    struct Shared {
         usb_dev: UsbDevice<'static, UsbBusType>,
-        serial: SerialPort<'static, UsbBusType>,
+        serial: usbd_serial::SerialPort<'static, UsbBusType>,
     }
 
+    #[local]
+    struct Local {}
+
     #[init]
-    fn init(cx: init::Context) -> init::LateResources {
-        static mut USB_BUS: Option<bus::UsbBusAllocator<UsbBusType>> = None;
+    fn init(cx: init::Context) -> (Shared, Local, init::Monotonics) {
+        static mut USB_BUS: Option<usb_device::bus::UsbBusAllocator<UsbBusType>> = None;
 
         let mut flash = cx.device.FLASH.constrain();
         let rcc = cx.device.RCC.constrain();
@@ -56,34 +57,49 @@ const APP: () = {
             pin_dp: usb_dp,
         };
 
-        *USB_BUS = Some(UsbBus::new(usb));
+        unsafe {
+            USB_BUS.replace(UsbBus::new(usb));
+        }
 
-        let serial = SerialPort::new(USB_BUS.as_ref().unwrap());
+        let serial = usbd_serial::SerialPort::new(unsafe { USB_BUS.as_ref().unwrap() });
 
-        let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST")
-            .device_class(USB_CLASS_CDC)
-            .build();
+        let usb_dev = UsbDeviceBuilder::new(
+            unsafe { USB_BUS.as_ref().unwrap() },
+            UsbVidPid(0x16c0, 0x27dd),
+        )
+        .manufacturer("Fake company")
+        .product("Serial port")
+        .serial_number("TEST")
+        .device_class(usbd_serial::USB_CLASS_CDC)
+        .build();
 
-        init::LateResources { usb_dev, serial }
+        (Shared { usb_dev, serial }, Local {}, init::Monotonics())
     }
 
-    #[task(binds = USB_HP_CAN_TX, resources = [usb_dev, serial])]
-    fn usb_tx(mut cx: usb_tx::Context) {
-        usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.serial);
+    #[task(binds = USB_HP_CAN_TX, shared = [usb_dev, serial])]
+    fn usb_tx(cx: usb_tx::Context) {
+        let mut usb_dev = cx.shared.usb_dev;
+        let mut serial = cx.shared.serial;
+
+        (&mut usb_dev, &mut serial).lock(|usb_dev, serial| {
+            super::usb_poll(usb_dev, serial);
+        });
     }
 
-    #[task(binds = USB_LP_CAN_RX0, resources = [usb_dev, serial])]
-    fn usb_rx0(mut cx: usb_rx0::Context) {
-        usb_poll(&mut cx.resources.usb_dev, &mut cx.resources.serial);
-    }
-};
+    #[task(binds = USB_LP_CAN_RX0, shared = [usb_dev, serial])]
+    fn usb_rx0(cx: usb_rx0::Context) {
+        let mut usb_dev = cx.shared.usb_dev;
+        let mut serial = cx.shared.serial;
 
-fn usb_poll<B: bus::UsbBus>(
-    usb_dev: &mut UsbDevice<'static, B>,
-    serial: &mut SerialPort<'static, B>,
+        (&mut usb_dev, &mut serial).lock(|usb_dev, serial| {
+            super::usb_poll(usb_dev, serial);
+        });
+    }
+}
+
+fn usb_poll<B: usb_device::bus::UsbBus>(
+    usb_dev: &mut usb_device::prelude::UsbDevice<'static, B>,
+    serial: &mut usbd_serial::SerialPort<'static, B>,
 ) {
     if !usb_dev.poll(&mut [serial]) {
         return;

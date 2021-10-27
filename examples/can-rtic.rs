@@ -11,21 +11,14 @@
 #![no_main]
 #![no_std]
 
+use panic_halt as _;
+
+use bxcan::Frame;
 use core::cmp::Ordering;
 
-use bxcan::{filter::Mask32, ExtendedId, Frame, Interrupts, Rx, StandardId, Tx};
-use heapless::{
-    binary_heap::{BinaryHeap, Max},
-    consts::*,
-};
-use nb::block;
-use panic_halt as _;
-use rtic::app;
-use stm32f1xx_hal::{
-    can::Can,
-    pac::{Interrupt, CAN1},
-    prelude::*,
-};
+use heapless::binary_heap::{BinaryHeap, Max};
+
+use stm32f1xx_hal::pac::Interrupt;
 
 #[derive(Debug)]
 pub struct PriorityFrame(Frame);
@@ -52,22 +45,31 @@ impl PartialEq for PriorityFrame {
 
 impl Eq for PriorityFrame {}
 
-fn enqueue_frame(queue: &mut BinaryHeap<PriorityFrame, U16, Max>, frame: Frame) {
+fn enqueue_frame(queue: &mut BinaryHeap<PriorityFrame, Max, 16>, frame: Frame) {
     queue.push(PriorityFrame(frame)).unwrap();
     rtic::pend(Interrupt::USB_HP_CAN_TX);
 }
 
-#[app(device = stm32f1xx_hal::pac, peripherals = true)]
-const APP: () = {
-    struct Resources {
+#[rtic::app(device = stm32f1xx_hal::pac)]
+mod app {
+    use super::{enqueue_frame, PriorityFrame};
+    use bxcan::{filter::Mask32, ExtendedId, Frame, Interrupts, Rx, StandardId, Tx};
+    use heapless::binary_heap::{BinaryHeap, Max};
+    use stm32f1xx_hal::{can::Can, pac::CAN1, prelude::*};
+
+    #[local]
+    struct Local {
         can_tx: Tx<Can<CAN1>>,
-        can_tx_queue: BinaryHeap<PriorityFrame, U16, Max>,
-        tx_count: usize,
         can_rx: Rx<Can<CAN1>>,
+    }
+    #[shared]
+    struct Shared {
+        can_tx_queue: BinaryHeap<PriorityFrame, Max, 16>,
+        tx_count: usize,
     }
 
     #[init]
-    fn init(cx: init::Context) -> init::LateResources {
+    fn init(cx: init::Context) -> (Shared, Local, init::Monotonics) {
         let mut flash = cx.device.FLASH.constrain();
         let rcc = cx.device.RCC.constrain();
 
@@ -105,23 +107,25 @@ const APP: () = {
         can.enable_interrupts(
             Interrupts::TRANSMIT_MAILBOX_EMPTY | Interrupts::FIFO0_MESSAGE_PENDING,
         );
-        block!(can.enable()).unwrap();
+        nb::block!(can.enable()).unwrap();
 
         let (can_tx, can_rx) = can.split();
 
         let can_tx_queue = BinaryHeap::new();
 
-        init::LateResources {
-            can_tx,
-            can_tx_queue,
-            tx_count: 0,
-            can_rx,
-        }
+        (
+            Shared {
+                can_tx_queue,
+                tx_count: 0,
+            },
+            Local { can_tx, can_rx },
+            init::Monotonics(),
+        )
     }
 
-    #[idle(resources = [can_tx_queue, tx_count])]
+    #[idle(shared = [can_tx_queue, tx_count])]
     fn idle(mut cx: idle::Context) -> ! {
-        let mut tx_queue = cx.resources.can_tx_queue;
+        let mut tx_queue = cx.shared.can_tx_queue;
 
         // Enqueue some messages. Higher ID means lower priority.
         tx_queue.lock(|mut tx_queue| {
@@ -155,7 +159,7 @@ const APP: () = {
 
         // Add some higher priority messages when 3 messages have been sent.
         loop {
-            let tx_count = cx.resources.tx_count.lock(|tx_count| *tx_count);
+            let tx_count = cx.shared.tx_count.lock(|tx_count| *tx_count);
 
             if tx_count >= 3 {
                 tx_queue.lock(|mut tx_queue| {
@@ -196,45 +200,50 @@ const APP: () = {
     }
 
     // This ISR is triggered by each finished frame transmission.
-    #[task(binds = USB_HP_CAN_TX, resources = [can_tx, can_tx_queue, tx_count])]
+    #[task(binds = USB_HP_CAN_TX, local = [can_tx], shared = [can_tx_queue, tx_count])]
     fn can_tx(cx: can_tx::Context) {
-        let tx = cx.resources.can_tx;
-        let tx_queue = cx.resources.can_tx_queue;
+        let tx = cx.local.can_tx;
+        let mut tx_queue = cx.shared.can_tx_queue;
+        let mut tx_count = cx.shared.tx_count;
 
         tx.clear_interrupt_flags();
 
         // There is now a free mailbox. Try to transmit pending frames until either
         // the queue is empty or transmission would block the execution of this ISR.
-        while let Some(frame) = tx_queue.peek() {
-            match tx.transmit(&frame.0) {
-                Ok(None) => {
-                    // Frame was successfully placed into a transmit buffer.
-                    tx_queue.pop();
-                    *cx.resources.tx_count += 1;
+        (&mut tx_queue, &mut tx_count).lock(|tx_queue, tx_count| {
+            while let Some(frame) = tx_queue.peek() {
+                match tx.transmit(&frame.0) {
+                    Ok(None) => {
+                        // Frame was successfully placed into a transmit buffer.
+                        tx_queue.pop();
+                        *tx_count += 1;
+                    }
+                    Ok(Some(pending_frame)) => {
+                        // A lower priority frame was replaced with our high priority frame.
+                        // Put the low priority frame back in the transmit queue.
+                        tx_queue.pop();
+                        enqueue_frame(tx_queue, pending_frame);
+                    }
+                    Err(nb::Error::WouldBlock) => break,
+                    Err(_) => unreachable!(),
                 }
-                Ok(Some(pending_frame)) => {
-                    // A lower priority frame was replaced with our high priority frame.
-                    // Put the low priority frame back in the transmit queue.
-                    tx_queue.pop();
-                    enqueue_frame(tx_queue, pending_frame);
-                }
-                Err(nb::Error::WouldBlock) => break,
-                Err(_) => unreachable!(),
             }
-        }
+        });
     }
 
-    #[task(binds = USB_LP_CAN_RX0, resources = [can_rx, can_tx_queue])]
-    fn can_rx0(cx: can_rx0::Context) {
+    #[task(binds = USB_LP_CAN_RX0, local = [can_rx], shared = [can_tx_queue])]
+    fn can_rx0(mut cx: can_rx0::Context) {
         // Echo back received packages with correct priority ordering.
         loop {
-            match cx.resources.can_rx.receive() {
+            match cx.local.can_rx.receive() {
                 Ok(frame) => {
-                    enqueue_frame(cx.resources.can_tx_queue, frame);
+                    cx.shared.can_tx_queue.lock(|can_tx_queue| {
+                        enqueue_frame(can_tx_queue, frame);
+                    });
                 }
                 Err(nb::Error::WouldBlock) => break,
                 Err(nb::Error::Other(_)) => {} // Ignore overrun errors.
             }
         }
     }
-};
+}
