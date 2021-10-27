@@ -25,13 +25,13 @@ pub struct BackupDomain {
 
 macro_rules! write_drx {
     ($self:ident, $drx:ident, $idx:expr, $new:expr) => {
-        $self._regs.$drx[$idx].write(|w| w.d().bits($new));
+        $self._regs.$drx[$idx].write(|w| w.d().bits($new))
     };
 }
 
 macro_rules! read_drx {
     ($self:ident, $drx:ident, $idx:expr) => {
-        $self._regs.$drx[$idx].read().d().bits();
+        $self._regs.$drx[$idx].read().d().bits()
     };
 }
 
@@ -59,7 +59,7 @@ impl BackupDomain {
     /// DRx registers: 0 is DR1, up to 9 for DR10. Providing a number above 9
     /// will panic.
     pub fn write_data_register_low(&self, register: usize, data: u16) {
-        write_drx!(self, dr, register, data)
+        write_drx!(self, dr, register, data);
     }
 
     /// Write a 16-bit value to one of the DR11 to DR42 registers part of the
@@ -69,6 +69,6 @@ impl BackupDomain {
     /// NOTE: not available on medium- and low-density devices!
     #[cfg(any(feature = "high", feature = "connectivity"))]
     pub fn write_data_register_high(&self, register: usize, data: u16) {
-        write_drx!(self, bkp_dr, register, data)
+        write_drx!(self, bkp_dr, register, data);
     }
 }

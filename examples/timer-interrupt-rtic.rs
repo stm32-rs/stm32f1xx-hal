@@ -11,27 +11,26 @@
 // you can put a breakpoint on `rust_begin_unwind` to catch panics
 use panic_halt as _;
 
-use rtic::app;
+#[rtic::app(device = stm32f1xx_hal::pac)]
+mod app {
+    use stm32f1xx_hal::{
+        gpio::{gpioc::PC13, Output, PinState, PushPull},
+        pac,
+        prelude::*,
+        timer::{CountDownTimer, Event, Timer},
+    };
 
-use stm32f1xx_hal::{
-    gpio::{gpioc::PC13, Output, PinState, PushPull},
-    pac,
-    prelude::*,
-    timer::{CountDownTimer, Event, Timer},
-};
+    #[shared]
+    struct Shared {}
 
-#[app(device = stm32f1xx_hal::pac, peripherals = true)]
-const APP: () = {
-    struct Resources {
+    #[local]
+    struct Local {
         led: PC13<Output<PushPull>>,
         timer_handler: CountDownTimer<pac::TIM1>,
-
-        #[init(false)]
-        led_state: bool,
     }
 
     #[init]
-    fn init(cx: init::Context) -> init::LateResources {
+    fn init(cx: init::Context) -> (Shared, Local, init::Monotonics) {
         // Take ownership over the raw flash and rcc devices and convert them into the corresponding
         // HAL structs
         let mut flash = cx.device.FLASH.constrain();
@@ -54,15 +53,19 @@ const APP: () = {
         timer.listen(Event::Update);
 
         // Init the static resources to use them later through RTIC
-        init::LateResources {
-            led,
-            timer_handler: timer,
-        }
+        (
+            Shared {},
+            Local {
+                led,
+                timer_handler: timer,
+            },
+            init::Monotonics(),
+        )
     }
 
     // Optional.
     //
-    // https://rtic.rs/0.5/book/en/by-example/app.html#idle
+    // https://rtic.rs/dev/book/en/by-example/app_idle.html
     // > When no idle function is declared, the runtime sets the SLEEPONEXIT bit and then
     // > sends the microcontroller to sleep after running init.
     #[idle]
@@ -72,34 +75,31 @@ const APP: () = {
         }
     }
 
-    #[task(binds = TIM1_UP, priority = 1, resources = [led, timer_handler, led_state])]
+    #[task(binds = TIM1_UP, priority = 1, local = [led, timer_handler, led_state: bool = false, count: u8 = 0])]
     fn tick(cx: tick::Context) {
         // Depending on the application, you could want to delegate some of the work done here to
         // the idle task if you want to minimize the latency of interrupts with same priority (if
-        // you have any). That could be done with some kind of machine state, etc.
-
-        // Count used to change the timer update frequency
-        static mut COUNT: u8 = 0;
-
-        if *cx.resources.led_state {
+        // you have any). That could be done
+        if *cx.local.led_state {
             // Uses resources managed by rtic to turn led off (on bluepill)
-            cx.resources.led.set_high();
-            *cx.resources.led_state = false;
+            cx.local.led.set_high();
+            *cx.local.led_state = false;
         } else {
-            cx.resources.led.set_low();
-            *cx.resources.led_state = true;
+            cx.local.led.set_low();
+            *cx.local.led_state = true;
         }
-        *COUNT += 1;
+        // Count used to change the timer update frequency
+        *cx.local.count += 1;
 
-        if *COUNT == 4 {
+        if *cx.local.count == 4 {
             // Changes timer update frequency
-            cx.resources.timer_handler.start(2.hz());
-        } else if *COUNT == 12 {
-            cx.resources.timer_handler.start(1.hz());
-            *COUNT = 0;
+            cx.local.timer_handler.start(2.hz());
+        } else if *cx.local.count == 12 {
+            cx.local.timer_handler.start(1.hz());
+            *cx.local.count = 0;
         }
 
         // Clears the update flag
-        cx.resources.timer_handler.clear_update_interrupt_flag();
+        cx.local.timer_handler.clear_update_interrupt_flag();
     }
-};
+}
