@@ -23,6 +23,17 @@ fn main() -> ! {
         .pclk1(28.mhz())
         .adcclk(14.mhz())
         .freeze(&mut flash.acr);
+    /*
+    // Alternative configuration using dividers and multipliers directly
+    let clocks = rcc.cfgr.freeze_with_config(rcc::Config {
+        hse: Some(8_000_000),
+        pllmul: Some(7),
+        hpre: rcc::HPre::DIV1,
+        ppre1: rcc::PPre::DIV2,
+        ppre2: rcc::PPre::DIV1,
+        usbpre: rcc::UsbPre::DIV1_5,
+        adcpre: rcc::AdcPre::DIV2,
+    }, &mut flash.acr);*/
     hprintln!("sysclk freq: {}", clocks.sysclk().0).unwrap();
     hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
 
