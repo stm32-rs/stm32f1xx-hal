@@ -229,6 +229,19 @@ impl CFGR {
             while rcc.cr.read().hserdy().bit_is_clear() {}
         }
 
+        if let Some(pllmul_bits) = cfg.pllmul {
+            // enable PLL and wait for it to be ready
+
+            #[allow(unused_unsafe)]
+            rcc.cfgr.modify(|_, w| unsafe {
+                w.pllmul().bits(pllmul_bits).pllsrc().bit(cfg.hse.is_some())
+            });
+
+            rcc.cr.modify(|_, w| w.pllon().set_bit());
+
+            while rcc.cr.read().pllrdy().bit_is_clear() {}
+        }
+
         // set prescalers and clock source
         #[cfg(feature = "connectivity")]
         rcc.cfgr.modify(|_, w| unsafe {
