@@ -105,6 +105,7 @@ const HSI: u32 = 8_000_000; // Hz
 ///
 /// **NOTE**: Currently, it is not guaranteed that the exact frequencies selected will be
 /// used, only frequencies close to it.
+#[derive(Debug, Default, PartialEq)]
 pub struct CFGR {
     hse: Option<u32>,
     hclk: Option<u32>,
@@ -228,6 +229,19 @@ impl CFGR {
             while rcc.cr.read().hserdy().bit_is_clear() {}
         }
 
+        if let Some(pllmul_bits) = cfg.pllmul {
+            // enable PLL and wait for it to be ready
+
+            #[allow(unused_unsafe)]
+            rcc.cfgr.modify(|_, w| unsafe {
+                w.pllmul().bits(pllmul_bits).pllsrc().bit(cfg.hse.is_some())
+            });
+
+            rcc.cr.modify(|_, w| w.pllon().set_bit());
+
+            while rcc.cr.read().pllrdy().bit_is_clear() {}
+        }
+
         // set prescalers and clock source
         #[cfg(feature = "connectivity")]
         rcc.cfgr.modify(|_, w| unsafe {
@@ -335,7 +349,7 @@ impl BKP {
 ///
 /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
 /// ```
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Clocks {
     hclk: Hertz,
     pclk1: Hertz,
@@ -701,4 +715,40 @@ impl Config {
             usbclk_valid,
         }
     }
+}
+
+#[test]
+fn rcc_config_usb() {
+    use crate::time::U32Ext;
+    let cfgr = CFGR::default()
+        .use_hse(8.mhz())
+        .sysclk(48.mhz())
+        .pclk1(24.mhz());
+
+    let config = Config::from_cfgr(cfgr);
+    let config_expected = Config {
+        hse: Some(8_000_000),
+        pllmul: Some(4),
+        hpre: HPre::DIV1,
+        ppre1: PPre::DIV2,
+        ppre2: PPre::DIV1,
+        #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+        usbpre: UsbPre::DIV1,
+        adcpre: AdcPre::DIV8,
+    };
+    assert_eq!(config, config_expected);
+
+    let clocks = config.get_clocks();
+    let clocks_expected = Clocks {
+        hclk: 48.mhz().into(),
+        pclk1: 24.mhz().into(),
+        pclk2: 48.mhz().into(),
+        ppre1: 2,
+        ppre2: 1,
+        sysclk: 48.mhz().into(),
+        adcclk: 6.mhz().into(),
+        #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+        usbclk_valid: true,
+    };
+    assert_eq!(clocks, clocks_expected);
 }
