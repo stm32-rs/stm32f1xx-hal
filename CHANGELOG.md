@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- RTC not enable PWR clock
 - USART2 remap
 - Fix > 2 byte i2c reads
 - Send stop after acknowledge errors on i2c
