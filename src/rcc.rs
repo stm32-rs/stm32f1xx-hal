@@ -327,6 +327,7 @@ impl BKP {
         // Enable the backup interface by setting PWREN and BKPEN
         let rcc = unsafe { &(*RCC::ptr()) };
         crate::pac::BKP::enable(rcc);
+        crate::pac::PWR::enable(rcc);
 
         // Enable access to the backup registers
         pwr.cr.modify(|_r, w| w.dbp().set_bit());
