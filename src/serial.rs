@@ -650,7 +650,7 @@ macro_rules! serialdma {
 
             impl Rx<$USARTX> {
                 pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
-                    unsafe { (*$USARTX::ptr()).cr3.write(|w| w.dmar().set_bit()); }
+                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().set_bit()); }
                     RxDma {
                         payload: self,
                         channel,
@@ -660,7 +660,7 @@ macro_rules! serialdma {
 
             impl Tx<$USARTX> {
                 pub fn with_dma(self, channel: $dmatxch) -> $txdma {
-                    unsafe { (*$USARTX::ptr()).cr3.write(|w| w.dmat().set_bit()); }
+                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().set_bit()); }
                     TxDma {
                         payload: self,
                         channel,
@@ -675,7 +675,7 @@ macro_rules! serialdma {
                 }
                 pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
                     self.stop();
-                    unsafe { (*$USARTX::ptr()).cr3.write(|w| w.dmar().clear_bit()); }
+                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().clear_bit()); }
                     let RxDma {payload, channel} = self;
                     (
                         payload,
@@ -691,7 +691,7 @@ macro_rules! serialdma {
                 }
                 pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
                     self.stop();
-                    unsafe { (*$USARTX::ptr()).cr3.write(|w| w.dmat().clear_bit()); }
+                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().clear_bit()); }
                     let TxDma {payload, channel} = self;
                     (
                         payload,
