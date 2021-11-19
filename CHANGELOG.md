@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- RTC clock source can be selected.
 - `rcc::Config` with prescalers for direct setting of clocks without calculating
 - `From<Bps>` for `serial::Config`
 - `From<Into<Hertz>>` for `i2c::Mode`
