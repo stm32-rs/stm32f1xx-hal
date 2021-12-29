@@ -95,11 +95,11 @@ mod app {
         let mut afio = cx.device.AFIO.constrain();
         can.assign_pins((can_tx_pin, can_rx_pin), &mut afio.mapr);
 
-        let mut can = bxcan::Can::new(can);
-
         // APB1 (PCLK1): 16MHz, Bit rate: 1000kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
-        can.modify_config().set_bit_timing(0x001c_0000);
+        let mut can = bxcan::Can::builder(can)
+            .set_bit_timing(0x001c_0000)
+            .leave_disabled();
 
         can.modify_filters().enable_bank(0, Mask32::accept_all());
 
@@ -107,7 +107,7 @@ mod app {
         can.enable_interrupts(
             Interrupts::TRANSMIT_MAILBOX_EMPTY | Interrupts::FIFO0_MESSAGE_PENDING,
         );
-        nb::block!(can.enable()).unwrap();
+        nb::block!(can.enable_non_blocking()).unwrap();
 
         let (can_tx, can_rx) = can.split();
 
@@ -213,17 +213,19 @@ mod app {
         (&mut tx_queue, &mut tx_count).lock(|tx_queue, tx_count| {
             while let Some(frame) = tx_queue.peek() {
                 match tx.transmit(&frame.0) {
-                    Ok(None) => {
-                        // Frame was successfully placed into a transmit buffer.
-                        tx_queue.pop();
-                        *tx_count += 1;
-                    }
-                    Ok(Some(pending_frame)) => {
-                        // A lower priority frame was replaced with our high priority frame.
-                        // Put the low priority frame back in the transmit queue.
-                        tx_queue.pop();
-                        enqueue_frame(tx_queue, pending_frame);
-                    }
+                    Ok(status) => match status.dequeued_frame() {
+                        None => {
+                            // Frame was successfully placed into a transmit buffer.
+                            tx_queue.pop();
+                            *tx_count += 1;
+                        }
+                        Some(pending_frame) => {
+                            // A lower priority frame was replaced with our high priority frame.
+                            // Put the low priority frame back in the transmit queue.
+                            tx_queue.pop();
+                            enqueue_frame(tx_queue, pending_frame.clone());
+                        }
+                    },
                     Err(nb::Error::WouldBlock) => break,
                     Err(_) => unreachable!(),
                 }
