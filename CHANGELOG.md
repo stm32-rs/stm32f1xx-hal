@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.8.0] - 2021-12-29
+
 ### Breaking changes
 
-- Bump `stm32f1` to `0.14.0`, `cortex-m-rtic` to `0.6.0-rc2` and others
+- Bump `stm32f1` to `0.14.0`, `cortex-m-rtic` to `1.0.0`, `bxcan` to `0.6` and others
 - Bump `stm32-usbd` dependency (`0.6.0`)
 - Use bit-banding for Peripheral enable/reset.
   Don't require APBs in initializers.
@@ -60,7 +62,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use maximum frequency of 36 MHz on PCLK1
 - Round up when calculating the PCLK1 prescaler
 
-## [v0.7.0]- 2020-10-17
+## [v0.7.0] - 2020-10-17
 
 ### Breaking changes
 
@@ -286,7 +288,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.8.0...HEAD
+[v0.8.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.7.0...v0.8.0
 [v0.7.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.6.1...v0.7.0
 [v0.6.1]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.6.0...v0.6.1
 [v0.6.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.5.3...v0.6.0
