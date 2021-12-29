@@ -21,7 +21,7 @@ cortex-m-rt = "0.7"
 nb = "1"
 stm32f1 = "0.14.0"
 embedded-dma = "0.1.2"
-bxcan = ">=0.4, <0.6"
+bxcan = "0.6"
 cast = { default-features = false, version = "0.3.0" }
 void = { default-features = false, version = "1.0.2" }
 embedded-hal = { features = ["unproven"], version = "0.2.6" }
@@ -32,21 +32,14 @@ optional = true
 
 [dev-dependencies]
 panic-halt = "0.2.0"
-panic-semihosting = "0.5.2"
+panic-semihosting = "0.5.6"
 panic-itm = "0.4.1"
-cortex-m-rtic = "0.6.0-rc.2"
-cortex-m-semihosting = "0.3.3"
-heapless = "0.7.7"
-m = "0.1.1"
+cortex-m-rtic = "1.0.0"
+cortex-m-semihosting = "0.3.7"
+heapless = "0.7.9"
 mfrc522 = "0.2.0"
 usb-device = "0.2.8"
 usbd-serial = "0.1.1"
-byteorder = { default-features = false, version = "1.4.3" }
-cobs = { default-features = false, version = "0.1.4" }
-crc16 = { default-features = false, version = "0.4.0" }
-either = { default-features = false, version = "1.6.1" }
-serde = { default-features = false, version = "1.0.130"}
-serde_derive = "1.0.130"
 
 [features]
 device-selected = []
