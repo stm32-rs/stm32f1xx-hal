@@ -32,7 +32,7 @@ fn main() -> ! {
     // Enable writes to the backup domain
     let mut backup_domain = rcc.bkp.constrain(dp.BKP, &mut pwr);
     // Start the RTC
-    let mut rtc = Rtc::rtc(dp.RTC, &mut backup_domain);
+    let mut rtc = Rtc::new(dp.RTC, &mut backup_domain);
 
     let mut led_on = false;
     loop {

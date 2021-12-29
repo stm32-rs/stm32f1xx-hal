@@ -7,9 +7,18 @@ use crate::backup_domain::BackupDomain;
 use crate::time::Hertz;
 
 use core::convert::Infallible;
+use core::marker::PhantomData;
 
 // The LSE runs at at 32 768 hertz unless an external clock is provided
 const LSE_HERTZ: u32 = 32_768;
+const LSI_HERTZ: u32 = 40_000;
+
+/// RTC clock source HSE clock divided by 128 (type state)
+pub struct RtcClkHseDiv128;
+/// RTC clock source LSE oscillator clock (type state)
+pub struct RtcClkLse;
+/// RTC clock source LSI oscillator clock (type state)
+pub struct RtcClkLsi;
 
 /**
   Real time clock
@@ -28,11 +37,12 @@ const LSE_HERTZ: u32 = 32_768;
   [examples/blinky_rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.7.0/examples/blinky_rtc.rs
 */
 
-pub struct Rtc {
+pub struct Rtc<CS = RtcClkLse> {
     regs: RTC,
+    _clock_source: PhantomData<CS>,
 }
 
-impl Rtc {
+impl Rtc<RtcClkLse> {
     /**
       Initialises the RTC. The `BackupDomain` struct is created by
       `Rcc.bkp.constrain()`.
@@ -43,10 +53,13 @@ impl Rtc {
       power cycles where (VBAT) still has power. Use [set_time](#method.set_time) if you want to
       reset the counter.
     */
-    pub fn rtc(regs: RTC, bkp: &mut BackupDomain) -> Self {
-        let mut result = Rtc { regs };
+    pub fn new(regs: RTC, bkp: &mut BackupDomain) -> Self {
+        let mut result = Rtc {
+            regs,
+            _clock_source: PhantomData,
+        };
 
-        Rtc::enable_rtc(bkp);
+        Self::enable_rtc(bkp);
 
         // Set the prescaler to make it count up once every second.
         let prl = LSE_HERTZ - 1;
@@ -77,7 +90,95 @@ impl Rtc {
                 .lse()
         })
     }
+}
 
+impl Rtc<RtcClkLsi> {
+    pub fn rtc(regs: RTC, bkp: &mut BackupDomain) -> Self {
+        let mut result = Rtc {
+            regs,
+            _clock_source: PhantomData,
+        };
+
+        Self::enable_rtc(bkp);
+
+        // Set the prescaler to make it count up once every second.
+        let prl = LSI_HERTZ - 1;
+        assert!(prl < 1 << 20);
+        result.perform_write(|s| {
+            s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
+            s.regs.prll.write(|w| unsafe { w.bits(prl as u16 as u32) });
+        });
+
+        result
+    }
+
+    /// Enables the RTC device with the lsi as the clock
+    fn enable_rtc(_bkp: &mut BackupDomain) {
+        // NOTE: Safe RCC access because we are only accessing bdcr
+        // and we have a &mut on BackupDomain
+        let rcc = unsafe { &*RCC::ptr() };
+        rcc.csr.modify(|_, w| {
+            w
+                // start the LSI oscillator
+                .lsion()
+                .set_bit()
+        });
+        rcc.bdcr.modify(|_, w| {
+            w
+                // Enable the RTC
+                .rtcen()
+                .set_bit()
+                // Set the source of the RTC to LSI
+                .rtcsel()
+                .lsi()
+        })
+    }
+}
+
+impl Rtc<RtcClkHseDiv128> {
+    pub fn rtc<F>(regs: RTC, bkp: &mut BackupDomain, hse: F) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        let mut result = Rtc {
+            regs,
+            _clock_source: PhantomData,
+        };
+
+        Self::enable_rtc(bkp);
+
+        // Set the prescaler to make it count up once every second.
+        let prl = hse.into().0 / 128 - 1;
+        assert!(prl < 1 << 20);
+        result.perform_write(|s| {
+            s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
+            s.regs.prll.write(|w| unsafe { w.bits(prl as u16 as u32) });
+        });
+
+        result
+    }
+
+    /// Enables the RTC device with the lsi as the clock
+    fn enable_rtc(_bkp: &mut BackupDomain) {
+        // NOTE: Safe RCC access because we are only accessing bdcr
+        // and we have a &mut on BackupDomain
+        let rcc = unsafe { &*RCC::ptr() };
+        if rcc.cr.read().hserdy().bit_is_clear() {
+            panic!("HSE oscillator not ready");
+        }
+        rcc.bdcr.modify(|_, w| {
+            w
+                // Enable the RTC
+                .rtcen()
+                .set_bit()
+                // Set the source of the RTC to HSE/128
+                .rtcsel()
+                .hse()
+        })
+    }
+}
+
+impl<CS> Rtc<CS> {
     /// Selects the frequency of the RTC Timer
     /// NOTE: Maximum frequency of 16384 Hz using the internal LSE
     pub fn select_frequency(&mut self, timeout: impl Into<Hertz>) {

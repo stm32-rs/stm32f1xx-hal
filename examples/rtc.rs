@@ -19,7 +19,7 @@ fn main() -> ! {
     let rcc = p.RCC.constrain();
     let mut backup_domain = rcc.bkp.constrain(p.BKP, &mut pwr);
 
-    let rtc = Rtc::rtc(p.RTC, &mut backup_domain);
+    let rtc = Rtc::new(p.RTC, &mut backup_domain);
 
     loop {
         hprintln!("time: {}", rtc.current_time()).unwrap();
