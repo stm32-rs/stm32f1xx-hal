@@ -286,7 +286,11 @@ where
     ///
     /// If a transmission is currently in progress, this returns
     /// [`nb::Error::WouldBlock`].
-    pub fn reconfigure(&mut self, config: impl Into<Config>, clocks: Clocks) -> nb::Result<(), ()> {
+    pub fn reconfigure(
+        &mut self,
+        config: impl Into<Config>,
+        clocks: Clocks,
+    ) -> nb::Result<(), Infallible> {
         let sr = self.usart.sr.read();
         // if we're currently busy transmitting, we have to wait until that is
         // over -- regarding reception, we assume that the caller -- with
