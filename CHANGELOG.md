@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Serial can now be reconfigured, allowing to change e.g. the baud rate after initialisation.
+
 ## [v0.8.0] - 2021-12-29
 
 ### Breaking changes

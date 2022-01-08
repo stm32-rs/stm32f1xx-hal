@@ -235,6 +235,19 @@ where
         USART::reset(rcc);
 
         remap();
+        self.apply_config(config, clocks);
+
+        // UE: enable USART
+        // RE: enable receiver
+        // TE: enable transceiver
+        self.usart
+            .cr1
+            .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
+
+        self
+    }
+
+    fn apply_config(&self, config: Config, clocks: Clocks) {
         // Configure baud rate
         let brr = USART::get_frequency(&clocks).0 / config.baudrate.0;
         assert!(brr >= 16, "impossible baud rate");
@@ -267,15 +280,23 @@ where
             StopBits::STOP1P5 => 0b11,
         };
         self.usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
+    }
 
-        // UE: enable USART
-        // RE: enable receiver
-        // TE: enable transceiver
-        self.usart
-            .cr1
-            .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
-
-        self
+    /// Reconfigure the USART instance.
+    ///
+    /// If a transmission is currently in progress, this returns
+    /// [`nb::Error::WouldBlock`].
+    pub fn reconfigure(&mut self, config: impl Into<Config>, clocks: Clocks) -> nb::Result<(), ()> {
+        let sr = self.usart.sr.read();
+        // if we're currently busy transmitting, we have to wait until that is
+        // over -- regarding reception, we assume that the caller -- with
+        // exclusive access to the Serial instance due to &mut self -- knows
+        // what they're doing.
+        if sr.tc().bit_is_clear() {
+            return nb::Result::Err(nb::Error::WouldBlock);
+        }
+        self.apply_config(config.into(), clocks);
+        nb::Result::Ok(())
     }
 
     /// Starts listening to the USART by enabling the _Received data
