@@ -25,6 +25,8 @@ bxcan = "0.6"
 cast = { default-features = false, version = "0.3.0" }
 void = { default-features = false, version = "1.0.2" }
 embedded-hal = { features = ["unproven"], version = "0.2.6" }
+fugit = "0.3.0"
+rtic-monotonic = { version = "1.0", optional = true }
 
 [dependencies.stm32-usbd]
 version = "0.6.0"
@@ -61,6 +63,8 @@ xl = ["high"]
 connectivity = ["medium", "has-can"]
 # Devices with CAN interface
 has-can = []
+
+rtic = ["rt", "rtic-monotonic"]
 
 [profile.dev]
 incremental = false

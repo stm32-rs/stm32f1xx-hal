@@ -68,13 +68,16 @@ use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
 #[cfg(feature = "stm32f100")]
 use crate::pac::{TIM15, TIM16, TIM17};
 
-use crate::rcc::{Clocks, Enable, GetBusFreq, RccBus, Reset};
+use crate::rcc::{self, Clocks};
 use cast::{u16, u32, u64};
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use void::Void;
 
 use crate::time::Hertz;
+
+#[cfg(feature = "rtic")]
+mod monotonic;
 
 /// Interrupt events
 pub enum Event {
@@ -275,18 +278,50 @@ impl Cancel for CountDownTimer<SYST> {
 
 impl Periodic for CountDownTimer<SYST> {}
 
+pub trait Instance: crate::Sealed + rcc::Enable + rcc::Reset + rcc::GetBusFreq {}
+
+impl<TIM> Timer<TIM>
+where
+    TIM: Instance,
+{
+    /// Initialize timer
+    pub fn new(tim: TIM, clocks: &Clocks) -> Self {
+        unsafe {
+            //NOTE(unsafe) this reference will only be used for atomic writes with no side effects
+            let rcc = &(*RCC::ptr());
+            // Enable and reset the timer peripheral
+            TIM::enable(rcc);
+            TIM::reset(rcc);
+        }
+
+        Self {
+            clk: TIM::get_timer_frequency(&clocks),
+            tim,
+        }
+    }
+
+    /// Resets timer peripheral
+    #[inline(always)]
+    pub fn clocking_reset(&mut self) {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        TIM::reset(rcc);
+    }
+
+    /// Releases the TIM Peripheral
+    pub fn release(self) -> TIM {
+        self.tim
+    }
+}
+
 macro_rules! hal {
     ($($TIMX:ident: ($timX:ident, $APBx:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
         $(
+            impl Instance for $TIMX { }
+
             impl Timer<$TIMX> {
                 /// Initialize timer
                 pub fn $timX(tim: $TIMX, clocks: &Clocks) -> Self {
-                    // enable and reset peripheral to a clean slate state
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    $TIMX::enable(rcc);
-                    $TIMX::reset(rcc);
-
-                    Self { tim, clk: <$TIMX as RccBus>::Bus::get_timer_frequency(&clocks) }
+                    Self::new(tim, clocks)
                 }
 
                 /// Starts timer in count down mode at a given frequency
@@ -323,22 +358,10 @@ macro_rules! hal {
                     timer
                 }
 
-                /// Resets timer peripheral
-                #[inline(always)]
-                pub fn clocking_reset(&mut self) {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    $TIMX::reset(rcc);
-                }
-
                 /// Stopping timer in debug mode can cause troubles when sampling the signal
                 #[inline(always)]
                 pub fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
                     dbg.cr.modify(|_, w| w.$dbg_timX_stop().bit(state));
-                }
-
-                /// Releases the TIM Peripheral
-                pub fn release(self) -> $TIMX {
-                    self.tim
                 }
             }
 

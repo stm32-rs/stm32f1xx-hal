@@ -27,7 +27,7 @@ fn main() -> ! {
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
     let pb5 = gpiob.pb5;
 
-    let pwm_input = Timer::tim3(p.TIM3, &clocks).pwm_input(
+    let pwm_input = Timer::new(p.TIM3, &clocks).pwm_input(
         (pb4, pb5),
         &mut afio.mapr,
         &mut dbg,
