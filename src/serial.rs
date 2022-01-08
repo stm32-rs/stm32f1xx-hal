@@ -185,8 +185,12 @@ use crate::pac::usart1 as uart_base;
 
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
-    usart: USART,
     pins: PINS,
+    inner: ErasedSerial<USART>,
+}
+
+pub struct ErasedSerial<USART> {
+    usart: USART,
     tx: Tx<USART>,
     rx: Rx<USART>,
 }
@@ -224,7 +228,7 @@ impl<USART> Tx<USART> {
     }
 }
 
-impl<USART, PINS> Serial<USART, PINS>
+impl<USART> ErasedSerial<USART>
 where
     USART: Instance,
 {
@@ -348,15 +352,81 @@ where
         }
     }
 
-    /// Returns ownership of the borrowed register handles
-    pub fn release(self) -> (USART, PINS) {
-        (self.usart, self.pins)
-    }
-
     /// Separates the serial struct into separate channel objects for sending (Tx) and
     /// receiving (Rx)
     pub fn split(self) -> (Tx<USART>, Rx<USART>) {
         (self.tx, self.rx)
+    }
+}
+
+impl<USART, PINS> Serial<USART, PINS>
+where
+    USART: Instance,
+{
+    /// Returns ownership of the borrowed register handles
+    pub fn release(self) -> (USART, PINS) {
+        (self.inner.usart, self.pins)
+    }
+
+    /// Erase the pins used for the Serial from the type
+    pub fn erase(self) -> ErasedSerial<USART> {
+        self.inner
+    }
+
+    /// Separates the serial struct into separate channel objects for sending (Tx) and
+    /// receiving (Rx)
+    #[inline(always)]
+    pub fn split(self) -> (Tx<USART>, Rx<USART>) {
+        self.inner.split()
+    }
+
+    /// Reconfigure the USART instance.
+    ///
+    /// If a transmission is currently in progress, this returns
+    /// [`nb::Error::WouldBlock`].
+    #[inline(always)]
+    pub fn reconfigure(&mut self, config: impl Into<Config>, clocks: Clocks) -> nb::Result<(), ()> {
+        self.inner.reconfigure(config, clocks)
+    }
+
+    /// Starts listening to the USART by enabling the _Received data
+    /// ready to be read (RXNE)_ interrupt and _Transmit data
+    /// register empty (TXE)_ interrupt
+    #[inline(always)]
+    pub fn listen(&mut self, event: Event) {
+        self.inner.listen(event)
+    }
+
+    /// Stops listening to the USART by disabling the _Received data
+    /// ready to be read (RXNE)_ interrupt and _Transmit data
+    /// register empty (TXE)_ interrupt
+    #[inline(always)]
+    pub fn unlisten(&mut self, event: Event) {
+        self.inner.unlisten(event)
+    }
+
+    /// Returns true if the line idle status is set
+    #[inline(always)]
+    pub fn is_idle(&self) -> bool {
+        self.inner.is_idle()
+    }
+
+    /// Returns true if the tx register is empty (and can accept data)
+    #[inline(always)]
+    pub fn is_tx_empty(&self) -> bool {
+        self.inner.is_tx_empty()
+    }
+
+    /// Returns true if the rx register is not empty (and can be read)
+    #[inline(always)]
+    pub fn is_rx_not_empty(&self) -> bool {
+        self.inner.is_rx_not_empty()
+    }
+
+    /// Clear idle line interrupt flag
+    #[inline(always)]
+    pub fn clear_idle_interrupt(&self) {
+        self.inner.clear_idle_interrupt()
     }
 }
 
@@ -406,12 +476,12 @@ macro_rules! hal {
                 PINS: Pins<$USARTX>,
             {
                 #[allow(unused_unsafe)]
-                Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config.into(), clocks, || {
+                Serial { pins, inner: ErasedSerial{ usart, tx: Tx::new(), rx: Rx::new() }.init(config.into(), clocks, || {
                     mapr.modify_mapr(|_, w| unsafe {
                         #[allow(clippy::redundant_closure_call)]
                         w.$usartX_remap().$bit(($closure)(PINS::REMAP))
                     })
-                })
+                }) }
             }
         }
 
@@ -557,7 +627,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Read<u8> for Serial<USART, PINS>
+impl<USART> crate::hal::serial::Read<u8> for ErasedSerial<USART>
 where
     USART: Instance,
 {
@@ -568,7 +638,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Write<u8> for Serial<USART, PINS>
+impl<USART> crate::hal::serial::Write<u8> for ErasedSerial<USART>
 where
     USART: Instance,
 {
@@ -580,6 +650,32 @@ where
 
     fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
         self.tx.write(byte)
+    }
+}
+
+impl<USART, PINS> crate::hal::serial::Read<u8> for Serial<USART, PINS>
+where
+    USART: Instance,
+{
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        self.inner.rx.read()
+    }
+}
+
+impl<USART, PINS> crate::hal::serial::Write<u8> for Serial<USART, PINS>
+where
+    USART: Instance,
+{
+    type Error = Infallible;
+
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        self.inner.tx.flush()
+    }
+
+    fn write(&mut self, byte: u8) -> nb::Result<(), Self::Error> {
+        self.inner.tx.write(byte)
     }
 }
 
