@@ -1,9 +1,9 @@
+//! Transmits data over an SPI port using DMA
+
+#![allow(clippy::empty_loop)]
 #![no_std]
 #![no_main]
 
-/**
-  Transmits data over an SPI port using DMA
-*/
 use panic_halt as _;
 
 use cortex_m_rt::entry;

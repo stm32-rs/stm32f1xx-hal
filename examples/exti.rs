@@ -3,6 +3,7 @@
 //! Listens for interrupts on the pa7 pin. On any rising or falling edge, toggles
 //! the pc13 pin (which is connected to the LED on the blue pill board, hence the `led` name).
 
+#![allow(clippy::empty_loop)]
 #![no_main]
 #![no_std]
 

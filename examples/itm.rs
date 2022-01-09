@@ -1,4 +1,5 @@
 #![deny(unsafe_code)]
+#![allow(clippy::empty_loop)]
 #![no_main]
 #![no_std]
 

@@ -9,6 +9,7 @@
 //! section 5.1.2 of the reference manual for an explanation.
 //! This is not an issue on the blue pill.
 
+#![allow(clippy::empty_loop)]
 #![deny(unsafe_code)]
 #![no_main]
 #![no_std]

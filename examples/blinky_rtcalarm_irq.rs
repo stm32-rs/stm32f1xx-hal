@@ -7,6 +7,8 @@
 //! GPIOs PC13 to PC15 in output mode is restricted: the speed has to be limited to 2MHz with
 //! a maximum load of 30pF and these IOs must not be used as a current source (e.g. to drive a LED)"
 
+#![allow(clippy::empty_loop)]
+#![allow(unused)]
 #![no_std]
 #![no_main]
 
@@ -26,10 +28,10 @@ use cortex_m::{asm::wfi, interrupt::Mutex};
 use cortex_m_rt::entry;
 
 // A type definition for the GPIO pin to be used for our LED
-type LEDPIN = gpioc::PC13<Output<PushPull>>;
+type LedPin = gpioc::PC13<Output<PushPull>>;
 
 // Make LED pin globally available
-static G_LED: Mutex<RefCell<Option<LEDPIN>>> = Mutex::new(RefCell::new(None));
+static G_LED: Mutex<RefCell<Option<LedPin>>> = Mutex::new(RefCell::new(None));
 // Make RTC globally available
 static G_RTC: Mutex<RefCell<Option<Rtc>>> = Mutex::new(RefCell::new(None));
 // Make EXTI registers globally available
@@ -50,7 +52,7 @@ fn main() -> ! {
 #[cfg(not(feature = "stm32f101"))]
 #[interrupt]
 fn RTCALARM() {
-    static mut LED: Option<LEDPIN> = None;
+    static mut LED: Option<LedPin> = None;
     static mut RTC: Option<Rtc> = None;
     static mut EXTI: Option<EXTI> = None;
 

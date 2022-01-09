@@ -137,7 +137,7 @@ impl<PINS> I2c<I2C1, PINS> {
         PINS: Pins<I2C1>,
     {
         mapr.modify_mapr(|_, w| w.i2c1_remap().bit(PINS::REMAP));
-        I2c::<I2C1, _>::_i2c(i2c, pins, mode, clocks)
+        I2c::<I2C1, _>::configure(i2c, pins, mode, clocks)
     }
 }
 
@@ -147,7 +147,7 @@ impl<PINS> I2c<I2C2, PINS> {
     where
         PINS: Pins<I2C2>,
     {
-        I2c::<I2C2, _>::_i2c(i2c, pins, mode, clocks)
+        I2c::<I2C2, _>::configure(i2c, pins, mode, clocks)
     }
 }
 
@@ -156,7 +156,7 @@ where
     I2C: Instance,
 {
     /// Configures the I2C peripheral to work in master mode
-    fn _i2c<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: Clocks) -> Self {
+    fn configure<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: Clocks) -> Self {
         let mode = mode.into();
         let rcc = unsafe { &(*RCC::ptr()) };
         I2C::enable(rcc);

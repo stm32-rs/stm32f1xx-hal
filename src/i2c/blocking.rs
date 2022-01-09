@@ -35,7 +35,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
         PINS: Pins<I2C1>,
     {
         mapr.modify_mapr(|_, w| w.i2c1_remap().bit(PINS::REMAP));
-        BlockingI2c::<I2C1, _>::_i2c(
+        BlockingI2c::<I2C1, _>::configure(
             i2c,
             pins,
             mode,
@@ -64,7 +64,7 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
     where
         PINS: Pins<I2C2>,
     {
-        BlockingI2c::<I2C2, _>::_i2c(
+        BlockingI2c::<I2C2, _>::configure(
             i2c,
             pins,
             mode,
@@ -152,12 +152,9 @@ macro_rules! busy_wait {
 
 macro_rules! busy_wait_cycles {
     ($nb_expr:expr, $cycles:expr) => {{
-        let started = DWT::get_cycle_count();
+        let started = DWT::cycle_count();
         let cycles = $cycles;
-        busy_wait!(
-            $nb_expr,
-            DWT::get_cycle_count().wrapping_sub(started) >= cycles
-        )
+        busy_wait!($nb_expr, DWT::cycle_count().wrapping_sub(started) >= cycles)
     }};
 }
 
@@ -166,7 +163,7 @@ where
     I2C: Instance,
 {
     #[allow(clippy::too_many_arguments)]
-    fn _i2c<M: Into<Mode>>(
+    fn configure<M: Into<Mode>>(
         i2c: I2C,
         pins: PINS,
         mode: M,
@@ -176,7 +173,7 @@ where
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> Self {
-        I2c::<I2C, _>::_i2c(i2c, pins, mode, clocks).blocking(
+        I2c::<I2C, _>::configure(i2c, pins, mode, clocks).blocking(
             start_timeout_us,
             start_retries,
             addr_timeout_us,

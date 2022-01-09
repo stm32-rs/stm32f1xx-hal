@@ -4,6 +4,7 @@
 //! so you can see the message in a serial console (e.g. Arduino console).
 
 #![deny(unsafe_code)]
+#![allow(clippy::empty_loop)]
 #![no_main]
 #![no_std]
 
