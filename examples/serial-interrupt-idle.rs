@@ -9,6 +9,10 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use stm32f1xx_hal::{
+    gpio::{
+        gpiob::{PB6, PB7},
+        Alternate, Floating, Input, PushPull,
+    },
     pac,
     pac::interrupt,
     pac::USART1,
@@ -16,8 +20,8 @@ use stm32f1xx_hal::{
     serial::{Config, Rx, Serial, Tx},
 };
 
-static mut RX: Option<Rx<USART1>> = None;
-static mut TX: Option<Tx<USART1>> = None;
+static mut RX: Option<Rx<USART1, PB7<Input<Floating>>>> = None;
+static mut TX: Option<Tx<USART1, PB6<Alternate<PushPull>>>> = None;
 #[entry]
 fn main() -> ! {
     // Get access to the device specific peripherals from the peripheral access crate
