@@ -13,7 +13,7 @@ use crate::pac::{TIM2, TIM3};
 
 use crate::afio::MAPR;
 use crate::gpio::{self, Input};
-use crate::rcc::{Clocks, GetBusFreq, RccBus};
+use crate::rcc::{BusTimerClock, Clocks};
 use crate::time::Hertz;
 use crate::timer::Timer;
 
@@ -273,7 +273,7 @@ macro_rules! hal {
                     if ccr1 == 0 {
                         Err(Error::FrequencyTooLow)
                     } else {
-                        let clk : u32 = <$TIMX as RccBus>::Bus::get_timer_frequency(&clocks).0;
+                        let clk : u32 = <$TIMX>::timer_clock(&clocks).0;
                         Ok(Hertz(clk/((presc+1) as u32*(ccr1 + 1)as u32)))
                     }
                 }

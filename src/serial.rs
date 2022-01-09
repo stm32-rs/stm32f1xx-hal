@@ -53,7 +53,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Input};
-use crate::rcc::{Clocks, Enable, GetBusFreq, Reset};
+use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
 /// Interrupt event
@@ -192,7 +192,7 @@ pub struct Serial<USART, PINS> {
 }
 
 pub trait Instance:
-    crate::Sealed + Deref<Target = uart_base::RegisterBlock> + Enable + Reset + GetBusFreq
+    crate::Sealed + Deref<Target = uart_base::RegisterBlock> + Enable + Reset + BusClock
 {
     #[doc(hidden)]
     fn ptr() -> *const uart_base::RegisterBlock;
@@ -249,7 +249,7 @@ where
 
     fn apply_config(&self, config: Config, clocks: Clocks) {
         // Configure baud rate
-        let brr = USART::get_frequency(&clocks).0 / config.baudrate.0;
+        let brr = USART::clock(&clocks).0 / config.baudrate.0;
         assert!(brr >= 16, "impossible baud rate");
         self.usart.brr.write(|w| unsafe { w.bits(brr) });
 

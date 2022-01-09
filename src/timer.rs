@@ -278,7 +278,7 @@ impl Cancel for CountDownTimer<SYST> {
 
 impl Periodic for CountDownTimer<SYST> {}
 
-pub trait Instance: crate::Sealed + rcc::Enable + rcc::Reset + rcc::GetBusFreq {}
+pub trait Instance: crate::Sealed + rcc::Enable + rcc::Reset + rcc::BusTimerClock {}
 
 impl<TIM> Timer<TIM>
 where
@@ -295,7 +295,7 @@ where
         }
 
         Self {
-            clk: TIM::get_timer_frequency(&clocks),
+            clk: TIM::timer_clock(clocks),
             tim,
         }
     }

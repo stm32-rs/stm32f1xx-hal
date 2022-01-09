@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `Instance` for Timer's, rtic-monotonic fugit impl
 - Serial can now be reconfigured, allowing to change e.g. the baud rate after initialisation.
 
+### Changed
+
+- replace `GetBusFreq` with `BusClock` and `BusTimerClock`
+
 ## [v0.8.0] - 2021-12-29
 
 ### Breaking changes
