@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Possibility to unite Tx and Rx parts of Serial
 - `Instance` for Timer's, rtic-monotonic fugit impl
 - Serial can now be reconfigured, allowing to change e.g. the baud rate after initialisation.
 
 ### Changed
 
+- serial: move TX pin and USART into `Tx` structure and RX pin into `Rx` structure
 - replace `GetBusFreq` with `BusClock` and `BusTimerClock`
 
 ## [v0.8.0] - 2021-12-29
