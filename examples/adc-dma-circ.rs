@@ -1,5 +1,6 @@
 //! ADC interface circular DMA RX transfer test
 
+#![allow(clippy::empty_loop)]
 #![no_main]
 #![no_std]
 

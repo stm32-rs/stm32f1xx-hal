@@ -1,5 +1,6 @@
 //! Prints "Hello, world" on the OpenOCD console
 
+#![allow(clippy::empty_loop)]
 #![deny(unsafe_code)]
 #![no_main]
 #![no_std]

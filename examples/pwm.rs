@@ -1,6 +1,7 @@
 //! Testing PWM output for pre-defined pin combination: all pins for default mapping
 
 #![deny(unsafe_code)]
+#![allow(clippy::empty_loop)]
 #![no_main]
 #![no_std]
 

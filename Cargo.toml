@@ -16,7 +16,7 @@ features = ["stm32f103", "rt"]
 default-target = "x86_64-unknown-linux-gnu"
 
 [dependencies]
-cortex-m = "0.7"
+cortex-m = "0.7.4"
 cortex-m-rt = "0.7"
 nb = "1"
 stm32f1 = "0.14.0"

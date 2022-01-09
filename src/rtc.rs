@@ -93,7 +93,7 @@ impl Rtc<RtcClkLse> {
 }
 
 impl Rtc<RtcClkLsi> {
-    pub fn rtc(regs: RTC, bkp: &mut BackupDomain) -> Self {
+    pub fn new_lsi(regs: RTC, bkp: &mut BackupDomain) -> Self {
         let mut result = Rtc {
             regs,
             _clock_source: PhantomData,
@@ -136,7 +136,7 @@ impl Rtc<RtcClkLsi> {
 }
 
 impl Rtc<RtcClkHseDiv128> {
-    pub fn rtc<F>(regs: RTC, bkp: &mut BackupDomain, hse: F) -> Self
+    pub fn new_hse<F>(regs: RTC, bkp: &mut BackupDomain, hse: F) -> Self
     where
         F: Into<Hertz>,
     {

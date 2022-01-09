@@ -2,6 +2,7 @@
 //!
 //! You have to short the TX and RX pins to make this program work
 
+#![allow(clippy::empty_loop)]
 #![deny(unsafe_code)]
 #![no_main]
 #![no_std]

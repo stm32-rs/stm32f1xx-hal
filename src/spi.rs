@@ -173,7 +173,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
-        Spi::<SPI1, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks)
+        Spi::<SPI1, _, _, u8>::configure(spi, pins, mode, freq.into(), clocks)
     }
 }
 
@@ -191,7 +191,7 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
         REMAP: Remap<Periph = SPI2>,
         PINS: Pins<REMAP>,
     {
-        Spi::<SPI2, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks)
+        Spi::<SPI2, _, _, u8>::configure(spi, pins, mode, freq.into(), clocks)
     }
 }
 
@@ -211,7 +211,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
         REMAP: Remap<Periph = SPI3>,
         PINS: Pins<REMAP>,
     {
-        Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks)
+        Spi::<SPI3, _, _, u8>::configure(spi, pins, mode, freq.into(), clocks)
     }
 
     /**
@@ -236,7 +236,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi3_remap().bit(REMAP::REMAP));
-        Spi::<SPI3, _, _, u8>::_spi(spi, pins, mode, freq.into(), clocks)
+        Spi::<SPI3, _, _, u8>::configure(spi, pins, mode, freq.into(), clocks)
     }
 }
 
@@ -333,7 +333,7 @@ impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8>
 where
     SPI: Instance,
 {
-    fn _spi(spi: SPI, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self {
+    fn configure(spi: SPI, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self {
         // enable or reset SPI
         let rcc = unsafe { &(*RCC::ptr()) };
         SPI::enable(rcc);
