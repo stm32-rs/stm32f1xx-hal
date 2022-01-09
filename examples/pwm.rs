@@ -52,7 +52,7 @@ fn main() -> ! {
     // let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
     let mut pwm =
-        Timer::tim2(p.TIM2, &clocks).pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz());
+        Timer::new(p.TIM2, &clocks).pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz());
 
     // Enable clock on each of the channels
     pwm.enable(Channel::C1);
