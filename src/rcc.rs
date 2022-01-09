@@ -416,46 +416,64 @@ impl Clocks {
     }
 }
 
-pub trait GetBusFreq {
-    fn get_frequency(clocks: &Clocks) -> Hertz;
-    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
-        Self::get_frequency(clocks)
-    }
+/// Frequency on bus that peripheral is connected in
+pub trait BusClock {
+    /// Calculates frequency depending on `Clock` state
+    fn clock(clocks: &Clocks) -> Hertz;
 }
 
-impl<T> GetBusFreq for T
+/// Frequency on bus that timer is connected in
+pub trait BusTimerClock {
+    /// Calculates base frequency of timer depending on `Clock` state
+    fn timer_clock(clocks: &Clocks) -> Hertz;
+}
+
+impl<T> BusClock for T
 where
     T: RccBus,
-    T::Bus: GetBusFreq,
+    T::Bus: BusClock,
 {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
-        T::Bus::get_frequency(clocks)
-    }
-    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
-        T::Bus::get_timer_frequency(clocks)
+    fn clock(clocks: &Clocks) -> Hertz {
+        T::Bus::clock(clocks)
     }
 }
 
-impl GetBusFreq for AHB {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
+impl<T> BusTimerClock for T
+where
+    T: RccBus,
+    T::Bus: BusTimerClock,
+{
+    fn timer_clock(clocks: &Clocks) -> Hertz {
+        T::Bus::timer_clock(clocks)
+    }
+}
+
+impl BusClock for AHB {
+    fn clock(clocks: &Clocks) -> Hertz {
         clocks.hclk
     }
 }
 
-impl GetBusFreq for APB1 {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
+impl BusClock for APB1 {
+    fn clock(clocks: &Clocks) -> Hertz {
         clocks.pclk1
     }
-    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+}
+
+impl BusClock for APB2 {
+    fn clock(clocks: &Clocks) -> Hertz {
+        clocks.pclk2
+    }
+}
+
+impl BusTimerClock for APB1 {
+    fn timer_clock(clocks: &Clocks) -> Hertz {
         clocks.pclk1_tim()
     }
 }
 
-impl GetBusFreq for APB2 {
-    fn get_frequency(clocks: &Clocks) -> Hertz {
-        clocks.pclk2
-    }
-    fn get_timer_frequency(clocks: &Clocks) -> Hertz {
+impl BusTimerClock for APB2 {
+    fn timer_clock(clocks: &Clocks) -> Hertz {
         clocks.pclk2_tim()
     }
 }

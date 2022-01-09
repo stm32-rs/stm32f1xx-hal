@@ -9,7 +9,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
 use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, RCC};
-use crate::rcc::{Clocks, Enable, GetBusFreq, Reset};
+use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::Hertz;
 use core::ops::Deref;
 use nb::Error::{Other, WouldBlock};
@@ -117,7 +117,7 @@ pub struct I2c<I2C, PINS> {
 }
 
 pub trait Instance:
-    crate::Sealed + Deref<Target = crate::pac::i2c1::RegisterBlock> + Enable + Reset + GetBusFreq
+    crate::Sealed + Deref<Target = crate::pac::i2c1::RegisterBlock> + Enable + Reset + BusClock
 {
 }
 
@@ -162,7 +162,7 @@ where
         I2C::enable(rcc);
         I2C::reset(rcc);
 
-        let pclk1 = I2C::get_frequency(&clocks).0;
+        let pclk1 = I2C::clock(&clocks).0;
 
         assert!(mode.get_frequency().0 <= 400_000);
 

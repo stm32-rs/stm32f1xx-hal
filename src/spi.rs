@@ -51,7 +51,7 @@ use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
 #[cfg(feature = "connectivity")]
 use crate::gpio::gpioc::{PC10, PC11, PC12};
 use crate::gpio::{Alternate, Input};
-use crate::rcc::{Clocks, Enable, GetBusFreq, Reset};
+use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
@@ -142,7 +142,7 @@ remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
 remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
 
 pub trait Instance:
-    crate::Sealed + Deref<Target = crate::pac::spi1::RegisterBlock> + Enable + Reset + GetBusFreq
+    crate::Sealed + Deref<Target = crate::pac::spi1::RegisterBlock> + Enable + Reset + BusClock
 {
 }
 
@@ -342,7 +342,7 @@ where
         // disable SS output
         spi.cr2.write(|w| w.ssoe().clear_bit());
 
-        let br = match SPI::get_frequency(&clocks).0 / freq.0 {
+        let br = match SPI::clock(&clocks).0 / freq.0 {
             0 => unreachable!(),
             1..=2 => 0b000,
             3..=5 => 0b001,
