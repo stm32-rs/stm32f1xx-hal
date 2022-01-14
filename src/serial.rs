@@ -224,6 +224,64 @@ impl<USART> Tx<USART> {
     }
 }
 
+fn apply_config(usart: &uart_base::RegisterBlock, config: Config, brr: u32) {
+    // Configure baud rate
+    assert!(brr >= 16, "impossible baud rate");
+    usart.brr.write(|w| unsafe { w.bits(brr) });
+
+    // Configure parity and word length
+    // Unlike most uart devices, the "word length" of this usart device refers to
+    // the size of the data plus the parity bit. I.e. "word length"=8, parity=even
+    // results in 7 bits of data. Therefore, in order to get 8 bits and one parity
+    // bit, we need to set the "word" length to 9 when using parity bits.
+    let (word_length, parity_control_enable, parity) = match config.parity {
+        Parity::ParityNone => (false, false, false),
+        Parity::ParityEven => (true, true, false),
+        Parity::ParityOdd => (true, true, true),
+    };
+    usart.cr1.modify(|_r, w| {
+        w.m()
+            .bit(word_length)
+            .ps()
+            .bit(parity)
+            .pce()
+            .bit(parity_control_enable)
+    });
+
+    // Configure stop bits
+    let stop_bits = match config.stopbits {
+        StopBits::STOP1 => 0b00,
+        StopBits::STOP0P5 => 0b01,
+        StopBits::STOP2 => 0b10,
+        StopBits::STOP1P5 => 0b11,
+    };
+    usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
+}
+
+/// Reconfigure the USART instance.
+///
+/// If a transmission is currently in progress, this returns [`nb::Error::WouldBlock`].
+pub fn reconfigure<USART: Instance>(
+    _tx: &mut Tx<USART>,
+    _rx: &mut Rx<USART>,
+    config: impl Into<Config>,
+    clocks: Clocks,
+) -> nb::Result<(), Infallible> {
+    let usart = unsafe { &(*USART::ptr()) };
+    let sr = usart.sr.read();
+    // if we're currently busy transmitting, we have to wait until that is
+    // over -- regarding reception, we assume that the caller -- with
+    // exclusive access to the Serial instance due to &mut self -- knows
+    // what they're doing.
+    if sr.tc().bit_is_clear() {
+        return nb::Result::Err(nb::Error::WouldBlock);
+    }
+    let config = config.into();
+    let brr = USART::clock(&clocks).0 / config.baudrate.0;
+    apply_config(usart, config, brr);
+    nb::Result::Ok(())
+}
+
 impl<USART, PINS> Serial<USART, PINS>
 where
     USART: Instance,
@@ -235,7 +293,8 @@ where
         USART::reset(rcc);
 
         remap();
-        self.apply_config(config, clocks);
+        let brr = USART::clock(&clocks).0 / config.baudrate.0;
+        apply_config(&self.usart, config, brr);
 
         // UE: enable USART
         // RE: enable receiver
@@ -245,41 +304,6 @@ where
             .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
         self
-    }
-
-    fn apply_config(&self, config: Config, clocks: Clocks) {
-        // Configure baud rate
-        let brr = USART::clock(&clocks).0 / config.baudrate.0;
-        assert!(brr >= 16, "impossible baud rate");
-        self.usart.brr.write(|w| unsafe { w.bits(brr) });
-
-        // Configure parity and word length
-        // Unlike most uart devices, the "word length" of this usart device refers to
-        // the size of the data plus the parity bit. I.e. "word length"=8, parity=even
-        // results in 7 bits of data. Therefore, in order to get 8 bits and one parity
-        // bit, we need to set the "word" length to 9 when using parity bits.
-        let (word_length, parity_control_enable, parity) = match config.parity {
-            Parity::ParityNone => (false, false, false),
-            Parity::ParityEven => (true, true, false),
-            Parity::ParityOdd => (true, true, true),
-        };
-        self.usart.cr1.modify(|_r, w| {
-            w.m()
-                .bit(word_length)
-                .ps()
-                .bit(parity)
-                .pce()
-                .bit(parity_control_enable)
-        });
-
-        // Configure stop bits
-        let stop_bits = match config.stopbits {
-            StopBits::STOP1 => 0b00,
-            StopBits::STOP0P5 => 0b01,
-            StopBits::STOP2 => 0b10,
-            StopBits::STOP1P5 => 0b11,
-        };
-        self.usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
     }
 
     /// Reconfigure the USART instance.
@@ -299,7 +323,9 @@ where
         if sr.tc().bit_is_clear() {
             return nb::Result::Err(nb::Error::WouldBlock);
         }
-        self.apply_config(config.into(), clocks);
+        let config = config.into();
+        let brr = USART::clock(&clocks).0 / config.baudrate.0;
+        apply_config(&self.usart, config, brr);
         nb::Result::Ok(())
     }
 

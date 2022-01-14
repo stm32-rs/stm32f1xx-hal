@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- `serial::reconfigure` which takes `Tx` and `Rx`
 - `Instance` for Timer's, rtic-monotonic fugit impl
 - Serial can now be reconfigured, allowing to change e.g. the baud rate after initialisation.
 
