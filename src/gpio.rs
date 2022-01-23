@@ -189,6 +189,7 @@ use sealed::PinMode;
 
 use sealed::Interruptable;
 impl<MODE> Interruptable for Input<MODE> {}
+impl Interruptable for Dynamic {}
 
 /// External Interrupt Pin
 pub trait ExtiPin {
