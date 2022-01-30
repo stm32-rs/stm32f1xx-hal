@@ -49,7 +49,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
 }
 
 impl<PINS> BlockingI2c<I2C2, PINS> {
-    /// Creates a blocking I2C2 object on pins PB10 and PB1
+    /// Creates a blocking I2C2 object on pins PB10 and PB11
     #[allow(clippy::too_many_arguments)]
     pub fn i2c2<M: Into<Mode>>(
         i2c: I2C2,
