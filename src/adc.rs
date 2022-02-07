@@ -15,7 +15,7 @@ use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 use embedded_dma::StaticWriteBuffer;
 
-#[cfg(feature = "stm32f103")]
+#[cfg(any(feature = "stm32f103", feature = "connectivity"))]
 use crate::pac::ADC2;
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 use crate::pac::ADC3;
@@ -137,7 +137,7 @@ adc_pins!(ADC1,
     gpioc::PC5<Analog> => 15_u8,
 );
 
-#[cfg(any(feature = "stm32f103",))]
+#[cfg(any(feature = "stm32f103", feature = "connectivity"))]
 adc_pins!(ADC2,
     gpioa::PA0<Analog> => 0_u8,
     gpioa::PA1<Analog> => 1_u8,
@@ -547,7 +547,7 @@ adc_hal! {
     ADC1: (adc1),
 }
 
-#[cfg(feature = "stm32f103")]
+#[cfg(any(feature = "stm32f103", feature = "connectivity"))]
 adc_hal! {
     ADC2: (adc2),
 }
