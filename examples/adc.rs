@@ -27,7 +27,7 @@ fn main() -> ! {
     // Setup ADC
     let mut adc1 = adc::Adc::adc1(p.ADC1, clocks);
 
-    #[cfg(feature = "stm32f103")]
+    #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
     let mut adc2 = adc::Adc::adc2(p.ADC2, clocks);
 
     // Setup GPIOB
@@ -36,14 +36,14 @@ fn main() -> ! {
     // Configure pb0, pb1 as an analog input
     let mut ch0 = gpiob.pb0.into_analog(&mut gpiob.crl);
 
-    #[cfg(feature = "stm32f103")]
+    #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
     let mut ch1 = gpiob.pb1.into_analog(&mut gpiob.crl);
 
     loop {
         let data: u16 = adc1.read(&mut ch0).unwrap();
         hprintln!("adc1: {}", data).unwrap();
 
-        #[cfg(feature = "stm32f103")]
+        #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         {
             let data1: u16 = adc2.read(&mut ch1).unwrap();
             hprintln!("adc2: {}", data1).unwrap();
