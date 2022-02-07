@@ -42,7 +42,7 @@ fn main() -> ! {
     let tx = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
     let rx = gpiob.pb7;
 
-    // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
+    // Set up the usart device. Takes ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
     let (mut tx, mut rx) = Serial::usart1(
         p.USART1,
