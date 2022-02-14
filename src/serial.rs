@@ -76,12 +76,10 @@
 //! let received: u8 = block!(rx.read()).unwrap();
 //!  ```
 
+use core::convert::Infallible;
 use core::marker::PhantomData;
 use core::ops::Deref;
 use core::sync::atomic::{self, Ordering};
-
-use crate::pac::{RCC, USART1, USART2, USART3};
-use core::convert::Infallible;
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 use embedded_hal::serial::Write;
 
@@ -92,6 +90,7 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 use crate::gpio::gpioc::{PC10, PC11};
 use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
 use crate::gpio::{Alternate, Input};
+use crate::pac::{RCC, USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
@@ -167,13 +166,13 @@ pub enum Parity {
 }
 
 pub enum StopBits {
-    #[doc = "1 stop bit"]
+    /// 1 stop bit
     STOP1,
-    #[doc = "0.5 stop bits"]
+    /// 0.5 stop bits
     STOP0P5,
-    #[doc = "2 stop bits"]
+    /// 2 stop bits
     STOP2,
-    #[doc = "1.5 stop bits"]
+    /// 1.5 stop bits
     STOP1P5,
 }
 
@@ -320,21 +319,19 @@ where
         assert!(brr >= 16, "impossible baud rate");
         self.usart.brr.write(|w| unsafe { w.bits(brr) });
 
-        let (parity_control_enable, parity) = match config.parity {
+        // Configure word
+        let (parity_is_used, parity_is_odd) = match config.parity {
             Parity::ParityNone => (false, false),
             Parity::ParityEven => (true, false),
             Parity::ParityOdd => (true, true),
         };
         self.usart.cr1.modify(|_r, w| {
-            w.m()
-                .bit(match config.wordlength {
-                    WordLength::DataBits8 => false,
-                    WordLength::DataBits9 => true,
-                })
-                .ps()
-                .bit(parity)
-                .pce()
-                .bit(parity_control_enable)
+            w.m().bit(match config.wordlength {
+                WordLength::DataBits8 => false,
+                WordLength::DataBits9 => true,
+            });
+            w.ps().bit(parity_is_odd);
+            w.pce().bit(parity_is_used)
         });
 
         // Configure stop bits
@@ -356,12 +353,11 @@ where
         config: impl Into<Config>,
         clocks: Clocks,
     ) -> nb::Result<(), Infallible> {
-        let sr = self.usart.sr.read();
         // if we're currently busy transmitting, we have to wait until that is
         // over -- regarding reception, we assume that the caller -- with
         // exclusive access to the Serial instance due to &mut self -- knows
         // what they're doing.
-        if sr.tc().bit_is_clear() {
+        if self.usart.sr.read().tc().bit_is_clear() {
             return nb::Result::Err(nb::Error::WouldBlock);
         }
         self.apply_config(config.into(), clocks);
@@ -372,22 +368,22 @@ where
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
     pub fn listen(&mut self, event: Event) {
-        match event {
-            Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().set_bit()),
-            Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().set_bit()),
-            Event::Idle => self.usart.cr1.modify(|_, w| w.idleie().set_bit()),
-        }
+        self.usart.cr1.modify(|_, w| match event {
+            Event::Rxne => w.rxneie().set_bit(),
+            Event::Txe => w.txeie().set_bit(),
+            Event::Idle => w.idleie().set_bit(),
+        });
     }
 
     /// Stops listening to the USART by disabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
     pub fn unlisten(&mut self, event: Event) {
-        match event {
-            Event::Rxne => self.usart.cr1.modify(|_, w| w.rxneie().clear_bit()),
-            Event::Txe => self.usart.cr1.modify(|_, w| w.txeie().clear_bit()),
-            Event::Idle => self.usart.cr1.modify(|_, w| w.idleie().clear_bit()),
-        }
+        self.usart.cr1.modify(|_, w| match event {
+            Event::Rxne => w.rxneie().clear_bit(),
+            Event::Txe => w.txeie().clear_bit(),
+            Event::Idle => w.idleie().clear_bit(),
+        });
     }
 
     /// Returns true if the line idle status is set
@@ -407,10 +403,8 @@ where
 
     /// Clear idle line interrupt flag
     pub fn clear_idle_interrupt(&self) {
-        unsafe {
-            let _ = (*USART::ptr()).sr.read();
-            let _ = (*USART::ptr()).dr.read();
-        }
+        let _ = self.usart.sr.read();
+        let _ = self.usart.dr.read();
     }
 
     /// Returns ownership of the borrowed register handles
@@ -686,9 +680,7 @@ where
 
         if let Some(err) = err {
             // Some error occurred. In order to clear that error flag, you have to
-            // do a read from the sr register followed by a read from the dr
-            // register
-            // NOTE(read_volatile) see `write_volatile` below
+            // do a read from the sr register followed by a read from the dr register.
             let _ = usart.sr.read();
             let _ = usart.dr.read();
             Err(nb::Error::Other(err))
@@ -696,7 +688,6 @@ where
             // Check if a byte is available
             if sr.rxne().bit_is_set() {
                 // Read the received byte
-                // NOTE(read_volatile) see `write_volatile` below
                 Ok(usart.dr.read().dr().bits())
             } else {
                 Err(nb::Error::WouldBlock)
@@ -727,11 +718,13 @@ where
 {
     type Error = Infallible;
 
+    #[inline(always)]
     fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
         // Delegate to u16 version
-        Tx::<USART, u16>::new().write(u16::from(word))
+        Tx::<USART, u16>::new().write(word as u16)
     }
 
+    #[inline(always)]
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
         // Delegate to u16 version
         Tx::<USART, u16>::new().flush()
@@ -750,9 +743,9 @@ where
     type Error = Infallible;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        let sr = unsafe { &*USART::ptr() }.sr.read();
+        let usart = unsafe { &*USART::ptr() };
 
-        if sr.tc().bit_is_set() {
+        if usart.sr.read().tc().bit_is_set() {
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -761,11 +754,9 @@ where
 
     fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
         let usart = unsafe { &*USART::ptr() };
-        let sr = usart.sr.read();
 
-        if sr.txe().bit_is_set() {
-            // NOTE(unsafe) atomic write to stateless register
-            unsafe { &*USART::ptr() }.dr.write(|w| w.dr().bits(word));
+        if usart.sr.read().txe().bit_is_set() {
+            usart.dr.write(|w| w.dr().bits(word));
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -780,26 +771,14 @@ where
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
-        for &b in buffer {
-            loop {
-                match self.write(b) {
-                    Err(nb::Error::WouldBlock) => continue,
-                    Err(nb::Error::Other(err)) => return Err(err),
-                    Ok(()) => break,
-                }
-            }
+        for &w in buffer {
+            nb::block!(<Self as crate::hal::serial::Write<u16>>::write(self, w))?;
         }
         Ok(())
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
-        loop {
-            match <Self as crate::hal::serial::Write<u16>>::flush(self) {
-                Ok(()) => return Ok(()),
-                Err(nb::Error::WouldBlock) => continue,
-                Err(nb::Error::Other(err)) => return Err(err),
-            }
-        }
+        nb::block!(<Self as crate::hal::serial::Write<u16>>::flush(self))
     }
 }
 
@@ -809,27 +788,15 @@ where
 {
     type Error = Infallible;
 
-    fn bwrite_all(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        for &b in bytes {
-            loop {
-                match self.write(b) {
-                    Err(nb::Error::WouldBlock) => continue,
-                    Err(nb::Error::Other(err)) => return Err(err),
-                    Ok(()) => break,
-                }
-            }
+    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
+        for &w in buffer {
+            nb::block!(<Self as crate::hal::serial::Write<u8>>::write(self, w))?;
         }
         Ok(())
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
-        loop {
-            match <Self as crate::hal::serial::Write<u8>>::flush(self) {
-                Ok(()) => return Ok(()),
-                Err(nb::Error::WouldBlock) => continue,
-                Err(nb::Error::Other(err)) => return Err(err),
-            }
-        }
+        nb::block!(<Self as crate::hal::serial::Write<u8>>::flush(self))
     }
 }
 
@@ -839,8 +806,8 @@ where
 {
     type Error = Infallible;
 
-    fn bwrite_all(&mut self, bytes: &[u16]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all(bytes)
+    fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
+        self.tx.bwrite_all(buffer)
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
@@ -854,8 +821,8 @@ where
 {
     type Error = Infallible;
 
-    fn bwrite_all(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all(bytes)
+    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
+        self.tx.bwrite_all(buffer)
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
