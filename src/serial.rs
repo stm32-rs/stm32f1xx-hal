@@ -672,7 +672,7 @@ where
             if sr.rxne().bit_is_set() {
                 // Read the received byte
                 // NOTE(read_volatile) see `write_volatile` below
-                usart.dr.read().dr().bits()
+                Ok(usart.dr.read().dr().bits())
             } else {
                 Err(nb::Error::WouldBlock)
             }
