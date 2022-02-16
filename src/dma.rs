@@ -122,7 +122,7 @@ macro_rules! dma {
     }),)+) => {
         $(
             pub mod $dmaX {
-                use core::{sync::atomic::{self, Ordering}, ptr, mem};
+                use core::{sync::atomic::{self, Ordering}, ptr, mem, convert::TryFrom};
 
                 use crate::pac::{RCC, $DMAX, dma1};
 
@@ -157,7 +157,7 @@ macro_rules! dma {
 
                         /// Number of bytes to transfer
                         pub fn set_transfer_length(&mut self, len: usize) {
-                            self.ch().ndtr.write(|w| w.ndt().bits(cast::u16(len).unwrap()));
+                            self.ch().ndtr.write(|w| w.ndt().bits(u16::try_from(len).unwrap()));
                         }
 
                         /// Starts the DMA transfer

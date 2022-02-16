@@ -21,8 +21,8 @@ fn main() -> ! {
     // clock is configurable. So its frequency may be tweaked to meet certain
     // practical needs. User specified value is be approximated using supported
     // prescaler values 2/4/6/8.
-    let clocks = rcc.cfgr.adcclk(2.mhz()).freeze(&mut flash.acr);
-    hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
+    let clocks = rcc.cfgr.adcclk(2.MHz()).freeze(&mut flash.acr);
+    hprintln!("adc freq: {}", clocks.adcclk()).unwrap();
 
     // Setup ADC
     let mut adc1 = adc::Adc::adc1(p.ADC1, clocks);

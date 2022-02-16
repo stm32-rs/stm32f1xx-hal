@@ -315,7 +315,7 @@ where
 
     fn apply_config(&self, config: Config, clocks: Clocks) {
         // Configure baud rate
-        let brr = USART::clock(&clocks).0 / config.baudrate.0;
+        let brr = USART::clock(&clocks).raw() / config.baudrate.0;
         assert!(brr >= 16, "impossible baud rate");
         self.usart.brr.write(|w| unsafe { w.bits(brr) });
 

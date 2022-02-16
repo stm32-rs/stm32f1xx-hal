@@ -10,7 +10,7 @@ use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
-use crate::time::Hertz;
+use crate::time::{kHz, Hertz};
 use core::ops::Deref;
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
@@ -53,15 +53,13 @@ pub enum Mode {
 }
 
 impl Mode {
-    pub fn standard<F: Into<Hertz>>(frequency: F) -> Self {
-        Mode::Standard {
-            frequency: frequency.into(),
-        }
+    pub fn standard(frequency: Hertz) -> Self {
+        Mode::Standard { frequency }
     }
 
-    pub fn fast<F: Into<Hertz>>(frequency: F, duty_cycle: DutyCycle) -> Self {
+    pub fn fast(frequency: Hertz, duty_cycle: DutyCycle) -> Self {
         Mode::Fast {
-            frequency: frequency.into(),
+            frequency,
             duty_cycle,
         }
     }
@@ -74,13 +72,9 @@ impl Mode {
     }
 }
 
-impl<F> From<F> for Mode
-where
-    F: Into<Hertz>,
-{
-    fn from(frequency: F) -> Self {
-        let frequency: Hertz = frequency.into();
-        if frequency.0 <= 100_000 {
+impl From<Hertz> for Mode {
+    fn from(frequency: Hertz) -> Self {
+        if frequency <= kHz(100) {
             Self::Standard { frequency }
         } else {
             Self::Fast {
@@ -113,7 +107,7 @@ pub struct I2c<I2C, PINS> {
     i2c: I2C,
     pins: PINS,
     mode: Mode,
-    pclk1: u32,
+    pclk1: Hertz,
 }
 
 pub trait Instance:
@@ -162,9 +156,9 @@ where
         I2C::enable(rcc);
         I2C::reset(rcc);
 
-        let pclk1 = I2C::clock(&clocks).0;
+        let pclk1 = I2C::clock(&clocks);
 
-        assert!(mode.get_frequency().0 <= 400_000);
+        assert!(mode.get_frequency() <= kHz(400));
 
         let mut i2c = I2c {
             i2c,
@@ -185,7 +179,7 @@ where
     /// according to the system frequency and I2C mode.
     fn init(&mut self) {
         let freq = self.mode.get_frequency();
-        let pclk1_mhz = (self.pclk1 / 1000000) as u16;
+        let pclk1_mhz = self.pclk1.to_MHz() as u16;
 
         self.i2c
             .cr2
@@ -197,9 +191,9 @@ where
                 self.i2c
                     .trise
                     .write(|w| w.trise().bits((pclk1_mhz + 1) as u8));
-                self.i2c.ccr.write(|w| unsafe {
-                    w.ccr().bits(((self.pclk1 / (freq.0 * 2)) as u16).max(4))
-                });
+                self.i2c
+                    .ccr
+                    .write(|w| unsafe { w.ccr().bits(((self.pclk1 / (freq * 2)) as u16).max(4)) });
             }
             Mode::Fast { ref duty_cycle, .. } => {
                 self.i2c
@@ -208,12 +202,8 @@ where
 
                 self.i2c.ccr.write(|w| {
                     let (freq, duty) = match duty_cycle {
-                        DutyCycle::Ratio2to1 => {
-                            (((self.pclk1 / (freq.0 * 3)) as u16).max(1), false)
-                        }
-                        DutyCycle::Ratio16to9 => {
-                            (((self.pclk1 / (freq.0 * 25)) as u16).max(1), true)
-                        }
+                        DutyCycle::Ratio2to1 => (((self.pclk1 / (freq * 3)) as u16).max(1), false),
+                        DutyCycle::Ratio16to9 => (((self.pclk1 / (freq * 25)) as u16).max(1), true),
                     };
 
                     unsafe { w.ccr().bits(freq).duty().bit(duty).f_s().set_bit() }

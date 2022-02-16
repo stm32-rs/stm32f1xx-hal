@@ -45,15 +45,15 @@ fn main() -> ! {
     // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
     // `clocks`
     let clocks = if 1 == 1 {
-        rcc.cfgr.use_hse(8.mhz()).freeze(&mut flash.acr)
+        rcc.cfgr.use_hse(8.MHz()).freeze(&mut flash.acr)
     } else {
         // My blue pill with a stm32f103 clone dose not seem to respect rcc so will not compensate its pulse legths
         // with a faster clock like this. And so the sensor dose not have time to respond to the START pulse.
         // I would be interested if others with real stm32f103's can use this program with the faster clocks.
         rcc.cfgr
-            .use_hse(8.mhz())
-            .sysclk(48.mhz())
-            .pclk1(6.mhz())
+            .use_hse(8.MHz())
+            .sysclk(48.MHz())
+            .pclk1(6.MHz())
             .freeze(&mut flash.acr)
     };
 
@@ -68,7 +68,7 @@ fn main() -> ! {
         (scl, sda),
         &mut afio.mapr,
         Mode::Fast {
-            frequency: 400_000.hz(),
+            frequency: 400.kHz(),
             duty_cycle: DutyCycle::Ratio16to9,
         },
         clocks,

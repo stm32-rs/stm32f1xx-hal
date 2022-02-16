@@ -75,11 +75,11 @@ mod app {
 
         let _clocks = rcc
             .cfgr
-            .use_hse(8.mhz())
-            .sysclk(64.mhz())
-            .hclk(64.mhz())
-            .pclk1(16.mhz())
-            .pclk2(64.mhz())
+            .use_hse(8.MHz())
+            .sysclk(64.MHz())
+            .hclk(64.MHz())
+            .pclk1(16.MHz())
+            .pclk2(64.MHz())
             .freeze(&mut flash.acr);
 
         #[cfg(not(feature = "connectivity"))]

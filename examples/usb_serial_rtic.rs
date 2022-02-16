@@ -31,9 +31,9 @@ mod app {
 
         let clocks = rcc
             .cfgr
-            .use_hse(8.mhz())
-            .sysclk(48.mhz())
-            .pclk1(24.mhz())
+            .use_hse(8.MHz())
+            .sysclk(48.MHz())
+            .pclk1(24.MHz())
             .freeze(&mut flash.acr);
 
         assert!(clocks.usbclk_valid());
@@ -46,7 +46,7 @@ mod app {
         // will not reset your device when you upload new firmware.
         let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
         usb_dp.set_low();
-        delay(clocks.sysclk().0 / 100);
+        delay(clocks.sysclk().raw() / 100);
 
         let usb_dm = gpioa.pa11;
         let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);

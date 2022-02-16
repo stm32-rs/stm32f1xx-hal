@@ -23,7 +23,7 @@ fn main() -> ! {
     // clock is configurable. So its frequency may be tweaked to meet certain
     // practical needs. User specified value is be approximated using supported
     // prescaler values 2/4/6/8.
-    let clocks = rcc.cfgr.adcclk(2.mhz()).freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.adcclk(2.MHz()).freeze(&mut flash.acr);
 
     let dma_ch1 = p.DMA1.split().1;
 

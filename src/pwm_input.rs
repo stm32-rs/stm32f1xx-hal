@@ -53,10 +53,7 @@ pub enum Error {
 }
 
 /// Which frequency the timer will try to sample
-pub enum Configuration<T>
-where
-    T: Into<Hertz>,
-{
+pub enum Configuration {
     /// In this mode an algorithm calculates the optimal value for the autoreload register and the
     /// prescaler register in order to be able to sample a wide range of frequency, at the expense
     /// of resolution.
@@ -64,19 +61,19 @@ where
     /// The minimum frequency that can be sampled is 20% the provided frequency.
     ///
     /// Use this mode if you do not know what to choose.
-    Frequency(T),
+    Frequency(Hertz),
 
     /// In this mode an algorithm calculates the optimal value for the autoreload register and the
     /// prescaler register in order to sample the duty cycle with a high resolution.
     /// This will limit the frequency range where the timer can operate.
     ///
     /// The minimum frequency that can be sampled is 90% the provided frequency
-    DutyCycle(T),
+    DutyCycle(Hertz),
 
     /// In this mode an algorithm calculates the optimal value for the autoreload register and the
     /// prescaler register in order to be able to sample signal with a frequency higher than the
     /// provided value : there is no margin for lower frequencies.
-    RawFrequency(T),
+    RawFrequency(Hertz),
 
     /// In this mode, the provided arr and presc are directly programmed in the register.
     RawValues { arr: u16, presc: u16 },
@@ -84,17 +81,16 @@ where
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 impl Timer<TIM1> {
-    pub fn pwm_input<REMAP, PINS, T>(
+    pub fn pwm_input<REMAP, PINS>(
         mut self,
         pins: PINS,
         mapr: &mut MAPR,
         dbg: &mut DBG,
-        mode: Configuration<T>,
+        mode: Configuration,
     ) -> PwmInput<TIM1, REMAP, PINS>
     where
         REMAP: Remap<Periph = TIM1>,
         PINS: Pins<REMAP>,
-        T: Into<Hertz>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim1_remap().bits(REMAP::REMAP) });
         self.stop_in_debug(dbg, false);
@@ -104,17 +100,16 @@ impl Timer<TIM1> {
 }
 
 impl Timer<TIM2> {
-    pub fn pwm_input<REMAP, PINS, T>(
+    pub fn pwm_input<REMAP, PINS>(
         mut self,
         pins: PINS,
         mapr: &mut MAPR,
         dbg: &mut DBG,
-        mode: Configuration<T>,
+        mode: Configuration,
     ) -> PwmInput<TIM2, REMAP, PINS>
     where
         REMAP: Remap<Periph = TIM2>,
         PINS: Pins<REMAP>,
-        T: Into<Hertz>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(REMAP::REMAP) });
         self.stop_in_debug(dbg, false);
@@ -124,17 +119,16 @@ impl Timer<TIM2> {
 }
 
 impl Timer<TIM3> {
-    pub fn pwm_input<REMAP, PINS, T>(
+    pub fn pwm_input<REMAP, PINS>(
         mut self,
         pins: PINS,
         mapr: &mut MAPR,
         dbg: &mut DBG,
-        mode: Configuration<T>,
+        mode: Configuration,
     ) -> PwmInput<TIM3, REMAP, PINS>
     where
         REMAP: Remap<Periph = TIM3>,
         PINS: Pins<REMAP>,
-        T: Into<Hertz>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(REMAP::REMAP) });
         self.stop_in_debug(dbg, false);
@@ -145,17 +139,16 @@ impl Timer<TIM3> {
 
 #[cfg(feature = "medium")]
 impl Timer<TIM4> {
-    pub fn pwm_input<REMAP, PINS, T>(
+    pub fn pwm_input<REMAP, PINS>(
         mut self,
         pins: PINS,
         mapr: &mut MAPR,
         dbg: &mut DBG,
-        mode: Configuration<T>,
+        mode: Configuration,
     ) -> PwmInput<TIM4, REMAP, PINS>
     where
         REMAP: Remap<Periph = TIM4>,
         PINS: Pins<REMAP>,
-        T: Into<Hertz>,
     {
         mapr.modify_mapr(|_, w| w.tim4_remap().bit(REMAP::REMAP == 1));
         self.stop_in_debug(dbg, false);
@@ -176,16 +169,15 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
 macro_rules! hal {
     ($($TIMX:ident: ($timX:ident),)+) => {
         $(
-            fn $timX<REMAP, PINS,T>(
+            fn $timX<REMAP, PINS>(
                 tim: $TIMX,
                 _pins: PINS,
                 clk: Hertz,
-                mode : Configuration<T>,
+                mode : Configuration,
             ) -> PwmInput<$TIMX, REMAP, PINS>
             where
                 REMAP: Remap<Periph = $TIMX>,
                 PINS: Pins<REMAP>,
-                T : Into<Hertz>
             {
                 use crate::pwm_input::Configuration::*;
                 // Disable capture on both channels during setting
@@ -210,22 +202,22 @@ macro_rules! hal {
 
                 match mode {
                     Frequency(f)  => {
-                        let freq = f.into().0;
+                        let freq = f.raw();
                         let max_freq = if freq > 5 {freq/5} else {1};
-                        let (arr,presc) = compute_arr_presc(max_freq, clk.0);
+                        let (arr,presc) = compute_arr_presc(max_freq, clk.raw());
                         tim.arr.write(|w| w.arr().bits(arr));
                         tim.psc.write(|w| w.psc().bits(presc) );
                     },
                     DutyCycle(f) => {
-                        let freq = f.into().0;
+                        let freq = f.raw();
                         let max_freq = if freq > 2 {freq/2 + freq/4 + freq/8} else {1};
-                        let (arr,presc) = compute_arr_presc(max_freq, clk.0);
+                        let (arr,presc) = compute_arr_presc(max_freq, clk.raw());
                         tim.arr.write(|w| w.arr().bits(arr));
                         tim.psc.write(|w| w.psc().bits(presc) );
                     },
                     RawFrequency(f) => {
-                        let freq = f.into().0;
-                        let (arr,presc) = compute_arr_presc(freq, clk.0);
+                        let freq = f.raw();
+                        let (arr,presc) = compute_arr_presc(freq, clk.raw());
                         tim.arr.write(|w| w.arr().bits(arr));
                         tim.psc.write(|w| w.psc().bits(presc) );
                     }
@@ -273,8 +265,8 @@ macro_rules! hal {
                     if ccr1 == 0 {
                         Err(Error::FrequencyTooLow)
                     } else {
-                        let clk : u32 = <$TIMX>::timer_clock(&clocks).0;
-                        Ok(Hertz(clk/((presc+1) as u32*(ccr1 + 1)as u32)))
+                        let clk = <$TIMX>::timer_clock(&clocks);
+                        Ok(clk/((presc+1) as u32*(ccr1 + 1)as u32))
                     }
                 }
 

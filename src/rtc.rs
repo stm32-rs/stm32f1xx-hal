@@ -4,14 +4,14 @@
 use crate::pac::{RCC, RTC};
 
 use crate::backup_domain::BackupDomain;
-use crate::time::Hertz;
+use crate::time::{Hertz, Hz};
 
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
 // The LSE runs at at 32 768 hertz unless an external clock is provided
-const LSE_HERTZ: u32 = 32_768;
-const LSI_HERTZ: u32 = 40_000;
+const LSE_HERTZ: Hertz = Hz(32_768);
+const LSI_HERTZ: Hertz = Hz(40_000);
 
 /// RTC clock source HSE clock divided by 128 (type state)
 pub struct RtcClkHseDiv128;
@@ -62,7 +62,7 @@ impl Rtc<RtcClkLse> {
         Self::enable_rtc(bkp);
 
         // Set the prescaler to make it count up once every second.
-        let prl = LSE_HERTZ - 1;
+        let prl = LSE_HERTZ.raw() - 1;
         assert!(prl < 1 << 20);
         result.perform_write(|s| {
             s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
@@ -102,7 +102,7 @@ impl Rtc<RtcClkLsi> {
         Self::enable_rtc(bkp);
 
         // Set the prescaler to make it count up once every second.
-        let prl = LSI_HERTZ - 1;
+        let prl = LSI_HERTZ.raw() - 1;
         assert!(prl < 1 << 20);
         result.perform_write(|s| {
             s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
@@ -136,10 +136,7 @@ impl Rtc<RtcClkLsi> {
 }
 
 impl Rtc<RtcClkHseDiv128> {
-    pub fn new_hse<F>(regs: RTC, bkp: &mut BackupDomain, hse: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
+    pub fn new_hse(regs: RTC, bkp: &mut BackupDomain, hse: Hertz) -> Self {
         let mut result = Rtc {
             regs,
             _clock_source: PhantomData,
@@ -148,7 +145,7 @@ impl Rtc<RtcClkHseDiv128> {
         Self::enable_rtc(bkp);
 
         // Set the prescaler to make it count up once every second.
-        let prl = hse.into().0 / 128 - 1;
+        let prl = hse.raw() / 128 - 1;
         assert!(prl < 1 << 20);
         result.perform_write(|s| {
             s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
@@ -181,9 +178,7 @@ impl Rtc<RtcClkHseDiv128> {
 impl<CS> Rtc<CS> {
     /// Selects the frequency of the RTC Timer
     /// NOTE: Maximum frequency of 16384 Hz using the internal LSE
-    pub fn select_frequency(&mut self, timeout: impl Into<Hertz>) {
-        let frequency = timeout.into().0;
-
+    pub fn select_frequency(&mut self, frequency: Hertz) {
         // The manual says that the zero value for the prescaler is not recommended, thus the
         // minimum division factor is 2 (prescaler + 1)
         assert!(frequency <= LSE_HERTZ / 2);

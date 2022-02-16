@@ -33,7 +33,7 @@ fn main() -> ! {
         (sck, miso, mosi),
         &mut afio.mapr,
         mfrc522::MODE,
-        1.mhz(),
+        1.MHz(),
         clocks,
     );
 

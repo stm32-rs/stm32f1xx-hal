@@ -13,7 +13,7 @@ use stm32f1xx_hal::{
     pac,
     prelude::*,
     pwm::Channel,
-    time::U32Ext,
+    time::ms,
     timer::{Tim2NoRemap, Timer},
 };
 
@@ -52,7 +52,7 @@ fn main() -> ! {
     // let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
     let mut pwm =
-        Timer::new(p.TIM2, &clocks).pwm::<Tim2NoRemap, _, _, _>(pins, &mut afio.mapr, 1.khz());
+        Timer::new(p.TIM2, &clocks).pwm::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz());
 
     // Enable clock on each of the channels
     pwm.enable(Channel::C1);
@@ -62,12 +62,12 @@ fn main() -> ! {
     //// Operations affecting all defined channels on the Timer
 
     // Adjust period to 0.5 seconds
-    pwm.set_period(500.ms());
+    pwm.set_period(ms(500).into_rate());
 
     asm::bkpt();
 
     // Return to the original frequency
-    pwm.set_period(1.khz());
+    pwm.set_period(1.kHz());
 
     asm::bkpt();
 

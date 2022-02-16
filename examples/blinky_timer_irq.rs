@@ -73,8 +73,8 @@ fn main() -> ! {
     let mut flash = dp.FLASH.constrain();
     let clocks = rcc
         .cfgr
-        .sysclk(8.mhz())
-        .pclk1(8.mhz())
+        .sysclk(8.MHz())
+        .pclk1(8.MHz())
         .freeze(&mut flash.acr);
 
     // Configure PC13 pin to blink LED
@@ -86,7 +86,7 @@ fn main() -> ! {
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 
     // Set up a timer expiring after 1s
-    let mut timer = Timer::new(dp.TIM2, &clocks).start_count_down(1.hz());
+    let mut timer = Timer::new(dp.TIM2, &clocks).start_count_down(1.Hz());
 
     // Generate an interrupt when the timer expires
     timer.listen(Event::Update);

@@ -90,7 +90,7 @@ fn main() -> ! {
         (sck, miso, mosi),
         &mut afio.mapr,
         enc28j60::MODE,
-        1.mhz(),
+        1.MHz(),
         clocks,
     );
 

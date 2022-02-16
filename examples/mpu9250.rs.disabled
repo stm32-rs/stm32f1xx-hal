@@ -51,7 +51,7 @@ fn main() -> ! {
         (sck, miso, mosi),
         &mut afio.mapr,
         mpu9250::MODE,
-        1.mhz(),
+        1.MHz(),
         clocks,
     );
 

@@ -62,14 +62,13 @@ use crate::pac::TIM1;
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
 use crate::pac::{TIM2, TIM3};
-use cast::{u16, u32};
 
 use crate::afio::MAPR;
 use crate::bb;
 use crate::gpio::{self, Alternate};
-use crate::time::Hertz;
-use crate::time::U32Ext;
 use crate::timer::Timer;
+use core::convert::TryFrom;
+use fugit::HertzU32 as Hertz;
 
 pub trait Pins<REMAP, P> {
     const C1: bool = false;
@@ -141,16 +140,15 @@ pins_impl!(
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 impl Timer<TIM1> {
-    pub fn pwm<REMAP, P, PINS, T>(
+    pub fn pwm<REMAP, P, PINS>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
-        freq: T,
+        freq: Hertz,
     ) -> Pwm<TIM1, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM1>,
         PINS: Pins<REMAP, P>,
-        T: Into<Hertz>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim1_remap().bits(REMAP::REMAP) });
 
@@ -159,65 +157,62 @@ impl Timer<TIM1> {
         self.tim.bdtr.modify(|_, w| w.aoe().set_bit());
 
         let Self { tim, clk } = self;
-        tim1(tim, _pins, freq.into(), clk)
+        tim1(tim, _pins, freq, clk)
     }
 }
 
 impl Timer<TIM2> {
-    pub fn pwm<REMAP, P, PINS, T>(
+    pub fn pwm<REMAP, P, PINS>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
-        freq: T,
+        freq: Hertz,
     ) -> Pwm<TIM2, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM2>,
         PINS: Pins<REMAP, P>,
-        T: Into<Hertz>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(REMAP::REMAP) });
 
         let Self { tim, clk } = self;
-        tim2(tim, _pins, freq.into(), clk)
+        tim2(tim, _pins, freq, clk)
     }
 }
 
 impl Timer<TIM3> {
-    pub fn pwm<REMAP, P, PINS, T>(
+    pub fn pwm<REMAP, P, PINS>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
-        freq: T,
+        freq: Hertz,
     ) -> Pwm<TIM3, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM3>,
         PINS: Pins<REMAP, P>,
-        T: Into<Hertz>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(REMAP::REMAP) });
 
         let Self { tim, clk } = self;
-        tim3(tim, _pins, freq.into(), clk)
+        tim3(tim, _pins, freq, clk)
     }
 }
 
 #[cfg(feature = "medium")]
 impl Timer<TIM4> {
-    pub fn pwm<REMAP, P, PINS, T>(
+    pub fn pwm<REMAP, P, PINS>(
         self,
         _pins: PINS,
         mapr: &mut MAPR,
-        freq: T,
+        freq: Hertz,
     ) -> Pwm<TIM4, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = TIM4>,
         PINS: Pins<REMAP, P>,
-        T: Into<Hertz>,
     {
         mapr.modify_mapr(|_, w| w.tim4_remap().bit(REMAP::REMAP == 1));
 
         let Self { tim, clk } = self;
-        tim4(tim, _pins, freq.into(), clk)
+        tim4(tim, _pins, freq, clk)
     }
 }
 
@@ -282,10 +277,10 @@ macro_rules! hal {
                     tim.ccmr2_output()
                         .modify(|_, w| w.oc4pe().set_bit().oc4m().pwm_mode1() );
                 }
-                let ticks = clk.0 / freq.0;
-                let psc = u16(ticks / (1 << 16)).unwrap();
+                let ticks = clk / freq;
+                let psc = u16::try_from(ticks / (1 << 16)).unwrap();
                 tim.psc.write(|w| w.psc().bits(psc) );
-                let arr = u16(ticks / u32(psc + 1)).unwrap();
+                let arr = u16::try_from(ticks / (psc + 1) as u32).unwrap();
                 tim.arr.write(|w| w.arr().bits(arr));
 
                 // The psc register is buffered, so we trigger an update event to update it
@@ -378,16 +373,16 @@ macro_rules! hal {
                     let arr: u16 = unsafe{(*$TIMX::ptr()).arr.read().arr().bits()};
 
                     // Length in ms of an internal clock pulse
-                    (clk.0 / u32(psc * arr)).hz()
+                    (clk / (psc * arr) as u32)
                 }
 
                 fn set_period<T>(&mut self, period: T) where
                     T: Into<Self::Time> {
                         let clk = self.clk;
 
-                        let ticks = clk.0 / period.into().0;
-                        let psc = u16(ticks / (1 << 16)).unwrap();
-                        let arr = u16(ticks / u32(psc + 1)).unwrap();
+                        let ticks = clk / period.into();
+                        let psc = u16::try_from(ticks / (1 << 16)).unwrap();
+                        let arr = u16::try_from(ticks / (psc + 1) as u32).unwrap();
                         unsafe {
                             (*$TIMX::ptr()).psc.write(|w| w.psc().bits(psc));
                             (*$TIMX::ptr()).arr.write(|w| w.arr().bits(arr));
