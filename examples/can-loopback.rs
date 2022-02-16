@@ -23,7 +23,7 @@ fn main() -> ! {
 
     // To meet CAN clock accuracy requirements, an external crystal or ceramic
     // resonator must be used.
-    rcc.cfgr.use_hse(8.mhz()).freeze(&mut flash.acr);
+    rcc.cfgr.use_hse(8.MHz()).freeze(&mut flash.acr);
 
     #[cfg(not(feature = "connectivity"))]
     let can = Can::new(dp.CAN1, dp.USB);

@@ -14,6 +14,7 @@ use crate::rcc::{Clocks, Enable, Reset};
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 use embedded_dma::StaticWriteBuffer;
+use fugit::{HertzU32 as Hertz, RateExtU32};
 
 #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
 use crate::pac::ADC2;
@@ -205,9 +206,11 @@ macro_rules! adc_hal {
                     // The manual states that we need to wait two ADC clocks cycles after power-up
                     // before starting calibration, we already delayed in the power-up process, but
                     // if the adc clock is too low that was not enough.
-                    if s.clocks.adcclk().0 < 2_500_000 {
-                        let two_adc_cycles = s.clocks.sysclk().0 / s.clocks.adcclk().0 *2;
-                        let already_delayed = s.clocks.sysclk().0 / 800_000;
+                    let m2_5: Hertz = 2500.kHz();
+                    if s.clocks.adcclk() < m2_5 {
+                        let two_adc_cycles = s.clocks.sysclk() / s.clocks.adcclk() * 2;
+                        let k800: Hertz = 800.kHz();
+                        let already_delayed = s.clocks.sysclk() / k800;
                         if two_adc_cycles > already_delayed {
                             delay(two_adc_cycles - already_delayed);
                         }
@@ -269,7 +272,8 @@ macro_rules! adc_hal {
                     // this time can be found in the datasheets.
                     // Here we are delaying for approximately 1us, considering 1.25 instructions per
                     // cycle. Do we support a chip which needs more than 1us ?
-                    delay(self.clocks.sysclk().0 / 800_000);
+                    let k800: Hertz = 800.kHz();
+                    delay(self.clocks.sysclk() / k800);
                 }
 
                 fn power_down(&mut self) {
@@ -469,7 +473,7 @@ impl Adc<ADC1> {
             // sensor, this time can be found in the datasheets.
             // Here we are delaying for approximately 10us, considering 1.25 instructions per
             // cycle. Do we support a chip which needs more than 10us ?
-            delay(self.clocks.sysclk().0 / 80_000);
+            delay(self.clocks.sysclk().raw() / 80_000);
             true
         } else {
             false
@@ -509,7 +513,7 @@ impl Adc<ADC1> {
         // recommended ADC sampling for temperature sensor is 17.1 usec,
         // so use the following approximate settings
         // to support all ADC frequencies
-        let sample_time = match self.clocks.adcclk().0 {
+        let sample_time = match self.clocks.adcclk().raw() {
             0..=1_200_000 => SampleTime::T_1,
             1_200_001..=1_500_000 => SampleTime::T_7,
             1_500_001..=2_400_000 => SampleTime::T_13,

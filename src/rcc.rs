@@ -3,7 +3,7 @@
 use crate::pac::{rcc, PWR, RCC};
 
 use crate::flash::ACR;
-use crate::time::Hertz;
+use fugit::{HertzU32 as Hertz, RateExtU32};
 
 use crate::backup_domain::BackupDomain;
 
@@ -120,61 +120,43 @@ impl CFGR {
     /// Will result in a hang if an external oscillator is not connected or it fails to start.
     /// The frequency specified must be the frequency of the external oscillator
     #[inline(always)]
-    pub fn use_hse<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.hse = Some(freq.into().0);
+    pub fn use_hse(mut self, freq: Hertz) -> Self {
+        self.hse = Some(freq.raw());
         self
     }
 
     /// Sets the desired frequency for the HCLK clock
     #[inline(always)]
-    pub fn hclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.hclk = Some(freq.into().0);
+    pub fn hclk(mut self, freq: Hertz) -> Self {
+        self.hclk = Some(freq.raw());
         self
     }
 
     /// Sets the desired frequency for the PCKL1 clock
     #[inline(always)]
-    pub fn pclk1<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.pclk1 = Some(freq.into().0);
+    pub fn pclk1(mut self, freq: Hertz) -> Self {
+        self.pclk1 = Some(freq.raw());
         self
     }
 
     /// Sets the desired frequency for the PCLK2 clock
     #[inline(always)]
-    pub fn pclk2<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.pclk2 = Some(freq.into().0);
+    pub fn pclk2(mut self, freq: Hertz) -> Self {
+        self.pclk2 = Some(freq.raw());
         self
     }
 
     /// Sets the desired frequency for the SYSCLK clock
     #[inline(always)]
-    pub fn sysclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.sysclk = Some(freq.into().0);
+    pub fn sysclk(mut self, freq: Hertz) -> Self {
+        self.sysclk = Some(freq.raw());
         self
     }
 
     /// Sets the desired frequency for the ADCCLK clock
     #[inline(always)]
-    pub fn adcclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.adcclk = Some(freq.into().0);
+    pub fn adcclk(mut self, freq: Hertz) -> Self {
+        self.adcclk = Some(freq.raw());
         self
     }
 
@@ -208,10 +190,12 @@ impl CFGR {
         // adjust flash wait states
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         unsafe {
+            let m24: Hertz = 24.MHz();
+            let m48: Hertz = 48.MHz();
             acr.acr().write(|w| {
-                w.latency().bits(if clocks.sysclk.0 <= 24_000_000 {
+                w.latency().bits(if clocks.sysclk <= m24 {
                     0b000
-                } else if clocks.sysclk.0 <= 48_000_000 {
+                } else if clocks.sysclk <= m48 {
                     0b001
                 } else {
                     0b010
@@ -381,12 +365,12 @@ impl Clocks {
 
     /// Returns the frequency of the APB1 Timers
     pub const fn pclk1_tim(&self) -> Hertz {
-        Hertz(self.pclk1.0 * if self.ppre1() == 1 { 1 } else { 2 })
+        Hertz::from_raw(self.pclk1.raw() * if self.ppre1() == 1 { 1 } else { 2 })
     }
 
     /// Returns the frequency of the APB2 Timers
     pub const fn pclk2_tim(&self) -> Hertz {
-        Hertz(self.pclk2.0 * if self.ppre2() == 1 { 1 } else { 2 })
+        Hertz::from_raw(self.pclk2.raw() * if self.ppre2() == 1 { 1 } else { 2 })
     }
 
     pub(crate) const fn ppre1(&self) -> u8 {
@@ -723,13 +707,13 @@ impl Config {
         );
 
         Clocks {
-            hclk: Hertz(hclk),
-            pclk1: Hertz(pclk1),
-            pclk2: Hertz(pclk2),
+            hclk: hclk.Hz(),
+            pclk1: pclk1.Hz(),
+            pclk2: pclk2.Hz(),
             ppre1,
             ppre2,
-            sysclk: Hertz(sysclk),
-            adcclk: Hertz(adcclk),
+            sysclk: sysclk.Hz(),
+            adcclk: adcclk.Hz(),
             #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
             usbclk_valid,
         }
@@ -740,9 +724,9 @@ impl Config {
 fn rcc_config_usb() {
     use crate::time::U32Ext;
     let cfgr = CFGR::default()
-        .use_hse(8.mhz())
-        .sysclk(48.mhz())
-        .pclk1(24.mhz());
+        .use_hse(8.MHz())
+        .sysclk(48.MHz())
+        .pclk1(24.MHz());
 
     let config = Config::from_cfgr(cfgr);
     let config_expected = Config {
@@ -759,13 +743,13 @@ fn rcc_config_usb() {
 
     let clocks = config.get_clocks();
     let clocks_expected = Clocks {
-        hclk: 48.mhz().into(),
-        pclk1: 24.mhz().into(),
-        pclk2: 48.mhz().into(),
+        hclk: 48.MHz(),
+        pclk1: 24.MHz(),
+        pclk2: 48.MHz(),
         ppre1: 2,
         ppre2: 1,
-        sysclk: 48.mhz().into(),
-        adcclk: 6.mhz().into(),
+        sysclk: 48.MHz(),
+        adcclk: 6.MHz(),
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         usbclk_valid: true,
     };

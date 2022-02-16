@@ -18,10 +18,10 @@ fn main() -> ! {
 
     let clocks = rcc
         .cfgr
-        .use_hse(8.mhz())
-        .sysclk(56.mhz())
-        .pclk1(28.mhz())
-        .adcclk(14.mhz())
+        .use_hse(8.MHz())
+        .sysclk(56.MHz())
+        .pclk1(28.MHz())
+        .adcclk(14.MHz())
         .freeze(&mut flash.acr);
     /*
     // Alternative configuration using dividers and multipliers directly
@@ -34,8 +34,8 @@ fn main() -> ! {
         usbpre: rcc::UsbPre::DIV1_5,
         adcpre: rcc::AdcPre::DIV2,
     }, &mut flash.acr);*/
-    hprintln!("sysclk freq: {}", clocks.sysclk().0).unwrap();
-    hprintln!("adc freq: {}", clocks.adcclk().0).unwrap();
+    hprintln!("sysclk freq: {}", clocks.sysclk()).unwrap();
+    hprintln!("adc freq: {}", clocks.adcclk()).unwrap();
 
     // Setup ADC
     let mut adc = adc::Adc::adc1(p.ADC1, clocks);

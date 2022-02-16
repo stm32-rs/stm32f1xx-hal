@@ -159,21 +159,20 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn spi1<F>(
+    pub fn spi1(
         spi: SPI1,
         pins: PINS,
         mapr: &mut MAPR,
         mode: Mode,
-        freq: F,
+        freq: Hertz,
         clocks: Clocks,
     ) -> Self
     where
-        F: Into<Hertz>,
         REMAP: Remap<Periph = SPI1>,
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
-        Spi::<SPI1, _, _, u8>::configure(spi, pins, mode, freq.into(), clocks)
+        Spi::<SPI1, _, _, u8>::configure(spi, pins, mode, freq, clocks)
     }
 }
 
@@ -185,13 +184,12 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn spi2<F>(spi: SPI2, pins: PINS, mode: Mode, freq: F, clocks: Clocks) -> Self
+    pub fn spi2(spi: SPI2, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self
     where
-        F: Into<Hertz>,
         REMAP: Remap<Periph = SPI2>,
         PINS: Pins<REMAP>,
     {
-        Spi::<SPI2, _, _, u8>::configure(spi, pins, mode, freq.into(), clocks)
+        Spi::<SPI2, _, _, u8>::configure(spi, pins, mode, freq, clocks)
     }
 }
 
@@ -205,13 +203,12 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
     #[cfg(not(feature = "connectivity"))]
-    pub fn spi3<F>(spi: SPI3, pins: PINS, mode: Mode, freq: F, clocks: Clocks) -> Self
+    pub fn spi3(spi: SPI3, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self
     where
-        F: Into<Hertz>,
         REMAP: Remap<Periph = SPI3>,
         PINS: Pins<REMAP>,
     {
-        Spi::<SPI3, _, _, u8>::configure(spi, pins, mode, freq.into(), clocks)
+        Spi::<SPI3, _, _, u8>::configure(spi, pins, mode, freq, clocks)
     }
 
     /**
@@ -222,21 +219,20 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
     #[cfg(feature = "connectivity")]
-    pub fn spi3<F>(
+    pub fn spi3(
         spi: SPI3,
         pins: PINS,
         mapr: &mut MAPR,
         mode: Mode,
-        freq: F,
+        freq: Hertz,
         clocks: Clocks,
     ) -> Self
     where
-        F: Into<Hertz>,
         REMAP: Remap<Periph = SPI3>,
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi3_remap().bit(REMAP::REMAP));
-        Spi::<SPI3, _, _, u8>::configure(spi, pins, mode, freq.into(), clocks)
+        Spi::<SPI3, _, _, u8>::configure(spi, pins, mode, freq, clocks)
     }
 }
 
@@ -342,7 +338,7 @@ where
         // disable SS output
         spi.cr2.write(|w| w.ssoe().clear_bit());
 
-        let br = match SPI::clock(&clocks).0 / freq.0 {
+        let br = match SPI::clock(&clocks) / freq {
             0 => unreachable!(),
             1..=2 => 0b000,
             3..=5 => 0b001,

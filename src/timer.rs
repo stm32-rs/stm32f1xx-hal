@@ -69,7 +69,7 @@ use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
 use crate::pac::{TIM15, TIM16, TIM17};
 
 use crate::rcc::{self, Clocks};
-use cast::{u16, u32, u64};
+use core::convert::TryFrom;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use void::Void;
@@ -175,10 +175,7 @@ impl Timer<SYST> {
         }
     }
 
-    pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<SYST>
-    where
-        T: Into<Hertz>,
-    {
+    pub fn start_count_down(self, timeout: Hertz) -> CountDownTimer<SYST> {
         let Self { tim, clk } = self;
         let mut timer = CountDownTimer { tim, clk };
         timer.start(timeout);
@@ -217,12 +214,12 @@ impl CountDownTimer<SYST> {
     /// it is very easy to lose an update event.
     pub fn micros_since(&self) -> u32 {
         let reload_value = SYST::get_reload();
-        let timer_clock = u64(self.clk.0);
-        let ticks = u64(reload_value - SYST::get_current());
+        let timer_clock = self.clk.raw() as u64;
+        let ticks = (reload_value - SYST::get_current()) as u64;
 
         // It is safe to make this cast since the maximum ticks is (2^24 - 1) and the minimum sysclk
         // is 4Mhz, which gives a maximum period of ~4.2 seconds which is < (2^32 - 1) microseconds
-        u32(1_000_000 * ticks / timer_clock).unwrap()
+        u32::try_from(1_000_000 * ticks / timer_clock).unwrap()
     }
 
     /// Stops the timer
@@ -245,7 +242,7 @@ impl CountDown for CountDownTimer<SYST> {
     where
         T: Into<Hertz>,
     {
-        let rvr = self.clk.0 / timeout.into().0 - 1;
+        let rvr = self.clk / timeout.into() - 1;
 
         assert!(rvr < (1 << 24));
 
@@ -325,10 +322,7 @@ macro_rules! hal {
                 }
 
                 /// Starts timer in count down mode at a given frequency
-                pub fn start_count_down<T>(self, timeout: T) -> CountDownTimer<$TIMX>
-                where
-                    T: Into<Hertz>,
-                {
+                pub fn start_count_down(self, timeout: Hertz) -> CountDownTimer<$TIMX> {
                     let Self { tim, clk } = self;
                     let mut timer = CountDownTimer { tim, clk };
                     timer.start(timeout);
@@ -337,10 +331,7 @@ macro_rules! hal {
 
                 $(
                     /// Starts timer in count down mode at a given frequency and additionally configures the timers master mode
-                    pub fn start_master<T>(self, timeout: T, mode: crate::pac::$master_timbase::cr2::MMS_A) -> CountDownTimer<$TIMX>
-                    where
-                        T: Into<Hertz>,
-                    {
+                    pub fn start_master(self, timeout: Hertz, mode: crate::pac::$master_timbase::cr2::MMS_A) -> CountDownTimer<$TIMX> {
                         let Self { tim, clk } = self;
                         let mut timer = CountDownTimer { tim, clk };
                         timer.tim.cr2.modify(|_,w| w.mms().variant(mode));
@@ -435,17 +426,17 @@ macro_rules! hal {
                 /// *NOTE:* This method is not a very good candidate to keep track of time, because
                 /// it is very easy to lose an update event.
                 pub fn micros_since(&self) -> u32 {
-                    let timer_clock = self.clk.0;
-                    let psc = u32(self.tim.psc.read().psc().bits());
+                    let timer_clock = self.clk.raw();
+                    let psc = self.tim.psc.read().psc().bits() as u32;
 
                     // freq_divider is always bigger than 0, since (psc + 1) is always less than
                     // timer_clock
-                    let freq_divider = u64(timer_clock / (psc + 1));
-                    let cnt = u64(self.tim.cnt.read().cnt().bits());
+                    let freq_divider = (timer_clock / (psc + 1)) as u64;
+                    let cnt = self.tim.cnt.read().cnt().bits() as u64;
 
                     // It is safe to make this cast, because the maximum timer period in this HAL is
                     // 1s (1Hz), then 1 second < (2^32 - 1) microseconds
-                    u32(1_000_000 * cnt / freq_divider).unwrap()
+                    u32::try_from(1_000_000 * cnt / freq_divider).unwrap()
                 }
 
                 /// Resets the counter
@@ -466,7 +457,7 @@ macro_rules! hal {
                 where
                     T: Into<Hertz>,
                 {
-                    let (psc, arr) = compute_arr_presc(timeout.into().0, self.clk.0);
+                    let (psc, arr) = compute_arr_presc(timeout.into().raw(), self.clk.raw());
                     self.restart_raw(psc, arr);
                 }
 
@@ -504,8 +495,8 @@ macro_rules! hal {
 #[inline(always)]
 fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     let ticks = clock / freq;
-    let psc = u16((ticks - 1) / (1 << 16)).unwrap();
-    let arr = u16(ticks / u32(psc + 1)).unwrap();
+    let psc = u16::try_from((ticks - 1) / (1 << 16)).unwrap();
+    let arr = u16::try_from(ticks / (psc + 1) as u32).unwrap();
     (psc, arr)
 }
 

@@ -49,7 +49,7 @@ mod app {
             .pc13
             .into_push_pull_output_with_state(&mut gpioc.crh, PinState::High);
         // Configure the syst timer to trigger an update every second and enables interrupt
-        let mut timer = Timer::new(cx.device.TIM1, &clocks).start_count_down(1.hz());
+        let mut timer = Timer::new(cx.device.TIM1, &clocks).start_count_down(1.Hz());
         timer.listen(Event::Update);
 
         // Init the static resources to use them later through RTIC
@@ -93,9 +93,9 @@ mod app {
 
         if *cx.local.count == 4 {
             // Changes timer update frequency
-            cx.local.timer_handler.start(2.hz());
+            cx.local.timer_handler.start(2.Hz());
         } else if *cx.local.count == 12 {
-            cx.local.timer_handler.start(1.hz());
+            cx.local.timer_handler.start(1.Hz());
             *cx.local.count = 0;
         }
 

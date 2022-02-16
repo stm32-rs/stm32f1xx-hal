@@ -31,7 +31,7 @@ fn main() -> ! {
         (pb4, pb5),
         &mut afio.mapr,
         &mut dbg,
-        Configuration::Frequency(10.khz()),
+        Configuration::Frequency(10.kHz()),
     );
 
     loop {

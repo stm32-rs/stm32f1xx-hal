@@ -51,7 +51,7 @@ fn main() -> ! {
     let pwm = p.TIM2.pwm(
         gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl),
         &mut afio.mapr,
-        1.khz(),
+        1.kHz(),
         clocks,
     );
 
