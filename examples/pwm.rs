@@ -13,7 +13,7 @@ use stm32f1xx_hal::{
     pac,
     prelude::*,
     pwm::Channel,
-    time::MilliSeconds,
+    time::ms,
     timer::{Tim2NoRemap, Timer},
 };
 
@@ -62,8 +62,7 @@ fn main() -> ! {
     //// Operations affecting all defined channels on the Timer
 
     // Adjust period to 0.5 seconds
-    let m500: MilliSeconds = 500.millis();
-    pwm.set_period(m500.into_rate());
+    pwm.set_period(ms(500).into_rate());
 
     asm::bkpt();
 

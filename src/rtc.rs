@@ -4,14 +4,14 @@
 use crate::pac::{RCC, RTC};
 
 use crate::backup_domain::BackupDomain;
-use crate::time::Hertz;
+use crate::time::{Hertz, Hz};
 
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
 // The LSE runs at at 32 768 hertz unless an external clock is provided
-const LSE_HERTZ: Hertz = Hertz::from_raw(32_768);
-const LSI_HERTZ: Hertz = Hertz::from_raw(40_000);
+const LSE_HERTZ: Hertz = Hz(32_768);
+const LSI_HERTZ: Hertz = Hz(40_000);
 
 /// RTC clock source HSE clock divided by 128 (type state)
 pub struct RtcClkHseDiv128;

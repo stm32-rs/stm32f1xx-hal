@@ -27,6 +27,8 @@
 //! assert_eq!(freq_khz, freq_mhz);
 //! ```
 
+#![allow(non_snake_case)]
+
 use core::ops;
 use cortex_m::peripheral::{DCB, DWT};
 
@@ -51,6 +53,26 @@ impl U32Ext for u32 {
     fn bps(self) -> Bps {
         Bps(self)
     }
+}
+
+pub const fn Hz(val: u32) -> Hertz {
+    Hertz::from_raw(val)
+}
+
+pub const fn kHz(val: u32) -> KiloHertz {
+    KiloHertz::from_raw(val)
+}
+
+pub const fn MHz(val: u32) -> MegaHertz {
+    MegaHertz::from_raw(val)
+}
+
+pub const fn ms(val: u32) -> MilliSeconds {
+    MilliSeconds::from_ticks(val)
+}
+
+pub const fn us(val: u32) -> MicroSeconds {
+    MicroSeconds::from_ticks(val)
 }
 
 /// Macro to implement arithmetic operations (e.g. multiplication, division)

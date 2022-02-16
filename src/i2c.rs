@@ -10,8 +10,8 @@ use crate::gpio::{Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
+use crate::time::{kHz, Hertz};
 use core::ops::Deref;
-use fugit::{HertzU32 as Hertz, RateExtU32};
 use nb::Error::{Other, WouldBlock};
 use nb::{Error as NbError, Result as NbResult};
 
@@ -74,8 +74,7 @@ impl Mode {
 
 impl From<Hertz> for Mode {
     fn from(frequency: Hertz) -> Self {
-        let k100: Hertz = 100.kHz();
-        if frequency <= k100 {
+        if frequency <= kHz(100) {
             Self::Standard { frequency }
         } else {
             Self::Fast {
@@ -159,8 +158,7 @@ where
 
         let pclk1 = I2C::clock(&clocks);
 
-        let k400: Hertz = 400.kHz();
-        assert!(mode.get_frequency() <= k400);
+        assert!(mode.get_frequency() <= kHz(400));
 
         let mut i2c = I2c {
             i2c,

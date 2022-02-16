@@ -3,6 +3,7 @@
 use crate::pac::{rcc, PWR, RCC};
 
 use crate::flash::ACR;
+use crate::time::MHz;
 use fugit::{HertzU32 as Hertz, RateExtU32};
 
 use crate::backup_domain::BackupDomain;
@@ -190,12 +191,10 @@ impl CFGR {
         // adjust flash wait states
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         unsafe {
-            let m24: Hertz = 24.MHz();
-            let m48: Hertz = 48.MHz();
             acr.acr().write(|w| {
-                w.latency().bits(if clocks.sysclk <= m24 {
+                w.latency().bits(if clocks.sysclk <= MHz(24) {
                     0b000
-                } else if clocks.sysclk <= m48 {
+                } else if clocks.sysclk <= MHz(48) {
                     0b001
                 } else {
                     0b010

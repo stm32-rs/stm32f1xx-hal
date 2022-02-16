@@ -11,10 +11,10 @@ use crate::gpio::gpiof;
 use crate::gpio::Analog;
 use crate::gpio::{gpioa, gpiob, gpioc};
 use crate::rcc::{Clocks, Enable, Reset};
+use crate::time::kHz;
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 use embedded_dma::StaticWriteBuffer;
-use fugit::{HertzU32 as Hertz, RateExtU32};
 
 #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
 use crate::pac::ADC2;
@@ -206,11 +206,9 @@ macro_rules! adc_hal {
                     // The manual states that we need to wait two ADC clocks cycles after power-up
                     // before starting calibration, we already delayed in the power-up process, but
                     // if the adc clock is too low that was not enough.
-                    let m2_5: Hertz = 2500.kHz();
-                    if s.clocks.adcclk() < m2_5 {
+                    if s.clocks.adcclk() < kHz(2500) {
                         let two_adc_cycles = s.clocks.sysclk() / s.clocks.adcclk() * 2;
-                        let k800: Hertz = 800.kHz();
-                        let already_delayed = s.clocks.sysclk() / k800;
+                        let already_delayed = s.clocks.sysclk() / kHz(800);
                         if two_adc_cycles > already_delayed {
                             delay(two_adc_cycles - already_delayed);
                         }
@@ -272,8 +270,7 @@ macro_rules! adc_hal {
                     // this time can be found in the datasheets.
                     // Here we are delaying for approximately 1us, considering 1.25 instructions per
                     // cycle. Do we support a chip which needs more than 1us ?
-                    let k800: Hertz = 800.kHz();
-                    delay(self.clocks.sysclk() / k800);
+                    delay(self.clocks.sysclk() / kHz(800));
                 }
 
                 fn power_down(&mut self) {
