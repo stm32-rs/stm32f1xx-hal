@@ -7,7 +7,7 @@
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{delay::Delay, pac, prelude::*};
+use stm32f1xx_hal::{pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -30,12 +30,16 @@ fn main() -> ! {
     #[cfg(any(feature = "stm32f103", feature = "stm32f105", feature = "stm32f107"))]
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 
-    let mut delay = Delay::new(cp.SYST, &clocks);
+    //let mut delay = hal::timer::Timer::syst(cp.SYST, &clocks).delay();
+    // or
+    let mut delay = cp.SYST.delay(&clocks);
 
     loop {
         led.set_high();
+        // Use `embedded_hal::DelayMs` trait
         delay.delay_ms(1_000_u16);
         led.set_low();
-        delay.delay_ms(1_000_u16);
+        // or use `fugit` duration units
+        delay.delay(1.secs());
     }
 }

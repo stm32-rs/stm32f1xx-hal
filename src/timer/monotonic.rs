@@ -1,41 +1,71 @@
 //! RTIC Monotonic implementation
 
-use core::convert::TryInto;
-
-use crate::{rcc::Clocks, timer::Timer};
+use super::{FTimer, Instance};
+use crate::rcc::Clocks;
+use core::ops::{Deref, DerefMut};
 pub use fugit::{self, ExtU32};
 use rtic_monotonic::Monotonic;
 
-pub struct MonoTimer<T, const FREQ: u32> {
-    tim: T,
+pub struct MonoTimer<TIM, const FREQ: u32> {
+    timer: FTimer<TIM, FREQ>,
     ovf: u32,
+}
+
+impl<TIM, const FREQ: u32> Deref for MonoTimer<TIM, FREQ> {
+    type Target = FTimer<TIM, FREQ>;
+    fn deref(&self) -> &Self::Target {
+        &self.timer
+    }
+}
+
+impl<TIM, const FREQ: u32> DerefMut for MonoTimer<TIM, FREQ> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.timer
+    }
+}
+
+/// `MonoTimer` with precision of 1 μs (1 MHz sampling)
+pub type MonoTimerUs<TIM> = MonoTimer<TIM, 1_000_000>;
+
+impl<TIM: Instance, const FREQ: u32> MonoTimer<TIM, FREQ> {
+    /// Releases the TIM peripheral
+    pub fn release(mut self) -> FTimer<TIM, FREQ> {
+        // stop counter
+        self.tim.cr1_reset();
+        self.timer
+    }
+}
+
+pub trait MonoTimerExt: Sized {
+    fn monotonic<const FREQ: u32>(self, clocks: &Clocks) -> MonoTimer<Self, FREQ>;
+    fn monotonic_us(self, clocks: &Clocks) -> MonoTimer<Self, 1_000_000> {
+        self.monotonic::<1_000_000>(clocks)
+    }
 }
 
 macro_rules! mono {
     ($($TIM:ty,)+) => {
         $(
-            impl Timer<$TIM> {
-                pub fn monotonic<const FREQ: u32>(self) -> MonoTimer<$TIM, FREQ> {
+            impl MonoTimerExt for $TIM {
+                fn monotonic<const FREQ: u32>(self, clocks: &Clocks) -> MonoTimer<Self, FREQ> {
+                    FTimer::new(self, clocks).monotonic()
+                }
+            }
+
+            impl<const FREQ: u32> FTimer<$TIM, FREQ> {
+                pub fn monotonic(self) -> MonoTimer<$TIM, FREQ> {
                     MonoTimer::<$TIM, FREQ>::_new(self)
                 }
             }
 
             impl<const FREQ: u32> MonoTimer<$TIM, FREQ> {
-                pub fn new(timer: $TIM, clocks: &Clocks) -> Self {
-                    Timer::<$TIM>::new(timer, clocks).monotonic()
-                }
-
-                fn _new(timer: Timer<$TIM>) -> Self {
-                    let Timer { tim, clk } = timer;
-                    // Configure timer.  If the u16 conversion panics, try increasing FREQ.
-                    let psc: u16 = (clk.0 / FREQ - 1).try_into().unwrap();
-                    tim.psc.write(|w| w.psc().bits(psc)); // Set prescaler.
-                    tim.arr.write(|w| w.arr().bits(u16::MAX)); // Set auto-reload value.
-                    tim.egr.write(|w| w.ug().set_bit()); // Generate interrupt on overflow.
+                fn _new(timer: FTimer<$TIM, FREQ>) -> Self {
+                    timer.tim.arr.write(|w| w.arr().bits(u16::MAX)); // Set auto-reload value.
+                    timer.tim.egr.write(|w| w.ug().set_bit()); // Generate interrupt on overflow.
 
                     // Start timer.
-                    tim.sr.modify(|_, w| w.uif().clear_bit()); // Clear interrupt flag.
-                    tim.cr1.modify(|_, w| {
+                    timer.tim.sr.modify(|_, w| w.uif().clear_bit()); // Clear interrupt flag.
+                    timer.tim.cr1.modify(|_, w| {
                         w.cen()
                             .set_bit() // Enable counter.
                             .udis()
@@ -44,7 +74,7 @@ macro_rules! mono {
                             .set_bit() // Only overflow triggers interrupt.
                     });
 
-                    Self { tim, ovf: 0 }
+                    Self { timer, ovf: 0 }
                 }
             }
 

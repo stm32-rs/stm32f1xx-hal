@@ -17,7 +17,7 @@ mod app {
         gpio::{gpioc::PC13, Output, PinState, PushPull},
         pac,
         prelude::*,
-        timer::{CountDownTimer, Event, Timer},
+        timer::{CounterMs, Event},
     };
 
     #[shared]
@@ -26,7 +26,7 @@ mod app {
     #[local]
     struct Local {
         led: PC13<Output<PushPull>>,
-        timer_handler: CountDownTimer<pac::TIM1>,
+        timer_handler: CounterMs<pac::TIM1>,
     }
 
     #[init]
@@ -49,7 +49,8 @@ mod app {
             .pc13
             .into_push_pull_output_with_state(&mut gpioc.crh, PinState::High);
         // Configure the syst timer to trigger an update every second and enables interrupt
-        let mut timer = Timer::new(cx.device.TIM1, &clocks).start_count_down(1.Hz());
+        let mut timer = cx.device.TIM1.counter_ms(&clocks);
+        timer.start(1.secs()).unwrap();
         timer.listen(Event::Update);
 
         // Init the static resources to use them later through RTIC
@@ -93,13 +94,13 @@ mod app {
 
         if *cx.local.count == 4 {
             // Changes timer update frequency
-            cx.local.timer_handler.start(2.Hz());
+            cx.local.timer_handler.start(500.millis()).unwrap();
         } else if *cx.local.count == 12 {
-            cx.local.timer_handler.start(1.Hz());
+            cx.local.timer_handler.start(1.secs()).unwrap();
             *cx.local.count = 0;
         }
 
         // Clears the update flag
-        cx.local.timer_handler.clear_update_interrupt_flag();
+        cx.local.timer_handler.clear_interrupt(Event::Update);
     }
 }

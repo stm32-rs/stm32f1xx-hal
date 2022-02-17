@@ -46,127 +46,194 @@
   | CH3 |     PB8     |    PD14   |
   | CH4 |     PB9     |    PD15   |
 */
+#![allow(non_upper_case_globals)]
 
-use crate::hal::timer::{Cancel, CountDown, Periodic};
+use crate::bb;
 use crate::pac::{self, DBGMCU as DBG, RCC};
 
 use crate::rcc::{self, Clocks};
 use core::convert::TryFrom;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
-use void::Void;
 
 use crate::time::Hertz;
 
 #[cfg(feature = "rtic")]
-mod monotonic;
+pub mod monotonic;
+#[cfg(feature = "rtic")]
+pub use monotonic::*;
+pub mod pwm_input;
+pub use pwm_input::*;
+pub(crate) mod pins;
+pub use pins::*;
+pub mod delay;
+pub use delay::*;
+pub mod counter;
+pub use counter::*;
+pub mod pwm;
+pub use pwm::*;
 
-/// Interrupt events
-pub enum Event {
-    /// Timer timed out / count down ended
-    Update,
-}
+mod hal_02;
 
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    /// Timer is canceled
-    Canceled,
-}
-
+/// Timer wrapper
 pub struct Timer<TIM> {
     pub(crate) tim: TIM,
     pub(crate) clk: Hertz,
 }
 
-pub struct CountDownTimer<TIM> {
-    tim: TIM,
-    clk: Hertz,
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+pub enum Channel {
+    C1 = 0,
+    C2 = 1,
+    C3 = 2,
+    C4 = 3,
 }
 
-pub(crate) mod sealed {
-    pub trait Remap {
-        type Periph;
-        const REMAP: u8;
-    }
-    pub trait Ch1<REMAP> {}
-    pub trait Ch2<REMAP> {}
-    pub trait Ch3<REMAP> {}
-    pub trait Ch4<REMAP> {}
+/// Interrupt events
+#[derive(Clone, Copy, PartialEq)]
+pub enum SysEvent {
+    /// [Timer] timed out / count down ended
+    Update,
 }
 
-macro_rules! remap {
-    ($($name:ident: ($TIMX:ty, $state:literal, $P1:ident, $P2:ident, $P3:ident, $P4:ident),)+) => {
-        $(
-            pub struct $name;
-            impl sealed::Remap for $name {
-                type Periph = $TIMX;
-                const REMAP: u8 = $state;
-            }
-            impl<MODE> sealed::Ch1<$name> for crate::gpio::$P1<MODE> {}
-            impl<MODE> sealed::Ch2<$name> for crate::gpio::$P2<MODE> {}
-            impl<MODE> sealed::Ch3<$name> for crate::gpio::$P3<MODE> {}
-            impl<MODE> sealed::Ch4<$name> for crate::gpio::$P4<MODE> {}
-        )+
+bitflags::bitflags! {
+    pub struct Event: u32 {
+        const Update  = 1 << 0;
+        const C1 = 1 << 1;
+        const C2 = 1 << 2;
+        const C3 = 1 << 3;
+        const C4 = 1 << 4;
     }
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
-remap!(
-    Tim1NoRemap: (pac::TIM1, 0b00, PA8, PA9, PA10, PA11),
-    //Tim1PartialRemap: (pac::TIM1, 0b01, PA8, PA9, PA10, PA11),
-    Tim1FullRemap: (pac::TIM1, 0b11, PE9, PE11, PE13, PE14),
-);
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum Error {
+    /// Timer is disabled
+    Disabled,
+    WrongAutoReload,
+}
 
-remap!(
-    Tim2NoRemap: (pac::TIM2, 0b00, PA0, PA1, PA2, PA3),
-    Tim2PartialRemap1: (pac::TIM2, 0b01, PA15, PB3, PA2, PA3),
-    Tim2PartialRemap2: (pac::TIM2, 0b10, PA0, PA1, PB10, PB11),
-    Tim2FullRemap: (pac::TIM2, 0b11, PA15, PB3, PB10, PB11),
+pub trait TimerExt: Sized {
+    /// Non-blocking [Counter] with custom fixed precision
+    fn counter<const FREQ: u32>(self, clocks: &Clocks) -> Counter<Self, FREQ>;
+    /// Non-blocking [Counter] with fixed precision of 1 ms (1 kHz sampling)
+    ///
+    /// Can wait from 2 ms to 65 sec for 16-bit timer and from 2 ms to 49 days for 32-bit timer.
+    ///
+    /// NOTE: don't use this if your system frequency more than 65 MHz
+    fn counter_ms(self, clocks: &Clocks) -> CounterMs<Self> {
+        self.counter::<1_000>(clocks)
+    }
+    /// Non-blocking [Counter] with fixed precision of 1 μs (1 MHz sampling)
+    ///
+    /// Can wait from 2 μs to 65 ms for 16-bit timer and from 2 μs to 71 min for 32-bit timer.
+    fn counter_us(self, clocks: &Clocks) -> CounterUs<Self> {
+        self.counter::<1_000_000>(clocks)
+    }
+    /// Non-blocking [Counter] with dynamic precision which uses `Hertz` as Duration units
+    fn counter_hz(self, clocks: &Clocks) -> CounterHz<Self>;
 
-    Tim3NoRemap: (pac::TIM3, 0b00, PA6, PA7, PB0, PB1),
-    Tim3PartialRemap: (pac::TIM3, 0b10, PB4, PB5, PB0, PB1),
-    Tim3FullRemap: (pac::TIM3, 0b11, PC6, PC7, PC8, PC9),
-);
+    /// Blocking [Delay] with custom fixed precision
+    fn delay<const FREQ: u32>(self, clocks: &Clocks) -> Delay<Self, FREQ>;
+    /// Blocking [Delay] with fixed precision of 1 ms (1 kHz sampling)
+    ///
+    /// Can wait from 2 ms to 49 days.
+    ///
+    /// NOTE: don't use this if your system frequency more than 65 MHz
+    fn delay_ms(self, clocks: &Clocks) -> DelayMs<Self> {
+        self.delay::<1_000>(clocks)
+    }
+    /// Blocking [Delay] with fixed precision of 1 μs (1 MHz sampling)
+    ///
+    /// Can wait from 2 μs to 71 min.
+    fn delay_us(self, clocks: &Clocks) -> DelayUs<Self> {
+        self.delay::<1_000_000>(clocks)
+    }
+}
 
-#[cfg(feature = "medium")]
-remap!(
-    Tim4NoRemap: (pac::TIM4, 0b00, PB6, PB7, PB8, PB9),
-    Tim4Remap: (pac::TIM4, 0b01, PD12, PD13, PD14, PD15),
-);
+impl<TIM: Instance> TimerExt for TIM {
+    fn counter<const FREQ: u32>(self, clocks: &Clocks) -> Counter<Self, FREQ> {
+        FTimer::new(self, clocks).counter()
+    }
+    fn counter_hz(self, clocks: &Clocks) -> CounterHz<Self> {
+        Timer::new(self, clocks).counter_hz()
+    }
+    fn delay<const FREQ: u32>(self, clocks: &Clocks) -> Delay<Self, FREQ> {
+        FTimer::new(self, clocks).delay()
+    }
+}
+
+pub trait SysTimerExt: Sized {
+    /// Creates timer which takes [Hertz] as Duration
+    fn counter_hz(self, clocks: &Clocks) -> SysCounterHz;
+
+    /// Creates timer with custom precision (core frequency recommended is known)
+    fn counter<const FREQ: u32>(self, clocks: &Clocks) -> SysCounter<FREQ>;
+    /// Creates timer with precision of 1 μs (1 MHz sampling)
+    fn counter_us(self, clocks: &Clocks) -> SysCounterUs {
+        self.counter::<1_000_000>(clocks)
+    }
+    /// Blocking [Delay] with custom precision
+    fn delay(self, clocks: &Clocks) -> SysDelay;
+}
+
+impl SysTimerExt for SYST {
+    fn counter_hz(self, clocks: &Clocks) -> SysCounterHz {
+        Timer::syst(self, clocks).counter_hz()
+    }
+    fn counter<const FREQ: u32>(self, clocks: &Clocks) -> SysCounter<FREQ> {
+        Timer::syst(self, clocks).counter()
+    }
+    fn delay(self, clocks: &Clocks) -> SysDelay {
+        Timer::syst_external(self, clocks).delay()
+    }
+}
 
 impl Timer<SYST> {
-    pub fn syst(mut syst: SYST, clocks: &Clocks) -> Self {
-        syst.set_clock_source(SystClkSource::Core);
+    /// Initialize SysTick timer
+    pub fn syst(mut tim: SYST, clocks: &Clocks) -> Self {
+        tim.set_clock_source(SystClkSource::Core);
         Self {
-            tim: syst,
+            tim,
             clk: clocks.hclk(),
         }
     }
 
-    pub fn start_count_down(self, timeout: Hertz) -> CountDownTimer<SYST> {
-        let Self { tim, clk } = self;
-        let mut timer = CountDownTimer { tim, clk };
-        timer.start(timeout);
-        timer
+    /// Initialize SysTick timer and set it frequency to `HCLK / 8`
+    pub fn syst_external(mut tim: SYST, clocks: &Clocks) -> Self {
+        tim.set_clock_source(SystClkSource::External);
+        Self {
+            tim,
+            clk: clocks.hclk() / 8,
+        }
+    }
+
+    pub fn configure(&mut self, clocks: &Clocks) {
+        self.tim.set_clock_source(SystClkSource::Core);
+        self.clk = clocks.hclk();
+    }
+
+    pub fn configure_external(&mut self, clocks: &Clocks) {
+        self.tim.set_clock_source(SystClkSource::External);
+        self.clk = clocks.hclk() / 8;
     }
 
     pub fn release(self) -> SYST {
         self.tim
     }
-}
 
-impl CountDownTimer<SYST> {
     /// Starts listening for an `event`
-    pub fn listen(&mut self, event: Event) {
+    pub fn listen(&mut self, event: SysEvent) {
         match event {
-            Event::Update => self.tim.enable_interrupt(),
+            SysEvent::Update => self.tim.enable_interrupt(),
         }
     }
 
     /// Stops listening for an `event`
-    pub fn unlisten(&mut self, event: Event) {
+    pub fn unlisten(&mut self, event: SysEvent) {
         match event {
-            Event::Update => self.tim.disable_interrupt(),
+            SysEvent::Update => self.tim.disable_interrupt(),
         }
     }
 
@@ -176,79 +243,397 @@ impl CountDownTimer<SYST> {
         // when the counter goes from 1 to 0, so writing zero should not trigger an interrupt
         self.tim.clear_current();
     }
-
-    /// Returns the number of microseconds since the last update event.
-    /// *NOTE:* This method is not a very good candidate to keep track of time, because
-    /// it is very easy to lose an update event.
-    pub fn micros_since(&self) -> u32 {
-        let reload_value = SYST::get_reload();
-        let timer_clock = self.clk.raw() as u64;
-        let ticks = (reload_value - SYST::get_current()) as u64;
-
-        // It is safe to make this cast since the maximum ticks is (2^24 - 1) and the minimum sysclk
-        // is 4Mhz, which gives a maximum period of ~4.2 seconds which is < (2^32 - 1) microseconds
-        u32::try_from(1_000_000 * ticks / timer_clock).unwrap()
-    }
-
-    /// Stops the timer
-    pub fn stop(mut self) -> Timer<SYST> {
-        self.tim.disable_counter();
-        let Self { tim, clk } = self;
-        Timer { tim, clk }
-    }
-
-    /// Releases the SYST
-    pub fn release(self) -> SYST {
-        self.stop().release()
-    }
 }
 
-impl CountDown for CountDownTimer<SYST> {
-    type Time = Hertz;
-
-    fn start<T>(&mut self, timeout: T)
-    where
-        T: Into<Hertz>,
-    {
-        let rvr = self.clk / timeout.into() - 1;
-
-        assert!(rvr < (1 << 24));
-
-        self.tim.set_reload(rvr);
-        self.tim.clear_current();
-        self.tim.enable_counter();
-    }
-
-    fn wait(&mut self) -> nb::Result<(), Void> {
-        if self.tim.has_wrapped() {
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
-    }
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u8)]
+pub enum Ocm {
+    Frozen = 0,
+    ActiveOnMatch = 1,
+    InactiveOnMatch = 2,
+    Toggle = 3,
+    ForceInactive = 4,
+    ForceActive = 5,
+    PwmMode1 = 6,
+    PwmMode2 = 7,
 }
 
-impl Cancel for CountDownTimer<SYST> {
-    type Error = Error;
+mod sealed {
+    use super::{Channel, Event, Ocm, DBG};
+    pub trait General {
+        type Width: Into<u32> + From<u16>;
+        fn max_auto_reload() -> u32;
+        unsafe fn set_auto_reload_unchecked(&mut self, arr: u32);
+        fn set_auto_reload(&mut self, arr: u32) -> Result<(), super::Error>;
+        fn read_auto_reload() -> u32;
+        fn enable_preload(&mut self, b: bool);
+        fn enable_counter(&mut self);
+        fn disable_counter(&mut self);
+        fn is_counter_enabled(&self) -> bool;
+        fn reset_counter(&mut self);
+        fn set_prescaler(&mut self, psc: u16);
+        fn read_prescaler(&self) -> u16;
+        fn trigger_update(&mut self);
+        fn clear_interrupt_flag(&mut self, event: Event);
+        fn listen_interrupt(&mut self, event: Event, b: bool);
+        fn get_interrupt_flag(&self) -> Event;
+        fn read_count(&self) -> Self::Width;
+        fn start_one_pulse(&mut self);
+        fn cr1_reset(&mut self);
+        fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool);
+    }
 
-    fn cancel(&mut self) -> Result<(), Self::Error> {
-        if !self.tim.is_counter_enabled() {
-            return Err(Self::Error::Canceled);
-        }
+    pub trait WithPwm: General {
+        const CH_NUMBER: u8;
+        fn read_cc_value(channel: u8) -> u32;
+        fn set_cc_value(channel: u8, value: u32);
+        fn preload_output_channel_in_mode(&mut self, channel: Channel, mode: Ocm);
+        fn start_pwm(&mut self);
+        fn enable_channel(channel: u8, b: bool);
+    }
 
-        self.tim.disable_counter();
-        Ok(())
+    pub trait MasterTimer: General {
+        type Mms;
+        fn master_mode(&mut self, mode: Self::Mms);
     }
 }
+pub(crate) use sealed::{General, MasterTimer, WithPwm};
 
-impl Periodic for CountDownTimer<SYST> {}
-
-pub trait Instance: crate::Sealed + rcc::Enable + rcc::Reset + rcc::BusTimerClock {}
-
-impl<TIM> Timer<TIM>
-where
-    TIM: Instance,
+pub trait Instance:
+    crate::Sealed + rcc::Enable + rcc::Reset + rcc::BusTimerClock + General
 {
+}
+
+macro_rules! hal {
+    ($($TIM:ty: [
+        $Timer:ident,
+        $bits:ty,
+        $dbg_timX_stop:ident,
+        $(c: ($cnum:ident $(, $aoe:ident)?),)?
+        $(m: $timbase:ident,)?
+    ],)+) => {
+        $(
+            impl Instance for $TIM { }
+            pub type $Timer = Timer<$TIM>;
+
+            impl General for $TIM {
+                type Width = $bits;
+
+                #[inline(always)]
+                fn max_auto_reload() -> u32 {
+                    <$bits>::MAX as u32
+                }
+                #[inline(always)]
+                unsafe fn set_auto_reload_unchecked(&mut self, arr: u32) {
+                    self.arr.write(|w| w.bits(arr))
+                }
+                #[inline(always)]
+                fn set_auto_reload(&mut self, arr: u32) -> Result<(), Error> {
+                    // Note: Make it impossible to set the ARR value to 0, since this
+                    // would cause an infinite loop.
+                    if arr > 0 && arr <= Self::max_auto_reload() {
+                        Ok(unsafe { self.set_auto_reload_unchecked(arr) })
+                    } else {
+                        Err(Error::WrongAutoReload)
+                    }
+                }
+                #[inline(always)]
+                fn read_auto_reload() -> u32 {
+                    let tim = unsafe { &*<$TIM>::ptr() };
+                    tim.arr.read().bits()
+                }
+                #[inline(always)]
+                fn enable_preload(&mut self, b: bool) {
+                    self.cr1.modify(|_, w| w.arpe().bit(b));
+                }
+                #[inline(always)]
+                fn enable_counter(&mut self) {
+                    self.cr1.modify(|_, w| w.cen().set_bit());
+                }
+                #[inline(always)]
+                fn disable_counter(&mut self) {
+                    self.cr1.modify(|_, w| w.cen().clear_bit());
+                }
+                #[inline(always)]
+                fn is_counter_enabled(&self) -> bool {
+                    self.cr1.read().cen().is_enabled()
+                }
+                #[inline(always)]
+                fn reset_counter(&mut self) {
+                    self.cnt.reset();
+                }
+                #[inline(always)]
+                fn set_prescaler(&mut self, psc: u16) {
+                    self.psc.write(|w| w.psc().bits(psc) );
+                }
+                #[inline(always)]
+                fn read_prescaler(&self) -> u16 {
+                    self.psc.read().psc().bits()
+                }
+                #[inline(always)]
+                fn trigger_update(&mut self) {
+                    // Sets the URS bit to prevent an interrupt from being triggered by
+                    // the UG bit
+                    self.cr1.modify(|_, w| w.urs().set_bit());
+                    self.egr.write(|w| w.ug().set_bit());
+                    self.cr1.modify(|_, w| w.urs().clear_bit());
+                }
+                #[inline(always)]
+                fn clear_interrupt_flag(&mut self, event: Event) {
+                    self.sr.write(|w| unsafe { w.bits(0xffff & !event.bits()) });
+                }
+                #[inline(always)]
+                fn listen_interrupt(&mut self, event: Event, b: bool) {
+                    if b {
+                        self.dier.modify(|r, w| unsafe { w.bits(r.bits() | event.bits()) });
+                    } else {
+                        self.dier.modify(|r, w| unsafe { w.bits(r.bits() & !event.bits()) });
+                    }
+                }
+                #[inline(always)]
+                fn get_interrupt_flag(&self) -> Event {
+                    Event::from_bits_truncate(self.sr.read().bits())
+                }
+                #[inline(always)]
+                fn read_count(&self) -> Self::Width {
+                    self.cnt.read().bits() as Self::Width
+                }
+                #[inline(always)]
+                fn start_one_pulse(&mut self) {
+                    self.cr1.write(|w| unsafe { w.bits(1 << 3) }.cen().set_bit());
+                }
+                #[inline(always)]
+                fn cr1_reset(&mut self) {
+                    self.cr1.reset();
+                }
+                #[inline(always)]
+                fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
+                    dbg.cr.modify(|_, w| w.$dbg_timX_stop().bit(state));
+                }
+            }
+            $(with_pwm!($TIM: $cnum $(, $aoe)?);)?
+
+            $(impl MasterTimer for $TIM {
+                type Mms = pac::$timbase::cr2::MMS_A;
+                fn master_mode(&mut self, mode: Self::Mms) {
+                    self.cr2.modify(|_,w| w.mms().variant(mode));
+                }
+            })?
+        )+
+    }
+}
+
+macro_rules! with_pwm {
+    ($TIM:ty: CH1) => {
+        impl WithPwm for $TIM {
+            const CH_NUMBER: u8 = 1;
+
+            #[inline(always)]
+            fn read_cc_value(channel: u8) -> u32 {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                match channel {
+                    0 => {
+                        tim.ccr1.read().bits()
+                    }
+                    _ => 0,
+                }
+            }
+
+            #[inline(always)]
+            fn set_cc_value(channel: u8, value: u32) {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                #[allow(unused_unsafe)]
+                match channel {
+                    0 => {
+                        tim.ccr1.write(|w| unsafe { w.bits(value) })
+                    }
+                    _ => {},
+                }
+            }
+
+            #[inline(always)]
+            fn preload_output_channel_in_mode(&mut self, channel: Channel, mode: Ocm) {
+                match channel {
+                    Channel::C1 => {
+                        self.ccmr1_output()
+                        .modify(|_, w| w.oc1pe().set_bit().oc1m().bits(mode as _) );
+                    }
+                    _ => {},
+                }
+            }
+
+            #[inline(always)]
+            fn start_pwm(&mut self) {
+                self.cr1.write(|w| w.cen().set_bit());
+            }
+
+            #[inline(always)]
+            fn enable_channel(c: u8, b: bool) {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                if c < Self::CH_NUMBER {
+                    if b {
+                        unsafe { bb::set(&tim.ccer, c*4) }
+                    } else {
+                        unsafe { bb::clear(&tim.ccer, c*4) }
+                    }
+                }
+            }
+        }
+    };
+    ($TIM:ty: CH2) => {
+        impl WithPwm for $TIM {
+            const CH_NUMBER: u8 = 2;
+
+            #[inline(always)]
+            fn read_cc_value(channel: u8) -> u32 {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                match channel {
+                    0 => {
+                        tim.ccr1.read().bits()
+                    }
+                    1 => {
+                        tim.ccr2.read().bits()
+                    }
+                    _ => 0,
+                }
+            }
+
+            #[inline(always)]
+            fn set_cc_value(channel: u8, value: u32) {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                #[allow(unused_unsafe)]
+                match channel {
+                    0 => {
+                        tim.ccr1.write(|w| unsafe { w.bits(value) })
+                    }
+                    1 => {
+                        tim.ccr2.write(|w| unsafe { w.bits(value) })
+                    }
+                    _ => {},
+                }
+            }
+
+            #[inline(always)]
+            fn preload_output_channel_in_mode(&mut self, channel: Channel, mode: Ocm) {
+                match channel {
+                    Channel::C1 => {
+                        self.ccmr1_output()
+                        .modify(|_, w| w.oc1pe().set_bit().oc1m().bits(mode as _) );
+                    }
+                    Channel::C2 => {
+                        self.ccmr1_output()
+                        .modify(|_, w| w.oc2pe().set_bit().oc2m().bits(mode as _) );
+                    }
+                    _ => {},
+                }
+            }
+
+            #[inline(always)]
+            fn start_pwm(&mut self) {
+                self.cr1.write(|w| w.cen().set_bit());
+            }
+
+            #[inline(always)]
+            fn enable_channel(c: u8, b: bool) {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                if c < Self::CH_NUMBER {
+                    if b {
+                        unsafe { bb::set(&tim.ccer, c*4) }
+                    } else {
+                        unsafe { bb::clear(&tim.ccer, c*4) }
+                    }
+                }
+            }
+        }
+    };
+    ($TIM:ty: CH4 $(, $aoe:ident)?) => {
+        impl WithPwm for $TIM {
+            const CH_NUMBER: u8 = 4;
+
+            #[inline(always)]
+            fn read_cc_value(channel: u8) -> u32 {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                let ccr = match channel {
+                    0 => {
+                        &tim.ccr1
+                    }
+                    1 => {
+                        &tim.ccr2
+                    }
+                    2 => {
+                        &tim.ccr3
+                    }
+                    _ => {
+                        &tim.ccr4
+                    }
+                };
+                ccr.read().bits()
+            }
+
+            #[inline(always)]
+            fn set_cc_value(channel: u8, value: u32) {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                let ccr = match channel {
+                    0 => {
+                        &tim.ccr1
+                    }
+                    1 => {
+                        &tim.ccr2
+                    }
+                    2 => {
+                        &tim.ccr3
+                    }
+                    _ => {
+                        &tim.ccr4
+                    }
+                };
+                ccr.write(|w| unsafe { w.bits(value) })
+            }
+
+            #[inline(always)]
+            fn preload_output_channel_in_mode(&mut self, channel: Channel, mode: Ocm) {
+                match channel {
+                    Channel::C1 => {
+                        self.ccmr1_output()
+                        .modify(|_, w| w.oc1pe().set_bit().oc1m().bits(mode as _) );
+                    }
+                    Channel::C2 => {
+                        self.ccmr1_output()
+                        .modify(|_, w| w.oc2pe().set_bit().oc2m().bits(mode as _) );
+                    }
+                    Channel::C3 => {
+                        self.ccmr2_output()
+                        .modify(|_, w| w.oc3pe().set_bit().oc3m().bits(mode as _) );
+                    }
+                    Channel::C4 => {
+                        self.ccmr2_output()
+                        .modify(|_, w| w.oc4pe().set_bit().oc4m().bits(mode as _) );
+                    }
+                }
+            }
+
+            #[inline(always)]
+            fn start_pwm(&mut self) {
+                $(let $aoe = self.bdtr.modify(|_, w| w.aoe().set_bit());)?
+                self.cr1.write(|w| w.cen().set_bit());
+            }
+
+            #[inline(always)]
+            fn enable_channel(c: u8, b: bool) {
+                let tim = unsafe { &*<$TIM>::ptr() };
+                if c < Self::CH_NUMBER {
+                    if b {
+                        unsafe { bb::set(&tim.ccer, c*4) }
+                    } else {
+                        unsafe { bb::clear(&tim.ccer, c*4) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<TIM: Instance> Timer<TIM> {
     /// Initialize timer
     pub fn new(tim: TIM, clocks: &Clocks) -> Self {
         unsafe {
@@ -265,222 +650,163 @@ where
         }
     }
 
-    /// Resets timer peripheral
-    #[inline(always)]
-    pub fn clocking_reset(&mut self) {
-        let rcc = unsafe { &(*RCC::ptr()) };
-        TIM::reset(rcc);
+    pub fn configure(&mut self, clocks: &Clocks) {
+        self.clk = TIM::timer_clock(clocks);
     }
 
-    /// Releases the TIM Peripheral
+    pub fn counter_hz(self) -> CounterHz<TIM> {
+        CounterHz(self)
+    }
+
     pub fn release(self) -> TIM {
         self.tim
     }
+
+    /// Starts listening for an `event`
+    ///
+    /// Note, you will also have to enable the TIM2 interrupt in the NVIC to start
+    /// receiving events.
+    pub fn listen(&mut self, event: Event) {
+        self.tim.listen_interrupt(event, true);
+    }
+
+    /// Clears interrupt associated with `event`.
+    ///
+    /// If the interrupt is not cleared, it will immediately retrigger after
+    /// the ISR has finished.
+    pub fn clear_interrupt(&mut self, event: Event) {
+        self.tim.clear_interrupt_flag(event);
+    }
+
+    /// Stops listening for an `event`
+    pub fn unlisten(&mut self, event: Event) {
+        self.tim.listen_interrupt(event, false);
+    }
+
+    /// Stopping timer in debug mode can cause troubles when sampling the signal
+    pub fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
+        self.tim.stop_in_debug(dbg, state);
+    }
 }
 
-macro_rules! hal {
-    ($($TIMX:ty: ($timX:ident, $APBx:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
-        $(
-            impl Instance for $TIMX { }
+impl<TIM: Instance + MasterTimer> Timer<TIM> {
+    pub fn set_master_mode(&mut self, mode: TIM::Mms) {
+        self.tim.master_mode(mode)
+    }
+}
 
-            impl Timer<$TIMX> {
-                /// Initialize timer
-                pub fn $timX(tim: $TIMX, clocks: &Clocks) -> Self {
-                    Self::new(tim, clocks)
-                }
+/// Timer wrapper for fixed precision timers.
+///
+/// Uses `fugit::TimerDurationU32` for most of operations
+pub struct FTimer<TIM, const FREQ: u32> {
+    tim: TIM,
+}
 
-                /// Starts timer in count down mode at a given frequency
-                pub fn start_count_down(self, timeout: Hertz) -> CountDownTimer<$TIMX> {
-                    let Self { tim, clk } = self;
-                    let mut timer = CountDownTimer { tim, clk };
-                    timer.start(timeout);
-                    timer
-                }
+/// `FTimer` with precision of 1 μs (1 MHz sampling)
+pub type FTimerUs<TIM> = FTimer<TIM, 1_000_000>;
 
-                $(
-                    /// Starts timer in count down mode at a given frequency and additionally configures the timers master mode
-                    pub fn start_master(self, timeout: Hertz, mode: crate::pac::$master_timbase::cr2::MMS_A) -> CountDownTimer<$TIMX> {
-                        let Self { tim, clk } = self;
-                        let mut timer = CountDownTimer { tim, clk };
-                        timer.tim.cr2.modify(|_,w| w.mms().variant(mode));
-                        timer.start(timeout);
-                        timer
-                    }
-                )?
+/// `FTimer` with precision of 1 ms (1 kHz sampling)
+///
+/// NOTE: don't use this if your system frequency more than 65 MHz
+pub type FTimerMs<TIM> = FTimer<TIM, 1_000>;
 
-                /// Starts the timer in count down mode with user-defined prescaler and auto-reload register
-                pub fn start_raw(self, psc: u16, arr: u16) -> CountDownTimer<$TIMX>
-                {
-                    let Self { tim, clk } = self;
-                    let mut timer = CountDownTimer { tim, clk };
-                    timer.restart_raw(psc, arr);
-                    timer
-                }
+impl<TIM: Instance, const FREQ: u32> FTimer<TIM, FREQ> {
+    /// Initialize timer
+    pub fn new(tim: TIM, clocks: &Clocks) -> Self {
+        unsafe {
+            //NOTE(unsafe) this reference will only be used for atomic writes with no side effects
+            let rcc = &(*RCC::ptr());
+            // Enable and reset the timer peripheral
+            TIM::enable(rcc);
+            TIM::reset(rcc);
+        }
 
-                /// Stopping timer in debug mode can cause troubles when sampling the signal
-                #[inline(always)]
-                pub fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
-                    dbg.cr.modify(|_, w| w.$dbg_timX_stop().bit(state));
-                }
-            }
+        let mut t = Self { tim };
+        t.configure(clocks);
+        t
+    }
 
-            impl CountDownTimer<$TIMX> {
-                /// Starts listening for an `event`
-                pub fn listen(&mut self, event: Event) {
-                    match event {
-                        Event::Update => self.tim.dier.write(|w| w.uie().set_bit()),
-                    }
-                }
+    /// Calculate prescaler depending on `Clocks` state
+    pub fn configure(&mut self, clocks: &Clocks) {
+        let clk = TIM::timer_clock(clocks);
+        assert!(clk.raw() % FREQ == 0);
+        let psc = clk.raw() / FREQ;
+        self.tim.set_prescaler(u16::try_from(psc - 1).unwrap());
+    }
 
-                /// Stops listening for an `event`
-                pub fn unlisten(&mut self, event: Event) {
-                    match event {
-                        Event::Update => self.tim.dier.write(|w| w.uie().clear_bit()),
-                    }
-                }
+    /// Creates `Counter` that imlements [embedded_hal::timer::CountDown]
+    pub fn counter(self) -> Counter<TIM, FREQ> {
+        Counter(self)
+    }
 
-                /// Restarts the timer in count down mode with user-defined prescaler and auto-reload register
-                pub fn restart_raw(&mut self, psc: u16, arr: u16)
-                {
-                    // pause
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+    /// Creates `Delay` that imlements [embedded_hal::blocking::delay] traits
+    pub fn delay(self) -> Delay<TIM, FREQ> {
+        Delay(self)
+    }
 
-                    self.tim.psc.write(|w| w.psc().bits(psc) );
+    /// Releases the TIM peripheral
+    pub fn release(self) -> TIM {
+        self.tim
+    }
 
-                    // TODO: Remove this `allow` once this field is made safe for stm32f100
-                    #[allow(unused_unsafe)]
-                    self.tim.arr.write(|w| unsafe { w.arr().bits(arr) });
+    /// Starts listening for an `event`
+    ///
+    /// Note, you will also have to enable the TIM2 interrupt in the NVIC to start
+    /// receiving events.
+    pub fn listen(&mut self, event: Event) {
+        self.tim.listen_interrupt(event, true);
+    }
 
-                    // Trigger an update event to load the prescaler value to the clock
-                    self.reset();
+    /// Clears interrupt associated with `event`.
+    ///
+    /// If the interrupt is not cleared, it will immediately retrigger after
+    /// the ISR has finished.
+    pub fn clear_interrupt(&mut self, event: Event) {
+        self.tim.clear_interrupt_flag(event);
+    }
 
-                    // start counter
-                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
-                }
+    pub fn get_interrupt(&mut self) -> Event {
+        self.tim.get_interrupt_flag()
+    }
 
-                /// Retrieves the content of the prescaler register. The real prescaler is this value + 1.
-                pub fn psc(&self) -> u16 {
-                    self.tim.psc.read().psc().bits()
-                }
+    /// Stops listening for an `event`
+    pub fn unlisten(&mut self, event: Event) {
+        self.tim.listen_interrupt(event, false);
+    }
 
-                /// Retrieves the value of the auto-reload register.
-                pub fn arr(&self) -> u16 {
-                    self.tim.arr.read().arr().bits()
-                }
+    /// Stopping timer in debug mode can cause troubles when sampling the signal
+    pub fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
+        self.tim.stop_in_debug(dbg, state);
+    }
+}
 
-                /// Retrieves the current timer counter value.
-                pub fn cnt(&self) -> u16 {
-                    self.tim.cnt.read().cnt().bits()
-                }
-
-                /// Stops the timer
-                pub fn stop(self) -> Timer<$TIMX> {
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
-                    let Self { tim, clk } = self;
-                    Timer { tim, clk }
-                }
-
-                /// Clears Update Interrupt Flag
-                pub fn clear_update_interrupt_flag(&mut self) {
-                    self.tim.sr.modify(|_, w| w.uif().clear_bit());
-                }
-
-                /// Releases the TIM Peripheral
-                pub fn release(self) -> $TIMX {
-                    self.stop().release()
-                }
-
-                /// Returns the number of microseconds since the last update event.
-                /// *NOTE:* This method is not a very good candidate to keep track of time, because
-                /// it is very easy to lose an update event.
-                pub fn micros_since(&self) -> u32 {
-                    let timer_clock = self.clk.raw();
-                    let psc = self.tim.psc.read().psc().bits() as u32;
-
-                    // freq_divider is always bigger than 0, since (psc + 1) is always less than
-                    // timer_clock
-                    let freq_divider = (timer_clock / (psc + 1)) as u64;
-                    let cnt = self.tim.cnt.read().cnt().bits() as u64;
-
-                    // It is safe to make this cast, because the maximum timer period in this HAL is
-                    // 1s (1Hz), then 1 second < (2^32 - 1) microseconds
-                    u32::try_from(1_000_000 * cnt / freq_divider).unwrap()
-                }
-
-                /// Resets the counter
-                pub fn reset(&mut self) {
-                    // Sets the URS bit to prevent an interrupt from being triggered by
-                    // the UG bit
-                    self.tim.cr1.modify(|_, w| w.urs().set_bit());
-
-                    self.tim.egr.write(|w| w.ug().set_bit());
-                    self.tim.cr1.modify(|_, w| w.urs().clear_bit());
-                }
-            }
-
-            impl CountDown for CountDownTimer<$TIMX> {
-                type Time = Hertz;
-
-                fn start<T>(&mut self, timeout: T)
-                where
-                    T: Into<Hertz>,
-                {
-                    let (psc, arr) = compute_arr_presc(timeout.into().raw(), self.clk.raw());
-                    self.restart_raw(psc, arr);
-                }
-
-                fn wait(&mut self) -> nb::Result<(), Void> {
-                    if self.tim.sr.read().uif().bit_is_clear() {
-                        Err(nb::Error::WouldBlock)
-                    } else {
-                        self.clear_update_interrupt_flag();
-                        Ok(())
-                    }
-                }
-            }
-
-            impl Cancel for CountDownTimer<$TIMX>
-            {
-                type Error = Error;
-
-                fn cancel(&mut self) -> Result<(), Self::Error> {
-                    let is_counter_enabled = self.tim.cr1.read().cen().is_enabled();
-                    if !is_counter_enabled {
-                        return Err(Self::Error::Canceled);
-                    }
-
-                    // disable counter
-                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
-                    Ok(())
-                }
-            }
-
-            impl Periodic for CountDownTimer<$TIMX> {}
-        )+
+impl<TIM: Instance + MasterTimer, const FREQ: u32> FTimer<TIM, FREQ> {
+    pub fn set_master_mode(&mut self, mode: TIM::Mms) {
+        self.tim.master_mode(mode)
     }
 }
 
 #[inline(always)]
-fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
+const fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u32) {
     let ticks = clock / freq;
-    let psc = u16::try_from((ticks - 1) / (1 << 16)).unwrap();
-    let arr = u16::try_from(ticks / (psc + 1) as u32).unwrap() - 1;
-    (psc, arr)
+    let psc = (ticks - 1) / (1 << 16);
+    let arr = ticks / (psc + 1) - 1;
+    (psc as u16, arr)
 }
 
-hal! {
-    pac::TIM2: (tim2, APB1, dbg_tim2_stop, tim2),
-    pac::TIM3: (tim3, APB1, dbg_tim3_stop, tim2),
-}
+hal!(
+    pac::TIM2: [Timer2, u16, dbg_tim2_stop, c: (CH4), m: tim2,],
+    pac::TIM3: [Timer3, u16, dbg_tim3_stop, c: (CH4), m: tim2,],
+);
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
-hal! {
-    pac::TIM1: (tim1, APB2, dbg_tim1_stop, tim1),
-}
+hal!(
+    pac::TIM1: [Timer1, u16, dbg_tim1_stop, c: (CH4, _aoe), m: tim1,],
+);
 
 #[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity",))]
 hal! {
-    pac::TIM6: (tim6, APB1, dbg_tim6_stop, tim6),
+    pac::TIM6: [Timer6, u16, dbg_tim6_stop, m: tim6,],
 }
 
 #[cfg(any(
@@ -488,29 +814,29 @@ hal! {
     any(feature = "stm32f100", feature = "connectivity",)
 ))]
 hal! {
-    pac::TIM7: (tim7, APB1, dbg_tim7_stop, tim6),
+    pac::TIM7: [Timer7, u16, dbg_tim7_stop, m: tim6,],
 }
 
 #[cfg(feature = "stm32f100")]
 hal! {
-    pac::TIM15: (tim15, APB2, dbg_tim15_stop),
-    pac::TIM16: (tim16, APB2, dbg_tim16_stop),
-    pac::TIM17: (tim17, APB2, dbg_tim17_stop),
+    pac::TIM15: [Timer15, u16, dbg_tim15_stop, c: (CH2),],
+    pac::TIM16: [Timer16, u16, dbg_tim16_stop, c: (CH1),],
+    pac::TIM17: [Timer17, u16, dbg_tim17_stop, c: (CH1),],
 }
 
 #[cfg(feature = "medium")]
 hal! {
-    pac::TIM4: (tim4, APB1, dbg_tim4_stop, tim2),
+    pac::TIM4: [Timer4, u16, dbg_tim4_stop, c: (CH4), m: tim2,],
 }
 
 #[cfg(any(feature = "high", feature = "connectivity"))]
 hal! {
-    pac::TIM5: (tim5, APB1, dbg_tim5_stop, tim2),
+    pac::TIM5: [Timer5, u16, dbg_tim5_stop, c: (CH4), m: tim2,],
 }
 
 #[cfg(all(feature = "stm32f103", feature = "high",))]
 hal! {
-    pac::TIM8: (tim8, APB2, dbg_tim8_stop, tim1),
+    pac::TIM8: [Timer8, u16, dbg_tim8_stop, c: (CH4, _aoe), m: tim1,],
 }
 
 //TODO: restore these timers once stm32-rs has been updated

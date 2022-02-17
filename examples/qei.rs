@@ -9,7 +9,7 @@ use panic_semihosting as _;
 use cortex_m_semihosting::hprintln;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{delay::Delay, pac, prelude::*, qei::QeiOptions, timer::Timer};
+use stm32f1xx_hal::{pac, prelude::*, qei::QeiOptions, timer::Timer};
 
 #[entry]
 fn main() -> ! {
@@ -39,7 +39,7 @@ fn main() -> ! {
     let c2 = gpiob.pb7;
 
     let qei = Timer::new(dp.TIM4, &clocks).qei((c1, c2), &mut afio.mapr, QeiOptions::default());
-    let mut delay = Delay::new(cp.SYST, &clocks);
+    let mut delay = cp.SYST.delay(&clocks);
 
     loop {
         let before = qei.count();

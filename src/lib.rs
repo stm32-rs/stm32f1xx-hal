@@ -151,8 +151,6 @@ pub mod can;
 #[cfg(feature = "device-selected")]
 pub mod crc;
 #[cfg(feature = "device-selected")]
-pub mod delay;
-#[cfg(feature = "device-selected")]
 pub mod dma;
 #[cfg(feature = "device-selected")]
 pub mod flash;
@@ -162,10 +160,6 @@ pub mod gpio;
 pub mod i2c;
 #[cfg(feature = "device-selected")]
 pub mod prelude;
-#[cfg(feature = "device-selected")]
-pub mod pwm;
-#[cfg(feature = "device-selected")]
-pub mod pwm_input;
 #[cfg(feature = "device-selected")]
 pub mod qei;
 #[cfg(feature = "device-selected")]

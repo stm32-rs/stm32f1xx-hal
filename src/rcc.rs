@@ -3,6 +3,7 @@
 use crate::pac::{rcc, PWR, RCC};
 
 use crate::flash::ACR;
+#[cfg(any(feature = "stm32f103", feature = "connectivity"))]
 use crate::time::MHz;
 use fugit::{HertzU32 as Hertz, RateExtU32};
 
@@ -721,7 +722,6 @@ impl Config {
 
 #[test]
 fn rcc_config_usb() {
-    use crate::time::U32Ext;
     let cfgr = CFGR::default()
         .use_hse(8.MHz())
         .sysclk(48.MHz())

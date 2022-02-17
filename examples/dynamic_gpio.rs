@@ -9,7 +9,7 @@ use nb::block;
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
-use stm32f1xx_hal::{pac, prelude::*, timer::Timer};
+use stm32f1xx_hal::{pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -32,7 +32,8 @@ fn main() -> ! {
 
     let mut pin = gpioc.pc13.into_dynamic(&mut gpioc.crh);
     // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, &clocks).start_count_down(1.Hz());
+    let mut timer = cp.SYST.counter_hz(&clocks);
+    timer.start(1.Hz()).unwrap();
 
     // Wait for the timer to trigger an update and change the state of the LED
     loop {
