@@ -121,7 +121,10 @@ fn main() -> ! {
         p.USART3,
         (tx_pin, rx_pin),
         &mut afio.mapr,
-        Config::default().baudrate(9600.bps()).wordlength_9(),
+        Config::default()
+            .baudrate(9600.bps())
+            .wordlength_9bits()
+            .parity_none(),
         clocks,
     )
     // Switching the 'Word' type parameter for the 'Read' and 'Write' traits from u8 to u16.

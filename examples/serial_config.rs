@@ -65,7 +65,7 @@ fn main() -> ! {
         serial::Config::default()
             .baudrate(9600.bps())
             .stopbits(serial::StopBits::STOP2)
-            .wordlength_9()
+            .wordlength_9bits()
             .parity_odd(),
         clocks,
     );
