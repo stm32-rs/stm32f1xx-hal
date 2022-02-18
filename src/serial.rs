@@ -88,10 +88,7 @@ use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
 use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
-use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
-use crate::gpio::gpioc::{PC10, PC11};
-use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
+use crate::gpio;
 use crate::gpio::{Alternate, Input};
 use crate::pac::{RCC, USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
@@ -127,31 +124,31 @@ pub trait Pins<USART> {
     const REMAP: u8;
 }
 
-impl<INMODE, OUTMODE> Pins<USART1> for (PA9<Alternate<OUTMODE>>, PA10<Input<INMODE>>) {
+impl<INMODE, OUTMODE> Pins<USART1> for (gpio::PA9<Alternate<OUTMODE>>, gpio::PA10<Input<INMODE>>) {
     const REMAP: u8 = 0;
 }
 
-impl<INMODE, OUTMODE> Pins<USART1> for (PB6<Alternate<OUTMODE>>, PB7<Input<INMODE>>) {
+impl<INMODE, OUTMODE> Pins<USART1> for (gpio::PB6<Alternate<OUTMODE>>, gpio::PB7<Input<INMODE>>) {
     const REMAP: u8 = 1;
 }
 
-impl<INMODE, OUTMODE> Pins<USART2> for (PA2<Alternate<OUTMODE>>, PA3<Input<INMODE>>) {
+impl<INMODE, OUTMODE> Pins<USART2> for (gpio::PA2<Alternate<OUTMODE>>, gpio::PA3<Input<INMODE>>) {
     const REMAP: u8 = 0;
 }
 
-impl<INMODE, OUTMODE> Pins<USART2> for (PD5<Alternate<OUTMODE>>, PD6<Input<INMODE>>) {
+impl<INMODE, OUTMODE> Pins<USART2> for (gpio::PD5<Alternate<OUTMODE>>, gpio::PD6<Input<INMODE>>) {
     const REMAP: u8 = 1;
 }
 
-impl<INMODE, OUTMODE> Pins<USART3> for (PB10<Alternate<OUTMODE>>, PB11<Input<INMODE>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (gpio::PB10<Alternate<OUTMODE>>, gpio::PB11<Input<INMODE>>) {
     const REMAP: u8 = 0;
 }
 
-impl<INMODE, OUTMODE> Pins<USART3> for (PC10<Alternate<OUTMODE>>, PC11<Input<INMODE>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (gpio::PC10<Alternate<OUTMODE>>, gpio::PC11<Input<INMODE>>) {
     const REMAP: u8 = 1;
 }
 
-impl<INMODE, OUTMODE> Pins<USART3> for (PD8<Alternate<OUTMODE>>, PD9<Input<INMODE>>) {
+impl<INMODE, OUTMODE> Pins<USART3> for (gpio::PD8<Alternate<OUTMODE>>, gpio::PD9<Input<INMODE>>) {
     const REMAP: u8 = 0b11;
 }
 

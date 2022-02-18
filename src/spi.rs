@@ -37,20 +37,14 @@ use core::ops::Deref;
 use core::ptr;
 
 pub use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
-#[cfg(any(feature = "high", feature = "connectivity"))]
-use crate::pac::SPI3;
-use crate::pac::{RCC, SPI1, SPI2};
+use crate::pac::{self, RCC};
 
 use crate::afio::MAPR;
 use crate::dma::dma1;
 #[cfg(feature = "connectivity")]
 use crate::dma::dma2;
 use crate::dma::{Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma, R, W};
-use crate::gpio::gpioa::{PA5, PA6, PA7};
-use crate::gpio::gpiob::{PB13, PB14, PB15, PB3, PB4, PB5};
-#[cfg(feature = "connectivity")]
-use crate::gpio::gpioc::{PC10, PC11, PC12};
-use crate::gpio::{Alternate, Input};
+use crate::gpio::{self, Alternate, Input};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::Hertz;
 
@@ -121,37 +115,37 @@ impl<REMAP> Miso<REMAP> for NoMiso {}
 impl<REMAP> Mosi<REMAP> for NoMosi {}
 
 macro_rules! remap {
-    ($name:ident, $SPIX:ident, $state:literal, $SCK:ident, $MISO:ident, $MOSI:ident) => {
+    ($name:ident, $SPIX:ty, $state:literal, $SCK:ident, $MISO:ident, $MOSI:ident) => {
         pub struct $name;
         impl Remap for $name {
             type Periph = $SPIX;
             const REMAP: bool = $state;
         }
-        impl<MODE> Sck<$name> for $SCK<Alternate<MODE>> {}
-        impl<MODE> Miso<$name> for $MISO<Input<MODE>> {}
-        impl<MODE> Mosi<$name> for $MOSI<Alternate<MODE>> {}
+        impl<MODE> Sck<$name> for gpio::$SCK<Alternate<MODE>> {}
+        impl<MODE> Miso<$name> for gpio::$MISO<Input<MODE>> {}
+        impl<MODE> Mosi<$name> for gpio::$MOSI<Alternate<MODE>> {}
     };
 }
 
-remap!(Spi1NoRemap, SPI1, false, PA5, PA6, PA7);
-remap!(Spi1Remap, SPI1, true, PB3, PB4, PB5);
-remap!(Spi2NoRemap, SPI2, false, PB13, PB14, PB15);
+remap!(Spi1NoRemap, pac::SPI1, false, PA5, PA6, PA7);
+remap!(Spi1Remap, pac::SPI1, true, PB3, PB4, PB5);
+remap!(Spi2NoRemap, pac::SPI2, false, PB13, PB14, PB15);
 #[cfg(any(feature = "high", feature = "connectivity"))]
-remap!(Spi3NoRemap, SPI3, false, PB3, PB4, PB5);
+remap!(Spi3NoRemap, pac::SPI3, false, PB3, PB4, PB5);
 #[cfg(feature = "connectivity")]
-remap!(Spi3Remap, SPI3, true, PC10, PC11, PC12);
+remap!(Spi3Remap, pac::SPI3, true, PC10, PC11, PC12);
 
 pub trait Instance:
     crate::Sealed + Deref<Target = crate::pac::spi1::RegisterBlock> + Enable + Reset + BusClock
 {
 }
 
-impl Instance for SPI1 {}
-impl Instance for SPI2 {}
+impl Instance for pac::SPI1 {}
+impl Instance for pac::SPI2 {}
 #[cfg(any(feature = "high", feature = "connectivity"))]
-impl Instance for SPI3 {}
+impl Instance for pac::SPI3 {}
 
-impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
+impl<REMAP, PINS> Spi<pac::SPI1, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
@@ -160,7 +154,7 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
     pub fn spi1(
-        spi: SPI1,
+        spi: pac::SPI1,
         pins: PINS,
         mapr: &mut MAPR,
         mode: Mode,
@@ -168,15 +162,15 @@ impl<REMAP, PINS> Spi<SPI1, REMAP, PINS, u8> {
         clocks: Clocks,
     ) -> Self
     where
-        REMAP: Remap<Periph = SPI1>,
+        REMAP: Remap<Periph = pac::SPI1>,
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
-        Spi::<SPI1, _, _, u8>::configure(spi, pins, mode, freq, clocks)
+        Spi::<pac::SPI1, _, _, u8>::configure(spi, pins, mode, freq, clocks)
     }
 }
 
-impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
+impl<REMAP, PINS> Spi<pac::SPI2, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI2 in 8bit dataframe mode.
 
@@ -184,17 +178,17 @@ impl<REMAP, PINS> Spi<SPI2, REMAP, PINS, u8> {
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn spi2(spi: SPI2, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self
+    pub fn spi2(spi: pac::SPI2, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self
     where
-        REMAP: Remap<Periph = SPI2>,
+        REMAP: Remap<Periph = pac::SPI2>,
         PINS: Pins<REMAP>,
     {
-        Spi::<SPI2, _, _, u8>::configure(spi, pins, mode, freq, clocks)
+        Spi::<pac::SPI2, _, _, u8>::configure(spi, pins, mode, freq, clocks)
     }
 }
 
 #[cfg(any(feature = "high", feature = "connectivity"))]
-impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
+impl<REMAP, PINS> Spi<pac::SPI3, REMAP, PINS, u8> {
     /**
       Constructs an SPI instance using SPI3 in 8bit dataframe mode.
 
@@ -203,12 +197,12 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
     #[cfg(not(feature = "connectivity"))]
-    pub fn spi3(spi: SPI3, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self
+    pub fn spi3(spi: pac::SPI3, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self
     where
-        REMAP: Remap<Periph = SPI3>,
+        REMAP: Remap<Periph = pac::SPI3>,
         PINS: Pins<REMAP>,
     {
-        Spi::<SPI3, _, _, u8>::configure(spi, pins, mode, freq, clocks)
+        Spi::<pac::SPI3, _, _, u8>::configure(spi, pins, mode, freq, clocks)
     }
 
     /**
@@ -220,7 +214,7 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
     */
     #[cfg(feature = "connectivity")]
     pub fn spi3(
-        spi: SPI3,
+        spi: pac::SPI3,
         pins: PINS,
         mapr: &mut MAPR,
         mode: Mode,
@@ -228,11 +222,11 @@ impl<REMAP, PINS> Spi<SPI3, REMAP, PINS, u8> {
         clocks: Clocks,
     ) -> Self
     where
-        REMAP: Remap<Periph = SPI3>,
+        REMAP: Remap<Periph = pac::SPI3>,
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.spi3_remap().bit(REMAP::REMAP));
-        Spi::<SPI3, _, _, u8>::configure(spi, pins, mode, freq, clocks)
+        Spi::<pac::SPI3, _, _, u8>::configure(spi, pins, mode, freq, clocks)
     }
 }
 
@@ -513,7 +507,7 @@ pub type SpiRxTxDma<SPI, REMAP, PINS, RXCHANNEL, TXCHANNEL> =
     RxTxDma<Spi<SPI, REMAP, PINS, u8>, RXCHANNEL, TXCHANNEL>;
 
 macro_rules! spi_dma {
-    ($SPIi:ident, $RCi:ty, $TCi:ty, $rxdma:ident, $txdma:ident, $rxtxdma:ident) => {
+    ($SPIi:ty, $RCi:ty, $TCi:ty, $rxdma:ident, $txdma:ident, $rxtxdma:ident) => {
         pub type $rxdma<REMAP, PINS> = SpiRxDma<$SPIi, REMAP, PINS, $RCi>;
         pub type $txdma<REMAP, PINS> = SpiTxDma<$SPIi, REMAP, PINS, $TCi>;
         pub type $rxtxdma<REMAP, PINS> = SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi>;
@@ -638,7 +632,7 @@ macro_rules! spi_dma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_write_buffer() };
                 self.channel.set_peripheral_address(
-                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
                     false,
                 );
                 self.channel.set_memory_address(ptr as u32, true);
@@ -681,7 +675,7 @@ macro_rules! spi_dma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_read_buffer() };
                 self.channel.set_peripheral_address(
-                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
                     false,
                 );
                 self.channel.set_memory_address(ptr as u32, true);
@@ -736,14 +730,14 @@ macro_rules! spi_dma {
                 }
 
                 self.rxchannel.set_peripheral_address(
-                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
                     false,
                 );
                 self.rxchannel.set_memory_address(rxptr as u32, true);
                 self.rxchannel.set_transfer_length(rxlen);
 
                 self.txchannel.set_peripheral_address(
-                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
                     false,
                 );
                 self.txchannel.set_memory_address(txptr as u32, true);
@@ -800,7 +794,28 @@ macro_rules! spi_dma {
     };
 }
 
-spi_dma!(SPI1, dma1::C2, dma1::C3, Spi1RxDma, Spi1TxDma, Spi1RxTxDma);
-spi_dma!(SPI2, dma1::C4, dma1::C5, Spi2RxDma, Spi2TxDma, Spi2RxTxDma);
+spi_dma!(
+    pac::SPI1,
+    dma1::C2,
+    dma1::C3,
+    Spi1RxDma,
+    Spi1TxDma,
+    Spi1RxTxDma
+);
+spi_dma!(
+    pac::SPI2,
+    dma1::C4,
+    dma1::C5,
+    Spi2RxDma,
+    Spi2TxDma,
+    Spi2RxTxDma
+);
 #[cfg(feature = "connectivity")]
-spi_dma!(SPI3, dma2::C1, dma2::C2, Spi3RxDma, Spi3TxDma, Spi3RxTxDma);
+spi_dma!(
+    pac::SPI3,
+    dma2::C1,
+    dma2::C2,
+    Spi3RxDma,
+    Spi3TxDma,
+    Spi3RxTxDma
+);

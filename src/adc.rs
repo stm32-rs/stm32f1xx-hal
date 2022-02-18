@@ -6,21 +6,14 @@ use embedded_hal::adc::{Channel, OneShot};
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
 use crate::dma::dma2;
 use crate::dma::{dma1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
-use crate::gpio::gpiof;
-use crate::gpio::Analog;
-use crate::gpio::{gpioa, gpiob, gpioc};
+use crate::gpio::{self, Analog};
 use crate::rcc::{Clocks, Enable, Reset};
 use crate::time::kHz;
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 use embedded_dma::StaticWriteBuffer;
 
-#[cfg(any(feature = "stm32f103", feature = "connectivity"))]
-use crate::pac::ADC2;
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
-use crate::pac::ADC3;
-use crate::pac::{ADC1, RCC};
+use crate::pac::{self, RCC};
 
 /// Continuous mode
 pub struct Continuous;
@@ -108,7 +101,7 @@ impl From<Align> for bool {
 }
 
 macro_rules! adc_pins {
-    ($ADC:ident, $($pin:ty => $chan:expr),+ $(,)*) => {
+    ($ADC:ty, $($pin:ty => $chan:expr),+ $(,)*) => {
         $(
             impl Channel<$ADC> for $pin {
                 type ID = u8;
@@ -119,60 +112,60 @@ macro_rules! adc_pins {
     };
 }
 
-adc_pins!(ADC1,
-    gpioa::PA0<Analog> => 0_u8,
-    gpioa::PA1<Analog> => 1_u8,
-    gpioa::PA2<Analog> => 2_u8,
-    gpioa::PA3<Analog> => 3_u8,
-    gpioa::PA4<Analog> => 4_u8,
-    gpioa::PA5<Analog> => 5_u8,
-    gpioa::PA6<Analog> => 6_u8,
-    gpioa::PA7<Analog> => 7_u8,
-    gpiob::PB0<Analog> => 8_u8,
-    gpiob::PB1<Analog> => 9_u8,
-    gpioc::PC0<Analog> => 10_u8,
-    gpioc::PC1<Analog> => 11_u8,
-    gpioc::PC2<Analog> => 12_u8,
-    gpioc::PC3<Analog> => 13_u8,
-    gpioc::PC4<Analog> => 14_u8,
-    gpioc::PC5<Analog> => 15_u8,
+adc_pins!(pac::ADC1,
+    gpio::PA0<Analog> => 0_u8,
+    gpio::PA1<Analog> => 1_u8,
+    gpio::PA2<Analog> => 2_u8,
+    gpio::PA3<Analog> => 3_u8,
+    gpio::PA4<Analog> => 4_u8,
+    gpio::PA5<Analog> => 5_u8,
+    gpio::PA6<Analog> => 6_u8,
+    gpio::PA7<Analog> => 7_u8,
+    gpio::PB0<Analog> => 8_u8,
+    gpio::PB1<Analog> => 9_u8,
+    gpio::PC0<Analog> => 10_u8,
+    gpio::PC1<Analog> => 11_u8,
+    gpio::PC2<Analog> => 12_u8,
+    gpio::PC3<Analog> => 13_u8,
+    gpio::PC4<Analog> => 14_u8,
+    gpio::PC5<Analog> => 15_u8,
 );
 
 #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
-adc_pins!(ADC2,
-    gpioa::PA0<Analog> => 0_u8,
-    gpioa::PA1<Analog> => 1_u8,
-    gpioa::PA2<Analog> => 2_u8,
-    gpioa::PA3<Analog> => 3_u8,
-    gpioa::PA4<Analog> => 4_u8,
-    gpioa::PA5<Analog> => 5_u8,
-    gpioa::PA6<Analog> => 6_u8,
-    gpioa::PA7<Analog> => 7_u8,
-    gpiob::PB0<Analog> => 8_u8,
-    gpiob::PB1<Analog> => 9_u8,
-    gpioc::PC0<Analog> => 10_u8,
-    gpioc::PC1<Analog> => 11_u8,
-    gpioc::PC2<Analog> => 12_u8,
-    gpioc::PC3<Analog> => 13_u8,
-    gpioc::PC4<Analog> => 14_u8,
-    gpioc::PC5<Analog> => 15_u8,
+adc_pins!(pac::ADC2,
+    gpio::PA0<Analog> => 0_u8,
+    gpio::PA1<Analog> => 1_u8,
+    gpio::PA2<Analog> => 2_u8,
+    gpio::PA3<Analog> => 3_u8,
+    gpio::PA4<Analog> => 4_u8,
+    gpio::PA5<Analog> => 5_u8,
+    gpio::PA6<Analog> => 6_u8,
+    gpio::PA7<Analog> => 7_u8,
+    gpio::PB0<Analog> => 8_u8,
+    gpio::PB1<Analog> => 9_u8,
+    gpio::PC0<Analog> => 10_u8,
+    gpio::PC1<Analog> => 11_u8,
+    gpio::PC2<Analog> => 12_u8,
+    gpio::PC3<Analog> => 13_u8,
+    gpio::PC4<Analog> => 14_u8,
+    gpio::PC5<Analog> => 15_u8,
 );
 
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
-adc_pins!(ADC3,
-    gpioa::PA0<Analog> => 0_u8,
-    gpioa::PA1<Analog> => 1_u8,
-    gpioa::PA2<Analog> => 2_u8,
-    gpioa::PA3<Analog> => 3_u8,
-    gpiof::PF6<Analog> => 4_u8,
-    gpiof::PF7<Analog> => 5_u8,
-    gpiof::PF8<Analog> => 6_u8,
-    gpiof::PF9<Analog> => 7_u8,
-    gpiof::PF10<Analog> => 8_u8,
-    gpioc::PC0<Analog> => 10_u8,
-    gpioc::PC1<Analog> => 11_u8,
-    gpioc::PC2<Analog> => 12_u8,
-    gpioc::PC3<Analog> => 13_u8,
+adc_pins!(pac::ADC3,
+    gpio::PA0<Analog> => 0_u8,
+    gpio::PA1<Analog> => 1_u8,
+    gpio::PA2<Analog> => 2_u8,
+    gpio::PA3<Analog> => 3_u8,
+    gpio::PF6<Analog> => 4_u8,
+    gpio::PF7<Analog> => 5_u8,
+    gpio::PF8<Analog> => 6_u8,
+    gpio::PF9<Analog> => 7_u8,
+    gpio::PF10<Analog> => 8_u8,
+    gpio::PC0<Analog> => 10_u8,
+    gpio::PC1<Analog> => 11_u8,
+    gpio::PC2<Analog> => 12_u8,
+    gpio::PC3<Analog> => 13_u8,
 );
 
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
@@ -181,7 +174,7 @@ pub struct StoredConfig(SampleTime, Align);
 
 macro_rules! adc_hal {
     ($(
-        $ADC:ident: ($adc:ident),
+        $ADC:ty: ($adc:ident),
     )+) => {
         $(
 
@@ -279,17 +272,17 @@ macro_rules! adc_hal {
 
                 fn reset(&mut self) {
                     let rcc = unsafe { &(*RCC::ptr()) };
-                    $ADC::reset(rcc);
+                    <$ADC>::reset(rcc);
                 }
 
                 fn enable_clock(&mut self) {
                     let rcc = unsafe { &(*RCC::ptr()) };
-                    $ADC::enable(rcc);
+                    <$ADC>::enable(rcc);
                 }
 
                 fn disable_clock(&mut self) {
                     let rcc = unsafe { &(*RCC::ptr()) };
-                    $ADC::disable(rcc);
+                    <$ADC>::disable(rcc);
                 }
 
                 fn calibrate(&mut self) {
@@ -461,7 +454,7 @@ macro_rules! adc_hal {
     }
 }
 
-impl Adc<ADC1> {
+impl Adc<pac::ADC1> {
     fn read_aux(&mut self, chan: u8) -> u16 {
         let tsv_off = if self.rb.cr2.read().tsvrefe().bit_is_clear() {
             self.rb.cr2.modify(|_, w| w.tsvrefe().set_bit());
@@ -545,17 +538,17 @@ impl Adc<ADC1> {
 }
 
 adc_hal! {
-    ADC1: (adc1),
+    pac::ADC1: (adc1),
 }
 
 #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
 adc_hal! {
-    ADC2: (adc2),
+    pac::ADC2: (adc2),
 }
 
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
 adc_hal! {
-    ADC3: (adc3),
+    pac::ADC3: (adc3),
 }
 
 pub struct AdcPayload<ADC, PINS, MODE> {
@@ -608,7 +601,7 @@ pub trait SetChannels<PINS>: ChannelTimeSequence {
 pub type AdcDma<ADC, PINS, MODE, CHANNEL> = RxDma<AdcPayload<ADC, PINS, MODE>, CHANNEL>;
 
 macro_rules! adcdma {
-    ($ADCX:ident: (
+    ($ADCX:ty: (
         $rxdma:ident,
         $dmarxch:ty,
     )) => {
@@ -750,7 +743,7 @@ macro_rules! adcdma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_write_buffer() };
                 self.channel.set_peripheral_address(
-                    unsafe { &(*$ADCX::ptr()).dr as *const _ as u32 },
+                    unsafe { &(*<$ADCX>::ptr()).dr as *const _ as u32 },
                     false,
                 );
                 self.channel.set_memory_address(ptr as u32, true);
@@ -789,7 +782,7 @@ macro_rules! adcdma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_write_buffer() };
                 self.channel.set_peripheral_address(
-                    unsafe { &(*$ADCX::ptr()).dr as *const _ as u32 },
+                    unsafe { &(*<$ADCX>::ptr()).dr as *const _ as u32 },
                     false,
                 );
                 self.channel.set_memory_address(ptr as u32, true);
@@ -819,7 +812,7 @@ macro_rules! adcdma {
 }
 
 adcdma! {
-    ADC1: (
+    pac::ADC1: (
         AdcDma1,
         dma1::C1,
     )
@@ -827,7 +820,7 @@ adcdma! {
 
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
 adcdma! {
-    ADC3: (
+    pac::ADC3: (
         AdcDma3,
         dma2::C5,
     )

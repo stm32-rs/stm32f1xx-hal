@@ -39,7 +39,7 @@ fn main() -> ! {
     let c2 = gpiob.pb7;
 
     let qei = Timer::new(dp.TIM4, &clocks).qei((c1, c2), &mut afio.mapr, QeiOptions::default());
-    let mut delay = Delay::new(cp.SYST, clocks);
+    let mut delay = Delay::new(cp.SYST, &clocks);
 
     loop {
         let before = qei.count();

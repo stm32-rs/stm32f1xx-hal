@@ -53,7 +53,7 @@ fn main() -> ! {
     // The key_up for check buttons if long press.
     // if key_up is true, and buttons were not long press.
     let mut key_up: bool = true;
-    let mut delay = Delay::new(cp.SYST, clock);
+    let mut delay = Delay::new(cp.SYST, &clock);
     loop {
         let key_result = (key_0.is_low(), key_1.is_low());
         if key_up && (key_result.0 || key_result.1) {

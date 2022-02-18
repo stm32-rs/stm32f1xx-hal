@@ -48,25 +48,7 @@
 */
 
 use crate::hal::timer::{Cancel, CountDown, Periodic};
-use crate::pac::RCC;
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
-use crate::pac::TIM1;
-#[cfg(feature = "medium")]
-use crate::pac::TIM4;
-#[cfg(any(feature = "high", feature = "connectivity"))]
-use crate::pac::TIM5;
-#[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity",))]
-use crate::pac::TIM6;
-#[cfg(any(
-    all(feature = "high", any(feature = "stm32f101", feature = "stm32f103",),),
-    any(feature = "stm32f100", feature = "connectivity",)
-))]
-use crate::pac::TIM7;
-#[cfg(all(feature = "stm32f103", feature = "high",))]
-use crate::pac::TIM8;
-use crate::pac::{DBGMCU as DBG, TIM2, TIM3};
-#[cfg(feature = "stm32f100")]
-use crate::pac::{TIM15, TIM16, TIM17};
+use crate::pac::{self, DBGMCU as DBG, RCC};
 
 use crate::rcc::{self, Clocks};
 use core::convert::TryFrom;
@@ -113,57 +95,43 @@ pub(crate) mod sealed {
 }
 
 macro_rules! remap {
-    ($($name:ident: ($TIMX:ident, $state:literal, $P1:ident, $P2:ident, $P3:ident, $P4:ident),)+) => {
+    ($($name:ident: ($TIMX:ty, $state:literal, $P1:ident, $P2:ident, $P3:ident, $P4:ident),)+) => {
         $(
             pub struct $name;
             impl sealed::Remap for $name {
                 type Periph = $TIMX;
                 const REMAP: u8 = $state;
             }
-            impl<MODE> sealed::Ch1<$name> for $P1<MODE> {}
-            impl<MODE> sealed::Ch2<$name> for $P2<MODE> {}
-            impl<MODE> sealed::Ch3<$name> for $P3<MODE> {}
-            impl<MODE> sealed::Ch4<$name> for $P4<MODE> {}
+            impl<MODE> sealed::Ch1<$name> for crate::gpio::$P1<MODE> {}
+            impl<MODE> sealed::Ch2<$name> for crate::gpio::$P2<MODE> {}
+            impl<MODE> sealed::Ch3<$name> for crate::gpio::$P3<MODE> {}
+            impl<MODE> sealed::Ch4<$name> for crate::gpio::$P4<MODE> {}
         )+
     }
 }
 
-use crate::gpio::gpioa::{PA0, PA1, PA15, PA2, PA3, PA6, PA7};
-use crate::gpio::gpiob::{PB0, PB1, PB10, PB11, PB3, PB4, PB5};
-use crate::gpio::gpioc::{PC6, PC7, PC8, PC9};
-
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
-use crate::gpio::{
-    gpioa::{PA10, PA11, PA8, PA9},
-    gpioe::{PE11, PE13, PE14, PE9},
-};
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 remap!(
-    Tim1NoRemap: (TIM1, 0b00, PA8, PA9, PA10, PA11),
-    //Tim1PartialRemap: (TIM1, 0b01, PA8, PA9, PA10, PA11),
-    Tim1FullRemap: (TIM1, 0b11, PE9, PE11, PE13, PE14),
+    Tim1NoRemap: (pac::TIM1, 0b00, PA8, PA9, PA10, PA11),
+    //Tim1PartialRemap: (pac::TIM1, 0b01, PA8, PA9, PA10, PA11),
+    Tim1FullRemap: (pac::TIM1, 0b11, PE9, PE11, PE13, PE14),
 );
 
 remap!(
-    Tim2NoRemap: (TIM2, 0b00, PA0, PA1, PA2, PA3),
-    Tim2PartialRemap1: (TIM2, 0b01, PA15, PB3, PA2, PA3),
-    Tim2PartialRemap2: (TIM2, 0b10, PA0, PA1, PB10, PB11),
-    Tim2FullRemap: (TIM2, 0b11, PA15, PB3, PB10, PB11),
+    Tim2NoRemap: (pac::TIM2, 0b00, PA0, PA1, PA2, PA3),
+    Tim2PartialRemap1: (pac::TIM2, 0b01, PA15, PB3, PA2, PA3),
+    Tim2PartialRemap2: (pac::TIM2, 0b10, PA0, PA1, PB10, PB11),
+    Tim2FullRemap: (pac::TIM2, 0b11, PA15, PB3, PB10, PB11),
 
-    Tim3NoRemap: (TIM3, 0b00, PA6, PA7, PB0, PB1),
-    Tim3PartialRemap: (TIM3, 0b10, PB4, PB5, PB0, PB1),
-    Tim3FullRemap: (TIM3, 0b11, PC6, PC7, PC8, PC9),
+    Tim3NoRemap: (pac::TIM3, 0b00, PA6, PA7, PB0, PB1),
+    Tim3PartialRemap: (pac::TIM3, 0b10, PB4, PB5, PB0, PB1),
+    Tim3FullRemap: (pac::TIM3, 0b11, PC6, PC7, PC8, PC9),
 );
 
 #[cfg(feature = "medium")]
-use crate::gpio::{
-    gpiob::{PB6, PB7, PB8, PB9},
-    gpiod::{PD12, PD13, PD14, PD15},
-};
-#[cfg(feature = "medium")]
 remap!(
-    Tim4NoRemap: (TIM4, 0b00, PB6, PB7, PB8, PB9),
-    Tim4Remap: (TIM4, 0b01, PD12, PD13, PD14, PD15),
+    Tim4NoRemap: (pac::TIM4, 0b00, PB6, PB7, PB8, PB9),
+    Tim4Remap: (pac::TIM4, 0b01, PD12, PD13, PD14, PD15),
 );
 
 impl Timer<SYST> {
@@ -311,7 +279,7 @@ where
 }
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $APBx:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
+    ($($TIMX:ty: ($timX:ident, $APBx:ident, $dbg_timX_stop:ident$(,$master_timbase:ident)*),)+) => {
         $(
             impl Instance for $TIMX { }
 
@@ -496,23 +464,23 @@ macro_rules! hal {
 fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     let ticks = clock / freq;
     let psc = u16::try_from((ticks - 1) / (1 << 16)).unwrap();
-    let arr = u16::try_from(ticks / (psc + 1) as u32).unwrap();
+    let arr = u16::try_from(ticks / (psc + 1) as u32).unwrap() - 1;
     (psc, arr)
 }
 
 hal! {
-    TIM2: (tim2, APB1, dbg_tim2_stop, tim2),
-    TIM3: (tim3, APB1, dbg_tim3_stop, tim2),
+    pac::TIM2: (tim2, APB1, dbg_tim2_stop, tim2),
+    pac::TIM3: (tim3, APB1, dbg_tim3_stop, tim2),
 }
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 hal! {
-    TIM1: (tim1, APB2, dbg_tim1_stop, tim1),
+    pac::TIM1: (tim1, APB2, dbg_tim1_stop, tim1),
 }
 
 #[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity",))]
 hal! {
-    TIM6: (tim6, APB1, dbg_tim6_stop, tim6),
+    pac::TIM6: (tim6, APB1, dbg_tim6_stop, tim6),
 }
 
 #[cfg(any(
@@ -520,29 +488,29 @@ hal! {
     any(feature = "stm32f100", feature = "connectivity",)
 ))]
 hal! {
-    TIM7: (tim7, APB1, dbg_tim7_stop, tim6),
+    pac::TIM7: (tim7, APB1, dbg_tim7_stop, tim6),
 }
 
 #[cfg(feature = "stm32f100")]
 hal! {
-    TIM15: (tim15, APB2, dbg_tim15_stop),
-    TIM16: (tim16, APB2, dbg_tim16_stop),
-    TIM17: (tim17, APB2, dbg_tim17_stop),
+    pac::TIM15: (tim15, APB2, dbg_tim15_stop),
+    pac::TIM16: (tim16, APB2, dbg_tim16_stop),
+    pac::TIM17: (tim17, APB2, dbg_tim17_stop),
 }
 
 #[cfg(feature = "medium")]
 hal! {
-    TIM4: (tim4, APB1, dbg_tim4_stop, tim2),
+    pac::TIM4: (tim4, APB1, dbg_tim4_stop, tim2),
 }
 
 #[cfg(any(feature = "high", feature = "connectivity"))]
 hal! {
-    TIM5: (tim5, APB1, dbg_tim5_stop, tim2),
+    pac::TIM5: (tim5, APB1, dbg_tim5_stop, tim2),
 }
 
 #[cfg(all(feature = "stm32f103", feature = "high",))]
 hal! {
-    TIM8: (tim8, APB2, dbg_tim8_stop, tim1),
+    pac::TIM8: (tim8, APB2, dbg_tim8_stop, tim1),
 }
 
 //TODO: restore these timers once stm32-rs has been updated

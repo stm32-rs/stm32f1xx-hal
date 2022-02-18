@@ -5,8 +5,7 @@
 // https://www.st.com/content/ccc/resource/technical/document/application_note/5d/ae/a3/6f/08/69/4e/9b/CD00209826.pdf/files/CD00209826.pdf/jcr:content/translations/en.CD00209826.pdf
 
 use crate::afio::MAPR;
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7, PB8, PB9};
-use crate::gpio::{Alternate, OpenDrain};
+use crate::gpio::{self, Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
@@ -90,15 +89,30 @@ pub trait Pins<I2C> {
     const REMAP: bool;
 }
 
-impl Pins<I2C1> for (PB6<Alternate<OpenDrain>>, PB7<Alternate<OpenDrain>>) {
+impl Pins<I2C1>
+    for (
+        gpio::PB6<Alternate<OpenDrain>>,
+        gpio::PB7<Alternate<OpenDrain>>,
+    )
+{
     const REMAP: bool = false;
 }
 
-impl Pins<I2C1> for (PB8<Alternate<OpenDrain>>, PB9<Alternate<OpenDrain>>) {
+impl Pins<I2C1>
+    for (
+        gpio::PB8<Alternate<OpenDrain>>,
+        gpio::PB9<Alternate<OpenDrain>>,
+    )
+{
     const REMAP: bool = true;
 }
 
-impl Pins<I2C2> for (PB10<Alternate<OpenDrain>>, PB11<Alternate<OpenDrain>>) {
+impl Pins<I2C2>
+    for (
+        gpio::PB10<Alternate<OpenDrain>>,
+        gpio::PB11<Alternate<OpenDrain>>,
+    )
+{
     const REMAP: bool = false;
 }
 
