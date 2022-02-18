@@ -39,7 +39,10 @@
 //!     p.USART1,
 //!     (pin_tx, pin_rx),
 //!     &mut afio.mapr,
-//!     Config::default().baudrate(9_600.bps()).wordlength_9(),
+//!     Config::default()
+//!         .baudrate(9_600.bps())
+//!         .wordlength_9bits()
+//!         .parity_none(),
 //!     clocks,
 //! );
 //!
@@ -153,10 +156,12 @@ impl<INMODE, OUTMODE> Pins<USART3> for (PD8<Alternate<OUTMODE>>, PD9<Input<INMOD
 }
 
 pub enum WordLength {
-    /// When parity is enabled, a word has 7 data bits + 1 parity bit.
-    DataBits8,
-    /// When parity is enabled, a word has 8 data bits + 1 parity bit.
-    DataBits9,
+    /// When parity is enabled, a word has 7 data bits + 1 parity bit,
+    /// otherwise 8 data bits.
+    Bits8,
+    /// When parity is enabled, a word has 8 data bits + 1 parity bit,
+    /// otherwise 9 data bits.
+    Bits9,
 }
 
 pub enum Parity {
@@ -209,13 +214,18 @@ impl Config {
         self
     }
 
-    pub fn wordlength_8(mut self) -> Self {
-        self.wordlength = WordLength::DataBits8;
+    pub fn wordlength_8bits(mut self) -> Self {
+        self.wordlength = WordLength::Bits8;
         self
     }
 
-    pub fn wordlength_9(mut self) -> Self {
-        self.wordlength = WordLength::DataBits9;
+    pub fn wordlength_9bits(mut self) -> Self {
+        self.wordlength = WordLength::Bits9;
+        self
+    }
+
+    pub fn wordlength(mut self, wordlength: WordLength) -> Self {
+        self.wordlength = wordlength;
         self
     }
 
@@ -230,7 +240,7 @@ impl Default for Config {
         let baudrate = 115_200_u32.bps();
         Config {
             baudrate,
-            wordlength: WordLength::DataBits8,
+            wordlength: WordLength::Bits8,
             parity: Parity::ParityNone,
             stopbits: StopBits::STOP1,
         }
@@ -327,8 +337,8 @@ where
         };
         self.usart.cr1.modify(|_r, w| {
             w.m().bit(match config.wordlength {
-                WordLength::DataBits8 => false,
-                WordLength::DataBits9 => true,
+                WordLength::Bits8 => false,
+                WordLength::Bits9 => true,
             });
             w.ps().bit(parity_is_odd);
             w.pce().bit(parity_is_used)
@@ -652,7 +662,7 @@ where
 
 /// Reads 9-bit words from the UART/USART
 ///
-/// If the UART/USART was configured with `WordLength::DataBits9`, the returned value will contain
+/// If the UART/USART was configured with `WordLength::Bits9`, the returned value will contain
 /// 9 received data bits and all other bits set to zero. Otherwise, the returned value will contain
 /// 8 received data bits and all other bits set to zero.
 impl<USART> crate::hal::serial::Read<u16> for Rx<USART, u16>
@@ -733,7 +743,7 @@ where
 
 /// Writes 9-bit words to the UART/USART
 ///
-/// If the UART/USART was configured with `WordLength::DataBits9`, the 9 least significant bits will
+/// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
 /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
 /// will be transmitted and the other 8 bits will be ignored.
 impl<USART> crate::hal::serial::Write<u16> for Tx<USART, u16>
