@@ -30,7 +30,7 @@ fn main() -> ! {
     #[cfg(any(feature = "stm32f103", feature = "stm32f105", feature = "stm32f107"))]
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 
-    let mut delay = Delay::new(cp.SYST, clocks);
+    let mut delay = Delay::new(cp.SYST, &clocks);
 
     loop {
         led.set_high();

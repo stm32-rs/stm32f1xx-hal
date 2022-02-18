@@ -4,9 +4,7 @@ use crate::pac::{afio, AFIO, RCC};
 use crate::rcc::{Enable, Reset};
 
 use crate::gpio::{
-    gpioa::PA15,
-    gpiob::{PB3, PB4},
-    Debugger, Floating, Input,
+    Debugger, Floating, Input, PA15, {PB3, PB4},
 };
 
 pub trait AfioExt {

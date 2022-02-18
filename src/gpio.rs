@@ -405,6 +405,8 @@ macro_rules! gpio {
                 }
             }
         }
+
+        pub use $gpiox::{ $($PXi,)+ };
     }
 }
 

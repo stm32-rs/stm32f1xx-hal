@@ -20,27 +20,20 @@
 //! | RX       | PB5     | PB12  |
 
 use crate::afio::MAPR;
-#[cfg(feature = "connectivity")]
-use crate::gpio::gpiob::{PB12, PB13, PB5, PB6};
-use crate::gpio::{
-    gpioa::{PA11, PA12},
-    gpiob::{PB8, PB9},
-    Alternate, Input,
-};
-#[cfg(feature = "connectivity")]
-use crate::pac::CAN2;
-#[cfg(not(feature = "connectivity"))]
-use crate::pac::USB;
-use crate::pac::{CAN1, RCC};
+use crate::gpio::{self, Alternate, Input};
+use crate::pac::{self, RCC};
 
 pub trait Pins: crate::Sealed {
     type Instance;
     fn remap(mapr: &mut MAPR);
 }
 
-impl<INMODE, OUTMODE> crate::Sealed for (PA12<Alternate<OUTMODE>>, PA11<Input<INMODE>>) {}
-impl<INMODE, OUTMODE> Pins for (PA12<Alternate<OUTMODE>>, PA11<Input<INMODE>>) {
-    type Instance = CAN1;
+impl<INMODE, OUTMODE> crate::Sealed
+    for (gpio::PA12<Alternate<OUTMODE>>, gpio::PA11<Input<INMODE>>)
+{
+}
+impl<INMODE, OUTMODE> Pins for (gpio::PA12<Alternate<OUTMODE>>, gpio::PA11<Input<INMODE>>) {
+    type Instance = pac::CAN1;
 
     fn remap(mapr: &mut MAPR) {
         #[cfg(not(feature = "connectivity"))]
@@ -50,9 +43,9 @@ impl<INMODE, OUTMODE> Pins for (PA12<Alternate<OUTMODE>>, PA11<Input<INMODE>>) {
     }
 }
 
-impl<INMODE, OUTMODE> crate::Sealed for (PB9<Alternate<OUTMODE>>, PB8<Input<INMODE>>) {}
-impl<INMODE, OUTMODE> Pins for (PB9<Alternate<OUTMODE>>, PB8<Input<INMODE>>) {
-    type Instance = CAN1;
+impl<INMODE, OUTMODE> crate::Sealed for (gpio::PB9<Alternate<OUTMODE>>, gpio::PB8<Input<INMODE>>) {}
+impl<INMODE, OUTMODE> Pins for (gpio::PB9<Alternate<OUTMODE>>, gpio::PB8<Input<INMODE>>) {
+    type Instance = pac::CAN1;
 
     fn remap(mapr: &mut MAPR) {
         #[cfg(not(feature = "connectivity"))]
@@ -63,10 +56,13 @@ impl<INMODE, OUTMODE> Pins for (PB9<Alternate<OUTMODE>>, PB8<Input<INMODE>>) {
 }
 
 #[cfg(feature = "connectivity")]
-impl<INMODE, OUTMODE> crate::Sealed for (PB13<Alternate<OUTMODE>>, PB12<Input<INMODE>>) {}
+impl<INMODE, OUTMODE> crate::Sealed
+    for (gpio::PB13<Alternate<OUTMODE>>, gpio::PB12<Input<INMODE>>)
+{
+}
 #[cfg(feature = "connectivity")]
-impl<INMODE, OUTMODE> Pins for (PB13<Alternate<OUTMODE>>, PB12<Input<INMODE>>) {
-    type Instance = CAN2;
+impl<INMODE, OUTMODE> Pins for (gpio::PB13<Alternate<OUTMODE>>, gpio::PB12<Input<INMODE>>) {
+    type Instance = pac::CAN2;
 
     fn remap(mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| w.can2_remap().clear_bit());
@@ -74,10 +70,10 @@ impl<INMODE, OUTMODE> Pins for (PB13<Alternate<OUTMODE>>, PB12<Input<INMODE>>) {
 }
 
 #[cfg(feature = "connectivity")]
-impl<INMODE, OUTMODE> crate::Sealed for (PB6<Alternate<OUTMODE>>, PB5<Input<INMODE>>) {}
+impl<INMODE, OUTMODE> crate::Sealed for (gpio::PB6<Alternate<OUTMODE>>, gpio::PB5<Input<INMODE>>) {}
 #[cfg(feature = "connectivity")]
-impl<INMODE, OUTMODE> Pins for (PB6<Alternate<OUTMODE>>, PB5<Input<INMODE>>) {
-    type Instance = CAN2;
+impl<INMODE, OUTMODE> Pins for (gpio::PB6<Alternate<OUTMODE>>, gpio::PB5<Input<INMODE>>) {
+    type Instance = pac::CAN2;
 
     fn remap(mapr: &mut MAPR) {
         mapr.modify_mapr(|_, w| w.can2_remap().set_bit());
@@ -98,7 +94,7 @@ where
     /// CAN shares SRAM with the USB peripheral. Take ownership of USB to
     /// prevent accidental shared usage.
     #[cfg(not(feature = "connectivity"))]
-    pub fn new(can: Instance, _usb: USB) -> Can<Instance> {
+    pub fn new(can: Instance, _usb: pac::USB) -> Can<Instance> {
         let rcc = unsafe { &(*RCC::ptr()) };
         Instance::enable(rcc);
 
@@ -123,18 +119,18 @@ where
     }
 }
 
-unsafe impl bxcan::Instance for Can<CAN1> {
-    const REGISTERS: *mut bxcan::RegisterBlock = CAN1::ptr() as *mut _;
+unsafe impl bxcan::Instance for Can<pac::CAN1> {
+    const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN1::ptr() as *mut _;
 }
 
 #[cfg(feature = "connectivity")]
-unsafe impl bxcan::Instance for Can<CAN2> {
-    const REGISTERS: *mut bxcan::RegisterBlock = CAN2::ptr() as *mut _;
+unsafe impl bxcan::Instance for Can<pac::CAN2> {
+    const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN2::ptr() as *mut _;
 }
 
-unsafe impl bxcan::FilterOwner for Can<CAN1> {
+unsafe impl bxcan::FilterOwner for Can<pac::CAN1> {
     const NUM_FILTER_BANKS: u8 = 28;
 }
 
 #[cfg(feature = "connectivity")]
-unsafe impl bxcan::MasterInstance for Can<CAN1> {}
+unsafe impl bxcan::MasterInstance for Can<pac::CAN1> {}

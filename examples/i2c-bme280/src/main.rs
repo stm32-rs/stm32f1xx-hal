@@ -80,7 +80,7 @@ fn main() -> ! {
 
     // The Adafruit boards have address 0x77 without closing the jumper on the back, the BME280 lib connects to 0x77 with `new_secondary`, use
     // `new_primary` for 0x76 if you close the jumper/solder bridge.
-    let mut bme280 = BME280::new_secondary(i2c, Delay::new(cp.SYST, clocks));
+    let mut bme280 = BME280::new_secondary(i2c, Delay::new(cp.SYST, &clocks));
     bme280
         .init()
         .map_err(|error| {
