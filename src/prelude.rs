@@ -19,5 +19,6 @@ pub use crate::timer::MonoTimerExt as _stm32f4xx_hal_timer_MonoTimerExt;
 pub use fugit::ExtU32 as _fugit_ExtU32;
 pub use fugit::RateExtU32 as _fugit_RateExtU32;
 //pub use crate::timer::PwmExt as _stm32f4xx_hal_timer_PwmExt;
+pub use crate::serial::SerialExt as _stm32f4xx_hal_serial_SerialExt;
 pub use crate::timer::SysTimerExt as _stm32f4xx_hal_timer_SysCounterExt;
 pub use crate::timer::TimerExt as _stm32f4xx_hal_timer_TimerExt;

@@ -14,11 +14,7 @@ use cortex_m::asm;
 use nb::block;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{
-    pac,
-    prelude::*,
-    serial::{Config, Serial},
-};
+use stm32f1xx_hal::{pac, prelude::*, serial::Serial};
 
 #[entry]
 fn main() -> ! {
@@ -60,13 +56,7 @@ fn main() -> ! {
 
     // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let mut serial = Serial::usart3(
-        p.USART3,
-        (tx, rx),
-        &mut afio.mapr,
-        Config::default().baudrate(9600.bps()),
-        clocks,
-    );
+    let mut serial = Serial::new(p.USART3, (tx, rx), &mut afio.mapr, 9600.bps(), &clocks);
 
     // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';

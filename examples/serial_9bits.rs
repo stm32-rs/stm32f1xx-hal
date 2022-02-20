@@ -117,7 +117,7 @@ fn main() -> ! {
 
     // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let serial = Serial::usart3(
+    let serial = Serial::new(
         p.USART3,
         (tx_pin, rx_pin),
         &mut afio.mapr,
@@ -125,7 +125,7 @@ fn main() -> ! {
             .baudrate(9600.bps())
             .wordlength_9bits()
             .parity_none(),
-        clocks,
+        &clocks,
     )
     // Switching the 'Word' type parameter for the 'Read' and 'Write' traits from u8 to u16.
     .with_u16_data();
