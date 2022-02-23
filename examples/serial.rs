@@ -7,13 +7,10 @@
 #![no_main]
 #![no_std]
 
-use panic_halt as _;
-
 use cortex_m::asm;
-
-use nb::block;
-
 use cortex_m_rt::entry;
+use nb::block;
+use panic_halt as _;
 use stm32f1xx_hal::{pac, prelude::*, serial::Serial};
 
 #[entry]
@@ -54,16 +51,16 @@ fn main() -> ! {
     // Take ownership over pb11
     let rx = gpiob.pb11;
 
-    // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
+    // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
     let mut serial = Serial::new(p.USART3, (tx, rx), &mut afio.mapr, 9600.bps(), &clocks);
 
     // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';
-    block!(serial.write(sent)).ok();
+    block!(serial.tx.write(sent)).ok();
 
     // Read the byte that was just sent. Blocks until the read is complete
-    let received = block!(serial.read()).unwrap();
+    let received: u8 = block!(serial.rx.read()).unwrap();
 
     // Since we have connected tx and rx, the byte we sent should be the one we received
     assert_eq!(received, sent);
@@ -75,7 +72,7 @@ fn main() -> ! {
     let (mut tx, mut rx) = serial.split();
     let sent = b'Y';
     block!(tx.write(sent)).ok();
-    let received = block!(rx.read()).unwrap();
+    let received: u8 = block!(rx.read()).unwrap();
     assert_eq!(received, sent);
     asm::bkpt();
 
