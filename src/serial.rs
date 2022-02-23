@@ -121,15 +121,13 @@ pub enum Error {
 // USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
 // Section 9.3.8
 pub trait Pins<USART> {
-    const REMAP: u8;
     fn remap(mapr: &mut MAPR);
 }
 
 macro_rules! remap {
-    ($($USART:ty, $TX:ident, $RX:ident => ($REMAP:literal, { $remapex:expr });)+) => {
+    ($($USART:ty, $TX:ident, $RX:ident => ({ $remapex:expr });)+) => {
         $(
             impl<INMODE, OUTMODE> Pins<$USART> for (gpio::$TX<Alternate<OUTMODE>>, gpio::$RX<Input<INMODE>>) {
-                const REMAP: u8 = $REMAP;
                 fn remap(mapr: &mut MAPR) {
                     mapr.modify_mapr($remapex);
                 }
@@ -139,15 +137,15 @@ macro_rules! remap {
 }
 
 remap!(
-    USART1, PA9, PA10 => (0, { |_,w| w.usart1_remap().bit(Self::REMAP == 1) });
-    USART1, PB6, PB7  => (1, { |_,w| w.usart1_remap().bit(Self::REMAP == 1) });
+    USART1, PA9, PA10 => ({ |_, w| w.usart1_remap().bit(false) });
+    USART1, PB6, PB7  => ({ |_, w| w.usart1_remap().bit(true) });
 
-    USART2, PA2, PA3 => (0, { |_,w| w.usart2_remap().bit(Self::REMAP == 1) });
-    USART2, PD5, PD6 => (1, { |_,w| w.usart2_remap().bit(Self::REMAP == 1) });
+    USART2, PA2, PA3 => ({ |_, w| w.usart2_remap().bit(false) });
+    USART2, PD5, PD6 => ({ |_, w| w.usart2_remap().bit(true) });
 
-    USART3, PB10, PB11 => (0, { |_,w| unsafe { w.usart3_remap().bits(Self::REMAP)} });
-    USART3, PC10, PC11 => (1, { |_,w| unsafe { w.usart3_remap().bits(Self::REMAP)} });
-    USART3, PD8, PD9 => (0b11, { |_,w| unsafe { w.usart3_remap().bits(Self::REMAP)} });
+    USART3, PB10, PB11 => ({ |_, w| unsafe { w.usart3_remap().bits(0b00)} });
+    USART3, PC10, PC11 => ({ |_, w| unsafe { w.usart3_remap().bits(0b01)} });
+    USART3, PD8, PD9 => ({ |_, w| unsafe { w.usart3_remap().bits(0b11)} });
 );
 
 pub enum WordLength {
@@ -480,9 +478,7 @@ where
 }
 
 macro_rules! hal {
-    (
-        $USARTX:ident
-    ) => {
+    ($USARTX:ident) => {
         impl Instance for $USARTX {
             fn ptr() -> *const uart_base::RegisterBlock {
                 <$USARTX>::ptr() as *const _
