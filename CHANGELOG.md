@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Spi Slave mode
 - Reexport gpio pins to `gpio` mod
 - Added the ability to specify the word size (8 or 9 bits) for `Serial` (USART). When using parity, the parity bit is included in the number of bits of the word.
 - `blocking::serial::Write` for `Tx` and `Serial`. `core::fmt::Write` for `Serial`
