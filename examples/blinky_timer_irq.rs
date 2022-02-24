@@ -18,7 +18,7 @@ use crate::hal::{
     gpio::{gpioc, Output, PushPull},
     pac::{interrupt, Interrupt, Peripherals, TIM2},
     prelude::*,
-    timer::{CountDownTimer, Event, Timer},
+    timer::{CounterMs, Event},
 };
 
 use core::cell::RefCell;
@@ -38,14 +38,14 @@ type LedPin = gpioc::PC13<Output<PushPull>>;
 static G_LED: Mutex<RefCell<Option<LedPin>>> = Mutex::new(RefCell::new(None));
 
 // Make timer interrupt registers globally available
-static G_TIM: Mutex<RefCell<Option<CountDownTimer<TIM2>>>> = Mutex::new(RefCell::new(None));
+static G_TIM: Mutex<RefCell<Option<CounterMs<TIM2>>>> = Mutex::new(RefCell::new(None));
 
 // Define an interupt handler, i.e. function to call when interrupt occurs.
 // This specific interrupt will "trip" when the timer TIM2 times out
 #[interrupt]
 fn TIM2() {
     static mut LED: Option<LedPin> = None;
-    static mut TIM: Option<CountDownTimer<TIM2>> = None;
+    static mut TIM: Option<CounterMs<TIM2>> = None;
 
     let led = LED.get_or_insert_with(|| {
         cortex_m::interrupt::free(|cs| {
@@ -86,7 +86,8 @@ fn main() -> ! {
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 
     // Set up a timer expiring after 1s
-    let mut timer = Timer::new(dp.TIM2, &clocks).start_count_down(1.Hz());
+    let mut timer = dp.TIM2.counter_ms(&clocks);
+    timer.start(1.secs()).unwrap();
 
     // Generate an interrupt when the timer expires
     timer.listen(Event::Update);

@@ -17,8 +17,8 @@ use crate::pac::{TIM2, TIM3};
 
 use crate::afio::MAPR;
 
-use crate::pwm_input::Pins;
-use crate::timer::{sealed::Remap, Timer};
+use crate::timer::pwm_input::Pins;
+use crate::timer::{pins::sealed::Remap, Timer};
 
 /// SMS (Slave Mode Selection) register
 #[derive(Copy, Clone, Debug)]

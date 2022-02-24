@@ -12,9 +12,8 @@ use cortex_m_rt::entry;
 use stm32f1xx_hal::{
     pac,
     prelude::*,
-    pwm::Channel,
     time::ms,
-    timer::{Tim2NoRemap, Timer},
+    timer::{Channel, Tim2NoRemap},
 };
 
 #[entry]
@@ -51,8 +50,12 @@ fn main() -> ! {
     // let c3 = gpiob.pb8.into_alternate_push_pull(&mut gpiob.crh);
     // let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
-    let mut pwm =
-        Timer::new(p.TIM2, &clocks).pwm::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz());
+    //let mut pwm =
+    //    Timer::new(p.TIM2, &clocks).pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz());
+    // or
+    let mut pwm = p
+        .TIM2
+        .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz(), &clocks);
 
     // Enable clock on each of the channels
     pwm.enable(Channel::C1);

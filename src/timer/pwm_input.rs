@@ -19,13 +19,13 @@ use crate::timer::Timer;
 
 pub trait Pins<REMAP> {}
 
-use crate::timer::sealed::{Ch1, Ch2, Remap};
+use super::pins::{sealed::Remap, CPin};
 
 impl<TIM, REMAP, P1, P2, MODE1, MODE2> Pins<REMAP> for (P1, P2)
 where
     REMAP: Remap<Periph = TIM>,
-    P1: Ch1<REMAP> + gpio::PinExt<Mode = Input<MODE1>>,
-    P2: Ch2<REMAP> + gpio::PinExt<Mode = Input<MODE2>>,
+    P1: CPin<REMAP, 0> + gpio::PinExt<Mode = Input<MODE1>>,
+    P2: CPin<REMAP, 1> + gpio::PinExt<Mode = Input<MODE2>>,
 {
 }
 
@@ -92,7 +92,7 @@ impl Timer<TIM1> {
         REMAP: Remap<Periph = TIM1>,
         PINS: Pins<REMAP>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim1_remap().bits(REMAP::REMAP) });
+        REMAP::remap(mapr);
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim1(tim, pins, clk, mode)
@@ -111,7 +111,7 @@ impl Timer<TIM2> {
         REMAP: Remap<Periph = TIM2>,
         PINS: Pins<REMAP>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(REMAP::REMAP) });
+        REMAP::remap(mapr);
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim2(tim, pins, clk, mode)
@@ -130,7 +130,7 @@ impl Timer<TIM3> {
         REMAP: Remap<Periph = TIM3>,
         PINS: Pins<REMAP>,
     {
-        mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(REMAP::REMAP) });
+        REMAP::remap(mapr);
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim3(tim, pins, clk, mode)
@@ -150,7 +150,7 @@ impl Timer<TIM4> {
         REMAP: Remap<Periph = TIM4>,
         PINS: Pins<REMAP>,
     {
-        mapr.modify_mapr(|_, w| w.tim4_remap().bit(REMAP::REMAP == 1));
+        REMAP::remap(mapr);
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim4(tim, pins, clk, mode)
@@ -179,7 +179,7 @@ macro_rules! hal {
                 REMAP: Remap<Periph = $TIMX>,
                 PINS: Pins<REMAP>,
             {
-                use crate::pwm_input::Configuration::*;
+                use Configuration::*;
                 // Disable capture on both channels during setting
                 // (for Channel X bit is CCXE)
                 tim.ccer.modify(|_,w| w.cc1e().clear_bit().cc2e().clear_bit()

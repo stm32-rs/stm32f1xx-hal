@@ -7,7 +7,11 @@
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{pac, prelude::*, pwm_input::*, timer::Timer};
+use stm32f1xx_hal::{
+    pac,
+    prelude::*,
+    timer::{pwm_input::*, Timer},
+};
 
 #[entry]
 fn main() -> ! {
