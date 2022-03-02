@@ -186,7 +186,7 @@ be specified as part of the `Cargo.toml` definition.
 
 ```toml
 [dependencies.stm32f1xx-hal]
-version = "0.6.1"
+version = "0.9.0"
 features = ["stm32f100", "rt"]
 ```
 

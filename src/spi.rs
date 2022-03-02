@@ -49,7 +49,7 @@ use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
-use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
+use embedded_dma::{ReadBuffer, WriteBuffer};
 
 /// SPI error
 #[derive(Debug)]
@@ -625,12 +625,12 @@ macro_rules! spi_dma {
 
         impl<B, REMAP, PIN> crate::dma::ReadDma<B, u8> for SpiRxDma<$SPIi, REMAP, PIN, $RCi>
         where
-            B: StaticWriteBuffer<Word = u8>,
+            B: WriteBuffer<Word = u8>,
         {
             fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
-                let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                let (ptr, len) = unsafe { buffer.write_buffer() };
                 self.channel.set_peripheral_address(
                     unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
                     false,
@@ -668,12 +668,12 @@ macro_rules! spi_dma {
 
         impl<B, REMAP, PIN> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
         where
-            B: StaticReadBuffer<Word = u8>,
+            B: ReadBuffer<Word = u8>,
         {
             fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
-                let (ptr, len) = unsafe { buffer.static_read_buffer() };
+                let (ptr, len) = unsafe { buffer.read_buffer() };
                 self.channel.set_peripheral_address(
                     unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
                     false,
@@ -712,8 +712,8 @@ macro_rules! spi_dma {
         impl<RXB, TXB, REMAP, PIN> crate::dma::ReadWriteDma<RXB, TXB, u8>
             for SpiRxTxDma<$SPIi, REMAP, PIN, $RCi, $TCi>
         where
-            RXB: StaticWriteBuffer<Word = u8>,
-            TXB: StaticReadBuffer<Word = u8>,
+            RXB: WriteBuffer<Word = u8>,
+            TXB: ReadBuffer<Word = u8>,
         {
             fn read_write(
                 mut self,
@@ -722,8 +722,8 @@ macro_rules! spi_dma {
             ) -> Transfer<W, (RXB, TXB), Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
-                let (rxptr, rxlen) = unsafe { rxbuffer.static_write_buffer() };
-                let (txptr, txlen) = unsafe { txbuffer.static_read_buffer() };
+                let (rxptr, rxlen) = unsafe { rxbuffer.write_buffer() };
+                let (txptr, txlen) = unsafe { txbuffer.read_buffer() };
 
                 if rxlen != txlen {
                     panic!("receive and send buffer lengths do not match!");

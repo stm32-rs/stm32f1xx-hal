@@ -7,16 +7,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.9.0] - 2022-03-02
+
 ### Added
 
 - Reexport gpio pins to `gpio` mod
 - Added the ability to specify the word size (8 or 9 bits) for `Serial` (USART). When using parity, the parity bit is included in the number of bits of the word.
 - `blocking::serial::Write` for `Tx` and `Serial`. `core::fmt::Write` for `Serial`
 - `Instance` for Timer's, rtic-monotonic fugit impl
-- Serial can now be reconfigured, allowing to change e.g. the baud rate after initialisation.
+- Serial can now be reconfigured, allowing to change e.g. the baud rate after initialization.
 
 ### Changed
 
+- Use `embedded-dma` 0.2.0
 - Connectivity line devices configuration supports ADC2
 - replace `GetBusFreq` with `BusClock` and `BusTimerClock`
 
@@ -302,7 +305,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.9.0...HEAD
+[v0.9.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.7.0...v0.8.0
 [v0.7.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.6.1...v0.7.0
 [v0.6.1]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.6.0...v0.6.1
