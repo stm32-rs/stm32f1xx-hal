@@ -83,7 +83,7 @@ use core::convert::Infallible;
 use core::marker::PhantomData;
 use core::ops::Deref;
 use core::sync::atomic::{self, Ordering};
-use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
+use embedded_dma::{ReadBuffer, WriteBuffer};
 use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
@@ -968,13 +968,13 @@ macro_rules! serialdma {
 
             impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
             where
-                &'static mut [B; 2]: StaticWriteBuffer<Word = u8>,
+                &'static mut [B; 2]: WriteBuffer<Word = u8>,
                 B: 'static,
             {
                 fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                    let (ptr, len) = unsafe { buffer.write_buffer() };
                     self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
                     self.channel.set_memory_address(ptr as u32, true);
                     self.channel.set_transfer_length(len);
@@ -998,12 +998,12 @@ macro_rules! serialdma {
 
             impl<B> crate::dma::ReadDma<B, u8> for $rxdma
             where
-                B: StaticWriteBuffer<Word = u8>,
+                B: WriteBuffer<Word = u8>,
             {
                 fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                    let (ptr, len) = unsafe { buffer.write_buffer() };
                     self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
                     self.channel.set_memory_address(ptr as u32, true);
                     self.channel.set_transfer_length(len);
@@ -1025,12 +1025,12 @@ macro_rules! serialdma {
 
             impl<B> crate::dma::WriteDma<B, u8> for $txdma
             where
-                B: StaticReadBuffer<Word = u8>,
+                B: ReadBuffer<Word = u8>,
             {
                 fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
                     // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                     // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.static_read_buffer() };
+                    let (ptr, len) = unsafe { buffer.read_buffer() };
 
                     self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
 

@@ -5,7 +5,7 @@ use core::{
     marker::PhantomData,
     sync::atomic::{compiler_fence, Ordering},
 };
-use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
+use embedded_dma::{ReadBuffer, WriteBuffer};
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -35,7 +35,7 @@ where
 
 impl<BUFFER, PAYLOAD> CircBuffer<BUFFER, PAYLOAD>
 where
-    &'static mut [BUFFER; 2]: StaticWriteBuffer,
+    &'static mut [BUFFER; 2]: WriteBuffer,
     BUFFER: 'static,
 {
     pub(crate) fn new(buf: &'static mut [BUFFER; 2], payload: PAYLOAD) -> Self {
@@ -563,7 +563,7 @@ pub trait Transmit {
 /// Trait for circular DMA readings from peripheral to memory.
 pub trait CircReadDma<B, RS>: Receive
 where
-    &'static mut [B; 2]: StaticWriteBuffer<Word = RS>,
+    &'static mut [B; 2]: WriteBuffer<Word = RS>,
     B: 'static,
     Self: core::marker::Sized,
 {
@@ -573,7 +573,7 @@ where
 /// Trait for DMA readings from peripheral to memory.
 pub trait ReadDma<B, RS>: Receive
 where
-    B: StaticWriteBuffer<Word = RS>,
+    B: WriteBuffer<Word = RS>,
     Self: core::marker::Sized + TransferPayload,
 {
     fn read(self, buffer: B) -> Transfer<W, B, Self>;
@@ -582,7 +582,7 @@ where
 /// Trait for DMA writing from memory to peripheral.
 pub trait WriteDma<B, TS>: Transmit
 where
-    B: StaticReadBuffer<Word = TS>,
+    B: ReadBuffer<Word = TS>,
     Self: core::marker::Sized + TransferPayload,
 {
     fn write(self, buffer: B) -> Transfer<R, B, Self>;
@@ -591,8 +591,8 @@ where
 /// Trait for DMA simultaneously reading and writing within one synchronous operation. Panics if both buffers are not of equal length.
 pub trait ReadWriteDma<RXB, TXB, TS>: Transmit
 where
-    RXB: StaticWriteBuffer<Word = TS>,
-    TXB: StaticReadBuffer<Word = TS>,
+    RXB: WriteBuffer<Word = TS>,
+    TXB: ReadBuffer<Word = TS>,
     Self: core::marker::Sized + TransferPayload,
 {
     fn read_write(self, rx_buffer: RXB, tx_buffer: TXB) -> Transfer<W, (RXB, TXB), Self>;

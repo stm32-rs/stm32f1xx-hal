@@ -11,7 +11,7 @@ use crate::rcc::{Clocks, Enable, Reset};
 use crate::time::kHz;
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
-use embedded_dma::StaticWriteBuffer;
+use embedded_dma::WriteBuffer;
 
 use crate::pac::{self, RCC};
 
@@ -735,13 +735,13 @@ macro_rules! adcdma {
         impl<B, PINS, MODE> crate::dma::CircReadDma<B, u16> for AdcDma<$ADCX, PINS, MODE, $dmarxch>
         where
             Self: TransferPayload,
-            &'static mut [B; 2]: StaticWriteBuffer<Word = u16>,
+            &'static mut [B; 2]: WriteBuffer<Word = u16>,
             B: 'static,
         {
             fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
-                let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                let (ptr, len) = unsafe { buffer.write_buffer() };
                 self.channel.set_peripheral_address(
                     unsafe { &(*<$ADCX>::ptr()).dr as *const _ as u32 },
                     false,
@@ -775,12 +775,12 @@ macro_rules! adcdma {
         impl<B, PINS, MODE> crate::dma::ReadDma<B, u16> for AdcDma<$ADCX, PINS, MODE, $dmarxch>
         where
             Self: TransferPayload,
-            B: StaticWriteBuffer<Word = u16>,
+            B: WriteBuffer<Word = u16>,
         {
             fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
-                let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                let (ptr, len) = unsafe { buffer.write_buffer() };
                 self.channel.set_peripheral_address(
                     unsafe { &(*<$ADCX>::ptr()).dr as *const _ as u32 },
                     false,
