@@ -107,8 +107,8 @@ pub trait PinExt {
 /// Allow setting of the slew rate of an IO pin
 ///
 /// Initially all pins are set to the maximum slew rate
-pub trait OutputSpeed<CR> {
-    fn set_speed(&mut self, cr: &mut CR, speed: IOPinSpeed);
+pub trait OutputSpeed<const P: char, const H: bool> {
+    fn set_speed(&mut self, cr: &mut Cr<P, H>, speed: IOPinSpeed);
 }
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
@@ -181,8 +181,10 @@ mod sealed {
     pub trait Interruptable {}
 
     pub trait PinMode {
-        type CR;
-        fn set_mode(cr: &mut Self::CR) -> Self;
+        const CNF: u32;
+        const MODE: u32;
+        const PULL: Option<bool> = None;
+        fn new() -> Self;
     }
 }
 use sealed::PinMode;
@@ -809,8 +811,7 @@ macro_rules! impl_temp_input {
 
 impl<const P: char, const N: u8, const H: bool, MODE> Pin<P, N, H, MODE>
 where
-    MODE: Active,
-    Self: PinMode<CR = Cr<P, H>>,
+    MODE: Active + PinMode,
 {
     impl_temp_output!(
         as_push_pull_output,
@@ -827,7 +828,7 @@ where
     impl_temp_input!(as_pull_down_input, Input<PullDown>);
 }
 
-impl<const P: char, const N: u8, const H: bool, MODE> OutputSpeed<Cr<P, H>>
+impl<const P: char, const N: u8, const H: bool, MODE> OutputSpeed<P, H>
     for Pin<P, N, H, Output<MODE>>
 {
     fn set_speed(&mut self, _cr: &mut Cr<P, H>, speed: IOPinSpeed) {
@@ -844,7 +845,7 @@ impl<const P: char, const N: u8, const H: bool, MODE> OutputSpeed<Cr<P, H>>
     }
 }
 
-impl<const P: char, const N: u8, const H: bool> OutputSpeed<Cr<P, H>>
+impl<const P: char, const N: u8, const H: bool> OutputSpeed<P, H>
     for Pin<P, N, H, Alternate<PushPull>>
 {
     fn set_speed(&mut self, _cr: &mut Cr<P, H>, speed: IOPinSpeed) {
@@ -896,167 +897,100 @@ impl<const P: char, const N: u8, const H: bool> Pin<P, N, H, Dynamic> {
     }
 }
 
-macro_rules! mode {
-    ($gpio:ident, $bits:ident) => {
+impl PinMode for Input<Floating> {
+    const CNF: u32 = 0b01;
+    const MODE: u32 = 0b00;
+    fn new() -> Self {
+        Self::_new()
+    }
+}
+
+impl PinMode for Input<PullDown> {
+    const CNF: u32 = 0b10;
+    const MODE: u32 = 0b00;
+    const PULL: Option<bool> = Some(false);
+    fn new() -> Self {
+        Self::_new()
+    }
+}
+
+impl PinMode for Input<PullUp> {
+    const CNF: u32 = 0b10;
+    const MODE: u32 = 0b00;
+    const PULL: Option<bool> = Some(true);
+    fn new() -> Self {
+        Self::_new()
+    }
+}
+
+impl PinMode for Output<OpenDrain> {
+    const CNF: u32 = 0b01;
+    const MODE: u32 = 0b11;
+    fn new() -> Self {
+        Self::_new()
+    }
+}
+
+impl PinMode for Output<PushPull> {
+    const CNF: u32 = 0b00;
+    const MODE: u32 = 0b11;
+    fn new() -> Self {
+        Self::_new()
+    }
+}
+
+impl PinMode for Analog {
+    const CNF: u32 = 0b00;
+    const MODE: u32 = 0b00;
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+impl PinMode for Alternate<PushPull> {
+    const CNF: u32 = 0b10;
+    const MODE: u32 = 0b11;
+    fn new() -> Self {
+        Self::_new()
+    }
+}
+
+impl PinMode for Alternate<OpenDrain> {
+    const CNF: u32 = 0b11;
+    const MODE: u32 = 0b11;
+    fn new() -> Self {
+        Self::_new()
+    }
+}
+
+impl<const P: char, const N: u8, const H: bool, MODE> Pin<P, N, H, MODE>
+where
+    MODE: PinMode,
+{
+    fn set_mode(_cr: &mut Cr<P, H>) -> Self {
+        // input mode
+        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
+        if let Some(pull) = MODE::PULL {
+            if pull {
+                gpio.bsrr.write(|w| unsafe { w.bits(1 << N) });
+            } else {
+                gpio.bsrr.write(|w| unsafe { w.bits(1 << (16 + N)) });
+            }
+        }
+
+        let bits = (MODE::CNF << 2) | MODE::MODE;
+
         if H {
-            $gpio.crh.modify(|r, w| unsafe {
-                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | ($bits << Self::OFFSET))
+            gpio.crh.modify(|r, w| unsafe {
+                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (bits << Self::OFFSET))
             });
         } else {
-            $gpio.crl.modify(|r, w| unsafe {
-                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | ($bits << Self::OFFSET))
+            gpio.crl.modify(|r, w| unsafe {
+                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (bits << Self::OFFSET))
             });
         }
-    };
-}
 
-impl<const P: char, const N: u8, const H: bool> PinMode for Pin<P, N, H, Input<Floating>> {
-    type CR = Cr<P, H>;
-
-    fn set_mode(_cr: &mut Self::CR) -> Self {
-        // Floating input
-        const CNF: u32 = 0b01;
-        // Input mode
-        const MODE: u32 = 0b00;
-        const BITS: u32 = (CNF << 2) | MODE;
-
-        // input mode
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        mode!(gpio, BITS);
-
-        Self::new(Input::_new())
-    }
-}
-
-impl<const P: char, const N: u8, const H: bool> PinMode for Pin<P, N, H, Input<PullDown>> {
-    type CR = Cr<P, H>;
-
-    fn set_mode(_cr: &mut Self::CR) -> Self {
-        // Pull up/down input
-        const CNF: u32 = 0b10;
-        // Input mode
-        const MODE: u32 = 0b00;
-        const BITS: u32 = (CNF << 2) | MODE;
-
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        //pull down:
-        // NOTE(unsafe) atomic write to a stateless register
-        gpio.bsrr.write(|w| unsafe { w.bits(1 << (16 + N)) });
-
-        // input mode
-        mode!(gpio, BITS);
-
-        Self::new(Input::_new())
-    }
-}
-
-impl<const P: char, const N: u8, const H: bool> PinMode for Pin<P, N, H, Input<PullUp>> {
-    type CR = Cr<P, H>;
-
-    fn set_mode(_cr: &mut Self::CR) -> Self {
-        // Pull up/down input
-        const CNF: u32 = 0b10;
-        // Input mode
-        const MODE: u32 = 0b00;
-        const BITS: u32 = (CNF << 2) | MODE;
-
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        //pull up:
-        // NOTE(unsafe) atomic write to a stateless register
-        gpio.bsrr.write(|w| unsafe { w.bits(1 << N) });
-
-        // input mode
-        mode!(gpio, BITS);
-
-        Self::new(Input::_new())
-    }
-}
-
-impl<const P: char, const N: u8, const H: bool> PinMode for Pin<P, N, H, Output<OpenDrain>> {
-    type CR = Cr<P, H>;
-
-    fn set_mode(_cr: &mut Self::CR) -> Self {
-        // General purpose output open-drain
-        const CNF: u32 = 0b01;
-        // Open-Drain Output mode, max speed 50 MHz
-        const MODE: u32 = 0b11;
-        const BITS: u32 = (CNF << 2) | MODE;
-
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        mode!(gpio, BITS);
-
-        Self::new(Output::_new())
-    }
-}
-
-impl<const P: char, const N: u8, const H: bool> PinMode for Pin<P, N, H, Output<PushPull>> {
-    type CR = Cr<P, H>;
-
-    fn set_mode(_cr: &mut Self::CR) -> Self {
-        // General purpose output push-pull
-        const CNF: u32 = 0b00;
-        // Output mode, max speed 50 MHz
-        const MODE: u32 = 0b11;
-        const BITS: u32 = (CNF << 2) | MODE;
-
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        mode!(gpio, BITS);
-
-        Self::new(Output::_new())
-    }
-}
-
-impl<const P: char, const N: u8, const H: bool> PinMode for Pin<P, N, H, Analog> {
-    type CR = Cr<P, H>;
-
-    fn set_mode(_cr: &mut Self::CR) -> Self {
-        // Analog input
-        const CNF: u32 = 0b00;
-        // Input mode
-        const MODE: u32 = 0b00;
-        const BITS: u32 = (CNF << 2) | MODE;
-
-        // analog mode
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        mode!(gpio, BITS);
-
-        Self::new(Analog {})
-    }
-}
-
-impl<const P: char, const N: u8, const H: bool> PinMode for Pin<P, N, H, Alternate<PushPull>> {
-    type CR = Cr<P, H>;
-
-    fn set_mode(_cr: &mut Self::CR) -> Self {
-        // Alternate function output push pull
-        const CNF: u32 = 0b10;
-        // Output mode, max speed 50 MHz
-        const MODE: u32 = 0b11;
-        const BITS: u32 = (CNF << 2) | MODE;
-
-        // input mode
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        mode!(gpio, BITS);
-
-        Pin::new(Alternate::_new())
-    }
-}
-
-impl<const P: char, const N: u8, const H: bool> PinMode for Pin<P, N, H, Alternate<OpenDrain>> {
-    type CR = Cr<P, H>;
-
-    fn set_mode(_cr: &mut Self::CR) -> Self {
-        // Alternate function output open drain
-        const CNF: u32 = 0b11;
-        // Output mode, max speed 50 MHz
-        const MODE: u32 = 0b11;
-        const BITS: u32 = (CNF << 2) | MODE;
-
-        // input mode
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        mode!(gpio, BITS);
-
-        Pin::new(Alternate::_new())
+        Pin::new(MODE::new())
     }
 }
 
