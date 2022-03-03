@@ -9,7 +9,7 @@ macro_rules! impl_pxx {
         /// `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
         pub enum ErasedPin<MODE> {
             $(
-                $pin(PartiallyErasedPin<MODE, $port_id>)
+                $pin(PartiallyErasedPin<$port_id, MODE>)
             ),*
         }
 
