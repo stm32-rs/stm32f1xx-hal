@@ -65,7 +65,7 @@ fn main() -> ! {
         (tx, rx),
         &mut afio.mapr,
         Config::default().baudrate(9600.bps()),
-        clocks,
+        &clocks,
     );
 
     // Loopback test. Write `X` and wait until the write is successful.

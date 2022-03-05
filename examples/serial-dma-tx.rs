@@ -52,7 +52,7 @@ fn main() -> ! {
         (tx, rx),
         &mut afio.mapr,
         Config::default().baudrate(9600.bps()),
-        clocks,
+        &clocks,
     );
 
     let tx = serial.split().0.with_dma(channels.4);

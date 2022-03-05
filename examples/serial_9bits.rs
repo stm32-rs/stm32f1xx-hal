@@ -125,7 +125,7 @@ fn main() -> ! {
             .baudrate(9600.bps())
             .wordlength_9bits()
             .parity_none(),
-        clocks,
+        &clocks,
     )
     // Switching the 'Word' type parameter for the 'Read' and 'Write' traits from u8 to u16.
     .with_u16_data();

@@ -298,7 +298,7 @@ where
     USART: Instance,
     PINS: Pins<USART>,
 {
-    fn init(self, config: Config, clocks: Clocks, mapr: &mut MAPR) -> Self {
+    fn init(self, config: Config, clocks: &Clocks, mapr: &mut MAPR) -> Self {
         // enable and reset $USARTX
         let rcc = unsafe { &(*RCC::ptr()) };
         USART::enable(rcc);
@@ -317,7 +317,7 @@ where
         self
     }
 
-    fn apply_config(&self, config: Config, clocks: Clocks) {
+    fn apply_config(&self, config: Config, clocks: &Clocks) {
         // Configure baud rate
         let brr = USART::clock(&clocks).raw() / config.baudrate.0;
         assert!(brr >= 16, "impossible baud rate");
@@ -355,7 +355,7 @@ where
     pub fn reconfigure(
         &mut self,
         config: impl Into<Config>,
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> nb::Result<(), Infallible> {
         // if we're currently busy transmitting, we have to wait until that is
         // over -- regarding reception, we assume that the caller -- with
@@ -364,7 +364,7 @@ where
         if self.usart.sr.read().tc().bit_is_clear() {
             return nb::Result::Err(nb::Error::WouldBlock);
         }
-        self.apply_config(config.into(), clocks);
+        self.apply_config(config.into(), &clocks);
         nb::Result::Ok(())
     }
 
@@ -429,7 +429,7 @@ pub trait SerialNew<USART, PINS> {
         pins: PINS,
         mapr: &mut MAPR,
         config: impl Into<Config>,
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> Self
     where
         PINS: Pins<USART>;
@@ -470,7 +470,7 @@ macro_rules! hal {
                 pins: PINS,
                 mapr: &mut MAPR,
                 config: impl Into<Config>,
-                clocks: Clocks,
+                clocks: &Clocks,
             ) -> Serial<$USARTX, PINS>
             where
                 PINS: Pins<$USARTX>,

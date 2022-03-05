@@ -52,7 +52,7 @@ fn main() -> ! {
         (tx, rx),
         &mut afio.mapr,
         Config::default(),
-        clocks,
+        &clocks,
     );
 
     let rx = serial.split().1.with_dma(channels.5);

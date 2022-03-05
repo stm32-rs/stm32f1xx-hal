@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Breaking changes
 
 - `Serial::usart1/2/3` -> `Serial::new`
+- Passing the `Clocks` parameter to `Serial` by reference
 
 ## [v0.9.0] - 2022-03-02
 
