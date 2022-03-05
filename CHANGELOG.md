@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - `gpio`: port and pin generics first, then mode, `PinMode` for modes instead of pins, other cleanups
 
+### Breaking changes
+
+- `Serial::usart1/2/3` -> `Serial::new`
+
 ## [v0.9.0] - 2022-03-02
 
 ### Added
@@ -24,7 +28,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use `embedded-dma` 0.2.0
 - Connectivity line devices configuration supports ADC2
 - replace `GetBusFreq` with `BusClock` and `BusTimerClock`
-- Serial::usart1/2/3 -> Serial::new
 
 ## [v0.8.0] - 2021-12-29
 
