@@ -426,11 +426,22 @@ where
     }
 }
 
+pub trait SerialNew<USART, PINS> {
+    fn new(
+        usart: USART,
+        pins: PINS,
+        mapr: &mut MAPR,
+        config: impl Into<Config>,
+        clocks: Clocks,
+    ) -> Self
+    where
+        PINS: Pins<USART>;
+}
+
 macro_rules! hal {
     (
         $(#[$meta:meta])*
         $USARTX:ident: (
-            $usartX:ident,
             $usartX_remap:ident,
             $bit:ident,
             $closure:expr,
@@ -445,7 +456,7 @@ macro_rules! hal {
         $(#[$meta])*
         /// The behaviour of the functions is equal for all three USARTs.
         /// Except that they are using the corresponding USART hardware and pins.
-        impl<PINS> Serial<$USARTX, PINS> {
+        impl<PINS> SerialNew<$USARTX, PINS> for Serial<$USARTX, PINS> {
             /// Configures the serial interface and creates the interface
             /// struct.
             ///
@@ -461,13 +472,13 @@ macro_rules! hal {
             /// `MAPR` and `APBX` are register handles which are passed for
             /// configuration. (`MAPR` is used to map the USART to the
             /// corresponding pins. `APBX` is used to reset the USART.)
-            pub fn $usartX(
+            fn new(
                 usart: $USARTX,
                 pins: PINS,
                 mapr: &mut MAPR,
                 config: impl Into<Config>,
                 clocks: Clocks,
-            ) -> Self
+            ) -> Serial<$USARTX, PINS>
             where
                 PINS: Pins<$USARTX>,
             {
@@ -487,7 +498,6 @@ macro_rules! hal {
 hal! {
     /// # USART1 functions
     USART1: (
-        usart1,
         usart1_remap,
         bit,
         |remap| remap == 1,
@@ -496,7 +506,6 @@ hal! {
 hal! {
     /// # USART2 functions
     USART2: (
-        usart2,
         usart2_remap,
         bit,
         |remap| remap == 1,
@@ -505,7 +514,6 @@ hal! {
 hal! {
     /// # USART3 functions
     USART3: (
-        usart3,
         usart3_remap,
         bits,
         |remap| remap,

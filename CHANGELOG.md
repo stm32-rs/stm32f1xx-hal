@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use `embedded-dma` 0.2.0
 - Connectivity line devices configuration supports ADC2
 - replace `GetBusFreq` with `BusClock` and `BusTimerClock`
+- Serial::usart1/2/3 -> Serial::new
 
 ## [v0.8.0] - 2021-12-29
 
