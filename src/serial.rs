@@ -271,11 +271,7 @@ pub struct Rx<USART> {
     _usart: PhantomData<USART>,
 }
 
-impl<USART, PINS> Serial<USART, PINS>
-where
-    USART: Instance,
-    PINS: Pins<USART>,
-{
+impl<USART: Instance, PINS> Serial<USART, PINS> {
     /// Configures the serial interface and creates the interface
     /// struct.
     ///
@@ -297,7 +293,10 @@ where
         mapr: &mut MAPR,
         config: impl Into<Config>,
         clocks: &Clocks,
-    ) -> Self {
+    ) -> Self
+    where
+        PINS: Pins<USART>,
+    {
         // enable and reset $USARTX
         let rcc = unsafe { &(*RCC::ptr()) };
         USART::enable(rcc);
