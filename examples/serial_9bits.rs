@@ -15,7 +15,7 @@ use panic_halt as _;
 use stm32f1xx_hal::{
     pac,
     prelude::*,
-    serial::{self, Config},
+    serial::{self, Config, Serial},
 };
 
 // The address of the slave device.
@@ -117,7 +117,7 @@ fn main() -> ! {
 
     // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let serial = serial::new(
+    let serial = Serial::new(
         p.USART3,
         (tx_pin, rx_pin),
         &mut afio.mapr,

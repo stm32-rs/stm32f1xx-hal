@@ -13,7 +13,7 @@ use cortex_m_rt::entry;
 use stm32f1xx_hal::{
     pac,
     prelude::*,
-    serial::{self, Config},
+    serial::{Config, Serial},
 };
 
 #[entry]
@@ -47,7 +47,7 @@ fn main() -> ! {
     // let tx = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
     // let rx = gpiob.pb11;
 
-    let serial = serial::new(
+    let serial = Serial::new(
         p.USART1,
         (tx, rx),
         &mut afio.mapr,

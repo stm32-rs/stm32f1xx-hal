@@ -35,7 +35,7 @@
 //! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
 //! let pin_rx = gpioa.pa10;
 //! // Create an interface struct for USART1 with 9600 Baud
-//! let serial = serial::new(
+//! let serial = Serial::new(
 //!     p.USART1,
 //!     (pin_tx, pin_rx),
 //!     &mut afio.mapr,
@@ -271,59 +271,108 @@ pub struct Rx<USART> {
     _usart: PhantomData<USART>,
 }
 
-/// Configures the serial interface and creates the interface
-/// struct.
-///
-/// `Bps` is the baud rate of the interface.
-///
-/// `Clocks` passes information about the current frequencies of
-/// the clocks.  The existence of the struct ensures that the
-/// clock settings are fixed.
-///
-/// The `serial` struct takes ownership over the `USARTX` device
-/// registers and the specified `PINS`
-///
-/// `MAPR` and `APBX` are register handles which are passed for
-/// configuration. (`MAPR` is used to map the USART to the
-/// corresponding pins. `APBX` is used to reset the USART.)
-pub fn new<USART, PINS>(
-    usart: USART,
-    pins: PINS,
-    mapr: &mut MAPR,
-    config: impl Into<Config>,
-    clocks: &Clocks,
-) -> Serial<USART, PINS>
+impl<USART, PINS> Serial<USART, PINS>
 where
     USART: Instance,
     PINS: Pins<USART>,
 {
-    // enable and reset $USARTX
-    let rcc = unsafe { &(*RCC::ptr()) };
-    USART::enable(rcc);
-    USART::reset(rcc);
+    /// Configures the serial interface and creates the interface
+    /// struct.
+    ///
+    /// `Bps` is the baud rate of the interface.
+    ///
+    /// `Clocks` passes information about the current frequencies of
+    /// the clocks.  The existence of the struct ensures that the
+    /// clock settings are fixed.
+    ///
+    /// The `serial` struct takes ownership over the `USARTX` device
+    /// registers and the specified `PINS`
+    ///
+    /// `MAPR` and `APBX` are register handles which are passed for
+    /// configuration. (`MAPR` is used to map the USART to the
+    /// corresponding pins. `APBX` is used to reset the USART.)
+    pub fn new(
+        usart: USART,
+        pins: PINS,
+        mapr: &mut MAPR,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> Self {
+        // enable and reset $USARTX
+        let rcc = unsafe { &(*RCC::ptr()) };
+        USART::enable(rcc);
+        USART::reset(rcc);
 
-    PINS::remap(mapr);
+        PINS::remap(mapr);
 
-    apply_config::<USART>(config.into(), clocks);
+        apply_config::<USART>(config.into(), clocks);
 
-    // UE: enable USART
-    // RE: enable receiver
-    // TE: enable transceiver
-    usart.cr1.modify(|_r, w| {
-        w.ue().set_bit();
-        w.re().set_bit();
-        w.te().set_bit();
-        w
-    });
+        // UE: enable USART
+        // RE: enable receiver
+        // TE: enable transceiver
+        usart.cr1.modify(|_r, w| {
+            w.ue().set_bit();
+            w.re().set_bit();
+            w.te().set_bit();
+            w
+        });
 
-    Serial {
-        token: ReleaseToken { usart, pins },
-        tx: Tx {
-            _usart: PhantomData,
-        },
-        rx: Rx {
-            _usart: PhantomData,
-        },
+        Serial {
+            token: ReleaseToken { usart, pins },
+            tx: Tx {
+                _usart: PhantomData,
+            },
+            rx: Rx {
+                _usart: PhantomData,
+            },
+        }
+    }
+
+    /// Reconfigure the USART instance.
+    ///
+    /// If a transmission is currently in progress, this returns
+    /// [`nb::Error::WouldBlock`].
+    pub fn reconfigure(
+        &mut self,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> nb::Result<(), Infallible> {
+        // if we're currently busy transmitting, we have to wait until that is
+        // over -- regarding reception, we assume that the caller -- with
+        // exclusive access to the Serial instance due to &mut self -- knows
+        // what they're doing.
+        self.tx.flush()?;
+
+        apply_config::<USART>(config.into(), &clocks);
+        nb::Result::Ok(())
+    }
+
+    /// Returns ownership of the borrowed register handles
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// let mut serial = Serial::new(usart, (tx_pin, rx_pin), &mut afio.mapr, 9600.bps(), &clocks);
+    ///
+    /// // You can split the `Serial`
+    /// let Serial { tx, rx, token } = serial;
+    ///
+    /// // You can reunite the `Serial` back
+    /// let serial = Serial { tx, rx, token };
+    ///
+    /// // Release `Serial`
+    /// let (usart, (tx_pin, rx_pin)) = serial.release();
+    /// ```
+    pub fn release(self) -> (USART, PINS) {
+        (self.token.usart, self.token.pins)
+    }
+
+    /// Separates the serial struct into separate channel objects for sending (Tx) and
+    /// receiving (Rx)
+    pub fn split(self) -> (Tx<USART>, Rx<USART>) {
+        (self.tx, self.rx)
     }
 }
 
@@ -359,59 +408,6 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
         StopBits::STOP1P5 => 0b11,
     };
     usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
-}
-
-impl<USART, PINS> Serial<USART, PINS>
-where
-    USART: Instance,
-    PINS: Pins<USART>,
-{
-    /// Reconfigure the USART instance.
-    ///
-    /// If a transmission is currently in progress, this returns
-    /// [`nb::Error::WouldBlock`].
-    pub fn reconfigure(
-        &mut self,
-        config: impl Into<Config>,
-        clocks: &Clocks,
-    ) -> nb::Result<(), Infallible> {
-        // if we're currently busy transmitting, we have to wait until that is
-        // over -- regarding reception, we assume that the caller -- with
-        // exclusive access to the Serial instance due to &mut self -- knows
-        // what they're doing.
-        self.tx.flush()?;
-
-        apply_config::<USART>(config.into(), &clocks);
-        nb::Result::Ok(())
-    }
-
-    /// Returns ownership of the borrowed register handles
-    ///
-    /// # Examples
-    ///
-    /// Basic usage:
-    ///
-    /// ```
-    /// let mut serial = serial::new(usart, (tx_pin, rx_pin), &mut afio.mapr, 9600.bps(), &clocks);
-    ///
-    /// // You can split the `Serial`
-    /// let Serial { tx, rx, token } = serial;
-    ///
-    /// // You can reunite the `Serial` back
-    /// let serial = Serial { tx, rx, token };
-    ///
-    /// // Release `Serial`
-    /// let (usart, (tx_pin, rx_pin)) = serial.release();
-    /// ```
-    pub fn release(self) -> (USART, PINS) {
-        (self.token.usart, self.token.pins)
-    }
-
-    /// Separates the serial struct into separate channel objects for sending (Tx) and
-    /// receiving (Rx)
-    pub fn split(self) -> (Tx<USART>, Rx<USART>) {
-        (self.tx, self.rx)
-    }
 }
 
 /// Reconfigure the USART instance.
