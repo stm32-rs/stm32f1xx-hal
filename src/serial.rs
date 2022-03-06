@@ -203,9 +203,8 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Config {
-        let baudrate = 115_200_u32.bps();
         Config {
-            baudrate,
+            baudrate: 115_200_u32.bps(),
             wordlength: WordLength::Bits8,
             parity: Parity::ParityNone,
             stopbits: StopBits::STOP1,
@@ -279,9 +278,12 @@ where
         // UE: enable USART
         // RE: enable receiver
         // TE: enable transceiver
-        self.usart
-            .cr1
-            .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
+        self.usart.cr1.modify(|_r, w| {
+            w.ue().set_bit();
+            w.re().set_bit();
+            w.te().set_bit();
+            w
+        });
 
         self
     }
@@ -304,7 +306,8 @@ where
                 WordLength::Bits9 => true,
             });
             w.ps().bit(parity_is_odd);
-            w.pce().bit(parity_is_used)
+            w.pce().bit(parity_is_used);
+            w
         });
 
         // Configure stop bits
@@ -410,10 +413,7 @@ hal! {
     USART3
 }
 
-impl<USART> Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> Tx<USART> {
     /// Start listening for transmit interrupt event
     pub fn listen(&mut self) {
         unsafe { (*USART::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
@@ -430,10 +430,7 @@ where
     }
 }
 
-impl<USART> Rx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> Rx<USART> {
     /// Start listening for receive interrupt event
     pub fn listen(&mut self) {
         unsafe { (*USART::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
@@ -473,10 +470,7 @@ where
     }
 }
 
-impl<USART> embedded_hal::serial::Read<u8> for Rx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::serial::Read<u8> for Rx<USART> {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
@@ -489,10 +483,7 @@ where
 /// If the UART/USART was configured with `WordLength::Bits9`, the returned value will contain
 /// 9 received data bits and all other bits set to zero. Otherwise, the returned value will contain
 /// 8 received data bits and all other bits set to zero.
-impl<USART> embedded_hal::serial::Read<u16> for Rx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::serial::Read<u16> for Rx<USART> {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u16, Error> {
@@ -500,10 +491,7 @@ where
     }
 }
 
-impl<USART> Rx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> Rx<USART> {
     pub fn read(&mut self) -> nb::Result<u8, Error> {
         self.read_9bits().map(|word16| word16 as u8)
     }
@@ -543,10 +531,7 @@ where
     }
 }
 
-impl<USART> embedded_hal::serial::Write<u8> for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::serial::Write<u8> for Tx<USART> {
     type Error = Infallible;
 
     fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
@@ -563,10 +548,7 @@ where
 /// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
 /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
 /// will be transmitted and the other 8 bits will be ignored.
-impl<USART> embedded_hal::serial::Write<u16> for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::serial::Write<u16> for Tx<USART> {
     type Error = Infallible;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -578,10 +560,7 @@ where
     }
 }
 
-impl<USART> Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> Tx<USART> {
     pub fn flush(&mut self) -> nb::Result<(), Infallible> {
         let usart = unsafe { &*USART::ptr() };
 
@@ -608,10 +587,7 @@ where
     }
 }
 
-impl<USART> embedded_hal::blocking::serial::Write<u16> for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::blocking::serial::Write<u16> for Tx<USART> {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
@@ -623,10 +599,7 @@ where
     }
 }
 
-impl<USART> embedded_hal::blocking::serial::Write<u8> for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::blocking::serial::Write<u8> for Tx<USART> {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
@@ -638,10 +611,7 @@ where
     }
 }
 
-impl<USART> Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> Tx<USART> {
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Infallible> {
         for &w in buffer {
             nb::block!(self.write_u16(w as u16))?;
@@ -661,10 +631,7 @@ where
     }
 }
 
-impl<USART> core::fmt::Write for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> core::fmt::Write for Tx<USART> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         s.bytes()
             .try_for_each(|c| nb::block!(self.write(c)))
