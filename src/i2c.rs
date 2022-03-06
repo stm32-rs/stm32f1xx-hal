@@ -6,7 +6,6 @@
 
 use crate::afio::MAPR;
 use crate::gpio::{self, Alternate, OpenDrain};
-use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{DWT, I2C1, I2C2, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{kHz, Hertz};
@@ -14,6 +13,8 @@ use core::ops::Deref;
 
 pub mod blocking;
 pub use blocking::BlockingI2c;
+
+mod hal_02;
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
@@ -254,10 +255,5 @@ where
     /// Releases the I2C peripheral and associated pins
     pub fn release(self) -> (I2C, PINS) {
         (self.i2c, self.pins)
-    }
-
-    #[deprecated(since = "0.7.1", note = "Please use release instead")]
-    pub fn free(self) -> (I2C, PINS) {
-        self.release()
     }
 }

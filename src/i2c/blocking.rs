@@ -163,10 +163,7 @@ macro_rules! busy_wait_cycles {
     }};
 }
 
-impl<I2C, PINS> BlockingI2c<I2C, PINS>
-where
-    I2C: Instance,
-{
+impl<I2C: Instance, PINS> BlockingI2c<I2C, PINS> {
     #[allow(clippy::too_many_arguments)]
     fn configure<M: Into<Mode>>(
         i2c: I2C,
@@ -188,10 +185,7 @@ where
     }
 }
 
-impl<I2C, PINS> BlockingI2c<I2C, PINS>
-where
-    I2C: Instance,
-{
+impl<I2C: Instance, PINS> BlockingI2c<I2C, PINS> {
     /// Check if START condition is generated. If the condition is not generated, this
     /// method returns `WouldBlock` so the program can act accordingly
     /// (busy wait, async, ...)
@@ -263,30 +257,16 @@ where
         }
         ret
     }
-}
 
-impl<I2C, PINS> Write for BlockingI2c<I2C, PINS>
-where
-    I2C: Instance,
-{
-    type Error = Error;
-
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+    pub fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         self.write_without_stop(addr, bytes)?;
         self.nb.send_stop();
         busy_wait_cycles!(self.wait_for_stop(), self.timeouts.data)?;
 
         Ok(())
     }
-}
 
-impl<I2C, PINS> Read for BlockingI2c<I2C, PINS>
-where
-    I2C: Instance,
-{
-    type Error = Error;
-
-    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+    pub fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
         self.send_start_and_wait()?;
         self.send_addr_and_wait(addr, true)?;
 
@@ -350,15 +330,8 @@ where
 
         Ok(())
     }
-}
 
-impl<I2C, PINS> WriteRead for BlockingI2c<I2C, PINS>
-where
-    I2C: Instance,
-{
-    type Error = Error;
-
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
+    pub fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
         if !bytes.is_empty() {
             self.write_without_stop(addr, bytes)?;
         }
