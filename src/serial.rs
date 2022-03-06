@@ -51,10 +51,10 @@
 //!
 //! // Write data (9 bits) to the USART.
 //! // Depending on the configuration, only the lower 7, 8, or 9 bits are used.
-//! block!(tx.write(0x1FF)).ok();
+//! block!(tx.write(0x1FF)).unwrap();
 //!
 //! // Write 'R' (8 bits) to the USART
-//! block!(tx.write(b'R')).ok();
+//! block!(tx.write(b'R')).unwrap();
 //!
 //! // Receive a data (9 bits) from the USART and store it in "received"
 //! let received: u16 = block!(rx.read()).unwrap();
@@ -115,29 +115,21 @@ pub trait Instance:
     fn ptr() -> *const uart_base::RegisterBlock;
 }
 
-macro_rules! hal {
-    (
-        $(#[$meta:meta])*
-        $USARTX:ident
-    ) => {
-        impl Instance for $USARTX {
-            fn ptr() -> *const uart_base::RegisterBlock {
-                <$USARTX>::ptr() as *const _
+macro_rules! inst {
+    ($($USARTX:ident)+) => {
+        $(
+            impl Instance for $USARTX {
+                fn ptr() -> *const uart_base::RegisterBlock {
+                    <$USARTX>::ptr() as *const _
+                }
             }
-        }
+        )+
     };
 }
 
-hal! {
-    /// # USART1 functions
+inst! {
     USART1
-}
-hal! {
-    /// # USART2 functions
     USART2
-}
-hal! {
-    /// # USART3 functions
     USART3
 }
 
@@ -155,6 +147,7 @@ pub enum Error {
     Parity,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WordLength {
     /// When parity is enabled, a word has 7 data bits + 1 parity bit,
     /// otherwise 8 data bits.
@@ -164,12 +157,14 @@ pub enum WordLength {
     Bits9,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Parity {
     ParityNone,
     ParityEven,
     ParityOdd,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StopBits {
     /// 1 stop bit
     STOP1,
@@ -181,6 +176,7 @@ pub enum StopBits {
     STOP1P5,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Config {
     pub baudrate: Bps,
     pub wordlength: WordLength,
@@ -455,9 +451,7 @@ impl<USART: Instance> Tx<USART> {
     }
 
     pub fn flush(&mut self) -> nb::Result<(), Infallible> {
-        let usart = unsafe { &*USART::ptr() };
-
-        if usart.sr.read().tc().bit_is_set() {
+        if self.is_tx_complete() {
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -495,6 +489,10 @@ impl<USART: Instance> Tx<USART> {
     /// Returns true if the tx register is empty (and can accept data)
     pub fn is_tx_empty(&self) -> bool {
         unsafe { (*USART::ptr()).sr.read().txe().bit_is_set() }
+    }
+
+    pub fn is_tx_complete(&self) -> bool {
+        unsafe { (*USART::ptr()).sr.read().tc().bit_is_set() }
     }
 }
 
