@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Passing the `Clocks` parameter to `Serial` by reference
 - `Serial` implements `Write<WORD>` and `Read<WORD>` for `WORD` simultaneously as u8 and u16
   (the `WORD` must be derived from the context or specified explicitly)
+- Removed duplication of `Tx` and `Rx` functions from `Serial`.
+  serial.some_tx_fn -> serial.tx.some_tx_fn
+  serial.some_rx_fn -> serial.rx.some_rx_fn
 
 ## [v0.9.0] - 2022-03-02
 

@@ -77,16 +77,6 @@ use crate::pac::{RCC, USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
-/// Interrupt event
-pub enum Event {
-    /// New data has been received
-    Rxne,
-    /// New data can be sent
-    Txe,
-    /// Idle line state detected
-    Idle,
-}
-
 /// Serial error
 #[derive(Debug)]
 #[non_exhaustive]
@@ -235,8 +225,8 @@ use crate::pac::usart1 as uart_base;
 pub struct Serial<USART, PINS> {
     usart: USART,
     pins: PINS,
-    tx: Tx<USART>,
-    rx: Rx<USART>,
+    pub tx: Tx<USART>,
+    pub rx: Rx<USART>,
 }
 
 pub trait Instance:
@@ -345,49 +335,6 @@ where
         }
         self.apply_config(config.into(), &clocks);
         nb::Result::Ok(())
-    }
-
-    /// Starts listening to the USART by enabling the _Received data
-    /// ready to be read (RXNE)_ interrupt and _Transmit data
-    /// register empty (TXE)_ interrupt
-    pub fn listen(&mut self, event: Event) {
-        self.usart.cr1.modify(|_, w| match event {
-            Event::Rxne => w.rxneie().set_bit(),
-            Event::Txe => w.txeie().set_bit(),
-            Event::Idle => w.idleie().set_bit(),
-        });
-    }
-
-    /// Stops listening to the USART by disabling the _Received data
-    /// ready to be read (RXNE)_ interrupt and _Transmit data
-    /// register empty (TXE)_ interrupt
-    pub fn unlisten(&mut self, event: Event) {
-        self.usart.cr1.modify(|_, w| match event {
-            Event::Rxne => w.rxneie().clear_bit(),
-            Event::Txe => w.txeie().clear_bit(),
-            Event::Idle => w.idleie().clear_bit(),
-        });
-    }
-
-    /// Returns true if the line idle status is set
-    pub fn is_idle(&self) -> bool {
-        self.usart.sr.read().idle().bit_is_set()
-    }
-
-    /// Returns true if the tx register is empty (and can accept data)
-    pub fn is_tx_empty(&self) -> bool {
-        self.usart.sr.read().txe().bit_is_set()
-    }
-
-    /// Returns true if the rx register is not empty (and can be read)
-    pub fn is_rx_not_empty(&self) -> bool {
-        self.usart.sr.read().rxne().bit_is_set()
-    }
-
-    /// Clear idle line interrupt flag
-    pub fn clear_idle_interrupt(&self) {
-        let _ = self.usart.sr.read();
-        let _ = self.usart.dr.read();
     }
 
     /// Returns ownership of the borrowed register handles
@@ -526,28 +473,6 @@ where
     }
 }
 
-impl<USART, PINS> embedded_hal::serial::Read<u8> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u8, Error> {
-        self.rx.read()
-    }
-}
-
-impl<USART, PINS> embedded_hal::serial::Read<u16> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u16, Error> {
-        self.rx.read_9bits()
-    }
-}
-
 impl<USART> embedded_hal::serial::Read<u8> for Rx<USART>
 where
     USART: Instance,
@@ -615,36 +540,6 @@ where
                 Err(nb::Error::WouldBlock)
             }
         }
-    }
-}
-
-impl<USART, PINS> embedded_hal::serial::Write<u8> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
-    type Error = Infallible;
-
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.tx.flush()
-    }
-
-    fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
-        self.tx.write(word)
-    }
-}
-
-impl<USART, PINS> embedded_hal::serial::Write<u16> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
-    type Error = Infallible;
-
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.tx.flush()
-    }
-
-    fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
-        self.tx.write_u16(word)
     }
 }
 
@@ -763,46 +658,6 @@ where
 
     fn bflush(&mut self) -> Result<(), Infallible> {
         nb::block!(self.flush())
-    }
-}
-
-impl<USART, PINS> embedded_hal::blocking::serial::Write<u16> for Serial<USART, PINS>
-where
-    USART: Instance,
-    Tx<USART>: embedded_hal::serial::Write<u16, Error = Infallible>,
-{
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all_u16(buffer)
-    }
-
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.tx.bflush()
-    }
-}
-
-impl<USART, PINS> embedded_hal::blocking::serial::Write<u8> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all(buffer)
-    }
-
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.tx.bflush()
-    }
-}
-
-impl<USART, PINS> core::fmt::Write for Serial<USART, PINS>
-where
-    USART: Instance,
-{
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        self.tx.write_str(s)
     }
 }
 
