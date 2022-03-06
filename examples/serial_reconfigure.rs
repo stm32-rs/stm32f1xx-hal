@@ -92,5 +92,14 @@ fn main() -> ! {
     assert_eq!(received, sent);
     asm::bkpt();
 
+    let (mut tx, mut rx) = serial.split();
+    block!(serial::reconfigure(
+        &mut tx,
+        &mut rx,
+        Config::default().baudrate(9600.bps()),
+        &clocks
+    ))
+    .unwrap();
+
     loop {}
 }

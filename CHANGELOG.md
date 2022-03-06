@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   serial.some_tx_fn -> serial.tx.some_tx_fn
   serial.some_rx_fn -> serial.rx.some_rx_fn
 
+### Added
+
+- Added the ability to reconfigure `Serial` by refs to 'Tx' an 'Rx' parts
+
 ## [v0.9.0] - 2022-03-02
 
 ### Added
