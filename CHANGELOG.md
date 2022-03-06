@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
-- `gpio`: port and pin generics first, then mode, `PinMode` for modes instead of pins
+- `gpio`: port and pin generics first, then mode, `PinMode` for modes instead of pins, other cleanups
 
 ## [v0.9.0] - 2022-03-02
 
