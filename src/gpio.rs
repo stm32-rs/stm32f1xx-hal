@@ -124,36 +124,46 @@ pub trait GpioExt {
 pub trait Active {}
 
 /// Input mode (type state)
+#[derive(Default)]
 pub struct Input<MODE = Floating> {
     _mode: PhantomData<MODE>,
 }
 impl<MODE> Active for Input<MODE> {}
 
 /// Used by the debugger (type state)
+#[derive(Default)]
 pub struct Debugger;
 /// Floating input (type state)
+#[derive(Default)]
 pub struct Floating;
 /// Pulled down input (type state)
+#[derive(Default)]
 pub struct PullDown;
 /// Pulled up input (type state)
+#[derive(Default)]
 pub struct PullUp;
 
 /// Output mode (type state)
+#[derive(Default)]
 pub struct Output<MODE = PushPull> {
     _mode: PhantomData<MODE>,
 }
 impl<MODE> Active for Output<MODE> {}
 
 /// Push pull output (type state)
+#[derive(Default)]
 pub struct PushPull;
 /// Open drain output (type state)
+#[derive(Default)]
 pub struct OpenDrain;
 
 /// Analog mode (type state)
+#[derive(Default)]
 pub struct Analog;
 impl Active for Analog {}
 
 /// Alternate function
+#[derive(Default)]
 pub struct Alternate<MODE = PushPull> {
     _mode: PhantomData<MODE>,
 }
@@ -180,11 +190,10 @@ mod sealed {
     /// Marker trait that show if `ExtiPin` can be implemented
     pub trait Interruptable {}
 
-    pub trait PinMode {
+    pub trait PinMode: Default {
         const CNF: u32;
         const MODE: u32;
         const PULL: Option<bool> = None;
-        fn new() -> Self;
     }
 }
 use sealed::PinMode;
@@ -295,6 +304,12 @@ pub enum Dynamic {
     OutputOpenDrain,
 }
 
+impl Default for Dynamic {
+    fn default() -> Self {
+        Dynamic::InputFloating
+    }
+}
+
 impl Active for Dynamic {}
 
 #[derive(Debug, PartialEq)]
@@ -319,31 +334,9 @@ impl Dynamic {
     }
 }
 
-// These impls are needed because a macro can not brace initialise a ty token
-impl<MODE> Input<MODE> {
-    const fn _new() -> Self {
-        Self { _mode: PhantomData }
-    }
-}
-impl<MODE> Output<MODE> {
-    const fn _new() -> Self {
-        Self { _mode: PhantomData }
-    }
-}
-impl<MODE> Alternate<MODE> {
-    const fn _new() -> Self {
-        Self { _mode: PhantomData }
-    }
-}
-impl Debugger {
-    const fn _new() -> Self {
-        Self {}
-    }
-}
-
 macro_rules! gpio {
     ($GPIOX:ident, $gpiox:ident, $PXx:ident, $port_id:expr, [
-        $($PXi:ident: ($pxi:ident, $i:expr, $H:literal, $MODE:ty),)+
+        $($PXi:ident: ($pxi:ident, $i:expr, $H:literal $(, $MODE:ty)?),)+
     ]) => {
         /// GPIO
         pub mod $gpiox {
@@ -361,12 +354,12 @@ macro_rules! gpio {
                 pub crh: Cr<$port_id, true>,
                 $(
                     /// Pin
-                    pub $pxi: $PXi<$MODE>,
+                    pub $pxi: $PXi $(<$MODE>)?,
                 )+
             }
 
             $(
-                pub type $PXi<MODE> = Pin<$port_id, $i, $H, MODE>;
+                pub type $PXi<MODE = Input<Floating>> = Pin<$port_id, $i, $H, MODE>;
             )+
 
             impl GpioExt for $GPIOX {
@@ -381,7 +374,7 @@ macro_rules! gpio {
                         crl: Cr::<$port_id, false>(()),
                         crh: Cr::<$port_id, true>(()),
                         $(
-                            $pxi: $PXi::new(<$MODE>::_new()),
+                            $pxi: $PXi::new(),
                         )+
                     }
                 }
@@ -423,9 +416,13 @@ pub struct Pin<const P: char, const N: u8, const H: bool, MODE = Input<Floating>
 
 impl<const P: char, const N: u8, const H: bool, MODE> Pin<P, N, H, MODE> {
     const OFFSET: u32 = (4 * (N as u32)) % 32;
+}
 
-    const fn new(mode: MODE) -> Self {
-        Self { mode }
+impl<const P: char, const N: u8, const H: bool, MODE: Default> Pin<P, N, H, MODE> {
+    fn new() -> Self {
+        Self {
+            mode: Default::default(),
+        }
     }
 }
 
@@ -448,7 +445,7 @@ impl<const P: char, const N: u8, const H: bool> Pin<P, N, H, Debugger> {
     /// state in the hardware.
     #[allow(dead_code)]
     pub(crate) unsafe fn activate(self) -> Pin<P, N, H, Input<Floating>> {
-        Pin::new(Input::_new())
+        Pin::new()
     }
 }
 
@@ -759,7 +756,7 @@ where
     #[inline]
     pub fn into_dynamic(self, cr: &mut Cr<P, H>) -> Pin<P, N, H, Dynamic> {
         self.into_floating_input(cr);
-        Pin::new(Dynamic::InputFloating)
+        Pin::new()
     }
 }
 
@@ -900,67 +897,43 @@ impl<const P: char, const N: u8, const H: bool> Pin<P, N, H, Dynamic> {
 impl PinMode for Input<Floating> {
     const CNF: u32 = 0b01;
     const MODE: u32 = 0b00;
-    fn new() -> Self {
-        Self::_new()
-    }
 }
 
 impl PinMode for Input<PullDown> {
     const CNF: u32 = 0b10;
     const MODE: u32 = 0b00;
     const PULL: Option<bool> = Some(false);
-    fn new() -> Self {
-        Self::_new()
-    }
 }
 
 impl PinMode for Input<PullUp> {
     const CNF: u32 = 0b10;
     const MODE: u32 = 0b00;
     const PULL: Option<bool> = Some(true);
-    fn new() -> Self {
-        Self::_new()
-    }
 }
 
 impl PinMode for Output<OpenDrain> {
     const CNF: u32 = 0b01;
     const MODE: u32 = 0b11;
-    fn new() -> Self {
-        Self::_new()
-    }
 }
 
 impl PinMode for Output<PushPull> {
     const CNF: u32 = 0b00;
     const MODE: u32 = 0b11;
-    fn new() -> Self {
-        Self::_new()
-    }
 }
 
 impl PinMode for Analog {
     const CNF: u32 = 0b00;
     const MODE: u32 = 0b00;
-    fn new() -> Self {
-        Self {}
-    }
 }
 
 impl PinMode for Alternate<PushPull> {
     const CNF: u32 = 0b10;
     const MODE: u32 = 0b11;
-    fn new() -> Self {
-        Self::_new()
-    }
 }
 
 impl PinMode for Alternate<OpenDrain> {
     const CNF: u32 = 0b11;
     const MODE: u32 = 0b11;
-    fn new() -> Self {
-        Self::_new()
-    }
 }
 
 impl<const P: char, const N: u8, const H: bool, MODE> Pin<P, N, H, MODE>
@@ -990,143 +963,143 @@ where
             });
         }
 
-        Pin::new(MODE::new())
+        Pin::new()
     }
 }
 
 gpio!(GPIOA, gpioa, PAx, 'A', [
-    PA0: (pa0, 0, false, Input<Floating>),
-    PA1: (pa1, 1, false, Input<Floating>),
-    PA2: (pa2, 2, false, Input<Floating>),
-    PA3: (pa3, 3, false, Input<Floating>),
-    PA4: (pa4, 4, false, Input<Floating>),
-    PA5: (pa5, 5, false, Input<Floating>),
-    PA6: (pa6, 6, false, Input<Floating>),
-    PA7: (pa7, 7, false, Input<Floating>),
-    PA8: (pa8, 8, true, Input<Floating>),
-    PA9: (pa9, 9, true, Input<Floating>),
-    PA10: (pa10, 10, true, Input<Floating>),
-    PA11: (pa11, 11, true, Input<Floating>),
-    PA12: (pa12, 12, true, Input<Floating>),
+    PA0: (pa0, 0, false),
+    PA1: (pa1, 1, false),
+    PA2: (pa2, 2, false),
+    PA3: (pa3, 3, false),
+    PA4: (pa4, 4, false),
+    PA5: (pa5, 5, false),
+    PA6: (pa6, 6, false),
+    PA7: (pa7, 7, false),
+    PA8: (pa8, 8, true),
+    PA9: (pa9, 9, true),
+    PA10: (pa10, 10, true),
+    PA11: (pa11, 11, true),
+    PA12: (pa12, 12, true),
     PA13: (pa13, 13, true, Debugger),
     PA14: (pa14, 14, true, Debugger),
     PA15: (pa15, 15, true, Debugger),
 ]);
 
 gpio!(GPIOB, gpiob, PBx, 'B', [
-    PB0: (pb0, 0, false, Input<Floating>),
-    PB1: (pb1, 1, false, Input<Floating>),
-    PB2: (pb2, 2, false, Input<Floating>),
+    PB0: (pb0, 0, false),
+    PB1: (pb1, 1, false),
+    PB2: (pb2, 2, false),
     PB3: (pb3, 3, false, Debugger),
     PB4: (pb4, 4, false, Debugger),
-    PB5: (pb5, 5, false, Input<Floating>),
-    PB6: (pb6, 6, false, Input<Floating>),
-    PB7: (pb7, 7, false, Input<Floating>),
-    PB8: (pb8, 8, true, Input<Floating>),
-    PB9: (pb9, 9, true, Input<Floating>),
-    PB10: (pb10, 10, true, Input<Floating>),
-    PB11: (pb11, 11, true, Input<Floating>),
-    PB12: (pb12, 12, true, Input<Floating>),
-    PB13: (pb13, 13, true, Input<Floating>),
-    PB14: (pb14, 14, true, Input<Floating>),
-    PB15: (pb15, 15, true, Input<Floating>),
+    PB5: (pb5, 5, false),
+    PB6: (pb6, 6, false),
+    PB7: (pb7, 7, false),
+    PB8: (pb8, 8, true),
+    PB9: (pb9, 9, true),
+    PB10: (pb10, 10, true),
+    PB11: (pb11, 11, true),
+    PB12: (pb12, 12, true),
+    PB13: (pb13, 13, true),
+    PB14: (pb14, 14, true),
+    PB15: (pb15, 15, true),
 ]);
 
 gpio!(GPIOC, gpioc, PCx, 'C', [
-    PC0: (pc0, 0, false, Input<Floating>),
-    PC1: (pc1, 1, false, Input<Floating>),
-    PC2: (pc2, 2, false, Input<Floating>),
-    PC3: (pc3, 3, false, Input<Floating>),
-    PC4: (pc4, 4, false, Input<Floating>),
-    PC5: (pc5, 5, false, Input<Floating>),
-    PC6: (pc6, 6, false, Input<Floating>),
-    PC7: (pc7, 7, false, Input<Floating>),
-    PC8: (pc8, 8, true, Input<Floating>),
-    PC9: (pc9, 9, true, Input<Floating>),
-    PC10: (pc10, 10, true, Input<Floating>),
-    PC11: (pc11, 11, true, Input<Floating>),
-    PC12: (pc12, 12, true, Input<Floating>),
-    PC13: (pc13, 13, true, Input<Floating>),
-    PC14: (pc14, 14, true, Input<Floating>),
-    PC15: (pc15, 15, true, Input<Floating>),
+    PC0: (pc0, 0, false),
+    PC1: (pc1, 1, false),
+    PC2: (pc2, 2, false),
+    PC3: (pc3, 3, false),
+    PC4: (pc4, 4, false),
+    PC5: (pc5, 5, false),
+    PC6: (pc6, 6, false),
+    PC7: (pc7, 7, false),
+    PC8: (pc8, 8, true),
+    PC9: (pc9, 9, true),
+    PC10: (pc10, 10, true),
+    PC11: (pc11, 11, true),
+    PC12: (pc12, 12, true),
+    PC13: (pc13, 13, true),
+    PC14: (pc14, 14, true),
+    PC15: (pc15, 15, true),
 ]);
 
 gpio!(GPIOD, gpiod, PDx, 'D', [
-    PD0: (pd0, 0, false, Input<Floating>),
-    PD1: (pd1, 1, false, Input<Floating>),
-    PD2: (pd2, 2, false, Input<Floating>),
-    PD3: (pd3, 3, false, Input<Floating>),
-    PD4: (pd4, 4, false, Input<Floating>),
-    PD5: (pd5, 5, false, Input<Floating>),
-    PD6: (pd6, 6, false, Input<Floating>),
-    PD7: (pd7, 7, false, Input<Floating>),
-    PD8: (pd8, 8, true, Input<Floating>),
-    PD9: (pd9, 9, true, Input<Floating>),
-    PD10: (pd10, 10, true, Input<Floating>),
-    PD11: (pd11, 11, true, Input<Floating>),
-    PD12: (pd12, 12, true, Input<Floating>),
-    PD13: (pd13, 13, true, Input<Floating>),
-    PD14: (pd14, 14, true, Input<Floating>),
-    PD15: (pd15, 15, true, Input<Floating>),
+    PD0: (pd0, 0, false),
+    PD1: (pd1, 1, false),
+    PD2: (pd2, 2, false),
+    PD3: (pd3, 3, false),
+    PD4: (pd4, 4, false),
+    PD5: (pd5, 5, false),
+    PD6: (pd6, 6, false),
+    PD7: (pd7, 7, false),
+    PD8: (pd8, 8, true),
+    PD9: (pd9, 9, true),
+    PD10: (pd10, 10, true),
+    PD11: (pd11, 11, true),
+    PD12: (pd12, 12, true),
+    PD13: (pd13, 13, true),
+    PD14: (pd14, 14, true),
+    PD15: (pd15, 15, true),
 ]);
 
 gpio!(GPIOE, gpioe, PEx, 'E', [
-    PE0: (pe0, 0, false, Input<Floating>),
-    PE1: (pe1, 1, false, Input<Floating>),
-    PE2: (pe2, 2, false, Input<Floating>),
-    PE3: (pe3, 3, false, Input<Floating>),
-    PE4: (pe4, 4, false, Input<Floating>),
-    PE5: (pe5, 5, false, Input<Floating>),
-    PE6: (pe6, 6, false, Input<Floating>),
-    PE7: (pe7, 7, false, Input<Floating>),
-    PE8: (pe8, 8, true, Input<Floating>),
-    PE9: (pe9, 9, true, Input<Floating>),
-    PE10: (pe10, 10, true, Input<Floating>),
-    PE11: (pe11, 11, true, Input<Floating>),
-    PE12: (pe12, 12, true, Input<Floating>),
-    PE13: (pe13, 13, true, Input<Floating>),
-    PE14: (pe14, 14, true, Input<Floating>),
-    PE15: (pe15, 15, true, Input<Floating>),
+    PE0: (pe0, 0, false),
+    PE1: (pe1, 1, false),
+    PE2: (pe2, 2, false),
+    PE3: (pe3, 3, false),
+    PE4: (pe4, 4, false),
+    PE5: (pe5, 5, false),
+    PE6: (pe6, 6, false),
+    PE7: (pe7, 7, false),
+    PE8: (pe8, 8, true),
+    PE9: (pe9, 9, true),
+    PE10: (pe10, 10, true),
+    PE11: (pe11, 11, true),
+    PE12: (pe12, 12, true),
+    PE13: (pe13, 13, true),
+    PE14: (pe14, 14, true),
+    PE15: (pe15, 15, true),
 ]);
 
 #[cfg(any(feature = "xl", feature = "high"))]
 gpio!(GPIOF, gpiof, PFx, 'F', [
-    PF0:  (pf0, 0, false, Input<Floating>),
-    PF1:  (pf1, 1, false, Input<Floating>),
-    PF2:  (pf2, 2, false, Input<Floating>),
-    PF3:  (pf3, 3, false, Input<Floating>),
-    PF4:  (pf4, 4, false, Input<Floating>),
-    PF5:  (pf5, 5, false, Input<Floating>),
-    PF6:  (pf6, 6, false, Input<Floating>),
-    PF7:  (pf7, 7, false, Input<Floating>),
-    PF8:  (pf8, 8, true, Input<Floating>),
-    PF9:  (pf9, 9, true, Input<Floating>),
-    PF10: (pf10, 10, true, Input<Floating>),
-    PF11: (pf11, 11, true, Input<Floating>),
-    PF12: (pf12, 12, true, Input<Floating>),
-    PF13: (pf13, 13, true, Input<Floating>),
-    PF14: (pf14, 14, true, Input<Floating>),
-    PF15: (pf15, 15, true, Input<Floating>),
+    PF0:  (pf0, 0, false),
+    PF1:  (pf1, 1, false),
+    PF2:  (pf2, 2, false),
+    PF3:  (pf3, 3, false),
+    PF4:  (pf4, 4, false),
+    PF5:  (pf5, 5, false),
+    PF6:  (pf6, 6, false),
+    PF7:  (pf7, 7, false),
+    PF8:  (pf8, 8, true),
+    PF9:  (pf9, 9, true),
+    PF10: (pf10, 10, true),
+    PF11: (pf11, 11, true),
+    PF12: (pf12, 12, true),
+    PF13: (pf13, 13, true),
+    PF14: (pf14, 14, true),
+    PF15: (pf15, 15, true),
 ]);
 
 #[cfg(any(feature = "xl", feature = "high"))]
 gpio!(GPIOG, gpiog, PGx, 'G', [
-    PG0:  (pg0, 0, false, Input<Floating>),
-    PG1:  (pg1, 1, false, Input<Floating>),
-    PG2:  (pg2, 2, false, Input<Floating>),
-    PG3:  (pg3, 3, false, Input<Floating>),
-    PG4:  (pg4, 4, false, Input<Floating>),
-    PG5:  (pg5, 5, false, Input<Floating>),
-    PG6:  (pg6, 6, false, Input<Floating>),
-    PG7:  (pg7, 7, false, Input<Floating>),
-    PG8:  (pg8, 8, true, Input<Floating>),
-    PG9:  (pg9, 9, true, Input<Floating>),
-    PG10: (pg10, 10, true, Input<Floating>),
-    PG11: (pg11, 11, true, Input<Floating>),
-    PG12: (pg12, 12, true, Input<Floating>),
-    PG13: (pg13, 13, true, Input<Floating>),
-    PG14: (pg14, 14, true, Input<Floating>),
-    PG15: (pg15, 15, true, Input<Floating>),
+    PG0:  (pg0, 0, false),
+    PG1:  (pg1, 1, false),
+    PG2:  (pg2, 2, false),
+    PG3:  (pg3, 3, false),
+    PG4:  (pg4, 4, false),
+    PG5:  (pg5, 5, false),
+    PG6:  (pg6, 6, false),
+    PG7:  (pg7, 7, false),
+    PG8:  (pg8, 8, true),
+    PG9:  (pg9, 9, true),
+    PG10: (pg10, 10, true),
+    PG11: (pg11, 11, true),
+    PG12: (pg12, 12, true),
+    PG13: (pg13, 13, true),
+    PG14: (pg14, 14, true),
+    PG15: (pg15, 15, true),
 ]);
 
 struct Gpio<const P: char>;
