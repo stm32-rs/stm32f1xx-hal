@@ -526,7 +526,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Read<u8> for Serial<USART, PINS>
+impl<USART, PINS> embedded_hal::serial::Read<u8> for Serial<USART, PINS>
 where
     USART: Instance,
 {
@@ -537,7 +537,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Read<u16> for Serial<USART, PINS>
+impl<USART, PINS> embedded_hal::serial::Read<u16> for Serial<USART, PINS>
 where
     USART: Instance,
 {
@@ -548,7 +548,7 @@ where
     }
 }
 
-impl<USART> crate::hal::serial::Read<u8> for Rx<USART>
+impl<USART> embedded_hal::serial::Read<u8> for Rx<USART>
 where
     USART: Instance,
 {
@@ -564,7 +564,7 @@ where
 /// If the UART/USART was configured with `WordLength::Bits9`, the returned value will contain
 /// 9 received data bits and all other bits set to zero. Otherwise, the returned value will contain
 /// 8 received data bits and all other bits set to zero.
-impl<USART> crate::hal::serial::Read<u16> for Rx<USART>
+impl<USART> embedded_hal::serial::Read<u16> for Rx<USART>
 where
     USART: Instance,
 {
@@ -618,7 +618,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Write<u8> for Serial<USART, PINS>
+impl<USART, PINS> embedded_hal::serial::Write<u8> for Serial<USART, PINS>
 where
     USART: Instance,
 {
@@ -633,7 +633,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Write<u16> for Serial<USART, PINS>
+impl<USART, PINS> embedded_hal::serial::Write<u16> for Serial<USART, PINS>
 where
     USART: Instance,
 {
@@ -648,7 +648,7 @@ where
     }
 }
 
-impl<USART> crate::hal::serial::Write<u8> for Tx<USART>
+impl<USART> embedded_hal::serial::Write<u8> for Tx<USART>
 where
     USART: Instance,
 {
@@ -668,7 +668,7 @@ where
 /// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
 /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
 /// will be transmitted and the other 8 bits will be ignored.
-impl<USART> crate::hal::serial::Write<u16> for Tx<USART>
+impl<USART> embedded_hal::serial::Write<u16> for Tx<USART>
 where
     USART: Instance,
 {
@@ -713,7 +713,7 @@ where
     }
 }
 
-impl<USART> crate::hal::blocking::serial::Write<u16> for Tx<USART>
+impl<USART> embedded_hal::blocking::serial::Write<u16> for Tx<USART>
 where
     USART: Instance,
 {
@@ -728,7 +728,7 @@ where
     }
 }
 
-impl<USART> crate::hal::blocking::serial::Write<u8> for Tx<USART>
+impl<USART> embedded_hal::blocking::serial::Write<u8> for Tx<USART>
 where
     USART: Instance,
 {
@@ -766,7 +766,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::blocking::serial::Write<u16> for Serial<USART, PINS>
+impl<USART, PINS> embedded_hal::blocking::serial::Write<u16> for Serial<USART, PINS>
 where
     USART: Instance,
     Tx<USART>: embedded_hal::serial::Write<u16, Error = Infallible>,
@@ -782,7 +782,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::blocking::serial::Write<u8> for Serial<USART, PINS>
+impl<USART, PINS> embedded_hal::blocking::serial::Write<u8> for Serial<USART, PINS>
 where
     USART: Instance,
 {
