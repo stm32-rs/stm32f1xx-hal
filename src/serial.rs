@@ -22,14 +22,12 @@
 //! ## Example usage:
 //!
 //!  ```rust
-//! // prelude: create handles to the peripherals and registers
-//! let p = crate::pac::Peripherals::take().unwrap();
-//! let cp = cortex_m::Peripherals::take().unwrap();
-//! let mut flash = p.FLASH.constrain();
-//! let mut rcc = p.RCC.constrain();
+//! let dp = stm32f1xx_hal::pac::Peripherals::take().unwrap();
+//! let mut flash = dp.FLASH.constrain();
+//! let mut rcc = dp.RCC.constrain();
 //! let clocks = rcc.cfgr.freeze(&mut flash.acr);
-//! let mut afio = p.AFIO.constrain();
-//! let mut gpioa = p.GPIOA.split();
+//! let mut afio = dp.AFIO.constrain();
+//! let mut gpioa = dp.GPIOA.split();
 //!
 //! // USART1 on Pins A9 and A10
 //! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
@@ -40,10 +38,10 @@
 //!     (pin_tx, pin_rx),
 //!     &mut afio.mapr,
 //!     Config::default()
-//!         .baudrate(9_600.bps())
+//!         .baudrate(9600.bps())
 //!         .wordlength_9bits()
 //!         .parity_none(),
-//!     clocks,
+//!     &clocks,
 //! );
 //!
 //! // Separate into tx and rx channels
@@ -51,16 +49,16 @@
 //!
 //! // Write data (9 bits) to the USART.
 //! // Depending on the configuration, only the lower 7, 8, or 9 bits are used.
-//! block!(tx.write(0x1FF)).unwrap();
+//! block!(tx.write_u16(0x1FF)).unwrap();
 //!
 //! // Write 'R' (8 bits) to the USART
 //! block!(tx.write(b'R')).unwrap();
 //!
 //! // Receive a data (9 bits) from the USART and store it in "received"
-//! let received: u16 = block!(rx.read()).unwrap();
+//! let received = block!(rx.read_u16()).unwrap();
 //!
 //! // Receive a data (8 bits) from the USART and store it in "received"
-//! let received: u8 = block!(rx.read()).unwrap();
+//! let received = block!(rx.read()).unwrap();
 //!  ```
 
 use core::convert::Infallible;
@@ -297,7 +295,7 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
     where
         PINS: Pins<USART>,
     {
-        // enable and reset $USARTX
+        // Enable and reset USART
         let rcc = unsafe { &(*RCC::ptr()) };
         USART::enable(rcc);
         USART::reset(rcc);
@@ -369,7 +367,12 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
     }
 
     /// Separates the serial struct into separate channel objects for sending (Tx) and
-    /// receiving (Rx)
+    /// receiving (Rx).
+    /// If in the future it will be necessary to free up resources,
+    /// then you need to use a different method of separation:
+    /// ```
+    /// let Serial { tx, rx, token } = serial;
+    /// ```
     pub fn split(self) -> (Tx<USART>, Rx<USART>) {
         (self.tx, self.rx)
     }

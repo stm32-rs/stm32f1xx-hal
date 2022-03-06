@@ -14,12 +14,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `Serial::usart1/2/3` -> `Serial::new`
 - Passing the `Clocks` parameter to `Serial` by reference
 - `Serial` implements `Write<WORD>` and `Read<WORD>` for `WORD` simultaneously as u8 and u16
-  (the `WORD` must be derived from the context or specified explicitly)
 
 ### Added
 
-- Added the ability to reconfigure `Serial` by refs to 'Tx' an 'Rx' parts
-- Added the ability to release `Serial` after split
+- Allow access to the `Tx` and `Rx` parts of the `Serial` without the need for splitting
+- Allow `Serial` reconfiguration by reference to the `Tx` and `Rx` parts
+- Allow `Serial` release after splitting
 
 ## [v0.9.0] - 2022-03-02
 
