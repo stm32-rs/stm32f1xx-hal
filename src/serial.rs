@@ -441,9 +441,14 @@ where
     USART: Instance,
     PINS: Pins<USART>,
 {
-    Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config.into(), clocks, mapr)
+    Serial {
+        usart,
+        pins,
+        tx: Tx::new(),
+        rx: Rx::new(),
+    }
+    .init(config.into(), clocks, mapr)
 }
-
 
 hal! {
     /// # USART1 functions
@@ -764,7 +769,7 @@ where
 impl<USART, PINS> crate::hal::blocking::serial::Write<u16> for Serial<USART, PINS>
 where
     USART: Instance,
-    Tx<USART>: embedded_hal::serial::Write<u16, Error = Infallible>
+    Tx<USART>: embedded_hal::serial::Write<u16, Error = Infallible>,
 {
     type Error = Infallible;
 
