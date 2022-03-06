@@ -73,7 +73,7 @@ fn main() -> ! {
     block!(serial.write(sent)).ok();
 
     // Read the byte that was just sent. Blocks until the read is complete
-    let received = block!(serial.read()).unwrap();
+    let received: u8 = block!(serial.read()).unwrap();
 
     // Since we have connected tx and rx, the byte we sent should be the one we received
     assert_eq!(received, sent);
@@ -88,7 +88,7 @@ fn main() -> ! {
     // Let's see if it works.'
     let sent = b'Y';
     block!(serial.write(sent)).ok();
-    let received = block!(serial.read()).unwrap();
+    let received: u8 = block!(serial.read()).unwrap();
     assert_eq!(received, sent);
     asm::bkpt();
 
