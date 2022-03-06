@@ -402,18 +402,6 @@ where
     }
 }
 
-pub trait SerialNew<USART, PINS> {
-    fn new(
-        usart: USART,
-        pins: PINS,
-        mapr: &mut MAPR,
-        config: impl Into<Config>,
-        clocks: &Clocks,
-    ) -> Self
-    where
-        PINS: Pins<USART>;
-}
-
 macro_rules! hal {
     (
         $(#[$meta:meta])*
@@ -424,42 +412,38 @@ macro_rules! hal {
                 <$USARTX>::ptr() as *const _
             }
         }
-
-        $(#[$meta])*
-        /// The behaviour of the functions is equal for all three USARTs.
-        /// Except that they are using the corresponding USART hardware and pins.
-        impl<PINS> SerialNew<$USARTX, PINS> for Serial<$USARTX, PINS> {
-            /// Configures the serial interface and creates the interface
-            /// struct.
-            ///
-            /// `Bps` is the baud rate of the interface.
-            ///
-            /// `Clocks` passes information about the current frequencies of
-            /// the clocks.  The existence of the struct ensures that the
-            /// clock settings are fixed.
-            ///
-            /// The `serial` struct takes ownership over the `USARTX` device
-            /// registers and the specified `PINS`
-            ///
-            /// `MAPR` and `APBX` are register handles which are passed for
-            /// configuration. (`MAPR` is used to map the USART to the
-            /// corresponding pins. `APBX` is used to reset the USART.)
-            fn new(
-                usart: $USARTX,
-                pins: PINS,
-                mapr: &mut MAPR,
-                config: impl Into<Config>,
-                clocks: &Clocks,
-            ) -> Serial<$USARTX, PINS>
-            where
-                PINS: Pins<$USARTX>,
-            {
-                Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config.into(), clocks, mapr)
-            }
-        }
-
     };
 }
+
+/// Configures the serial interface and creates the interface
+/// struct.
+///
+/// `Bps` is the baud rate of the interface.
+///
+/// `Clocks` passes information about the current frequencies of
+/// the clocks.  The existence of the struct ensures that the
+/// clock settings are fixed.
+///
+/// The `serial` struct takes ownership over the `USARTX` device
+/// registers and the specified `PINS`
+///
+/// `MAPR` and `APBX` are register handles which are passed for
+/// configuration. (`MAPR` is used to map the USART to the
+/// corresponding pins. `APBX` is used to reset the USART.)
+pub fn new<USART, PINS>(
+    usart: USART,
+    pins: PINS,
+    mapr: &mut MAPR,
+    config: impl Into<Config>,
+    clocks: &Clocks,
+) -> Serial<USART, PINS>
+where
+    USART: Instance,
+    PINS: Pins<USART>,
+{
+    Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config.into(), clocks, mapr)
+}
+
 
 hal! {
     /// # USART1 functions

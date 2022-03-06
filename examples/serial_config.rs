@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32f1xx_hal::{
     pac,
     prelude::*,
-    serial::{self, Serial},
+    serial,
 };
 
 #[entry]
@@ -58,7 +58,7 @@ fn main() -> ! {
 
     // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let serial = Serial::new(
+    let serial = serial::new(
         p.USART3,
         (tx, rx),
         &mut afio.mapr,

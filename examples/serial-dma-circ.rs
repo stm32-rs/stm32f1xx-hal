@@ -14,7 +14,7 @@ use stm32f1xx_hal::{
     dma::Half,
     pac,
     prelude::*,
-    serial::{Config, Serial},
+    serial::{self, Config},
 };
 
 #[entry]
@@ -48,7 +48,7 @@ fn main() -> ! {
     // let tx = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
     // let rx = gpiob.pb11;
 
-    let serial = Serial::new(
+    let serial = serial::new(
         p.USART1,
         (tx, rx),
         &mut afio.mapr,
