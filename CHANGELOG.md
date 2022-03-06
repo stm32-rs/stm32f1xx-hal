@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - Added the ability to reconfigure `Serial` by refs to 'Tx' an 'Rx' parts
+- Added the ability to release `Serial` after split
 
 ## [v0.9.0] - 2022-03-02
 
