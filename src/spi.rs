@@ -51,6 +51,16 @@ use crate::time::Hertz;
 use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
 
+/// Interrupt event
+pub enum Event {
+    /// New data has been received
+    Rxne,
+    /// New data can be sent
+    Txe,
+    /// an error condition occurs(Crcerr, Overrun, ModeFault)
+    Error,
+}
+
 /// SPI error
 #[derive(Debug)]
 #[non_exhaustive]
@@ -65,6 +75,11 @@ pub enum Error {
 
 use core::marker::PhantomData;
 
+/// Spi in Master mode (type state)
+pub struct Master;
+/// Spi in Slave mode (type state)
+pub struct Slave;
+
 mod sealed {
     pub trait Remap {
         type Periph;
@@ -73,13 +88,16 @@ mod sealed {
     pub trait Sck<REMAP> {}
     pub trait Miso<REMAP> {}
     pub trait Mosi<REMAP> {}
+    pub trait Ssck<REMAP> {}
+    pub trait So<REMAP> {}
+    pub trait Si<REMAP> {}
 }
 pub use sealed::Remap;
-use sealed::{Miso, Mosi, Sck};
+use sealed::{Miso, Mosi, Sck, Si, So, Ssck};
 
-pub trait Pins<REMAP> {}
+pub trait Pins<REMAP, OPERATION = Master> {}
 
-impl<REMAP, SCK, MISO, MOSI> Pins<REMAP> for (SCK, MISO, MOSI)
+impl<REMAP, SCK, MISO, MOSI> Pins<REMAP, Master> for (SCK, MISO, MOSI)
 where
     SCK: Sck<REMAP>,
     MISO: Miso<REMAP>,
@@ -87,11 +105,20 @@ where
 {
 }
 
-pub struct Spi<SPI, REMAP, PINS, FRAMESIZE> {
+impl<REMAP, SCK, MISO, MOSI> Pins<REMAP, Slave> for (SCK, MISO, MOSI)
+where
+    SCK: Ssck<REMAP>,
+    MISO: So<REMAP>,
+    MOSI: Si<REMAP>,
+{
+}
+
+pub struct Spi<SPI, REMAP, PINS, FRAMESIZE, OPERATION = Master> {
     spi: SPI,
     pins: PINS,
     _remap: PhantomData<REMAP>,
     _framesize: PhantomData<FRAMESIZE>,
+    _operation: PhantomData<OPERATION>,
 }
 
 /// The bit format to send the data in
@@ -113,6 +140,8 @@ pub struct NoMosi;
 impl<REMAP> Sck<REMAP> for NoSck {}
 impl<REMAP> Miso<REMAP> for NoMiso {}
 impl<REMAP> Mosi<REMAP> for NoMosi {}
+impl<REMAP> So<REMAP> for NoMiso {}
+impl<REMAP> Si<REMAP> for NoMosi {}
 
 macro_rules! remap {
     ($name:ident, $SPIX:ty, $state:literal, $SCK:ident, $MISO:ident, $MOSI:ident) => {
@@ -121,9 +150,14 @@ macro_rules! remap {
             type Periph = $SPIX;
             const REMAP: bool = $state;
         }
+        // Master mode pins
         impl<MODE> Sck<$name> for gpio::$SCK<Alternate<MODE>> {}
         impl<MODE> Miso<$name> for gpio::$MISO<Input<MODE>> {}
         impl<MODE> Mosi<$name> for gpio::$MOSI<Alternate<MODE>> {}
+        // Slave mode pins
+        impl<MODE> Ssck<$name> for gpio::$SCK<Input<MODE>> {}
+        impl<MODE> So<$name> for gpio::$MISO<Alternate<MODE>> {}
+        impl<MODE> Si<$name> for gpio::$MOSI<Input<MODE>> {}
     };
 }
 
@@ -145,7 +179,7 @@ impl Instance for pac::SPI2 {}
 #[cfg(any(feature = "high", feature = "connectivity"))]
 impl Instance for pac::SPI3 {}
 
-impl<REMAP, PINS> Spi<pac::SPI1, REMAP, PINS, u8> {
+impl<REMAP, PINS> Spi<pac::SPI1, REMAP, PINS, u8, Master> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
@@ -170,7 +204,25 @@ impl<REMAP, PINS> Spi<pac::SPI1, REMAP, PINS, u8> {
     }
 }
 
-impl<REMAP, PINS> Spi<pac::SPI2, REMAP, PINS, u8> {
+impl<REMAP, PINS> Spi<pac::SPI1, REMAP, PINS, u8, Slave> {
+    /**
+      Constructs an SPI instance using SPI1 in 8bit dataframe mode.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Input<...>, Alternate<...>, Input<...>)`.
+
+      You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
+    pub fn spi1_slave(spi: pac::SPI1, pins: PINS, mapr: &mut MAPR, mode: Mode) -> Self
+    where
+        REMAP: Remap<Periph = pac::SPI1>,
+        PINS: Pins<REMAP, Slave>,
+    {
+        mapr.modify_mapr(|_, w| w.spi1_remap().bit(REMAP::REMAP));
+        Spi::<pac::SPI1, _, _, u8, Slave>::configure(spi, pins, mode)
+    }
+}
+
+impl<REMAP, PINS> Spi<pac::SPI2, REMAP, PINS, u8, Master> {
     /**
       Constructs an SPI instance using SPI2 in 8bit dataframe mode.
 
@@ -187,8 +239,25 @@ impl<REMAP, PINS> Spi<pac::SPI2, REMAP, PINS, u8> {
     }
 }
 
+impl<REMAP, PINS> Spi<pac::SPI2, REMAP, PINS, u8, Slave> {
+    /**
+      Constructs an SPI instance using SPI2 in 8bit dataframe mode.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PB13, PB14, PB15)` configured as `(Input<...>, Alternate<...>, Input<...>)`.
+
+      You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
+    pub fn spi2_slave(spi: pac::SPI2, pins: PINS, mode: Mode) -> Self
+    where
+        REMAP: Remap<Periph = pac::SPI2>,
+        PINS: Pins<REMAP, Slave>,
+    {
+        Spi::<pac::SPI2, _, _, u8, Slave>::configure(spi, pins, mode)
+    }
+}
+
 #[cfg(any(feature = "high", feature = "connectivity"))]
-impl<REMAP, PINS> Spi<pac::SPI3, REMAP, PINS, u8> {
+impl<REMAP, PINS> Spi<pac::SPI3, REMAP, PINS, u8, Master> {
     /**
       Constructs an SPI instance using SPI3 in 8bit dataframe mode.
 
@@ -230,13 +299,50 @@ impl<REMAP, PINS> Spi<pac::SPI3, REMAP, PINS, u8> {
     }
 }
 
+#[cfg(any(feature = "high", feature = "connectivity"))]
+impl<REMAP, PINS> Spi<pac::SPI3, REMAP, PINS, u8, Slave> {
+    /**
+      Constructs an SPI instance using SPI3 in 8bit dataframe mode.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` configured as `(Input<...>, Alternate<...>, Input<...>)`.
+
+      You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
+    #[cfg(not(feature = "connectivity"))]
+    pub fn spi3_slave(spi: pac::SPI3, pins: PINS, mode: Mode) -> Self
+    where
+        REMAP: Remap<Periph = pac::SPI3>,
+        PINS: Pins<REMAP>,
+    {
+        Spi::<pac::SPI3, _, _, u8, Slave>::configure(spi, pins, mode)
+    }
+
+    /**
+      Constructs an SPI instance using SPI3 in 8bit dataframe mode.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PB3, PB4, PB5)` or `(PC10, PC11, PC12)` configured as `(Input<...>, Alternate<...>, Input<...>)`.
+
+      You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
+    #[cfg(feature = "connectivity")]
+    pub fn spi3_slave(spi: pac::SPI3, pins: PINS, mapr: &mut MAPR, mode: Mode) -> Self
+    where
+        REMAP: Remap<Periph = pac::SPI3>,
+        PINS: Pins<REMAP>,
+    {
+        mapr.modify_mapr(|_, w| w.spi3_remap().bit(REMAP::REMAP));
+        Spi::<pac::SPI3, _, _, u8, Slave>::configure(spi, pins, mode)
+    }
+}
+
 pub trait SpiReadWrite<T> {
     fn read_data_reg(&mut self) -> T;
     fn write_data_reg(&mut self, data: T);
     fn spi_write(&mut self, words: &[T]) -> Result<(), Error>;
 }
 
-impl<SPI, REMAP, PINS, FrameSize> SpiReadWrite<FrameSize> for Spi<SPI, REMAP, PINS, FrameSize>
+impl<SPI, REMAP, PINS, FrameSize, OP> SpiReadWrite<FrameSize>
+    for Spi<SPI, REMAP, PINS, FrameSize, OP>
 where
     SPI: Instance,
     FrameSize: Copy,
@@ -297,7 +403,7 @@ where
     }
 }
 
-impl<SPI, REMAP, PINS, FrameSize> Spi<SPI, REMAP, PINS, FrameSize>
+impl<SPI, REMAP, PINS, FrameSize, OP> Spi<SPI, REMAP, PINS, FrameSize, OP>
 where
     SPI: Instance,
     FrameSize: Copy,
@@ -317,9 +423,46 @@ where
             SpiBitFormat::MsbFirst => self.spi.cr1.modify(|_, w| w.lsbfirst().clear_bit()),
         }
     }
+
+    /// Starts listening to the SPI by enabling the _Received data
+    /// ready to be read (RXNE)_ interrupt and _Transmit data
+    /// register empty (TXE)_ interrupt
+    pub fn listen(&mut self, event: Event) {
+        match event {
+            Event::Rxne => self.spi.cr2.modify(|_, w| w.rxneie().set_bit()),
+            Event::Txe => self.spi.cr2.modify(|_, w| w.txeie().set_bit()),
+            Event::Error => self.spi.cr2.modify(|_, w| w.errie().set_bit()),
+        }
+    }
+
+    /// Stops listening to the SPI by disabling the _Received data
+    /// ready to be read (RXNE)_ interrupt and _Transmit data
+    /// register empty (TXE)_ interrupt
+    pub fn unlisten(&mut self, event: Event) {
+        match event {
+            Event::Rxne => self.spi.cr2.modify(|_, w| w.rxneie().clear_bit()),
+            Event::Txe => self.spi.cr2.modify(|_, w| w.txeie().clear_bit()),
+            Event::Error => self.spi.cr2.modify(|_, w| w.errie().clear_bit()),
+        }
+    }
+
+    /// Returns true if the tx register is empty (and can accept data)
+    pub fn is_tx_empty(&self) -> bool {
+        self.spi.sr.read().txe().bit_is_set()
+    }
+
+    /// Returns true if the rx register is not empty (and can be read)
+    pub fn is_rx_not_empty(&self) -> bool {
+        self.spi.sr.read().rxne().bit_is_set()
+    }
+
+    /// Returns true if data are received and the previous data have not yet been read from SPI_DR.
+    pub fn is_overrun(&self) -> bool {
+        self.spi.sr.read().ovr().bit_is_set()
+    }
 }
 
-impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8>
+impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8, Master>
 where
     SPI: Instance,
 {
@@ -386,8 +529,72 @@ where
             pins,
             _remap: PhantomData,
             _framesize: PhantomData,
+            _operation: PhantomData,
         }
     }
+}
+
+impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8, Slave>
+where
+    SPI: Instance,
+{
+    fn configure(spi: SPI, pins: PINS, mode: Mode) -> Self {
+        // enable or reset SPI
+        let rcc = unsafe { &(*RCC::ptr()) };
+        SPI::enable(rcc);
+        SPI::reset(rcc);
+
+        // disable SS output
+        spi.cr2.write(|w| w.ssoe().clear_bit());
+
+        spi.cr1.write(|w| {
+            w
+                // clock phase from config
+                .cpha()
+                .bit(mode.phase == Phase::CaptureOnSecondTransition)
+                // clock polarity from config
+                .cpol()
+                .bit(mode.polarity == Polarity::IdleHigh)
+                // mstr: slave configuration
+                .mstr()
+                .clear_bit()
+                // lsbfirst: MSB first
+                .lsbfirst()
+                .clear_bit()
+                // ssm: enable software slave management (NSS pin free for other uses)
+                .ssm()
+                .set_bit()
+                // ssi: set nss low = slave mode
+                .ssi()
+                .clear_bit()
+                // dff: 8 bit frames
+                .dff()
+                .clear_bit()
+                // bidimode: 2-line unidirectional
+                .bidimode()
+                .clear_bit()
+                // both TX and RX are used
+                .rxonly()
+                .clear_bit()
+                // spe: enable the SPI bus
+                .spe()
+                .set_bit()
+        });
+
+        Spi {
+            spi,
+            pins,
+            _remap: PhantomData,
+            _framesize: PhantomData,
+            _operation: PhantomData,
+        }
+    }
+}
+
+impl<SPI, REMAP, PINS, OP> Spi<SPI, REMAP, PINS, u8, OP>
+where
+    SPI: Instance,
+{
     /// Converts from 8bit dataframe to 16bit.
     pub fn frame_size_16bit(self) -> Spi<SPI, REMAP, PINS, u16> {
         self.spi.cr1.modify(|_, w| w.spe().clear_bit());
@@ -398,11 +605,12 @@ where
             pins: self.pins,
             _remap: PhantomData,
             _framesize: PhantomData,
+            _operation: PhantomData,
         }
     }
 }
 
-impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u16>
+impl<SPI, REMAP, PINS, OP> Spi<SPI, REMAP, PINS, u16, OP>
 where
     SPI: Instance,
 {
@@ -416,12 +624,13 @@ where
             pins: self.pins,
             _remap: PhantomData,
             _framesize: PhantomData,
+            _operation: PhantomData,
         }
     }
 }
 
-impl<SPI, REMAP, PINS, FrameSize> crate::hal::spi::FullDuplex<FrameSize>
-    for Spi<SPI, REMAP, PINS, FrameSize>
+impl<SPI, REMAP, PINS, FrameSize, OP> crate::hal::spi::FullDuplex<FrameSize>
+    for Spi<SPI, REMAP, PINS, FrameSize, OP>
 where
     SPI: Instance,
     FrameSize: Copy,
@@ -449,9 +658,7 @@ where
     fn send(&mut self, data: FrameSize) -> nb::Result<(), Error> {
         let sr = self.spi.sr.read();
 
-        Err(if sr.ovr().bit_is_set() {
-            nb::Error::Other(Error::Overrun)
-        } else if sr.modf().bit_is_set() {
+        Err(if sr.modf().bit_is_set() {
             nb::Error::Other(Error::ModeFault)
         } else if sr.crcerr().bit_is_set() {
             nb::Error::Other(Error::Crc)
@@ -465,15 +672,15 @@ where
     }
 }
 
-impl<SPI, REMAP, PINS, FrameSize> crate::hal::blocking::spi::transfer::Default<FrameSize>
-    for Spi<SPI, REMAP, PINS, FrameSize>
+impl<SPI, REMAP, PINS, FrameSize, OP> crate::hal::blocking::spi::transfer::Default<FrameSize>
+    for Spi<SPI, REMAP, PINS, FrameSize, OP>
 where
     SPI: Instance,
     FrameSize: Copy,
 {
 }
 
-impl<SPI, REMAP, PINS> crate::hal::blocking::spi::Write<u8> for Spi<SPI, REMAP, PINS, u8>
+impl<SPI, REMAP, PINS, OP> crate::hal::blocking::spi::Write<u8> for Spi<SPI, REMAP, PINS, u8, OP>
 where
     SPI: Instance,
 {
@@ -488,7 +695,7 @@ where
     }
 }
 
-impl<SPI, REMAP, PINS> crate::hal::blocking::spi::Write<u16> for Spi<SPI, REMAP, PINS, u16>
+impl<SPI, REMAP, PINS, OP> crate::hal::blocking::spi::Write<u16> for Spi<SPI, REMAP, PINS, u16, OP>
 where
     SPI: Instance,
 {
@@ -501,46 +708,46 @@ where
 
 // DMA
 
-pub type SpiTxDma<SPI, REMAP, PINS, CHANNEL> = TxDma<Spi<SPI, REMAP, PINS, u8>, CHANNEL>;
-pub type SpiRxDma<SPI, REMAP, PINS, CHANNEL> = RxDma<Spi<SPI, REMAP, PINS, u8>, CHANNEL>;
-pub type SpiRxTxDma<SPI, REMAP, PINS, RXCHANNEL, TXCHANNEL> =
-    RxTxDma<Spi<SPI, REMAP, PINS, u8>, RXCHANNEL, TXCHANNEL>;
+pub type SpiTxDma<SPI, REMAP, PINS, OP, CHANNEL> = TxDma<Spi<SPI, REMAP, PINS, u8, OP>, CHANNEL>;
+pub type SpiRxDma<SPI, REMAP, PINS, OP, CHANNEL> = RxDma<Spi<SPI, REMAP, PINS, u8, OP>, CHANNEL>;
+pub type SpiRxTxDma<SPI, REMAP, PINS, OP, RXCHANNEL, TXCHANNEL> =
+    RxTxDma<Spi<SPI, REMAP, PINS, u8, OP>, RXCHANNEL, TXCHANNEL>;
 
 macro_rules! spi_dma {
     ($SPIi:ty, $RCi:ty, $TCi:ty, $rxdma:ident, $txdma:ident, $rxtxdma:ident) => {
-        pub type $rxdma<REMAP, PINS> = SpiRxDma<$SPIi, REMAP, PINS, $RCi>;
-        pub type $txdma<REMAP, PINS> = SpiTxDma<$SPIi, REMAP, PINS, $TCi>;
-        pub type $rxtxdma<REMAP, PINS> = SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi>;
+        pub type $rxdma<REMAP, PINS, OP> = SpiRxDma<$SPIi, REMAP, PINS, OP, $RCi>;
+        pub type $txdma<REMAP, PINS, OP> = SpiTxDma<$SPIi, REMAP, PINS, OP, $TCi>;
+        pub type $rxtxdma<REMAP, PINS, OP> = SpiRxTxDma<$SPIi, REMAP, PINS, OP, $RCi, $TCi>;
 
-        impl<REMAP, PINS> Transmit for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
+        impl<REMAP, PINS, OP> Transmit for SpiTxDma<$SPIi, REMAP, PINS, OP, $TCi> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<REMAP, PINS> Receive for SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+        impl<REMAP, PINS, OP> Receive for SpiRxDma<$SPIi, REMAP, PINS, OP, $RCi> {
             type RxChannel = $RCi;
             type TransmittedWord = u8;
         }
 
-        impl<REMAP, PINS> Transmit for SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+        impl<REMAP, PINS, OP> Transmit for SpiRxTxDma<$SPIi, REMAP, PINS, OP, $RCi, $TCi> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<REMAP, PINS> Receive for SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+        impl<REMAP, PINS, OP> Receive for SpiRxTxDma<$SPIi, REMAP, PINS, OP, $RCi, $TCi> {
             type RxChannel = $RCi;
             type TransmittedWord = u8;
         }
 
-        impl<REMAP, PINS> Spi<$SPIi, REMAP, PINS, u8> {
-            pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
+        impl<REMAP, PINS, OP> Spi<$SPIi, REMAP, PINS, u8, OP> {
+            pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, REMAP, PINS, OP, $TCi> {
                 self.spi.cr2.modify(|_, w| w.txdmaen().set_bit());
                 SpiTxDma {
                     payload: self,
                     channel,
                 }
             }
-            pub fn with_rx_dma(self, channel: $RCi) -> SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+            pub fn with_rx_dma(self, channel: $RCi) -> SpiRxDma<$SPIi, REMAP, PINS, OP, $RCi> {
                 self.spi.cr2.modify(|_, w| w.rxdmaen().set_bit());
                 SpiRxDma {
                     payload: self,
@@ -551,7 +758,7 @@ macro_rules! spi_dma {
                 self,
                 rxchannel: $RCi,
                 txchannel: $TCi,
-            ) -> SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+            ) -> SpiRxTxDma<$SPIi, REMAP, PINS, OP, $RCi, $TCi> {
                 self.spi
                     .cr2
                     .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
@@ -563,24 +770,24 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<REMAP, PINS> SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
-            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $TCi) {
+        impl<REMAP, PINS, OP> SpiTxDma<$SPIi, REMAP, PINS, OP, $TCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8, OP>, $TCi) {
                 let SpiTxDma { payload, channel } = self;
                 payload.spi.cr2.modify(|_, w| w.txdmaen().clear_bit());
                 (payload, channel)
             }
         }
 
-        impl<REMAP, PINS> SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
-            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $RCi) {
+        impl<REMAP, PINS, OP> SpiRxDma<$SPIi, REMAP, PINS, OP, $RCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8, OP>, $RCi) {
                 let SpiRxDma { payload, channel } = self;
                 payload.spi.cr2.modify(|_, w| w.rxdmaen().clear_bit());
                 (payload, channel)
             }
         }
 
-        impl<REMAP, PINS> SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
-            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8>, $RCi, $TCi) {
+        impl<REMAP, PINS, OP> SpiRxTxDma<$SPIi, REMAP, PINS, OP, $RCi, $TCi> {
+            pub fn release(self) -> (Spi<$SPIi, REMAP, PINS, u8, OP>, $RCi, $TCi) {
                 let SpiRxTxDma {
                     payload,
                     rxchannel,
@@ -594,7 +801,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<REMAP, PINS> TransferPayload for SpiTxDma<$SPIi, REMAP, PINS, $TCi> {
+        impl<REMAP, PINS, OP> TransferPayload for SpiTxDma<$SPIi, REMAP, PINS, OP, $TCi> {
             fn start(&mut self) {
                 self.channel.start();
             }
@@ -603,7 +810,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<REMAP, PINS> TransferPayload for SpiRxDma<$SPIi, REMAP, PINS, $RCi> {
+        impl<REMAP, PINS, OP> TransferPayload for SpiRxDma<$SPIi, REMAP, PINS, OP, $RCi> {
             fn start(&mut self) {
                 self.channel.start();
             }
@@ -612,7 +819,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<REMAP, PINS> TransferPayload for SpiRxTxDma<$SPIi, REMAP, PINS, $RCi, $TCi> {
+        impl<REMAP, PINS, OP> TransferPayload for SpiRxTxDma<$SPIi, REMAP, PINS, OP, $RCi, $TCi> {
             fn start(&mut self) {
                 self.rxchannel.start();
                 self.txchannel.start();
@@ -623,7 +830,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<B, REMAP, PIN> crate::dma::ReadDma<B, u8> for SpiRxDma<$SPIi, REMAP, PIN, $RCi>
+        impl<B, REMAP, PIN, OP> crate::dma::ReadDma<B, u8> for SpiRxDma<$SPIi, REMAP, PIN, OP, $RCi>
         where
             B: WriteBuffer<Word = u8>,
         {
@@ -666,7 +873,8 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<B, REMAP, PIN> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, REMAP, PIN, $TCi>
+        impl<B, REMAP, PIN, OP> crate::dma::WriteDma<B, u8>
+            for SpiTxDma<$SPIi, REMAP, PIN, OP, $TCi>
         where
             B: ReadBuffer<Word = u8>,
         {
@@ -709,8 +917,8 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<RXB, TXB, REMAP, PIN> crate::dma::ReadWriteDma<RXB, TXB, u8>
-            for SpiRxTxDma<$SPIi, REMAP, PIN, $RCi, $TCi>
+        impl<RXB, TXB, REMAP, PIN, OP> crate::dma::ReadWriteDma<RXB, TXB, u8>
+            for SpiRxTxDma<$SPIi, REMAP, PIN, OP, $RCi, $TCi>
         where
             RXB: WriteBuffer<Word = u8>,
             TXB: ReadBuffer<Word = u8>,
