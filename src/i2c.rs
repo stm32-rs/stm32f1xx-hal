@@ -11,8 +11,6 @@ use crate::pac::{DWT, I2C1, I2C2, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{kHz, Hertz};
 use core::ops::Deref;
-use nb::Error::{Other, WouldBlock};
-use nb::{Error as NbError, Result as NbResult};
 
 pub mod blocking;
 pub use blocking::BlockingI2c;
@@ -30,7 +28,7 @@ pub enum Error {
     /// Overrun/underrun
     Overrun,
     // Pec, // SMBUS mode only
-    // Timeout, // SMBUS mode only
+    Timeout,
     // Alert, // SMBUS mode only
 }
 

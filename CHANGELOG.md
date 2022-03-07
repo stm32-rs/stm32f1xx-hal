@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `flash`: add one-cycle delay of reading `BSY` bit after setting `STRT` bit to
            fix errata.
 - `PwmHz::get_period`: fix computation of return value, prevent division by zero
+- return `i2c::Error::Timeout` instead of `nb::WouldBlock` when time is out
 
 ### Breaking changes
 
