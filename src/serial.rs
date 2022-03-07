@@ -340,7 +340,7 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
         // what they're doing.
         self.tx.flush()?;
 
-        apply_config::<USART>(config.into(), &clocks);
+        apply_config::<USART>(config.into(), clocks);
         nb::Result::Ok(())
     }
 
@@ -382,7 +382,7 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     let usart = unsafe { &*USART::ptr() };
 
     // Configure baud rate
-    let brr = USART::clock(&clocks).raw() / config.baudrate.0;
+    let brr = USART::clock(clocks).raw() / config.baudrate.0;
     assert!(brr >= 16, "impossible baud rate");
     usart.brr.write(|w| unsafe { w.bits(brr) });
 
@@ -428,7 +428,7 @@ pub fn reconfigure<USART: Instance>(
     // what they're doing.
     tx.flush()?;
 
-    apply_config::<USART>(config.into(), &clocks);
+    apply_config::<USART>(config.into(), clocks);
     nb::Result::Ok(())
 }
 
