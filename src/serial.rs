@@ -369,54 +369,51 @@ where
         // over -- regarding reception, we assume that the caller -- with
         // exclusive access to the Serial instance due to &mut self -- knows
         // what they're doing.
-        if self.usart.sr.read().tc().bit_is_clear() {
-            return nb::Result::Err(nb::Error::WouldBlock);
-        }
+        self.tx.flush()?;
         Self::apply_config(&self.usart, config.into(), clocks);
-        nb::Result::Ok(())
+        Ok(())
     }
 
     /// Starts listening to the USART by enabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
     pub fn listen(&mut self, event: Event) {
-        self.usart.cr1.modify(|_, w| match event {
-            Event::Rxne => w.rxneie().set_bit(),
-            Event::Txe => w.txeie().set_bit(),
-            Event::Idle => w.idleie().set_bit(),
-        });
+        match event {
+            Event::Rxne => self.rx.listen(),
+            Event::Txe => self.tx.listen(),
+            Event::Idle => self.rx.listen_idle(),
+        }
     }
 
     /// Stops listening to the USART by disabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
     pub fn unlisten(&mut self, event: Event) {
-        self.usart.cr1.modify(|_, w| match event {
-            Event::Rxne => w.rxneie().clear_bit(),
-            Event::Txe => w.txeie().clear_bit(),
-            Event::Idle => w.idleie().clear_bit(),
-        });
+        match event {
+            Event::Rxne => self.rx.unlisten(),
+            Event::Txe => self.tx.unlisten(),
+            Event::Idle => self.rx.unlisten_idle(),
+        }
     }
 
     /// Returns true if the line idle status is set
     pub fn is_idle(&self) -> bool {
-        self.usart.sr.read().idle().bit_is_set()
+        self.rx.is_idle()
     }
 
     /// Returns true if the tx register is empty (and can accept data)
     pub fn is_tx_empty(&self) -> bool {
-        self.usart.sr.read().txe().bit_is_set()
+        self.tx.is_tx_empty()
     }
 
     /// Returns true if the rx register is not empty (and can be read)
     pub fn is_rx_not_empty(&self) -> bool {
-        self.usart.sr.read().rxne().bit_is_set()
+        self.rx.is_rx_not_empty()
     }
 
     /// Clear idle line interrupt flag
     pub fn clear_idle_interrupt(&self) {
-        let _ = self.usart.sr.read();
-        let _ = self.usart.dr.read();
+        self.rx.clear_idle_interrupt();
     }
 
     /// Returns ownership of the borrowed register handles
