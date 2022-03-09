@@ -121,36 +121,32 @@ pub enum Error {
 // USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
 // Section 9.3.8
 pub trait Pins<USART> {
-    const REMAP: u8;
+    fn remap(mapr: &mut MAPR);
 }
 
-impl<INMODE, OUTMODE> Pins<USART1> for (gpio::PA9<Alternate<OUTMODE>>, gpio::PA10<Input<INMODE>>) {
-    const REMAP: u8 = 0;
+macro_rules! remap {
+    ($($USART:ty, $TX:ident, $RX:ident => { $remapex:expr };)+) => {
+        $(
+            impl<INMODE, OUTMODE> Pins<$USART> for (gpio::$TX<Alternate<OUTMODE>>, gpio::$RX<Input<INMODE>>) {
+                fn remap(mapr: &mut MAPR) {
+                    mapr.modify_mapr($remapex);
+                }
+            }
+        )+
+    }
 }
 
-impl<INMODE, OUTMODE> Pins<USART1> for (gpio::PB6<Alternate<OUTMODE>>, gpio::PB7<Input<INMODE>>) {
-    const REMAP: u8 = 1;
-}
+remap!(
+    USART1, PA9, PA10 => { |_, w| w.usart1_remap().bit(false) };
+    USART1, PB6, PB7  => { |_, w| w.usart1_remap().bit(true) };
 
-impl<INMODE, OUTMODE> Pins<USART2> for (gpio::PA2<Alternate<OUTMODE>>, gpio::PA3<Input<INMODE>>) {
-    const REMAP: u8 = 0;
-}
+    USART2, PA2, PA3 => { |_, w| w.usart2_remap().bit(false) };
+    USART2, PD5, PD6 => { |_, w| w.usart2_remap().bit(true) };
 
-impl<INMODE, OUTMODE> Pins<USART2> for (gpio::PD5<Alternate<OUTMODE>>, gpio::PD6<Input<INMODE>>) {
-    const REMAP: u8 = 1;
-}
-
-impl<INMODE, OUTMODE> Pins<USART3> for (gpio::PB10<Alternate<OUTMODE>>, gpio::PB11<Input<INMODE>>) {
-    const REMAP: u8 = 0;
-}
-
-impl<INMODE, OUTMODE> Pins<USART3> for (gpio::PC10<Alternate<OUTMODE>>, gpio::PC11<Input<INMODE>>) {
-    const REMAP: u8 = 1;
-}
-
-impl<INMODE, OUTMODE> Pins<USART3> for (gpio::PD8<Alternate<OUTMODE>>, gpio::PD9<Input<INMODE>>) {
-    const REMAP: u8 = 0b11;
-}
+    USART3, PB10, PB11 => { |_, w| unsafe { w.usart3_remap().bits(0b00)} };
+    USART3, PC10, PC11 => { |_, w| unsafe { w.usart3_remap().bits(0b01)} };
+    USART3, PD8, PD9 => { |_, w| unsafe { w.usart3_remap().bits(0b11)} };
+);
 
 pub enum WordLength {
     /// When parity is enabled, a word has 7 data bits + 1 parity bit,
@@ -431,9 +427,6 @@ macro_rules! hal {
         $(#[$meta:meta])*
         $USARTX:ident: (
             $usartX:ident,
-            $usartX_remap:ident,
-            $bit:ident,
-            $closure:expr,
         ),
     ) => {
         impl Instance for $USARTX {
@@ -473,10 +466,7 @@ macro_rules! hal {
             {
                 #[allow(unused_unsafe)]
                 Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config.into(), clocks, || {
-                    mapr.modify_mapr(|_, w| unsafe {
-                        #[allow(clippy::redundant_closure_call)]
-                        w.$usartX_remap().$bit(($closure)(PINS::REMAP))
-                    })
+                    PINS::remap(mapr);
                 })
             }
         }
@@ -488,27 +478,18 @@ hal! {
     /// # USART1 functions
     USART1: (
         usart1,
-        usart1_remap,
-        bit,
-        |remap| remap == 1,
     ),
 }
 hal! {
     /// # USART2 functions
     USART2: (
         usart2,
-        usart2_remap,
-        bit,
-        |remap| remap == 1,
     ),
 }
 hal! {
     /// # USART3 functions
     USART3: (
         usart3,
-        usart3_remap,
-        bits,
-        |remap| remap,
     ),
 }
 
