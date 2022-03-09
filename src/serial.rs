@@ -35,7 +35,7 @@
 //! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
 //! let pin_rx = gpioa.pa10;
 //! // Create an interface struct for USART1 with 9600 Baud
-//! let serial = Serial::usart1(
+//! let serial = Serial::new(
 //!     p.USART1,
 //!     (pin_tx, pin_rx),
 //!     &mut afio.mapr,
@@ -297,30 +297,59 @@ impl<USART, PINS, WORD> Serial<USART, PINS, WORD>
 where
     USART: Instance,
 {
-    fn init(self, config: Config, clocks: &Clocks, remap: impl FnOnce()) -> Self {
-        // enable and reset $USARTX
+    /// Configures the serial interface and creates the interface
+    /// struct.
+    ///
+    /// `Bps` is the baud rate of the interface.
+    ///
+    /// `Clocks` passes information about the current frequencies of
+    /// the clocks.  The existence of the struct ensures that the
+    /// clock settings are fixed.
+    ///
+    /// The `serial` struct takes ownership over the `USARTX` device
+    /// registers and the specified `PINS`
+    ///
+    /// `MAPR` and `APBX` are register handles which are passed for
+    /// configuration. (`MAPR` is used to map the USART to the
+    /// corresponding pins. `APBX` is used to reset the USART.)
+    pub fn new(
+        usart: USART,
+        pins: PINS,
+        mapr: &mut MAPR,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> Self
+    where
+        PINS: Pins<USART>,
+    {
+        // Enable and reset USART
         let rcc = unsafe { &(*RCC::ptr()) };
         USART::enable(rcc);
         USART::reset(rcc);
 
-        remap();
-        self.apply_config(config, clocks);
+        PINS::remap(mapr);
+        Self::apply_config(&usart, config.into(), clocks);
 
         // UE: enable USART
         // RE: enable receiver
         // TE: enable transceiver
-        self.usart
+        usart
             .cr1
             .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
-        self
+        Serial {
+            usart,
+            pins,
+            tx: Tx::new(),
+            rx: Rx::new(),
+        }
     }
 
-    fn apply_config(&self, config: Config, clocks: &Clocks) {
+    fn apply_config(usart: &USART, config: Config, clocks: &Clocks) {
         // Configure baud rate
         let brr = USART::clock(clocks).raw() / config.baudrate.0;
         assert!(brr >= 16, "impossible baud rate");
-        self.usart.brr.write(|w| unsafe { w.bits(brr) });
+        usart.brr.write(|w| unsafe { w.bits(brr) });
 
         // Configure word
         let (parity_is_used, parity_is_odd) = match config.parity {
@@ -328,7 +357,7 @@ where
             Parity::ParityEven => (true, false),
             Parity::ParityOdd => (true, true),
         };
-        self.usart.cr1.modify(|_r, w| {
+        usart.cr1.modify(|_r, w| {
             w.m().bit(match config.wordlength {
                 WordLength::Bits8 => false,
                 WordLength::Bits9 => true,
@@ -344,7 +373,7 @@ where
             StopBits::STOP2 => 0b10,
             StopBits::STOP1P5 => 0b11,
         };
-        self.usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
+        usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
     }
 
     /// Reconfigure the USART instance.
@@ -363,7 +392,7 @@ where
         if self.usart.sr.read().tc().bit_is_clear() {
             return nb::Result::Err(nb::Error::WouldBlock);
         }
-        self.apply_config(config.into(), clocks);
+        Self::apply_config(&self.usart, config.into(), clocks);
         nb::Result::Ok(())
     }
 
@@ -424,73 +453,24 @@ where
 
 macro_rules! hal {
     (
-        $(#[$meta:meta])*
-        $USARTX:ident: (
-            $usartX:ident,
-        ),
+        $USARTX:ident,
     ) => {
         impl Instance for $USARTX {
             fn ptr() -> *const uart_base::RegisterBlock {
                 <$USARTX>::ptr() as *const _
             }
         }
-
-        $(#[$meta])*
-        /// The behaviour of the functions is equal for all three USARTs.
-        /// Except that they are using the corresponding USART hardware and pins.
-        impl<PINS> Serial<$USARTX, PINS> {
-            /// Configures the serial interface and creates the interface
-            /// struct.
-            ///
-            /// `Bps` is the baud rate of the interface.
-            ///
-            /// `Clocks` passes information about the current frequencies of
-            /// the clocks.  The existence of the struct ensures that the
-            /// clock settings are fixed.
-            ///
-            /// The `serial` struct takes ownership over the `USARTX` device
-            /// registers and the specified `PINS`
-            ///
-            /// `MAPR` and `APBX` are register handles which are passed for
-            /// configuration. (`MAPR` is used to map the USART to the
-            /// corresponding pins. `APBX` is used to reset the USART.)
-            pub fn $usartX(
-                usart: $USARTX,
-                pins: PINS,
-                mapr: &mut MAPR,
-                config: impl Into<Config>,
-                clocks: &Clocks,
-            ) -> Self
-            where
-                PINS: Pins<$USARTX>,
-            {
-                #[allow(unused_unsafe)]
-                Serial { usart, pins, tx: Tx::new(), rx: Rx::new() }.init(config.into(), clocks, || {
-                    PINS::remap(mapr);
-                })
-            }
-        }
-
     };
 }
 
 hal! {
-    /// # USART1 functions
-    USART1: (
-        usart1,
-    ),
+    USART1,
 }
 hal! {
-    /// # USART2 functions
-    USART2: (
-        usart2,
-    ),
+    USART2,
 }
 hal! {
-    /// # USART3 functions
-    USART3: (
-        usart3,
-    ),
+    USART3,
 }
 
 impl<USART> Tx<USART>
