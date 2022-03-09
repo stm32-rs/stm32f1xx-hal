@@ -232,10 +232,15 @@ impl From<Bps> for Config {
 
 use crate::pac::usart1 as uart_base;
 
-/// Serial abstraction
-pub struct Serial<USART, PINS> {
+/// Stores data for release
+pub struct ReleaseToken<USART, PINS> {
     usart: USART,
     pins: PINS,
+}
+
+/// Serial abstraction
+pub struct Serial<USART, PINS> {
+    pub token: ReleaseToken<USART, PINS>,
     pub tx: Tx<USART>,
     pub rx: Rx<USART>,
 }
@@ -318,8 +323,7 @@ where
             .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
         Serial {
-            usart,
-            pins,
+            token: ReleaseToken { usart, pins },
             tx: Tx::new(),
             rx: Rx::new(),
         }
@@ -442,12 +446,36 @@ where
     }
 
     /// Returns ownership of the borrowed register handles
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// let mut serial = Serial::new(usart, (tx_pin, rx_pin), &mut afio.mapr, 9600.bps(), &clocks);
+    ///
+    /// // You can split the `Serial`
+    /// let Serial { tx, rx, token } = serial;
+    ///
+    /// // You can reunite the `Serial` back
+    /// let serial = Serial { tx, rx, token };
+    ///
+    /// // Release `Serial`
+    /// let (usart, (tx_pin, rx_pin)) = serial.release();
+    /// ```
     pub fn release(self) -> (USART, PINS) {
-        (self.usart, self.pins)
+        (self.token.usart, self.token.pins)
     }
 
     /// Separates the serial struct into separate channel objects for sending (Tx) and
     /// receiving (Rx)
+    ///
+    /// If in the future it will be necessary to free up resources,
+    /// then you need to use a different method of separation:
+    ///
+    /// ```
+    /// let Serial { tx, rx, token } = serial;
+    /// ```
     pub fn split(self) -> (Tx<USART>, Rx<USART>) {
         (self.tx, self.rx)
     }
