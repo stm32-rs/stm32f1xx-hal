@@ -64,7 +64,7 @@ fn main() -> ! {
         (tx, rx),
         &mut afio.mapr,
         Config::default().baudrate(9600.bps()),
-        clocks,
+        &clocks,
     );
 
     // Split the serial struct into a receiving and a transmitting part

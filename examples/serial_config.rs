@@ -67,7 +67,7 @@ fn main() -> ! {
             .stopbits(serial::StopBits::STOP2)
             .wordlength_9bits()
             .parity_odd(),
-        clocks,
+        &clocks,
     );
 
     // Split the serial struct into a receiving and a transmitting part

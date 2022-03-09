@@ -43,7 +43,7 @@
 //!         .baudrate(9_600.bps())
 //!         .wordlength_9bits()
 //!         .parity_none(),
-//!     clocks,
+//!     &clocks,
 //! );
 //!
 //! // Switching the 'Word' type parameter for the 'Read' and 'Write' traits between u8 and u16.
@@ -297,7 +297,7 @@ impl<USART, PINS, WORD> Serial<USART, PINS, WORD>
 where
     USART: Instance,
 {
-    fn init(self, config: Config, clocks: Clocks, remap: impl FnOnce()) -> Self {
+    fn init(self, config: Config, clocks: &Clocks, remap: impl FnOnce()) -> Self {
         // enable and reset $USARTX
         let rcc = unsafe { &(*RCC::ptr()) };
         USART::enable(rcc);
@@ -316,9 +316,9 @@ where
         self
     }
 
-    fn apply_config(&self, config: Config, clocks: Clocks) {
+    fn apply_config(&self, config: Config, clocks: &Clocks) {
         // Configure baud rate
-        let brr = USART::clock(&clocks).raw() / config.baudrate.0;
+        let brr = USART::clock(clocks).raw() / config.baudrate.0;
         assert!(brr >= 16, "impossible baud rate");
         self.usart.brr.write(|w| unsafe { w.bits(brr) });
 
@@ -354,7 +354,7 @@ where
     pub fn reconfigure(
         &mut self,
         config: impl Into<Config>,
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> nb::Result<(), Infallible> {
         // if we're currently busy transmitting, we have to wait until that is
         // over -- regarding reception, we assume that the caller -- with
@@ -459,7 +459,7 @@ macro_rules! hal {
                 pins: PINS,
                 mapr: &mut MAPR,
                 config: impl Into<Config>,
-                clocks: Clocks,
+                clocks: &Clocks,
             ) -> Self
             where
                 PINS: Pins<$USARTX>,

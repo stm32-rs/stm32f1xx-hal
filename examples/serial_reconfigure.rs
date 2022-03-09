@@ -65,7 +65,7 @@ fn main() -> ! {
         (tx, rx),
         &mut afio.mapr,
         Config::default().baudrate(9600.bps()),
-        clocks,
+        &clocks,
     );
 
     // Loopback test. Write `X` and wait until the write is successful.
@@ -83,7 +83,7 @@ fn main() -> ! {
 
     // You can reconfigure the serial port to use a different baud rate at runtime.
     // This may block for a while if the transmission is still in progress.
-    block!(serial.reconfigure(Config::default().baudrate(115_200.bps()), clocks)).unwrap();
+    block!(serial.reconfigure(Config::default().baudrate(115_200.bps()), &clocks)).unwrap();
 
     // Let's see if it works.'
     let sent = b'Y';
