@@ -74,30 +74,6 @@ use crate::pac::{RCC, USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
-/// Interrupt event
-pub enum Event {
-    /// New data has been received
-    Rxne,
-    /// New data can be sent
-    Txe,
-    /// Idle line state detected
-    Idle,
-}
-
-/// Serial error
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum Error {
-    /// Framing error
-    Framing,
-    /// Noise error
-    Noise,
-    /// RX buffer overrun
-    Overrun,
-    /// Parity check error
-    Parity,
-}
-
 // USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
 // Section 9.3.8
 pub trait Pins<USART> {
@@ -127,6 +103,47 @@ remap!(
     USART3, PC10, PC11 => { |_, w| unsafe { w.usart3_remap().bits(0b01)} };
     USART3, PD8, PD9 => { |_, w| unsafe { w.usart3_remap().bits(0b11)} };
 );
+
+use crate::pac::usart1 as uart_base;
+
+pub trait Instance:
+    crate::Sealed + Deref<Target = uart_base::RegisterBlock> + Enable + Reset + BusClock
+{
+    #[doc(hidden)]
+    fn ptr() -> *const uart_base::RegisterBlock;
+}
+
+macro_rules! inst {
+    ($($USARTX:ident)+) => {
+        $(
+            impl Instance for $USARTX {
+                fn ptr() -> *const uart_base::RegisterBlock {
+                    <$USARTX>::ptr() as *const _
+                }
+            }
+        )+
+    };
+}
+
+inst! {
+    USART1
+    USART2
+    USART3
+}
+
+/// Serial error
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum Error {
+    /// Framing error
+    Framing,
+    /// Noise error
+    Noise,
+    /// RX buffer overrun
+    Overrun,
+    /// Parity check error
+    Parity,
+}
 
 pub enum WordLength {
     /// When parity is enabled, a word has 7 data bits + 1 parity bit,
@@ -167,6 +184,21 @@ impl Config {
         self
     }
 
+    pub fn wordlength(mut self, wordlength: WordLength) -> Self {
+        self.wordlength = wordlength;
+        self
+    }
+
+    pub fn wordlength_8bits(mut self) -> Self {
+        self.wordlength = WordLength::Bits8;
+        self
+    }
+
+    pub fn wordlength_9bits(mut self) -> Self {
+        self.wordlength = WordLength::Bits9;
+        self
+    }
+
     pub fn parity(mut self, parity: Parity) -> Self {
         self.parity = parity;
         self
@@ -184,21 +216,6 @@ impl Config {
 
     pub fn parity_odd(mut self) -> Self {
         self.parity = Parity::ParityOdd;
-        self
-    }
-
-    pub fn wordlength_8bits(mut self) -> Self {
-        self.wordlength = WordLength::Bits8;
-        self
-    }
-
-    pub fn wordlength_9bits(mut self) -> Self {
-        self.wordlength = WordLength::Bits9;
-        self
-    }
-
-    pub fn wordlength(mut self, wordlength: WordLength) -> Self {
-        self.wordlength = wordlength;
         self
     }
 
@@ -225,26 +242,16 @@ impl From<Bps> for Config {
     }
 }
 
-use crate::pac::usart1 as uart_base;
-
-/// Stores data for release
-pub struct ReleaseToken<USART, PINS> {
-    usart: USART,
-    pins: PINS,
-}
-
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
-    pub token: ReleaseToken<USART, PINS>,
     pub tx: Tx<USART>,
     pub rx: Rx<USART>,
+    pub token: ReleaseToken<USART, PINS>,
 }
 
-pub trait Instance:
-    crate::Sealed + Deref<Target = uart_base::RegisterBlock> + Enable + Reset + BusClock
-{
-    #[doc(hidden)]
-    fn ptr() -> *const uart_base::RegisterBlock;
+/// Serial transmitter
+pub struct Tx<USART> {
+    _usart: PhantomData<USART>,
 }
 
 /// Serial receiver
@@ -252,9 +259,10 @@ pub struct Rx<USART> {
     _usart: PhantomData<USART>,
 }
 
-/// Serial transmitter
-pub struct Tx<USART> {
-    _usart: PhantomData<USART>,
+/// Stores data for release
+pub struct ReleaseToken<USART, PINS> {
+    usart: USART,
+    pins: PINS,
 }
 
 impl<USART: Instance, PINS> Serial<USART, PINS> {
@@ -289,64 +297,30 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
         USART::reset(rcc);
 
         PINS::remap(mapr);
+
         apply_config::<USART>(config.into(), clocks);
 
         // UE: enable USART
-        // RE: enable receiver
         // TE: enable transceiver
+        // RE: enable receiver
         usart.cr1.modify(|_r, w| {
             w.ue().set_bit();
-            w.re().set_bit();
             w.te().set_bit();
+            w.re().set_bit();
             w
         });
 
         Serial {
-            token: ReleaseToken { usart, pins },
             tx: Tx {
                 _usart: PhantomData,
             },
             rx: Rx {
                 _usart: PhantomData,
             },
+            token: ReleaseToken { usart, pins },
         }
     }
-}
 
-fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
-    let usart = unsafe { &*USART::ptr() };
-
-    // Configure baud rate
-    let brr = USART::clock(clocks).raw() / config.baudrate.0;
-    assert!(brr >= 16, "impossible baud rate");
-    usart.brr.write(|w| unsafe { w.bits(brr) });
-
-    // Configure word
-    usart.cr1.modify(|_r, w| {
-        w.m().bit(match config.wordlength {
-            WordLength::Bits8 => false,
-            WordLength::Bits9 => true,
-        });
-        use crate::pac::usart1::cr1::PS_A;
-        w.ps().variant(match config.parity {
-            Parity::ParityOdd => PS_A::ODD,
-            _ => PS_A::EVEN,
-        });
-        w.pce().bit(!matches!(config.parity, Parity::ParityNone));
-        w
-    });
-
-    // Configure stop bits
-    let stop_bits = match config.stopbits {
-        StopBits::STOP1 => 0b00,
-        StopBits::STOP0P5 => 0b01,
-        StopBits::STOP2 => 0b10,
-        StopBits::STOP1P5 => 0b11,
-    };
-    usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
-}
-
-impl<USART: Instance, PINS> Serial<USART, PINS> {
     /// Reconfigure the USART instance.
     ///
     /// If a transmission is currently in progress, this returns
@@ -357,69 +331,6 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
         clocks: &Clocks,
     ) -> nb::Result<(), Infallible> {
         reconfigure(&mut self.tx, &mut self.rx, config, clocks)
-    }
-}
-
-/// Reconfigure the USART instance.
-///
-/// If a transmission is currently in progress, this returns
-/// [`nb::Error::WouldBlock`].
-pub fn reconfigure<USART: Instance>(
-    tx: &mut Tx<USART>,
-    #[allow(unused_variables)] rx: &mut Rx<USART>,
-    config: impl Into<Config>,
-    clocks: &Clocks,
-) -> nb::Result<(), Infallible> {
-    // if we're currently busy transmitting, we have to wait until that is
-    // over -- regarding reception, we assume that the caller -- with
-    // exclusive access to the Serial instance due to &mut self -- knows
-    // what they're doing.
-    tx.flush()?;
-    apply_config::<USART>(config.into(), clocks);
-    Ok(())
-}
-
-impl<USART: Instance, PINS> Serial<USART, PINS> {
-    /// Starts listening to the USART by enabling the _Received data
-    /// ready to be read (RXNE)_ interrupt and _Transmit data
-    /// register empty (TXE)_ interrupt
-    pub fn listen(&mut self, event: Event) {
-        match event {
-            Event::Rxne => self.rx.listen(),
-            Event::Txe => self.tx.listen(),
-            Event::Idle => self.rx.listen_idle(),
-        }
-    }
-
-    /// Stops listening to the USART by disabling the _Received data
-    /// ready to be read (RXNE)_ interrupt and _Transmit data
-    /// register empty (TXE)_ interrupt
-    pub fn unlisten(&mut self, event: Event) {
-        match event {
-            Event::Rxne => self.rx.unlisten(),
-            Event::Txe => self.tx.unlisten(),
-            Event::Idle => self.rx.unlisten_idle(),
-        }
-    }
-
-    /// Returns true if the line idle status is set
-    pub fn is_idle(&self) -> bool {
-        self.rx.is_idle()
-    }
-
-    /// Returns true if the tx register is empty (and can accept data)
-    pub fn is_tx_empty(&self) -> bool {
-        self.tx.is_tx_empty()
-    }
-
-    /// Returns true if the rx register is not empty (and can be read)
-    pub fn is_rx_not_empty(&self) -> bool {
-        self.rx.is_rx_not_empty()
-    }
-
-    /// Clear idle line interrupt flag
-    pub fn clear_idle_interrupt(&self) {
-        self.rx.clear_idle_interrupt();
     }
 
     /// Returns ownership of the borrowed register handles
@@ -458,25 +369,64 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
     }
 }
 
-macro_rules! inst {
-    ($($USARTX:ident)+) => {
-        $(
-            impl Instance for $USARTX {
-                fn ptr() -> *const uart_base::RegisterBlock {
-                    <$USARTX>::ptr() as *const _
-                }
-            }
-        )+
+fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
+    let usart = unsafe { &*USART::ptr() };
+
+    // Configure baud rate
+    let brr = USART::clock(clocks).raw() / config.baudrate.0;
+    assert!(brr >= 16, "impossible baud rate");
+    usart.brr.write(|w| unsafe { w.bits(brr) });
+
+    // Configure word
+    usart.cr1.modify(|_r, w| {
+        w.m().bit(match config.wordlength {
+            WordLength::Bits8 => false,
+            WordLength::Bits9 => true,
+        });
+        use crate::pac::usart1::cr1::PS_A;
+        w.ps().variant(match config.parity {
+            Parity::ParityOdd => PS_A::ODD,
+            _ => PS_A::EVEN,
+        });
+        w.pce().bit(!matches!(config.parity, Parity::ParityNone));
+        w
+    });
+
+    // Configure stop bits
+    let stop_bits = match config.stopbits {
+        StopBits::STOP1 => 0b00,
+        StopBits::STOP0P5 => 0b01,
+        StopBits::STOP2 => 0b10,
+        StopBits::STOP1P5 => 0b11,
     };
+    usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
 }
 
-inst! {
-    USART1
-    USART2
-    USART3
+/// Reconfigure the USART instance.
+///
+/// If a transmission is currently in progress, this returns
+/// [`nb::Error::WouldBlock`].
+pub fn reconfigure<USART: Instance>(
+    tx: &mut Tx<USART>,
+    #[allow(unused_variables)] rx: &mut Rx<USART>,
+    config: impl Into<Config>,
+    clocks: &Clocks,
+) -> nb::Result<(), Infallible> {
+    // if we're currently busy transmitting, we have to wait until that is
+    // over -- regarding reception, we assume that the caller -- with
+    // exclusive access to the Serial instance due to &mut self -- knows
+    // what they're doing.
+    tx.flush()?;
+    apply_config::<USART>(config.into(), clocks);
+    Ok(())
 }
 
 impl<USART: Instance> Tx<USART> {
+    /// Writes 9-bit words to the UART/USART
+    ///
+    /// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
+    /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
+    /// will be transmitted and the other 8 bits will be ignored.
     pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Infallible> {
         let usart = unsafe { &*USART::ptr() };
 
@@ -533,6 +483,66 @@ impl<USART: Instance> Tx<USART> {
     /// Returns true if the tx register is empty (and can accept data)
     pub fn is_tx_empty(&self) -> bool {
         unsafe { (*USART::ptr()).sr.read().txe().bit_is_set() }
+    }
+
+    pub fn is_tx_complete(&self) -> bool {
+        unsafe { (*USART::ptr()).sr.read().tc().bit_is_set() }
+    }
+}
+
+impl<USART: Instance> embedded_hal::serial::Write<u8> for Tx<USART> {
+    type Error = Infallible;
+
+    fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
+        self.write(word)
+    }
+
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        self.flush()
+    }
+}
+
+impl<USART: Instance> embedded_hal::serial::Write<u16> for Tx<USART> {
+    type Error = Infallible;
+
+    fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
+        self.write_u16(word)
+    }
+
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        self.flush()
+    }
+}
+
+impl<USART: Instance> embedded_hal::blocking::serial::Write<u8> for Tx<USART> {
+    type Error = Infallible;
+
+    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
+        self.bwrite_all(buffer)
+    }
+
+    fn bflush(&mut self) -> Result<(), Self::Error> {
+        self.bflush()
+    }
+}
+
+impl<USART: Instance> embedded_hal::blocking::serial::Write<u16> for Tx<USART> {
+    type Error = Infallible;
+
+    fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
+        self.bwrite_all_u16(buffer)
+    }
+
+    fn bflush(&mut self) -> Result<(), Self::Error> {
+        self.bflush()
+    }
+}
+
+impl<USART: Instance> core::fmt::Write for Tx<USART> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        s.bytes()
+            .try_for_each(|c| nb::block!(self.write(c)))
+            .map_err(|_| core::fmt::Error)
     }
 }
 
@@ -619,22 +629,6 @@ impl<USART: Instance> Rx<USART> {
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::serial::Read<u16> for Serial<USART, PINS> {
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u16, Error> {
-        self.rx.read_u16()
-    }
-}
-
-impl<USART: Instance, PINS> embedded_hal::serial::Read<u8> for Serial<USART, PINS> {
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u8, Error> {
-        self.rx.read()
-    }
-}
-
 impl<USART: Instance> embedded_hal::serial::Read<u8> for Rx<USART> {
     type Error = Error;
 
@@ -651,94 +645,81 @@ impl<USART: Instance> embedded_hal::serial::Read<u16> for Rx<USART> {
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::serial::Write<u16> for Serial<USART, PINS> {
-    type Error = Infallible;
+/// Interrupt event
+pub enum Event {
+    /// New data can be sent
+    Txe,
+    /// New data has been received
+    Rxne,
+    /// Idle line state detected
+    Idle,
+}
 
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.tx.flush()
+impl<USART: Instance, PINS> Serial<USART, PINS> {
+    /// Starts listening to the USART by enabling the _Received data
+    /// ready to be read (RXNE)_ interrupt and _Transmit data
+    /// register empty (TXE)_ interrupt
+    pub fn listen(&mut self, event: Event) {
+        match event {
+            Event::Rxne => self.rx.listen(),
+            Event::Txe => self.tx.listen(),
+            Event::Idle => self.rx.listen_idle(),
+        }
     }
 
-    fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
-        self.tx.write_u16(word)
+    /// Stops listening to the USART by disabling the _Received data
+    /// ready to be read (RXNE)_ interrupt and _Transmit data
+    /// register empty (TXE)_ interrupt
+    pub fn unlisten(&mut self, event: Event) {
+        match event {
+            Event::Rxne => self.rx.unlisten(),
+            Event::Txe => self.tx.unlisten(),
+            Event::Idle => self.rx.unlisten_idle(),
+        }
+    }
+
+    /// Returns true if the line idle status is set
+    pub fn is_idle(&self) -> bool {
+        self.rx.is_idle()
+    }
+
+    /// Returns true if the tx register is empty (and can accept data)
+    pub fn is_tx_empty(&self) -> bool {
+        self.tx.is_tx_empty()
+    }
+
+    /// Returns true if the rx register is not empty (and can be read)
+    pub fn is_rx_not_empty(&self) -> bool {
+        self.rx.is_rx_not_empty()
+    }
+
+    /// Clear idle line interrupt flag
+    pub fn clear_idle_interrupt(&self) {
+        self.rx.clear_idle_interrupt();
     }
 }
 
 impl<USART: Instance, PINS> embedded_hal::serial::Write<u8> for Serial<USART, PINS> {
     type Error = Infallible;
 
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.tx.flush()
-    }
-
     fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
         self.tx.write(word)
     }
-}
 
-impl<USART: Instance> embedded_hal::serial::Write<u8> for Tx<USART> {
-    type Error = Infallible;
-
-    #[inline(always)]
-    fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
-        self.write(word)
-    }
-
-    #[inline(always)]
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.flush()
+        self.tx.flush()
     }
 }
 
-/// Writes 9-bit words to the UART/USART
-///
-/// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
-/// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
-/// will be transmitted and the other 8 bits will be ignored.
-impl<USART: Instance> embedded_hal::serial::Write<u16> for Tx<USART> {
+impl<USART: Instance, PINS> embedded_hal::serial::Write<u16> for Serial<USART, PINS> {
     type Error = Infallible;
-
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.flush()
-    }
 
     fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
-        self.write_u16(word)
-    }
-}
-
-impl<USART: Instance> embedded_hal::blocking::serial::Write<u16> for Tx<USART> {
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
-        self.bwrite_all_u16(buffer)
+        self.tx.write_u16(word)
     }
 
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.bflush()
-    }
-}
-
-impl<USART: Instance> embedded_hal::blocking::serial::Write<u8> for Tx<USART> {
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-        self.bwrite_all(buffer)
-    }
-
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.bflush()
-    }
-}
-
-impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u16> for Serial<USART, PINS> {
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all_u16(buffer)
-    }
-
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.tx.bflush()
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        self.tx.flush()
     }
 }
 
@@ -754,20 +735,37 @@ impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u8> for Serial
     }
 }
 
-impl<USART, PINS> core::fmt::Write for Serial<USART, PINS>
-where
-    Tx<USART>: core::fmt::Write,
-{
+impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u16> for Serial<USART, PINS> {
+    type Error = Infallible;
+
+    fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
+        self.tx.bwrite_all_u16(buffer)
+    }
+
+    fn bflush(&mut self) -> Result<(), Self::Error> {
+        self.tx.bflush()
+    }
+}
+
+impl<USART: Instance, PINS> core::fmt::Write for Serial<USART, PINS> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.tx.write_str(s)
     }
 }
 
-impl<USART: Instance> core::fmt::Write for Tx<USART> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        s.bytes()
-            .try_for_each(|c| nb::block!(self.write(c)))
-            .map_err(|_| core::fmt::Error)
+impl<USART: Instance, PINS> embedded_hal::serial::Read<u8> for Serial<USART, PINS> {
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        self.rx.read()
+    }
+}
+
+impl<USART: Instance, PINS> embedded_hal::serial::Read<u16> for Serial<USART, PINS> {
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u16, Error> {
+        self.rx.read_u16()
     }
 }
 
