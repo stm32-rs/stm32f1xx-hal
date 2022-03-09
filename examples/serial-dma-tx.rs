@@ -55,7 +55,7 @@ fn main() -> ! {
         &clocks,
     );
 
-    let tx = serial.split().0.with_dma(channels.4);
+    let tx = serial.tx.with_dma(channels.4);
 
     let (_, tx) = tx.write(b"The quick brown fox").wait();
 

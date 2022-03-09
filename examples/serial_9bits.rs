@@ -9,13 +9,14 @@
 #![no_main]
 #![no_std]
 
+use core::convert::Infallible;
 use cortex_m_rt::entry;
 use nb::block;
 use panic_halt as _;
 use stm32f1xx_hal::{
     pac,
     prelude::*,
-    serial::{Config, Rx3_16, Serial, Tx3_16},
+    serial::{self, Config, Serial},
 };
 
 // The address of the slave device.
@@ -25,7 +26,10 @@ const SLAVE_ADDR: u8 = 123;
 const MSG_MAX_LEN: usize = u8::MAX as usize;
 
 // Receives a message addressed to the slave device. Returns the size of the received message.
-fn receive_msg(serial_rx: &mut Rx3_16, buf: &mut [u8; MSG_MAX_LEN]) -> usize {
+fn receive_msg<RX>(serial_rx: &mut RX, buf: &mut [u8; MSG_MAX_LEN]) -> usize
+where
+    RX: embedded_hal::serial::Read<u16, Error = serial::Error>,
+{
     enum RxPhase {
         Start,
         Length,
@@ -72,12 +76,13 @@ fn receive_msg(serial_rx: &mut Rx3_16, buf: &mut [u8; MSG_MAX_LEN]) -> usize {
 }
 
 // Send message.
-fn send_msg(mut serial_tx: Tx3_16, msg: &[u8]) -> Tx3_16 {
+fn send_msg<TX>(serial_tx: &mut TX, msg: &[u8])
+where
+    TX: embedded_hal::serial::Write<u8, Error = Infallible>
+        + embedded_hal::serial::Write<u16, Error = Infallible>,
+{
     // Send address.
     block!(serial_tx.write(SLAVE_ADDR as u16 | 0x100)).ok();
-
-    // Switching from u16 to u8 data.
-    let mut serial_tx = serial_tx.with_u8_data();
 
     // Send message len.
     assert!(msg.len() <= MSG_MAX_LEN);
@@ -87,9 +92,6 @@ fn send_msg(mut serial_tx: Tx3_16, msg: &[u8]) -> Tx3_16 {
     for &b in msg {
         block!(serial_tx.write(b)).ok();
     }
-
-    // Switching back from u8 to u16 data.
-    serial_tx.with_u16_data()
 }
 
 #[entry]
@@ -126,9 +128,7 @@ fn main() -> ! {
             .wordlength_9bits()
             .parity_none(),
         &clocks,
-    )
-    // Switching the 'Word' type parameter for the 'Read' and 'Write' traits from u8 to u16.
-    .with_u16_data();
+    );
 
     // Split the serial struct into a transmitting and a receiving part.
     let (mut serial_tx, mut serial_rx) = serial.split();
@@ -140,6 +140,6 @@ fn main() -> ! {
         // Receive message from master device.
         let received_msg_len = receive_msg(&mut serial_rx, &mut buf);
         // Send the received message back.
-        serial_tx = send_msg(serial_tx, &buf[..received_msg_len]);
+        send_msg(&mut serial_tx, &buf[..received_msg_len]);
     }
 }

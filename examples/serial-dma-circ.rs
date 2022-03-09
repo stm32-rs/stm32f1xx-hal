@@ -56,7 +56,7 @@ fn main() -> ! {
         &clocks,
     );
 
-    let rx = serial.split().1.with_dma(channels.5);
+    let rx = serial.rx.with_dma(channels.5);
     let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
 
     let mut circ_buffer = rx.circ_read(buf);

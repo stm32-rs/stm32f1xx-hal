@@ -46,37 +46,21 @@
 //!     &clocks,
 //! );
 //!
-//! // Switching the 'Word' type parameter for the 'Read' and 'Write' traits between u8 and u16.
-//! let serial = serial.with_u16_data();
-//! let serial = serial.with_u8_data();
-//!
 //! // Separate into tx and rx channels
 //! let (mut tx, mut rx) = serial.split();
 //!
-//! // Switch tx to u16.
-//! let mut tx = tx.with_u16_data();
-//!
-//! // Write data to the USART.
+//! // Write data (9 bits) to the USART.
 //! // Depending on the configuration, only the lower 7, 8, or 9 bits are used.
-//! block!(tx.write(0x1FF)).ok();
+//! block!(tx.write_u16(0x1FF)).ok();
 //!
-//! // Switch tx back to u8
-//! let mut tx = tx.with_u8_data();
-//!
-//! // Write 'R' to the USART
+//! // Write 'R' (8 bits) to the USART
 //! block!(tx.write(b'R')).ok();
 //!
-//! // Switch rx to u16.
-//! let mut rx = rx.with_u16_data();
+//! // Receive a data (9 bits) from the USART and store it in "received"
+//! let received = block!(rx.read_u16()).unwrap();
 //!
-//! // Receive a data from the USART and store it in "received"
-//! let received: u16 = block!(rx.read()).unwrap();
-//!
-//! // Switch rx back to u8.
-//! let mut rx = rx.with_u8_data();
-//!
-//! // Receive a data from the USART and store it in "received"
-//! let received: u8 = block!(rx.read()).unwrap();
+//! // Receive a data (8 bits) from the USART and store it in "received"
+//! let received = block!(rx.read()).unwrap();
 //!  ```
 
 use core::convert::Infallible;
@@ -249,11 +233,11 @@ impl From<Bps> for Config {
 use crate::pac::usart1 as uart_base;
 
 /// Serial abstraction
-pub struct Serial<USART, PINS, WORD = u8> {
+pub struct Serial<USART, PINS> {
     usart: USART,
     pins: PINS,
-    tx: Tx<USART, WORD>,
-    rx: Rx<USART, WORD>,
+    pub tx: Tx<USART>,
+    pub rx: Rx<USART>,
 }
 
 pub trait Instance:
@@ -264,36 +248,32 @@ pub trait Instance:
 }
 
 /// Serial receiver
-pub struct Rx<USART, WORD = u8> {
+pub struct Rx<USART> {
     _usart: PhantomData<USART>,
-    _word: PhantomData<WORD>,
 }
 
 /// Serial transmitter
-pub struct Tx<USART, WORD = u8> {
+pub struct Tx<USART> {
     _usart: PhantomData<USART>,
-    _word: PhantomData<WORD>,
 }
 
-impl<USART, WORD> Rx<USART, WORD> {
+impl<USART> Rx<USART> {
     fn new() -> Self {
         Self {
             _usart: PhantomData,
-            _word: PhantomData,
         }
     }
 }
 
-impl<USART, WORD> Tx<USART, WORD> {
+impl<USART> Tx<USART> {
     fn new() -> Self {
         Self {
             _usart: PhantomData,
-            _word: PhantomData,
         }
     }
 }
 
-impl<USART, PINS, WORD> Serial<USART, PINS, WORD>
+impl<USART, PINS> Serial<USART, PINS>
 where
     USART: Instance,
 {
@@ -446,7 +426,7 @@ where
 
     /// Separates the serial struct into separate channel objects for sending (Tx) and
     /// receiving (Rx)
-    pub fn split(self) -> (Tx<USART, WORD>, Rx<USART, WORD>) {
+    pub fn split(self) -> (Tx<USART>, Rx<USART>) {
         (self.tx, self.rx)
     }
 }
@@ -477,6 +457,49 @@ impl<USART> Tx<USART>
 where
     USART: Instance,
 {
+    pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Infallible> {
+        let usart = unsafe { &*USART::ptr() };
+
+        if usart.sr.read().txe().bit_is_set() {
+            usart.dr.write(|w| w.dr().bits(word));
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    pub fn write(&mut self, word: u8) -> nb::Result<(), Infallible> {
+        self.write_u16(word as u16)
+    }
+
+    pub fn bwrite_all_u16(&mut self, buffer: &[u16]) -> Result<(), Infallible> {
+        for &w in buffer {
+            nb::block!(self.write_u16(w))?;
+        }
+        Ok(())
+    }
+
+    pub fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Infallible> {
+        for &w in buffer {
+            nb::block!(self.write(w))?;
+        }
+        Ok(())
+    }
+
+    pub fn flush(&mut self) -> nb::Result<(), Infallible> {
+        let usart = unsafe { &*USART::ptr() };
+
+        if usart.sr.read().tc().bit_is_set() {
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    pub fn bflush(&mut self) -> Result<(), Infallible> {
+        nb::block!(self.flush())
+    }
+
     /// Start listening for transmit interrupt event
     pub fn listen(&mut self) {
         unsafe { (*USART::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
@@ -497,6 +520,49 @@ impl<USART> Rx<USART>
 where
     USART: Instance,
 {
+    /// Reads 9-bit words from the UART/USART
+    ///
+    /// If the UART/USART was configured with `WordLength::Bits9`, the returned value will contain
+    /// 9 received data bits and all other bits set to zero. Otherwise, the returned value will contain
+    /// 8 received data bits and all other bits set to zero.
+    pub fn read_u16(&mut self) -> nb::Result<u16, Error> {
+        let usart = unsafe { &*USART::ptr() };
+        let sr = usart.sr.read();
+
+        // Check for any errors
+        let err = if sr.pe().bit_is_set() {
+            Some(Error::Parity)
+        } else if sr.fe().bit_is_set() {
+            Some(Error::Framing)
+        } else if sr.ne().bit_is_set() {
+            Some(Error::Noise)
+        } else if sr.ore().bit_is_set() {
+            Some(Error::Overrun)
+        } else {
+            None
+        };
+
+        if let Some(err) = err {
+            // Some error occurred. In order to clear that error flag, you have to
+            // do a read from the sr register followed by a read from the dr register.
+            let _ = usart.sr.read();
+            let _ = usart.dr.read();
+            Err(nb::Error::Other(err))
+        } else {
+            // Check if a byte is available
+            if sr.rxne().bit_is_set() {
+                // Read the received byte
+                Ok(usart.dr.read().dr().bits())
+            } else {
+                Err(nb::Error::WouldBlock)
+            }
+        }
+    }
+
+    pub fn read(&mut self) -> nb::Result<u8, Error> {
+        self.read_u16().map(|word16| word16 as u8)
+    }
+
     /// Start listening for receive interrupt event
     pub fn listen(&mut self) {
         unsafe { (*USART::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
@@ -536,138 +602,53 @@ where
     }
 }
 
-impl<USART, PINS> Serial<USART, PINS, u8>
-where
-    USART: Instance,
-{
-    /// Converts this Serial into a version that can read and write `u16` values instead of `u8`s
-    ///
-    /// This can be used with a word length of 9 bits.
-    pub fn with_u16_data(self) -> Serial<USART, PINS, u16> {
-        Serial {
-            usart: self.usart,
-            pins: self.pins,
-            tx: Tx::new(),
-            rx: Rx::new(),
-        }
-    }
-}
-
-impl<USART, PINS> Serial<USART, PINS, u16>
-where
-    USART: Instance,
-{
-    /// Converts this Serial into a version that can read and write `u8` values instead of `u16`s
-    ///
-    /// This can be used with a word length of 8 bits.
-    pub fn with_u8_data(self) -> Serial<USART, PINS, u8> {
-        Serial {
-            usart: self.usart,
-            pins: self.pins,
-            tx: Tx::new(),
-            rx: Rx::new(),
-        }
-    }
-}
-
-impl<USARTX> Rx<USARTX, u8> {
-    pub fn with_u16_data(self) -> Rx<USARTX, u16> {
-        Rx::new()
-    }
-}
-
-impl<USARTX> Rx<USARTX, u16> {
-    pub fn with_u8_data(self) -> Rx<USARTX, u8> {
-        Rx::new()
-    }
-}
-
-impl<USARTX> Tx<USARTX, u8> {
-    pub fn with_u16_data(self) -> Tx<USARTX, u16> {
-        Tx::new()
-    }
-}
-
-impl<USARTX> Tx<USARTX, u16> {
-    pub fn with_u8_data(self) -> Tx<USARTX, u8> {
-        Tx::new()
-    }
-}
-
-impl<USART, PINS, WORD> crate::hal::serial::Read<WORD> for Serial<USART, PINS, WORD>
-where
-    USART: Instance,
-    Rx<USART, WORD>: crate::hal::serial::Read<WORD, Error = Error>,
-{
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<WORD, Error> {
-        self.rx.read()
-    }
-}
-
-impl<USART> crate::hal::serial::Read<u8> for Rx<USART, u8>
-where
-    USART: Instance,
-{
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        // Delegate to the Read<u16> implementation, then truncate to 8 bits
-        Rx::<USART, u16>::new().read().map(|word16| word16 as u8)
-    }
-}
-
-/// Reads 9-bit words from the UART/USART
-///
-/// If the UART/USART was configured with `WordLength::Bits9`, the returned value will contain
-/// 9 received data bits and all other bits set to zero. Otherwise, the returned value will contain
-/// 8 received data bits and all other bits set to zero.
-impl<USART> crate::hal::serial::Read<u16> for Rx<USART, u16>
+impl<USART, PINS> crate::hal::serial::Read<u16> for Serial<USART, PINS>
 where
     USART: Instance,
 {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u16, Error> {
-        let usart = unsafe { &*USART::ptr() };
-        let sr = usart.sr.read();
-
-        // Check for any errors
-        let err = if sr.pe().bit_is_set() {
-            Some(Error::Parity)
-        } else if sr.fe().bit_is_set() {
-            Some(Error::Framing)
-        } else if sr.ne().bit_is_set() {
-            Some(Error::Noise)
-        } else if sr.ore().bit_is_set() {
-            Some(Error::Overrun)
-        } else {
-            None
-        };
-
-        if let Some(err) = err {
-            // Some error occurred. In order to clear that error flag, you have to
-            // do a read from the sr register followed by a read from the dr register.
-            let _ = usart.sr.read();
-            let _ = usart.dr.read();
-            Err(nb::Error::Other(err))
-        } else {
-            // Check if a byte is available
-            if sr.rxne().bit_is_set() {
-                // Read the received byte
-                Ok(usart.dr.read().dr().bits())
-            } else {
-                Err(nb::Error::WouldBlock)
-            }
-        }
+        self.rx.read_u16()
     }
 }
 
-impl<USART, PINS, WORD> crate::hal::serial::Write<WORD> for Serial<USART, PINS, WORD>
+impl<USART, PINS> crate::hal::serial::Read<u8> for Serial<USART, PINS>
 where
     USART: Instance,
-    Tx<USART, WORD>: crate::hal::serial::Write<WORD, Error = Infallible>,
+{
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        self.rx.read()
+    }
+}
+
+impl<USART> crate::hal::serial::Read<u8> for Rx<USART>
+where
+    USART: Instance,
+{
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u8, Self::Error> {
+        self.read()
+    }
+}
+
+impl<USART> crate::hal::serial::Read<u16> for Rx<USART>
+where
+    USART: Instance,
+{
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u16, Error> {
+        self.read_u16()
+    }
+}
+
+impl<USART, PINS> crate::hal::serial::Write<u16> for Serial<USART, PINS>
+where
+    USART: Instance,
 {
     type Error = Infallible;
 
@@ -675,12 +656,27 @@ where
         self.tx.flush()
     }
 
-    fn write(&mut self, byte: WORD) -> nb::Result<(), Self::Error> {
-        self.tx.write(byte)
+    fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
+        self.tx.write_u16(word)
     }
 }
 
-impl<USART> crate::hal::serial::Write<u8> for Tx<USART, u8>
+impl<USART, PINS> crate::hal::serial::Write<u8> for Serial<USART, PINS>
+where
+    USART: Instance,
+{
+    type Error = Infallible;
+
+    fn flush(&mut self) -> nb::Result<(), Self::Error> {
+        self.tx.flush()
+    }
+
+    fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
+        self.tx.write(word)
+    }
+}
+
+impl<USART> crate::hal::serial::Write<u8> for Tx<USART>
 where
     USART: Instance,
 {
@@ -688,14 +684,12 @@ where
 
     #[inline(always)]
     fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
-        // Delegate to u16 version
-        Tx::<USART, u16>::new().write(word as u16)
+        self.write(word)
     }
 
     #[inline(always)]
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        // Delegate to u16 version
-        Tx::<USART, u16>::new().flush()
+        self.flush()
     }
 }
 
@@ -704,78 +698,59 @@ where
 /// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
 /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
 /// will be transmitted and the other 8 bits will be ignored.
-impl<USART> crate::hal::serial::Write<u16> for Tx<USART, u16>
+impl<USART> crate::hal::serial::Write<u16> for Tx<USART>
 where
     USART: Instance,
 {
     type Error = Infallible;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        let usart = unsafe { &*USART::ptr() };
-
-        if usart.sr.read().tc().bit_is_set() {
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+        self.flush()
     }
 
     fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
-        let usart = unsafe { &*USART::ptr() };
-
-        if usart.sr.read().txe().bit_is_set() {
-            usart.dr.write(|w| w.dr().bits(word));
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+        self.write_u16(word)
     }
 }
 
-impl<USART> crate::hal::blocking::serial::Write<u16> for Tx<USART, u16>
+impl<USART> crate::hal::blocking::serial::Write<u16> for Tx<USART>
 where
     USART: Instance,
 {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
-        for &w in buffer {
-            nb::block!(<Self as crate::hal::serial::Write<u16>>::write(self, w))?;
-        }
-        Ok(())
+        self.bwrite_all_u16(buffer)
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
-        nb::block!(<Self as crate::hal::serial::Write<u16>>::flush(self))
+        self.bflush()
     }
 }
 
-impl<USART> crate::hal::blocking::serial::Write<u8> for Tx<USART, u8>
+impl<USART> crate::hal::blocking::serial::Write<u8> for Tx<USART>
 where
     USART: Instance,
 {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-        for &w in buffer {
-            nb::block!(<Self as crate::hal::serial::Write<u8>>::write(self, w))?;
-        }
-        Ok(())
+        self.bwrite_all(buffer)
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
-        nb::block!(<Self as crate::hal::serial::Write<u8>>::flush(self))
+        self.bflush()
     }
 }
 
-impl<USART, PINS> crate::hal::blocking::serial::Write<u16> for Serial<USART, PINS, u16>
+impl<USART, PINS> crate::hal::blocking::serial::Write<u16> for Serial<USART, PINS>
 where
     USART: Instance,
 {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all(buffer)
+        self.tx.bwrite_all_u16(buffer)
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
@@ -783,7 +758,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::blocking::serial::Write<u8> for Serial<USART, PINS, u8>
+impl<USART, PINS> crate::hal::blocking::serial::Write<u8> for Serial<USART, PINS>
 where
     USART: Instance,
 {
@@ -824,13 +799,6 @@ pub type Rx2 = Rx<USART2>;
 pub type Tx2 = Tx<USART2>;
 pub type Rx3 = Rx<USART3>;
 pub type Tx3 = Tx<USART3>;
-
-pub type Rx1_16 = Rx<USART1, u16>;
-pub type Tx1_16 = Tx<USART1, u16>;
-pub type Rx2_16 = Rx<USART2, u16>;
-pub type Tx2_16 = Tx<USART2, u16>;
-pub type Rx3_16 = Rx<USART3, u16>;
-pub type Tx3_16 = Tx<USART3, u16>;
 
 use crate::dma::{Receive, TransferPayload, Transmit};
 

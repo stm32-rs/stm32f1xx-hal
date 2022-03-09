@@ -55,7 +55,7 @@ fn main() -> ! {
         &clocks,
     );
 
-    let rx = serial.split().1.with_dma(channels.5);
+    let rx = serial.rx.with_dma(channels.5);
     let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
 
     let (_buf, _rx) = rx.read(buf).wait();
