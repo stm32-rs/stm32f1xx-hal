@@ -22,25 +22,23 @@
 //! ## Example usage:
 //!
 //!  ```rust
-//! // prelude: create handles to the peripherals and registers
-//! let p = crate::pac::Peripherals::take().unwrap();
-//! let cp = cortex_m::Peripherals::take().unwrap();
-//! let mut flash = p.FLASH.constrain();
-//! let mut rcc = p.RCC.constrain();
+//! let dp = stm32f1xx_hal::Peripherals::take().unwrap();
+//! let mut flash = dp.FLASH.constrain();
+//! let mut rcc = dp.RCC.constrain();
 //! let clocks = rcc.cfgr.freeze(&mut flash.acr);
-//! let mut afio = p.AFIO.constrain();
-//! let mut gpioa = p.GPIOA.split();
+//! let mut afio = dp.AFIO.constrain();
+//! let mut gpioa = dp.GPIOA.split();
 //!
 //! // USART1 on Pins A9 and A10
 //! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
 //! let pin_rx = gpioa.pa10;
 //! // Create an interface struct for USART1 with 9600 Baud
 //! let serial = Serial::new(
-//!     p.USART1,
+//!     dp.USART1,
 //!     (pin_tx, pin_rx),
 //!     &mut afio.mapr,
 //!     Config::default()
-//!         .baudrate(9_600.bps())
+//!         .baudrate(9600.bps())
 //!         .wordlength_9bits()
 //!         .parity_none(),
 //!     &clocks,
@@ -51,10 +49,10 @@
 //!
 //! // Write data (9 bits) to the USART.
 //! // Depending on the configuration, only the lower 7, 8, or 9 bits are used.
-//! block!(tx.write_u16(0x1FF)).ok();
+//! block!(tx.write_u16(0x1FF)).unwrap_infallible();
 //!
 //! // Write 'R' (8 bits) to the USART
-//! block!(tx.write(b'R')).ok();
+//! block!(tx.write(b'R')).unwrap_infallible();
 //!
 //! // Receive a data (9 bits) from the USART and store it in "received"
 //! let received = block!(rx.read_u16()).unwrap();
@@ -68,12 +66,10 @@ use core::marker::PhantomData;
 use core::ops::Deref;
 use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
-use embedded_hal::serial::Write;
 
 use crate::afio::MAPR;
 use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
-use crate::gpio;
-use crate::gpio::{Alternate, Input};
+use crate::gpio::{self, Alternate, Input};
 use crate::pac::{RCC, USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
@@ -214,9 +210,8 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Config {
-        let baudrate = 115_200_u32.bps();
         Config {
-            baudrate,
+            baudrate: 115_200_u32.bps(),
             wordlength: WordLength::Bits8,
             parity: Parity::ParityNone,
             stopbits: StopBits::STOP1,
@@ -262,26 +257,7 @@ pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
-impl<USART> Rx<USART> {
-    fn new() -> Self {
-        Self {
-            _usart: PhantomData,
-        }
-    }
-}
-
-impl<USART> Tx<USART> {
-    fn new() -> Self {
-        Self {
-            _usart: PhantomData,
-        }
-    }
-}
-
-impl<USART, PINS> Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> Serial<USART, PINS> {
     /// Configures the serial interface and creates the interface
     /// struct.
     ///
@@ -318,14 +294,21 @@ where
         // UE: enable USART
         // RE: enable receiver
         // TE: enable transceiver
-        usart
-            .cr1
-            .modify(|_r, w| w.ue().set_bit().re().set_bit().te().set_bit());
+        usart.cr1.modify(|_r, w| {
+            w.ue().set_bit();
+            w.re().set_bit();
+            w.te().set_bit();
+            w
+        });
 
         Serial {
             token: ReleaseToken { usart, pins },
-            tx: Tx::new(),
-            rx: Rx::new(),
+            tx: Tx {
+                _usart: PhantomData,
+            },
+            rx: Rx {
+                _usart: PhantomData,
+            },
         }
     }
 }
@@ -339,18 +322,18 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     usart.brr.write(|w| unsafe { w.bits(brr) });
 
     // Configure word
-    let (parity_is_used, parity_is_odd) = match config.parity {
-        Parity::ParityNone => (false, false),
-        Parity::ParityEven => (true, false),
-        Parity::ParityOdd => (true, true),
-    };
     usart.cr1.modify(|_r, w| {
         w.m().bit(match config.wordlength {
             WordLength::Bits8 => false,
             WordLength::Bits9 => true,
         });
-        w.ps().bit(parity_is_odd);
-        w.pce().bit(parity_is_used)
+        use crate::pac::usart1::cr1::PS_A;
+        w.ps().variant(match config.parity {
+            Parity::ParityOdd => PS_A::ODD,
+            _ => PS_A::EVEN,
+        });
+        w.pce().bit(!matches!(config.parity, Parity::ParityNone));
+        w
     });
 
     // Configure stop bits
@@ -363,10 +346,7 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
 }
 
-impl<USART, PINS> Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> Serial<USART, PINS> {
     /// Reconfigure the USART instance.
     ///
     /// If a transmission is currently in progress, this returns
@@ -399,10 +379,7 @@ pub fn reconfigure<USART: Instance>(
     Ok(())
 }
 
-impl<USART, PINS> Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> Serial<USART, PINS> {
     /// Starts listening to the USART by enabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
@@ -481,32 +458,25 @@ where
     }
 }
 
-macro_rules! hal {
-    (
-        $USARTX:ident,
-    ) => {
-        impl Instance for $USARTX {
-            fn ptr() -> *const uart_base::RegisterBlock {
-                <$USARTX>::ptr() as *const _
+macro_rules! inst {
+    ($($USARTX:ident)+) => {
+        $(
+            impl Instance for $USARTX {
+                fn ptr() -> *const uart_base::RegisterBlock {
+                    <$USARTX>::ptr() as *const _
+                }
             }
-        }
+        )+
     };
 }
 
-hal! {
-    USART1,
-}
-hal! {
-    USART2,
-}
-hal! {
-    USART3,
+inst! {
+    USART1
+    USART2
+    USART3
 }
 
-impl<USART> Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> Tx<USART> {
     pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Infallible> {
         let usart = unsafe { &*USART::ptr() };
 
@@ -566,10 +536,7 @@ where
     }
 }
 
-impl<USART> Rx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> Rx<USART> {
     /// Reads 9-bit words from the UART/USART
     ///
     /// If the UART/USART was configured with `WordLength::Bits9`, the returned value will contain
@@ -652,10 +619,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Read<u16> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> embedded_hal::serial::Read<u16> for Serial<USART, PINS> {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u16, Error> {
@@ -663,10 +627,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Read<u8> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> embedded_hal::serial::Read<u8> for Serial<USART, PINS> {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
@@ -674,10 +635,7 @@ where
     }
 }
 
-impl<USART> crate::hal::serial::Read<u8> for Rx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::serial::Read<u8> for Rx<USART> {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Self::Error> {
@@ -685,10 +643,7 @@ where
     }
 }
 
-impl<USART> crate::hal::serial::Read<u16> for Rx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::serial::Read<u16> for Rx<USART> {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u16, Error> {
@@ -696,10 +651,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Write<u16> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> embedded_hal::serial::Write<u16> for Serial<USART, PINS> {
     type Error = Infallible;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -711,10 +663,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::serial::Write<u8> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> embedded_hal::serial::Write<u8> for Serial<USART, PINS> {
     type Error = Infallible;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -726,10 +675,7 @@ where
     }
 }
 
-impl<USART> crate::hal::serial::Write<u8> for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::serial::Write<u8> for Tx<USART> {
     type Error = Infallible;
 
     #[inline(always)]
@@ -748,10 +694,7 @@ where
 /// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
 /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
 /// will be transmitted and the other 8 bits will be ignored.
-impl<USART> crate::hal::serial::Write<u16> for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::serial::Write<u16> for Tx<USART> {
     type Error = Infallible;
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -763,10 +706,7 @@ where
     }
 }
 
-impl<USART> crate::hal::blocking::serial::Write<u16> for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::blocking::serial::Write<u16> for Tx<USART> {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
@@ -778,10 +718,7 @@ where
     }
 }
 
-impl<USART> crate::hal::blocking::serial::Write<u8> for Tx<USART>
-where
-    USART: Instance,
-{
+impl<USART: Instance> embedded_hal::blocking::serial::Write<u8> for Tx<USART> {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
@@ -793,10 +730,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::blocking::serial::Write<u16> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u16> for Serial<USART, PINS> {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
@@ -808,10 +742,7 @@ where
     }
 }
 
-impl<USART, PINS> crate::hal::blocking::serial::Write<u8> for Serial<USART, PINS>
-where
-    USART: Instance,
-{
+impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u8> for Serial<USART, PINS> {
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
@@ -825,17 +756,14 @@ where
 
 impl<USART, PINS> core::fmt::Write for Serial<USART, PINS>
 where
-    Tx<USART>: embedded_hal::serial::Write<u8>,
+    Tx<USART>: core::fmt::Write,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.tx.write_str(s)
     }
 }
 
-impl<USART> core::fmt::Write for Tx<USART>
-where
-    Tx<USART>: embedded_hal::serial::Write<u8>,
-{
+impl<USART: Instance> core::fmt::Write for Tx<USART> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         s.bytes()
             .try_for_each(|c| nb::block!(self.write(c)))

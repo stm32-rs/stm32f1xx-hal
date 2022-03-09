@@ -18,6 +18,7 @@ use stm32f1xx_hal::{
     prelude::*,
     serial::{self, Config, Serial},
 };
+use unwrap_infallible::UnwrapInfallible;
 
 // The address of the slave device.
 const SLAVE_ADDR: u8 = 123;
@@ -82,15 +83,15 @@ where
         + embedded_hal::serial::Write<u16, Error = Infallible>,
 {
     // Send address.
-    block!(serial_tx.write(SLAVE_ADDR as u16 | 0x100)).ok();
+    block!(serial_tx.write(SLAVE_ADDR as u16 | 0x100)).unwrap_infallible();
 
     // Send message len.
     assert!(msg.len() <= MSG_MAX_LEN);
-    block!(serial_tx.write(msg.len() as u8)).ok();
+    block!(serial_tx.write(msg.len() as u8)).unwrap_infallible();
 
     // Send message.
     for &b in msg {
-        block!(serial_tx.write(b)).ok();
+        block!(serial_tx.write(b)).unwrap_infallible();
     }
 }
 
@@ -117,7 +118,7 @@ fn main() -> ! {
     let tx_pin = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
     let rx_pin = gpiob.pb11;
 
-    // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
+    // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
     let serial = Serial::new(
         p.USART3,

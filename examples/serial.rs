@@ -19,6 +19,7 @@ use stm32f1xx_hal::{
     prelude::*,
     serial::{Config, Serial},
 };
+use unwrap_infallible::UnwrapInfallible;
 
 #[entry]
 fn main() -> ! {
@@ -58,7 +59,7 @@ fn main() -> ! {
     // Take ownership over pb11
     let rx = gpiob.pb11;
 
-    // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
+    // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
     let mut serial = Serial::new(
         p.USART3,
@@ -70,7 +71,7 @@ fn main() -> ! {
 
     // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';
-    block!(serial.tx.write(sent)).ok();
+    block!(serial.tx.write(sent)).unwrap_infallible();
 
     // Read the byte that was just sent. Blocks until the read is complete
     let received = block!(serial.rx.read()).unwrap();
@@ -84,7 +85,7 @@ fn main() -> ! {
     // You can also split the serial struct into a receiving and a transmitting part
     let (mut tx, mut rx) = serial.split();
     let sent = b'Y';
-    block!(tx.write(sent)).ok();
+    block!(tx.write(sent)).unwrap_infallible();
     let received = block!(rx.read()).unwrap();
     assert_eq!(received, sent);
     asm::bkpt();
