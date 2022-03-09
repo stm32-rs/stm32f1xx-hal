@@ -308,7 +308,7 @@ where
         USART::reset(rcc);
 
         PINS::remap(mapr);
-        Self::apply_config(&usart, config.into(), clocks);
+        apply_config::<USART>(config.into(), clocks);
 
         // UE: enable USART
         // RE: enable receiver
@@ -324,38 +324,45 @@ where
             rx: Rx::new(),
         }
     }
+}
 
-    fn apply_config(usart: &USART, config: Config, clocks: &Clocks) {
-        // Configure baud rate
-        let brr = USART::clock(clocks).raw() / config.baudrate.0;
-        assert!(brr >= 16, "impossible baud rate");
-        usart.brr.write(|w| unsafe { w.bits(brr) });
+fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
+    let usart = unsafe { &*USART::ptr() };
 
-        // Configure word
-        let (parity_is_used, parity_is_odd) = match config.parity {
-            Parity::ParityNone => (false, false),
-            Parity::ParityEven => (true, false),
-            Parity::ParityOdd => (true, true),
-        };
-        usart.cr1.modify(|_r, w| {
-            w.m().bit(match config.wordlength {
-                WordLength::Bits8 => false,
-                WordLength::Bits9 => true,
-            });
-            w.ps().bit(parity_is_odd);
-            w.pce().bit(parity_is_used)
+    // Configure baud rate
+    let brr = USART::clock(clocks).raw() / config.baudrate.0;
+    assert!(brr >= 16, "impossible baud rate");
+    usart.brr.write(|w| unsafe { w.bits(brr) });
+
+    // Configure word
+    let (parity_is_used, parity_is_odd) = match config.parity {
+        Parity::ParityNone => (false, false),
+        Parity::ParityEven => (true, false),
+        Parity::ParityOdd => (true, true),
+    };
+    usart.cr1.modify(|_r, w| {
+        w.m().bit(match config.wordlength {
+            WordLength::Bits8 => false,
+            WordLength::Bits9 => true,
         });
+        w.ps().bit(parity_is_odd);
+        w.pce().bit(parity_is_used)
+    });
 
-        // Configure stop bits
-        let stop_bits = match config.stopbits {
-            StopBits::STOP1 => 0b00,
-            StopBits::STOP0P5 => 0b01,
-            StopBits::STOP2 => 0b10,
-            StopBits::STOP1P5 => 0b11,
-        };
-        usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
-    }
+    // Configure stop bits
+    let stop_bits = match config.stopbits {
+        StopBits::STOP1 => 0b00,
+        StopBits::STOP0P5 => 0b01,
+        StopBits::STOP2 => 0b10,
+        StopBits::STOP1P5 => 0b11,
+    };
+    usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
+}
 
+impl<USART, PINS> Serial<USART, PINS>
+where
+    USART: Instance,
+{
     /// Reconfigure the USART instance.
     ///
     /// If a transmission is currently in progress, this returns
@@ -365,15 +372,33 @@ where
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> nb::Result<(), Infallible> {
-        // if we're currently busy transmitting, we have to wait until that is
-        // over -- regarding reception, we assume that the caller -- with
-        // exclusive access to the Serial instance due to &mut self -- knows
-        // what they're doing.
-        self.tx.flush()?;
-        Self::apply_config(&self.usart, config.into(), clocks);
-        Ok(())
+        reconfigure(&mut self.tx, &mut self.rx, config, clocks)
     }
+}
 
+/// Reconfigure the USART instance.
+///
+/// If a transmission is currently in progress, this returns
+/// [`nb::Error::WouldBlock`].
+pub fn reconfigure<USART: Instance>(
+    tx: &mut Tx<USART>,
+    #[allow(unused_variables)] rx: &mut Rx<USART>,
+    config: impl Into<Config>,
+    clocks: &Clocks,
+) -> nb::Result<(), Infallible> {
+    // if we're currently busy transmitting, we have to wait until that is
+    // over -- regarding reception, we assume that the caller -- with
+    // exclusive access to the Serial instance due to &mut self -- knows
+    // what they're doing.
+    tx.flush()?;
+    apply_config::<USART>(config.into(), clocks);
+    Ok(())
+}
+
+impl<USART, PINS> Serial<USART, PINS>
+where
+    USART: Instance,
+{
     /// Starts listening to the USART by enabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt

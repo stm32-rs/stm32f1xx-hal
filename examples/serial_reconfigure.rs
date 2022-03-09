@@ -17,7 +17,7 @@ use cortex_m_rt::entry;
 use stm32f1xx_hal::{
     pac,
     prelude::*,
-    serial::{Config, Serial},
+    serial::{self, Config, Serial},
 };
 
 #[entry]
@@ -91,6 +91,16 @@ fn main() -> ! {
     let received = block!(serial.rx.read()).unwrap();
     assert_eq!(received, sent);
     asm::bkpt();
+
+    // You can reconfigure the serial port after split.
+    let (mut tx, mut rx) = serial.split();
+    block!(serial::reconfigure(
+        &mut tx,
+        &mut rx,
+        Config::default().baudrate(9600.bps()),
+        &clocks
+    ))
+    .unwrap();
 
     loop {}
 }

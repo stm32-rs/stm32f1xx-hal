@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - Allow access to the `Tx` and `Rx` parts of the `Serial` without the need for splitting.
+- Allow `Serial` reconfiguration by references to the `Tx` and `Rx` parts.
 
 ## [v0.9.0] - 2022-03-02
 
