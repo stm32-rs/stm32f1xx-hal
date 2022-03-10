@@ -9,14 +9,16 @@
 #![no_main]
 #![no_std]
 
+use core::convert::Infallible;
 use cortex_m_rt::entry;
 use nb::block;
 use panic_halt as _;
 use stm32f1xx_hal::{
     pac,
     prelude::*,
-    serial::{Config, Rx3_16, Serial, Tx3_16},
+    serial::{self, Config, Serial},
 };
+use unwrap_infallible::UnwrapInfallible;
 
 // The address of the slave device.
 const SLAVE_ADDR: u8 = 123;
@@ -25,7 +27,10 @@ const SLAVE_ADDR: u8 = 123;
 const MSG_MAX_LEN: usize = u8::MAX as usize;
 
 // Receives a message addressed to the slave device. Returns the size of the received message.
-fn receive_msg(serial_rx: &mut Rx3_16, buf: &mut [u8; MSG_MAX_LEN]) -> usize {
+fn receive_msg<RX>(serial_rx: &mut RX, buf: &mut [u8; MSG_MAX_LEN]) -> usize
+where
+    RX: embedded_hal::serial::Read<u16, Error = serial::Error>,
+{
     enum RxPhase {
         Start,
         Length,
@@ -72,24 +77,22 @@ fn receive_msg(serial_rx: &mut Rx3_16, buf: &mut [u8; MSG_MAX_LEN]) -> usize {
 }
 
 // Send message.
-fn send_msg(mut serial_tx: Tx3_16, msg: &[u8]) -> Tx3_16 {
+fn send_msg<TX>(serial_tx: &mut TX, msg: &[u8])
+where
+    TX: embedded_hal::serial::Write<u8, Error = Infallible>
+        + embedded_hal::serial::Write<u16, Error = Infallible>,
+{
     // Send address.
-    block!(serial_tx.write(SLAVE_ADDR as u16 | 0x100)).ok();
-
-    // Switching from u16 to u8 data.
-    let mut serial_tx = serial_tx.with_u8_data();
+    block!(serial_tx.write(SLAVE_ADDR as u16 | 0x100)).unwrap_infallible();
 
     // Send message len.
     assert!(msg.len() <= MSG_MAX_LEN);
-    block!(serial_tx.write(msg.len() as u8)).ok();
+    block!(serial_tx.write(msg.len() as u8)).unwrap_infallible();
 
     // Send message.
     for &b in msg {
-        block!(serial_tx.write(b)).ok();
+        block!(serial_tx.write(b)).unwrap_infallible();
     }
-
-    // Switching back from u8 to u16 data.
-    serial_tx.with_u16_data()
 }
 
 #[entry]
@@ -115,9 +118,9 @@ fn main() -> ! {
     let tx_pin = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
     let rx_pin = gpiob.pb11;
 
-    // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
+    // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let serial = Serial::usart3(
+    let serial = Serial::new(
         p.USART3,
         (tx_pin, rx_pin),
         &mut afio.mapr,
@@ -125,10 +128,8 @@ fn main() -> ! {
             .baudrate(9600.bps())
             .wordlength_9bits()
             .parity_none(),
-        clocks,
-    )
-    // Switching the 'Word' type parameter for the 'Read' and 'Write' traits from u8 to u16.
-    .with_u16_data();
+        &clocks,
+    );
 
     // Split the serial struct into a transmitting and a receiving part.
     let (mut serial_tx, mut serial_rx) = serial.split();
@@ -140,6 +141,6 @@ fn main() -> ! {
         // Receive message from master device.
         let received_msg_len = receive_msg(&mut serial_rx, &mut buf);
         // Send the received message back.
-        serial_tx = send_msg(serial_tx, &buf[..received_msg_len]);
+        send_msg(&mut serial_tx, &buf[..received_msg_len]);
     }
 }

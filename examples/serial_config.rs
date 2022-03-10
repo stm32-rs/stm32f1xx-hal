@@ -17,6 +17,7 @@ use stm32f1xx_hal::{
     prelude::*,
     serial::{self, Serial},
 };
+use unwrap_infallible::UnwrapInfallible;
 
 #[entry]
 fn main() -> ! {
@@ -56,9 +57,9 @@ fn main() -> ! {
     // Take ownership over pb11
     let rx = gpiob.pb11;
 
-    // Set up the usart device. Taks ownership over the USART register and tx/rx pins. The rest of
+    // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let serial = Serial::usart3(
+    let serial = Serial::new(
         p.USART3,
         (tx, rx),
         &mut afio.mapr,
@@ -67,15 +68,15 @@ fn main() -> ! {
             .stopbits(serial::StopBits::STOP2)
             .wordlength_9bits()
             .parity_odd(),
-        clocks,
+        &clocks,
     );
 
     // Split the serial struct into a receiving and a transmitting part
     let (mut tx, _rx) = serial.split();
 
     let sent = b'U';
-    block!(tx.write(sent)).ok();
-    block!(tx.write(sent)).ok();
+    block!(tx.write(sent)).unwrap_infallible();
+    block!(tx.write(sent)).unwrap_infallible();
 
     loop {}
 }

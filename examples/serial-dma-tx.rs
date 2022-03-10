@@ -47,15 +47,15 @@ fn main() -> ! {
     // let tx = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
     // let rx = gpiob.pb11;
 
-    let serial = Serial::usart1(
+    let serial = Serial::new(
         p.USART1,
         (tx, rx),
         &mut afio.mapr,
         Config::default().baudrate(9600.bps()),
-        clocks,
+        &clocks,
     );
 
-    let tx = serial.split().0.with_dma(channels.4);
+    let tx = serial.tx.with_dma(channels.4);
 
     let (_, tx) = tx.write(b"The quick brown fox").wait();
 

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - `gpio`: port and pin generics first, then mode, `PinMode` for modes instead of pins, other cleanups
 
+### Breaking changes
+
+- Passing the `Clock` parameter to `Serial` by reference.
+- `Serial::usart1/2/3` -> `Serial::new`.
+- `Serial` implements `Write<WORD>` and `Read<WORD>` for `WORD` simultaneously as u8 and u16.
+
+### Added
+
+- Allow access to the `Tx` and `Rx` parts of the `Serial` without the need for splitting.
+- Allow `Serial` reconfiguration by references to the `Tx` and `Rx` parts.
+- Allow `Serial` release after splitting.
+
 ## [v0.9.0] - 2022-03-02
 
 ### Added
