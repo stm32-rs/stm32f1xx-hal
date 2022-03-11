@@ -159,6 +159,7 @@ impl InputPin for ErasedPin<Output<OpenDrain>> {
     }
 }
 
+#[cfg(not(any(feature = "xl", feature = "high")))]
 impl_pxx! {
     ('A'::PAx),
     ('B'::PBx),
@@ -169,6 +170,11 @@ impl_pxx! {
 
 #[cfg(any(feature = "xl", feature = "high"))]
 impl_pxx! {
+    ('A'::PAx),
+    ('B'::PBx),
+    ('C'::PCx),
+    ('D'::PDx),
+    ('E'::PEx),
     ('F'::PFx),
     ('G'::PGx)
 }
