@@ -447,7 +447,7 @@ macro_rules! dma {
                     type Channels = Channels;
 
                     fn split(self) -> Channels {
-                        $DMAX::enable();
+                        self.enable();
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(

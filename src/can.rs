@@ -95,7 +95,7 @@ where
     /// prevent accidental shared usage.
     #[cfg(not(feature = "connectivity"))]
     pub fn new(can: Instance, _usb: pac::USB) -> Can<Instance> {
-        Instance::enable();
+        can.enable();
 
         Can { _peripheral: can }
     }
@@ -103,7 +103,7 @@ where
     /// Creates a CAN interaface.
     #[cfg(feature = "connectivity")]
     pub fn new(can: Instance) -> Can<Instance> {
-        Instance::enable();
+        can.enable();
 
         Can { _peripheral: can }
     }

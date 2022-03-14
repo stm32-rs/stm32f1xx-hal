@@ -366,8 +366,8 @@ macro_rules! gpio {
                 type Parts = Parts;
 
                 fn split(self) -> Parts {
-                    $GPIOX::enable();
-                    $GPIOX::reset();
+                    self.enable();
+                    self.reset();
 
                     Parts {
                         crl: Cr::<$port_id, false>(()),

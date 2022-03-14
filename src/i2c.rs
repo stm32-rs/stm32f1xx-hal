@@ -166,8 +166,8 @@ where
     /// Configures the I2C peripheral to work in master mode
     fn configure<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: Clocks) -> Self {
         let mode = mode.into();
-        I2C::enable();
-        I2C::reset();
+        i2c.enable();
+        i2c.reset();
 
         let pclk1 = I2C::clock(&clocks);
 

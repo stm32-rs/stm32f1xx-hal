@@ -28,10 +28,12 @@ unsafe impl UsbPeripheral for Peripheral {
     const EP_MEMORY_ACCESS_2X16: bool = false;
 
     fn enable() {
+        // TODO: use self.usb, after adding the &self parameter
+        let usb = unsafe { crate::pac::Peripherals::steal().USB };
         // Enable USB peripheral
-        USB::enable();
+        usb.enable();
         // Reset USB peripheral
-        USB::reset();
+        usb.reset();
     }
 
     fn startup_delay() {

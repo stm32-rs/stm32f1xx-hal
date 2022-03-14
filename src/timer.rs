@@ -637,8 +637,8 @@ impl<TIM: Instance> Timer<TIM> {
     /// Initialize timer
     pub fn new(tim: TIM, clocks: &Clocks) -> Self {
         // Enable and reset the timer peripheral
-        TIM::enable();
-        TIM::reset();
+        tim.enable();
+        tim.reset();
 
         Self {
             clk: TIM::timer_clock(clocks),
@@ -710,8 +710,8 @@ impl<TIM: Instance, const FREQ: u32> FTimer<TIM, FREQ> {
     /// Initialize timer
     pub fn new(tim: TIM, clocks: &Clocks) -> Self {
         // Enable and reset the timer peripheral
-        TIM::enable();
-        TIM::reset();
+        tim.enable();
+        tim.reset();
 
         let mut t = Self { tim };
         t.configure(clocks);

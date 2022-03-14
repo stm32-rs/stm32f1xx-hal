@@ -13,8 +13,8 @@ pub trait AfioExt {
 
 impl AfioExt for AFIO {
     fn constrain(self) -> Parts {
-        AFIO::enable();
-        AFIO::reset();
+        self.enable();
+        self.reset();
 
         Parts {
             evcr: EVCR { _0: () },

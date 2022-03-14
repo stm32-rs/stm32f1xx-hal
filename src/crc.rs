@@ -12,7 +12,7 @@ pub trait CrcExt {
 
 impl CrcExt for CRC {
     fn new(self) -> Crc {
-        CRC::enable();
+        self.enable();
 
         Crc { crc: self }
     }

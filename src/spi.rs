@@ -468,8 +468,8 @@ where
 {
     fn configure(spi: SPI, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self {
         // enable or reset SPI
-        SPI::enable();
-        SPI::reset();
+        spi.enable();
+        spi.reset();
 
         // disable SS output
         spi.cr2.write(|w| w.ssoe().clear_bit());
@@ -539,8 +539,8 @@ where
 {
     fn configure(spi: SPI, pins: PINS, mode: Mode) -> Self {
         // enable or reset SPI
-        SPI::enable();
-        SPI::reset();
+        spi.enable();
+        spi.reset();
 
         // disable SS output
         spi.cr2.write(|w| w.ssoe().clear_bit());

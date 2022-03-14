@@ -271,15 +271,15 @@ macro_rules! adc_hal {
                 }
 
                 fn reset(&mut self) {
-                    <$ADC>::reset();
+                    self.rb.reset();
                 }
 
                 fn enable_clock(&mut self) {
-                    <$ADC>::enable();
+                    self.rb.enable();
                 }
 
                 fn disable_clock(&mut self) {
-                    <$ADC>::disable();
+                    self.rb.disable();
                 }
 
                 fn calibrate(&mut self) {

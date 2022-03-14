@@ -292,8 +292,8 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
         PINS: Pins<USART>,
     {
         // Enable and reset USART
-        USART::enable();
-        USART::reset();
+        usart.enable();
+        usart.reset();
 
         PINS::remap(mapr);
 
