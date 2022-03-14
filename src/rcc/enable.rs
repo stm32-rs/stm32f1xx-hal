@@ -11,13 +11,15 @@ macro_rules! bus {
             }
             impl Enable for crate::pac::$PER {
                 #[inline(always)]
-                fn enable(rcc: &rcc::RegisterBlock) {
+                fn enable() {
+                    let rcc = unsafe { &(*RCC::ptr()) };
                     unsafe {
                         bb::set(Self::Bus::enr(rcc), $bit);
                     }
                 }
                 #[inline(always)]
-                fn disable(rcc: &rcc::RegisterBlock) {
+                fn disable() {
+                    let rcc = unsafe { &(*RCC::ptr()) };
                     unsafe {
                         bb::clear(Self::Bus::enr(rcc), $bit);
                     }
@@ -25,7 +27,8 @@ macro_rules! bus {
             }
             impl Reset for crate::pac::$PER {
                 #[inline(always)]
-                fn reset(rcc: &rcc::RegisterBlock) {
+                fn reset() {
+                    let rcc = unsafe { &(*RCC::ptr()) };
                     unsafe {
                         bb::set(Self::Bus::rstr(rcc), $bit);
                         bb::clear(Self::Bus::rstr(rcc), $bit);
@@ -46,13 +49,15 @@ macro_rules! ahb_bus {
             }
             impl Enable for crate::pac::$PER {
                 #[inline(always)]
-                fn enable(rcc: &rcc::RegisterBlock) {
+                fn enable() {
+                    let rcc = unsafe { &(*RCC::ptr()) };
                     unsafe {
                         bb::set(Self::Bus::enr(rcc), $bit);
                     }
                 }
                 #[inline(always)]
-                fn disable(rcc: &rcc::RegisterBlock) {
+                fn disable() {
+                    let rcc = unsafe { &(*RCC::ptr()) };
                     unsafe {
                         bb::clear(Self::Bus::enr(rcc), $bit);
                     }

@@ -21,7 +21,7 @@
 
 use crate::afio::MAPR;
 use crate::gpio::{self, Alternate, Input};
-use crate::pac::{self, RCC};
+use crate::pac;
 
 pub trait Pins: crate::Sealed {
     type Instance;
@@ -95,8 +95,7 @@ where
     /// prevent accidental shared usage.
     #[cfg(not(feature = "connectivity"))]
     pub fn new(can: Instance, _usb: pac::USB) -> Can<Instance> {
-        let rcc = unsafe { &(*RCC::ptr()) };
-        Instance::enable(rcc);
+        Instance::enable();
 
         Can { _peripheral: can }
     }
@@ -104,8 +103,7 @@ where
     /// Creates a CAN interaface.
     #[cfg(feature = "connectivity")]
     pub fn new(can: Instance) -> Can<Instance> {
-        let rcc = unsafe { &(*RCC::ptr()) };
-        Instance::enable(rcc);
+        Instance::enable();
 
         Can { _peripheral: can }
     }

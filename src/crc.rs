@@ -1,6 +1,6 @@
 //! CRC
 
-use crate::pac::{CRC, RCC};
+use crate::pac::CRC;
 use crate::rcc::Enable;
 
 /// Extension trait to constrain the CRC peripheral
@@ -12,8 +12,7 @@ pub trait CrcExt {
 
 impl CrcExt for CRC {
     fn new(self) -> Crc {
-        let rcc = unsafe { &(*RCC::ptr()) };
-        CRC::enable(rcc);
+        CRC::enable();
 
         Crc { crc: self }
     }

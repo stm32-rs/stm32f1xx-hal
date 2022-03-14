@@ -7,7 +7,7 @@
 use crate::afio::MAPR;
 use crate::gpio::{self, Alternate, OpenDrain};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
-use crate::pac::{DWT, I2C1, I2C2, RCC};
+use crate::pac::{DWT, I2C1, I2C2};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{kHz, Hertz};
 use core::ops::Deref;
@@ -166,9 +166,8 @@ where
     /// Configures the I2C peripheral to work in master mode
     fn configure<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: Clocks) -> Self {
         let mode = mode.into();
-        let rcc = unsafe { &(*RCC::ptr()) };
-        I2C::enable(rcc);
-        I2C::reset(rcc);
+        I2C::enable();
+        I2C::reset();
 
         let pclk1 = I2C::clock(&clocks);
 

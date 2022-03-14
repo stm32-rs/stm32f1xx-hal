@@ -37,7 +37,7 @@ use core::ops::Deref;
 use core::ptr;
 
 pub use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
-use crate::pac::{self, RCC};
+use crate::pac;
 
 use crate::afio::MAPR;
 use crate::dma::dma1;
@@ -468,9 +468,8 @@ where
 {
     fn configure(spi: SPI, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self {
         // enable or reset SPI
-        let rcc = unsafe { &(*RCC::ptr()) };
-        SPI::enable(rcc);
-        SPI::reset(rcc);
+        SPI::enable();
+        SPI::reset();
 
         // disable SS output
         spi.cr2.write(|w| w.ssoe().clear_bit());
@@ -540,9 +539,8 @@ where
 {
     fn configure(spi: SPI, pins: PINS, mode: Mode) -> Self {
         // enable or reset SPI
-        let rcc = unsafe { &(*RCC::ptr()) };
-        SPI::enable(rcc);
-        SPI::reset(rcc);
+        SPI::enable();
+        SPI::reset();
 
         // disable SS output
         spi.cr2.write(|w| w.ssoe().clear_bit());

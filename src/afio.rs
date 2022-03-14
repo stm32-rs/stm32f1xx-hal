@@ -1,5 +1,5 @@
 //! # Alternate Function I/Os
-use crate::pac::{afio, AFIO, RCC};
+use crate::pac::{afio, AFIO};
 
 use crate::rcc::{Enable, Reset};
 
@@ -13,9 +13,8 @@ pub trait AfioExt {
 
 impl AfioExt for AFIO {
     fn constrain(self) -> Parts {
-        let rcc = unsafe { &(*RCC::ptr()) };
-        AFIO::enable(rcc);
-        AFIO::reset(rcc);
+        AFIO::enable();
+        AFIO::reset();
 
         Parts {
             evcr: EVCR { _0: () },

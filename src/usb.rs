@@ -4,7 +4,7 @@
 //! See https://github.com/stm32-rs/stm32f1xx-hal/tree/master/examples
 //! for usage examples.
 
-use crate::pac::{RCC, USB};
+use crate::pac::USB;
 use crate::rcc::{Enable, Reset};
 use stm32_usbd::UsbPeripheral;
 
@@ -28,14 +28,10 @@ unsafe impl UsbPeripheral for Peripheral {
     const EP_MEMORY_ACCESS_2X16: bool = false;
 
     fn enable() {
-        unsafe {
-            let rcc = &*RCC::ptr();
-
-            // Enable USB peripheral
-            USB::enable(rcc);
-            // Reset USB peripheral
-            USB::reset(rcc);
-        }
+        // Enable USB peripheral
+        USB::enable();
+        // Reset USB peripheral
+        USB::reset();
     }
 
     fn startup_delay() {

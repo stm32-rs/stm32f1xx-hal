@@ -70,7 +70,7 @@ use embedded_dma::{ReadBuffer, WriteBuffer};
 use crate::afio::MAPR;
 use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
 use crate::gpio::{self, Alternate, Input};
-use crate::pac::{RCC, USART1, USART2, USART3};
+use crate::pac::{USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
@@ -292,9 +292,8 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
         PINS: Pins<USART>,
     {
         // Enable and reset USART
-        let rcc = unsafe { &(*RCC::ptr()) };
-        USART::enable(rcc);
-        USART::reset(rcc);
+        USART::enable();
+        USART::reset();
 
         PINS::remap(mapr);
 
