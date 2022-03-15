@@ -205,11 +205,11 @@ impl Interruptable for Dynamic {}
 /// External Interrupt Pin
 pub trait ExtiPin {
     fn make_interrupt_source(&mut self, afio: &mut afio::Parts);
-    fn trigger_on_edge(&mut self, exti: &EXTI, level: Edge);
-    fn enable_interrupt(&mut self, exti: &EXTI);
-    fn disable_interrupt(&mut self, exti: &EXTI);
+    fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
+    fn enable_interrupt(&mut self, exti: &mut EXTI);
+    fn disable_interrupt(&mut self, exti: &mut EXTI);
     fn clear_interrupt_pending_bit(&mut self);
-    fn check_interrupt(&mut self) -> bool;
+    fn check_interrupt(&self) -> bool;
 }
 
 impl<PIN> ExtiPin for PIN
@@ -248,7 +248,7 @@ where
     }
 
     /// Generate interrupt on rising edge, falling edge or both
-    fn trigger_on_edge(&mut self, exti: &EXTI, edge: Edge) {
+    fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
         let i = self.pin_id();
         match edge {
             Edge::Rising => {
@@ -273,13 +273,13 @@ where
     }
 
     /// Enable external interrupts from this pin.
-    fn enable_interrupt(&mut self, exti: &EXTI) {
+    fn enable_interrupt(&mut self, exti: &mut EXTI) {
         exti.imr
             .modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.pin_id())) });
     }
 
     /// Disable external interrupts from this pin
-    fn disable_interrupt(&mut self, exti: &EXTI) {
+    fn disable_interrupt(&mut self, exti: &mut EXTI) {
         exti.imr
             .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.pin_id())) });
     }
@@ -290,7 +290,7 @@ where
     }
 
     /// Reads the interrupt pending bit for this pin
-    fn check_interrupt(&mut self) -> bool {
+    fn check_interrupt(&self) -> bool {
         unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << self.pin_id())) != 0 }
     }
 }
