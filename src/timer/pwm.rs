@@ -36,7 +36,7 @@
   Then call the `pwm` function on the corresponding timer.
 
   NOTE: In some cases you need to specify remap you need, especially for TIM2
-  (see [Alternate function remapping](super::timer)):
+  (see [Alternate function remapping](super)):
 
   ```
     let device: pac::Peripherals = ..;

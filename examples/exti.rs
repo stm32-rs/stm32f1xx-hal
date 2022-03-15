@@ -40,7 +40,7 @@ fn EXTI9_5() {
 #[entry]
 fn main() -> ! {
     // initialization phase
-    let p = pac::Peripherals::take().unwrap();
+    let mut p = pac::Peripherals::take().unwrap();
     let _cp = cortex_m::peripheral::Peripherals::take().unwrap();
     {
         // the scope ensures that the int_pin reference is dropped before the first ISR can be executed.
@@ -55,8 +55,8 @@ fn main() -> ! {
         let int_pin = unsafe { &mut *INT_PIN.as_mut_ptr() };
         *int_pin = gpioa.pa7.into_floating_input(&mut gpioa.crl);
         int_pin.make_interrupt_source(&mut afio);
-        int_pin.trigger_on_edge(&p.EXTI, Edge::RisingFalling);
-        int_pin.enable_interrupt(&p.EXTI);
+        int_pin.trigger_on_edge(&mut p.EXTI, Edge::RisingFalling);
+        int_pin.enable_interrupt(&mut p.EXTI);
     } // initialization ends here
 
     unsafe {
