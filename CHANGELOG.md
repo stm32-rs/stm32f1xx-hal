@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `Serial` support for UART4/5
 - Allow to set HSE bypass bit in `RCC` clock configuration register to use an external clock input on the `OSC_IN` pin [#485]
 - initial support of `embedded-hal-1.0` [#416]
+- Added ADC methods for temp/vref sensor control. The time required for reading from the ADC can be reduced using these [#422]
 - Add tools/check.py python script for local check [#467]
 - Add changelog check on PRs [#467]
 - Reexport `Direction` from `qei` [#479]
@@ -59,6 +60,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add enable/disable EOC interrupt functions for ADCs [#526]
 
 [#416]: https://github.com/stm32-rs/stm32f1xx-hal/pull/416
+[#422]: https://github.com/stm32-rs/stm32f1xx-hal/pull/422
 [#453]: https://github.com/stm32-rs/stm32f1xx-hal/pull/453
 [#462]: https://github.com/stm32-rs/stm32f1xx-hal/pull/462
 [#467]: https://github.com/stm32-rs/stm32f1xx-hal/pull/467
