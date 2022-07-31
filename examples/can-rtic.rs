@@ -53,14 +53,14 @@ fn enqueue_frame(queue: &mut BinaryHeap<PriorityFrame, Max, 16>, frame: Frame) {
 #[rtic::app(device = stm32f1xx_hal::pac)]
 mod app {
     use super::{enqueue_frame, PriorityFrame};
-    use bxcan::{filter::Mask32, ExtendedId, Frame, Interrupts, Rx, StandardId, Tx};
+    use bxcan::{filter::Mask32, ExtendedId, Frame, Interrupts, StandardId, Tx, Rx0, Fifo};
     use heapless::binary_heap::{BinaryHeap, Max};
     use stm32f1xx_hal::{can::Can, pac::CAN1, prelude::*};
 
     #[local]
     struct Local {
         can_tx: Tx<Can<CAN1>>,
-        can_rx: Rx<Can<CAN1>>,
+        can_rx: Rx0<Can<CAN1>>,
     }
     #[shared]
     struct Shared {
@@ -101,7 +101,7 @@ mod app {
             .set_bit_timing(0x001c_0000)
             .leave_disabled();
 
-        can.modify_filters().enable_bank(0, Mask32::accept_all());
+        can.modify_filters().enable_bank(0, Fifo::Fifo0, Mask32::accept_all());
 
         // Sync to the bus and start normal operation.
         can.enable_interrupts(

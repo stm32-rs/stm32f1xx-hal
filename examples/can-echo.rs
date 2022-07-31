@@ -4,6 +4,7 @@
 #![no_main]
 #![no_std]
 
+use bxcan::Fifo;
 use panic_halt as _;
 
 use bxcan::filter::Mask32;
@@ -45,7 +46,7 @@ fn main() -> ! {
 
     // Configure filters so that can frames can be received.
     let mut filters = can1.modify_filters();
-    filters.enable_bank(0, Mask32::accept_all());
+    filters.enable_bank(0, Fifo::Fifo0, Mask32::accept_all());
 
     #[cfg(feature = "connectivity")]
     let _can2 = {
@@ -65,7 +66,7 @@ fn main() -> ! {
         // A total of 28 filters are shared between the two CAN instances.
         // Split them equally between CAN1 and CAN2.
         let mut slave_filters = filters.set_split(14).slave_filters();
-        slave_filters.enable_bank(14, Mask32::accept_all());
+        slave_filters.enable_bank(14, Fifo::Fifo0, Mask32::accept_all());
         can2
     };
 
