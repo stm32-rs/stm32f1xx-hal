@@ -59,7 +59,7 @@ fn main() -> ! {
 
         // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
-        let mut can2 = bxcan::Can::builder(can)
+        let can2 = bxcan::Can::builder(can)
             .set_bit_timing(0x001c_0003)
             .leave_disabled();
 
