@@ -146,6 +146,13 @@ impl<'a> FlashWriter<'a> {
         // Start Operation
         self.flash.cr.cr().modify(|_, w| w.strt().set_bit());
 
+        // Wait for at least one clock cycle before reading the
+        // BSY bit, because there is a one-cycle delay between
+        // setting the STRT bit and the BSY bit being asserted
+        // by hardware. See STM32F105xx, STM32F107xx device errata,
+        // section 2.2.8
+        cortex_m::asm::nop();
+
         // Wait for operation to finish
         while self.flash.sr.sr().read().bsy().bit_is_set() {}
 
