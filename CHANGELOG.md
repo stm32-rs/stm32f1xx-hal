@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - `gpio`: port and pin generics first, then mode,
   `PinMode` for modes instead of pins, `HL` trait, other cleanups
+- `flash`: add one-cycle delay of reading `BSY` bit after setting `STRT` bit to
+           fix errata.
 
 ### Breaking changes
 
