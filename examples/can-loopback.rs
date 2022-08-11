@@ -6,7 +6,7 @@
 
 use bxcan::{
     filter::{ListEntry16, ListEntry32, Mask16},
-    ExtendedId, Frame, StandardId,
+    ExtendedId, Fifo, Frame, StandardId,
 };
 use panic_halt as _;
 
@@ -50,6 +50,7 @@ fn main() -> ! {
     // TODO: Make this accept also ID 2
     filters.enable_bank(
         0,
+        Fifo::Fifo0,
         [
             // accepts 0 and 1
             Mask16::frames_with_std_id(StandardId::new(0).unwrap(), StandardId::new(1).unwrap()),
@@ -61,6 +62,7 @@ fn main() -> ! {
     // 2x 29bit id filter bank: Matches 4, 5
     filters.enable_bank(
         1,
+        Fifo::Fifo0,
         [
             ListEntry32::data_frames_with_id(ExtendedId::new(4).unwrap()),
             ListEntry32::data_frames_with_id(ExtendedId::new(5).unwrap()),
@@ -70,6 +72,7 @@ fn main() -> ! {
     // 4x 11bit id filter bank: Matches 8, 9, 10, 11
     filters.enable_bank(
         2,
+        Fifo::Fifo0,
         [
             ListEntry16::data_frames_with_id(StandardId::new(8).unwrap()),
             ListEntry16::data_frames_with_id(StandardId::new(9).unwrap()),

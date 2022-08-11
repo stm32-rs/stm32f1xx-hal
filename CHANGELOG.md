@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Passing the `Clock` parameter to `Serial` by reference.
 - `Serial::usart1/2/3` -> `Serial::new`.
 - `Serial` implements `Write<WORD>` and `Read<WORD>` for `WORD` simultaneously as u8 and u16.
+- Bump bxcan version to [v0.7.0](https://github.com/stm32-rs/bxcan/releases/tag/v0.7.0)
 
 ### Added
 
