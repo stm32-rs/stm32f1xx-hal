@@ -678,6 +678,10 @@ impl<TIM: Instance> Timer<TIM> {
         self.tim.clear_interrupt_flag(event);
     }
 
+    pub fn get_interrupt(&mut self) -> Event {
+        self.tim.get_interrupt_flag()
+    }
+
     /// Stops listening for an `event`
     pub fn unlisten(&mut self, event: Event) {
         self.tim.listen_interrupt(event, false);
