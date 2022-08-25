@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   `PinMode` for modes instead of pins, `HL` trait, other cleanups
 - `flash`: add one-cycle delay of reading `BSY` bit after setting `STRT` bit to
            fix errata.
+- `PwmHz::get_period`: fix computation of return value, prevent division by zero
 
 ### Breaking changes
 
