@@ -113,7 +113,7 @@ macro_rules! mono {
                         Some(_) => cnt.wrapping_add(0xffff), // Will overflow, run for as long as possible
                     };
 
-                    self.tim.ccr1.write(|w| w.ccr().bits(val));
+                    self.tim.ccr1().write(|w| w.ccr().bits(val));
                 }
 
                 fn clear_compare_flag(&mut self) {

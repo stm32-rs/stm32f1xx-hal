@@ -495,12 +495,12 @@ impl Default for Config {
         Self {
             hse: None,
             pllmul: None,
-            hpre: HPre::DIV1,
-            ppre1: PPre::DIV1,
-            ppre2: PPre::DIV1,
+            hpre: HPre::Div1,
+            ppre1: PPre::Div1,
+            ppre2: PPre::Div1,
             #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
-            usbpre: UsbPre::DIV1_5,
-            adcpre: AdcPre::DIV2,
+            usbpre: UsbPre::Div15,
+            adcpre: AdcPre::Div2,
         }
     }
 }
@@ -509,38 +509,38 @@ impl Default for Config {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HPre {
     /// SYSCLK not divided
-    DIV1 = 7,
+    Div1 = 7,
     /// SYSCLK divided by 2
-    DIV2 = 8,
+    Div2 = 8,
     /// SYSCLK divided by 4
-    DIV4 = 9,
+    Div4 = 9,
     /// SYSCLK divided by 8
-    DIV8 = 10,
+    Div8 = 10,
     /// SYSCLK divided by 16
-    DIV16 = 11,
+    Div16 = 11,
     /// SYSCLK divided by 64
-    DIV64 = 12,
+    Div64 = 12,
     /// SYSCLK divided by 128
-    DIV128 = 13,
+    Div128 = 13,
     /// SYSCLK divided by 256
-    DIV256 = 14,
+    Div256 = 14,
     /// SYSCLK divided by 512
-    DIV512 = 15,
+    Div512 = 15,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum PPre {
     /// HCLK not divided
-    DIV1 = 3,
+    Div1 = 3,
     /// HCLK divided by 2
-    DIV2 = 4,
+    Div2 = 4,
     /// HCLK divided by 4
-    DIV4 = 5,
+    Div4 = 5,
     /// HCLK divided by 8
-    DIV8 = 6,
+    Div8 = 6,
     /// HCLK divided by 16
-    DIV16 = 7,
+    Div16 = 7,
 }
 
 #[cfg(feature = "stm32f103")]
@@ -582,18 +582,18 @@ impl Config {
 
         let hpre_bits = if let Some(hclk) = cfgr.hclk {
             match sysclk / hclk {
-                0..=1 => HPre::DIV1,
-                2 => HPre::DIV2,
-                3..=5 => HPre::DIV4,
-                6..=11 => HPre::DIV8,
-                12..=39 => HPre::DIV16,
-                40..=95 => HPre::DIV64,
-                96..=191 => HPre::DIV128,
-                192..=383 => HPre::DIV256,
-                _ => HPre::DIV512,
+                0..=1 => HPre::Div1,
+                2 => HPre::Div2,
+                3..=5 => HPre::Div4,
+                6..=11 => HPre::Div8,
+                12..=39 => HPre::Div16,
+                40..=95 => HPre::Div64,
+                96..=191 => HPre::Div128,
+                192..=383 => HPre::Div256,
+                _ => HPre::Div512,
             }
         } else {
-            HPre::DIV1
+            HPre::Div1
         };
 
         let hclk = if hpre_bits as u8 >= 0b1100 {
@@ -610,23 +610,23 @@ impl Config {
             36_000_000
         };
         let ppre1_bits = match (hclk + pclk1 - 1) / pclk1 {
-            0 | 1 => PPre::DIV1,
-            2 => PPre::DIV2,
-            3..=5 => PPre::DIV4,
-            6..=11 => PPre::DIV8,
-            _ => PPre::DIV16,
+            0 | 1 => PPre::Div1,
+            2 => PPre::Div2,
+            3..=5 => PPre::Div4,
+            6..=11 => PPre::Div8,
+            _ => PPre::Div16,
         };
 
         let ppre2_bits = if let Some(pclk2) = cfgr.pclk2 {
             match hclk / pclk2 {
-                0..=1 => PPre::DIV1,
-                2 => PPre::DIV2,
-                3..=5 => PPre::DIV4,
-                6..=11 => PPre::DIV8,
-                _ => PPre::DIV16,
+                0..=1 => PPre::Div1,
+                2 => PPre::Div2,
+                3..=5 => PPre::Div4,
+                6..=11 => PPre::Div8,
+                _ => PPre::Div16,
             }
         } else {
-            PPre::DIV1
+            PPre::Div1
         };
 
         let ppre2 = 1 << (ppre2_bits as u8 - 0b011);
@@ -635,19 +635,19 @@ impl Config {
         // usbpre == false: divide clock by 1.5, otherwise no division
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         let usbpre = match (hse, pllmul_bits, sysclk) {
-            (Some(_), Some(_), 72_000_000) => UsbPre::DIV1_5,
-            _ => UsbPre::DIV1,
+            (Some(_), Some(_), 72_000_000) => UsbPre::Div15,
+            _ => UsbPre::Div1,
         };
 
         let apre_bits = if let Some(adcclk) = cfgr.adcclk {
             match pclk2 / adcclk {
-                0..=2 => AdcPre::DIV2,
-                3..=4 => AdcPre::DIV4,
-                5..=7 => AdcPre::DIV6,
-                _ => AdcPre::DIV8,
+                0..=2 => AdcPre::Div2,
+                3..=4 => AdcPre::Div4,
+                5..=7 => AdcPre::Div6,
+                _ => AdcPre::Div8,
             }
         } else {
-            AdcPre::DIV8
+            AdcPre::Div8
         };
 
         Self {
@@ -731,12 +731,12 @@ fn rcc_config_usb() {
     let config_expected = Config {
         hse: Some(8_000_000),
         pllmul: Some(4),
-        hpre: HPre::DIV1,
-        ppre1: PPre::DIV2,
-        ppre2: PPre::DIV1,
+        hpre: HPre::Div1,
+        ppre1: PPre::Div2,
+        ppre2: PPre::Div1,
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
-        usbpre: UsbPre::DIV1,
-        adcpre: AdcPre::DIV8,
+        usbpre: UsbPre::Div1,
+        adcpre: AdcPre::Div8,
     };
     assert_eq!(config, config_expected);
 

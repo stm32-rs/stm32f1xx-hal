@@ -431,11 +431,10 @@ macro_rules! with_pwm {
             #[inline(always)]
             fn read_cc_value(channel: u8) -> u32 {
                 let tim = unsafe { &*<$TIM>::ptr() };
-                match channel {
-                    0 => {
-                        tim.ccr1.read().bits()
-                    }
-                    _ => 0,
+                if channel < Self::CH_NUMBER {
+                    tim.ccr[channel as usize].read().bits()
+                } else {
+                    0
                 }
             }
 
@@ -443,11 +442,8 @@ macro_rules! with_pwm {
             fn set_cc_value(channel: u8, value: u32) {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 #[allow(unused_unsafe)]
-                match channel {
-                    0 => {
-                        tim.ccr1.write(|w| unsafe { w.bits(value) })
-                    }
-                    _ => {},
+                if channel < Self::CH_NUMBER {
+                    tim.ccr[channel as usize].write(|w| unsafe { w.bits(value) })
                 }
             }
 
@@ -487,14 +483,10 @@ macro_rules! with_pwm {
             #[inline(always)]
             fn read_cc_value(channel: u8) -> u32 {
                 let tim = unsafe { &*<$TIM>::ptr() };
-                match channel {
-                    0 => {
-                        tim.ccr1.read().bits()
-                    }
-                    1 => {
-                        tim.ccr2.read().bits()
-                    }
-                    _ => 0,
+                if channel < Self::CH_NUMBER {
+                    tim.ccr[channel as usize].read().bits()
+                } else {
+                    0
                 }
             }
 
@@ -502,14 +494,8 @@ macro_rules! with_pwm {
             fn set_cc_value(channel: u8, value: u32) {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 #[allow(unused_unsafe)]
-                match channel {
-                    0 => {
-                        tim.ccr1.write(|w| unsafe { w.bits(value) })
-                    }
-                    1 => {
-                        tim.ccr2.write(|w| unsafe { w.bits(value) })
-                    }
-                    _ => {},
+                if channel < Self::CH_NUMBER {
+                    tim.ccr[channel as usize].write(|w| unsafe { w.bits(value) })
                 }
             }
 
@@ -553,41 +539,13 @@ macro_rules! with_pwm {
             #[inline(always)]
             fn read_cc_value(channel: u8) -> u32 {
                 let tim = unsafe { &*<$TIM>::ptr() };
-                let ccr = match channel {
-                    0 => {
-                        &tim.ccr1
-                    }
-                    1 => {
-                        &tim.ccr2
-                    }
-                    2 => {
-                        &tim.ccr3
-                    }
-                    _ => {
-                        &tim.ccr4
-                    }
-                };
-                ccr.read().bits()
+                tim.ccr[channel as usize].read().bits()
             }
 
             #[inline(always)]
             fn set_cc_value(channel: u8, value: u32) {
                 let tim = unsafe { &*<$TIM>::ptr() };
-                let ccr = match channel {
-                    0 => {
-                        &tim.ccr1
-                    }
-                    1 => {
-                        &tim.ccr2
-                    }
-                    2 => {
-                        &tim.ccr3
-                    }
-                    _ => {
-                        &tim.ccr4
-                    }
-                };
-                ccr.write(|w| unsafe { w.bits(value) })
+                tim.ccr[channel as usize].write(|w| unsafe { w.bits(value) })
             }
 
             #[inline(always)]

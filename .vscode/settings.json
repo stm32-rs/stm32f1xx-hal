@@ -1,6 +1,6 @@
 {
   "rust.all_targets": false,
-  "rust.target": "thumbv7em-none-eabi",
+  "rust.target": "thumbv7m-none-eabi",
   "rust.all_features": false,
   "rust.features": [
     "rtic",
@@ -10,7 +10,7 @@
   "rust-analyzer.checkOnSave.allTargets": false,
   "rust-analyzer.checkOnSave.extraArgs": [
       "--target",
-      "thumbv7em-none-eabi"
+      "thumbv7m-none-eabi"
   ],
   "rust-analyzer.cargo.features": [
     "rtic",

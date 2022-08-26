@@ -246,7 +246,7 @@ macro_rules! hal {
                     }
 
                     let presc = unsafe { (*$TIMX::ptr()).psc.read().bits() as u16};
-                    let ccr1 = unsafe { (*$TIMX::ptr()).ccr1.read().bits() as u16};
+                    let ccr1 = unsafe { (*$TIMX::ptr()).ccr1().read().bits() as u16};
 
                     // Formulas :
                     //
@@ -278,8 +278,8 @@ macro_rules! hal {
 
                     // Formulas :
                     // Duty_cycle = (CCR2+1)/(CCR1+1)
-                    let ccr1 = unsafe { (*$TIMX::ptr()).ccr1.read().bits() as u16};
-                    let ccr2 = unsafe { (*$TIMX::ptr()).ccr2.read().bits() as u16};
+                    let ccr1 = unsafe { (*$TIMX::ptr()).ccr1().read().bits() as u16};
+                    let ccr2 = unsafe { (*$TIMX::ptr()).ccr2().read().bits() as u16};
                     if ccr1 == 0 {
                         Err(Error::FrequencyTooLow)
                     } else {

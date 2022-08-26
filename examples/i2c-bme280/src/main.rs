@@ -21,10 +21,9 @@
 use cortex_m_semihosting::hprintln;
 use panic_semihosting as _;
 
-use bme280::BME280;
+use bme280::i2c::BME280;
 use cortex_m_rt::entry;
 use stm32f1xx_hal::{
-    delay::Delay,
     i2c::{BlockingI2c, DutyCycle, Mode},
     pac,
     prelude::*,
@@ -40,7 +39,7 @@ fn main() -> ! {
     // Take ownership over the raw flash and rcc devices and convert them into the corresponding
     // HAL structs
     let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
+    let rcc = dp.RCC.constrain();
     let mut afio = dp.AFIO.constrain();
     // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
     // `clocks`
@@ -80,23 +79,23 @@ fn main() -> ! {
 
     // The Adafruit boards have address 0x77 without closing the jumper on the back, the BME280 lib connects to 0x77 with `new_secondary`, use
     // `new_primary` for 0x76 if you close the jumper/solder bridge.
-    let mut bme280 = BME280::new_secondary(i2c, Delay::new(cp.SYST, &clocks));
+    let mut bme280 = BME280::new_secondary(i2c, cp.SYST.delay(&clocks));
     bme280
         .init()
         .map_err(|error| {
-            hprintln!("Could not initialize bme280, Error: {:?}", error).unwrap();
+            hprintln!("Could not initialize bme280, Error: {:?}", error);
             panic!();
         })
         .unwrap();
     loop {
         match bme280.measure() {
             Ok(measurements) => {
-                hprintln!("Relative Humidity = {}%", measurements.humidity).unwrap();
-                hprintln!("Temperature = {} deg C", measurements.temperature).unwrap();
-                hprintln!("Pressure = {} pascals", measurements.pressure).unwrap();
+                hprintln!("Relative Humidity = {}%", measurements.humidity);
+                hprintln!("Temperature = {} deg C", measurements.temperature);
+                hprintln!("Pressure = {} pascals", measurements.pressure)
             }
             Err(error) => {
-                hprintln!("Could not read bme280 due to error: {:?}", error).unwrap();
+                hprintln!("Could not read bme280 due to error: {:?}", error);
             }
         }
     }

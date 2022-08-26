@@ -385,8 +385,8 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
         });
         use crate::pac::usart1::cr1::PS_A;
         w.ps().variant(match config.parity {
-            Parity::ParityOdd => PS_A::ODD,
-            _ => PS_A::EVEN,
+            Parity::ParityOdd => PS_A::Odd,
+            _ => PS_A::Even,
         });
         w.pce().bit(!matches!(config.parity, Parity::ParityNone));
         w
