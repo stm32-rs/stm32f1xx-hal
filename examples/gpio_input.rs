@@ -60,8 +60,8 @@ fn main() -> ! {
             key_up = false;
             delay.delay_ms(10u8);
             match key_result {
-                (x, _) if x == true => red_led.toggle(),
-                (_, y) if y == true => green_led.toggle(),
+                (true, _) => red_led.toggle(),
+                (_, true) => green_led.toggle(),
                 (_, _) => (),
             }
         } else if !key_result.0 && !key_result.1 {

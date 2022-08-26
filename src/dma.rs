@@ -13,12 +13,13 @@ pub enum Error {
     Overrun,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Event {
     HalfTransfer,
     TransferComplete,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Half {
     First,
     Second,

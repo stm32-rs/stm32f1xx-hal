@@ -1,0 +1,20 @@
+{
+  "rust.all_targets": false,
+  "rust.target": "thumbv7em-none-eabi",
+  "rust.all_features": false,
+  "rust.features": [
+    "rtic",
+    "stm32f103",
+    "medium"
+  ],
+  "rust-analyzer.checkOnSave.allTargets": false,
+  "rust-analyzer.checkOnSave.extraArgs": [
+      "--target",
+      "thumbv7em-none-eabi"
+  ],
+  "rust-analyzer.cargo.features": [
+    "rtic",
+    "stm32f103",
+    "medium"
+  ]
+}

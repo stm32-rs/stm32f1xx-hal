@@ -107,7 +107,7 @@ const HSI: u32 = 8_000_000; // Hz
 ///
 /// **NOTE**: Currently, it is not guaranteed that the exact frequencies selected will be
 /// used, only frequencies close to it.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct CFGR {
     hse: Option<u32>,
     hclk: Option<u32>,
@@ -334,7 +334,7 @@ impl BKP {
 ///
 /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Clocks {
     hclk: Hertz,
     pclk1: Hertz,
