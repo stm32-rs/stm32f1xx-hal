@@ -34,8 +34,8 @@ fn main() -> ! {
         usbpre: rcc::UsbPre::DIV1_5,
         adcpre: rcc::AdcPre::DIV2,
     }, &mut flash.acr);*/
-    hprintln!("sysclk freq: {}", clocks.sysclk()).unwrap();
-    hprintln!("adc freq: {}", clocks.adcclk()).unwrap();
+    hprintln!("sysclk freq: {}", clocks.sysclk());
+    hprintln!("adc freq: {}", clocks.adcclk());
 
     // Setup ADC
     let mut adc = adc::Adc::adc1(p.ADC1, clocks);
@@ -44,6 +44,6 @@ fn main() -> ! {
     loop {
         let temp = adc.read_temp();
 
-        hprintln!("temp: {}", temp).unwrap();
+        hprintln!("temp: {}", temp);
     }
 }

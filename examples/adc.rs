@@ -22,7 +22,7 @@ fn main() -> ! {
     // practical needs. User specified value is be approximated using supported
     // prescaler values 2/4/6/8.
     let clocks = rcc.cfgr.adcclk(2.MHz()).freeze(&mut flash.acr);
-    hprintln!("adc freq: {}", clocks.adcclk()).unwrap();
+    hprintln!("adc freq: {}", clocks.adcclk());
 
     // Setup ADC
     let mut adc1 = adc::Adc::adc1(p.ADC1, clocks);
@@ -41,12 +41,12 @@ fn main() -> ! {
 
     loop {
         let data: u16 = adc1.read(&mut ch0).unwrap();
-        hprintln!("adc1: {}", data).unwrap();
+        hprintln!("adc1: {}", data);
 
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         {
             let data1: u16 = adc2.read(&mut ch1).unwrap();
-            hprintln!("adc2: {}", data1).unwrap();
+            hprintln!("adc2: {}", data1);
         }
     }
 }

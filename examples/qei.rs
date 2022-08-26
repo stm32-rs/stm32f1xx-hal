@@ -48,6 +48,6 @@ fn main() -> ! {
 
         let elapsed = after.wrapping_sub(before) as i16;
 
-        hprintln!("{}", elapsed).unwrap();
+        hprintln!("{}", elapsed);
     }
 }

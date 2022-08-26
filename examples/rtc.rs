@@ -22,6 +22,6 @@ fn main() -> ! {
     let rtc = Rtc::new(p.RTC, &mut backup_domain);
 
     loop {
-        hprintln!("time: {}", rtc.current_time()).unwrap();
+        hprintln!("time: {}", rtc.current_time());
     }
 }
