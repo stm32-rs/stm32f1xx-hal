@@ -118,20 +118,20 @@ macro_rules! wait_for_flag {
 
         if sr1.berr().bit_is_set() {
             $i2c.sr1.write(|w| w.berr().clear_bit());
-            Err(Other(Error::Bus))
+            Err(Error::Bus.into())
         } else if sr1.arlo().bit_is_set() {
             $i2c.sr1.write(|w| w.arlo().clear_bit());
-            Err(Other(Error::Arbitration))
+            Err(Error::Arbitration.into())
         } else if sr1.af().bit_is_set() {
             $i2c.sr1.write(|w| w.af().clear_bit());
-            Err(Other(Error::Acknowledge))
+            Err(Error::Acknowledge.into())
         } else if sr1.ovr().bit_is_set() {
             $i2c.sr1.write(|w| w.ovr().clear_bit());
-            Err(Other(Error::Overrun))
+            Err(Error::Overrun.into())
         } else if sr1.$flag().bit_is_set() {
             Ok(())
         } else {
-            Err(WouldBlock)
+            Err(nb::Error::WouldBlock)
         }
     }};
 }
@@ -139,12 +139,17 @@ macro_rules! wait_for_flag {
 macro_rules! busy_wait {
     ($nb_expr:expr, $exit_cond:expr) => {{
         loop {
-            let res = $nb_expr;
-            if res != Err(WouldBlock) {
-                break res;
-            }
-            if $exit_cond {
-                break res;
+            match $nb_expr {
+                Err(nb::Error::Other(e)) => {
+                    #[allow(unreachable_code)]
+                    break Err(e);
+                }
+                Err(nb::Error::WouldBlock) => {
+                    if $exit_cond {
+                        break Err(Error::Timeout);
+                    }
+                }
+                Ok(x) => break Ok(x),
             }
         }
     }};
@@ -190,26 +195,26 @@ where
     /// Check if START condition is generated. If the condition is not generated, this
     /// method returns `WouldBlock` so the program can act accordingly
     /// (busy wait, async, ...)
-    fn wait_after_sent_start(&mut self) -> NbResult<(), Error> {
+    fn wait_after_sent_start(&mut self) -> nb::Result<(), Error> {
         wait_for_flag!(self.nb.i2c, sb)
     }
 
     /// Check if STOP condition is generated. If the condition is not generated, this
     /// method returns `WouldBlock` so the program can act accordingly
     /// (busy wait, async, ...)
-    fn wait_for_stop(&mut self) -> NbResult<(), Error> {
+    fn wait_for_stop(&mut self) -> nb::Result<(), Error> {
         if self.nb.i2c.cr1.read().stop().is_no_stop() {
             Ok(())
         } else {
-            Err(WouldBlock)
+            Err(nb::Error::WouldBlock)
         }
     }
 
-    fn send_start_and_wait(&mut self) -> NbResult<(), Error> {
+    fn send_start_and_wait(&mut self) -> Result<(), Error> {
         // According to http://www.st.com/content/ccc/resource/technical/document/errata_sheet/f5/50/c9/46/56/db/4a/f6/CD00197763.pdf/files/CD00197763.pdf/jcr:content/translations/en.CD00197763.pdf
         // 2.14.4 Wrong behavior of I2C peripheral in master mode after a misplaced STOP
         let mut retries_left = self.start_retries;
-        let mut last_ret: NbResult<(), Error> = Err(WouldBlock);
+        let mut last_ret = Ok(());
         while retries_left > 0 {
             self.nb.send_start();
             last_ret = busy_wait_cycles!(self.wait_after_sent_start(), self.timeouts.start);
@@ -223,17 +228,17 @@ where
         last_ret
     }
 
-    fn send_addr_and_wait(&mut self, addr: u8, read: bool) -> NbResult<(), Error> {
+    fn send_addr_and_wait(&mut self, addr: u8, read: bool) -> Result<(), Error> {
         self.nb.i2c.sr1.read();
         self.nb.send_addr(addr, read);
         let ret = busy_wait_cycles!(wait_for_flag!(self.nb.i2c, addr), self.timeouts.addr);
-        if ret == Err(Other(Error::Acknowledge)) {
+        if ret == Err(Error::Acknowledge) {
             self.nb.send_stop();
         }
         ret
     }
 
-    fn write_bytes_and_wait(&mut self, bytes: &[u8]) -> NbResult<(), Error> {
+    fn write_bytes_and_wait(&mut self, bytes: &[u8]) -> Result<(), Error> {
         self.nb.i2c.sr1.read();
         self.nb.i2c.sr2.read();
 
@@ -248,12 +253,12 @@ where
         Ok(())
     }
 
-    fn write_without_stop(&mut self, addr: u8, bytes: &[u8]) -> NbResult<(), Error> {
+    fn write_without_stop(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         self.send_start_and_wait()?;
         self.send_addr_and_wait(addr, false)?;
 
         let ret = self.write_bytes_and_wait(bytes);
-        if ret == Err(Other(Error::Acknowledge)) {
+        if ret == Err(Error::Acknowledge) {
             self.nb.send_stop();
         }
         ret
@@ -264,7 +269,7 @@ impl<I2C, PINS> Write for BlockingI2c<I2C, PINS>
 where
     I2C: Instance,
 {
-    type Error = NbError<Error>;
+    type Error = Error;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
         self.write_without_stop(addr, bytes)?;
@@ -279,7 +284,7 @@ impl<I2C, PINS> Read for BlockingI2c<I2C, PINS>
 where
     I2C: Instance,
 {
-    type Error = NbError<Error>;
+    type Error = Error;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         self.send_start_and_wait()?;
@@ -351,7 +356,7 @@ impl<I2C, PINS> WriteRead for BlockingI2c<I2C, PINS>
 where
     I2C: Instance,
 {
-    type Error = NbError<Error>;
+    type Error = Error;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
         if !bytes.is_empty() {
