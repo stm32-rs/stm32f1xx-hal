@@ -37,7 +37,7 @@ fn main() -> ! {
     // Wait for the timer to trigger an update and change the state of the LED
     loop {
         block!(timer.wait()).unwrap();
-        hprintln!("{}", pin.is_high()).unwrap();
+        hprintln!("{}", pin.is_high());
         pin.as_push_pull_output(&mut gpioc.crh, |out| {
             out.set_high();
             block!(timer.wait()).unwrap();

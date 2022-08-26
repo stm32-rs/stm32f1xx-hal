@@ -39,7 +39,7 @@ fn main() -> ! {
     loop {
         pin.make_floating_input(&mut gpioc.crh);
         block!(timer.wait()).unwrap();
-        hprintln!("{}", pin.is_high().unwrap()).unwrap();
+        hprintln!("{}", pin.is_high().unwrap());
 
         pin.make_push_pull_output(&mut gpioc.crh);
         pin.set_high().unwrap();
