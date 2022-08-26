@@ -312,7 +312,7 @@ impl Default for Dynamic {
 
 impl Active for Dynamic {}
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PinModeError {
     IncorrectMode,
 }

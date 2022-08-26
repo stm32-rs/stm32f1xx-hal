@@ -35,7 +35,7 @@ use cortex_m::peripheral::{DCB, DWT};
 use crate::rcc::Clocks;
 
 /// Bits per second
-#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
 pub struct Bps(pub u32);
 
 pub use fugit::{
@@ -134,7 +134,6 @@ impl MonoTimer {
         dwt.enable_cycle_counter();
 
         // now the CYCCNT counter can't be stopped or reset
-        drop(dwt);
 
         MonoTimer {
             frequency: clocks.hclk(),

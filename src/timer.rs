@@ -81,7 +81,7 @@ pub struct Timer<TIM> {
     pub(crate) clk: Hertz,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Channel {
     C1 = 0,
@@ -91,7 +91,7 @@ pub enum Channel {
 }
 
 /// Interrupt events
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SysEvent {
     /// [Timer] timed out / count down ended
     Update,
@@ -245,7 +245,7 @@ impl Timer<SYST> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Ocm {
     Frozen = 0,

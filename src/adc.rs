@@ -28,11 +28,11 @@ pub struct Adc<ADC> {
     clocks: Clocks,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(non_camel_case_types)]
 /// ADC sampling time
 ///
 /// Options for the sampling time, each is T + 0.5 ADC clock cycles.
+#[allow(non_camel_case_types)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SampleTime {
     /// 1.5 cycles sampling time
     T_1,
@@ -75,7 +75,7 @@ impl From<SampleTime> for u8 {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 /// ADC data register alignment
 pub enum Align {
     /// Right alignment of output data
@@ -169,7 +169,7 @@ adc_pins!(pac::ADC3,
 );
 
 /// Stored ADC config can be restored using the `Adc::restore_cfg` method
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct StoredConfig(SampleTime, Align);
 
 macro_rules! adc_hal {
