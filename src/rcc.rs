@@ -661,7 +661,10 @@ impl Config {
             adcpre: apre_bits,
         }
     }
-    pub fn get_clocks(&self) -> Clocks {
+
+    // NOTE: to maintain the invariant that the existence of a Clocks
+    // value implies frozen clocks, this function must not be pub.
+    fn get_clocks(&self) -> Clocks {
         let sysclk = if let Some(pllmul_bits) = self.pllmul {
             let pllsrcclk = if let Some(hse) = self.hse {
                 hse
