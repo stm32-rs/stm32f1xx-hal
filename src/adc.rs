@@ -15,6 +15,9 @@ use embedded_dma::WriteBuffer;
 
 use crate::pac::{self, RCC};
 
+const TEMP_CHANNEL: u8 = 16;
+const VREF_CHANNEL: u8 = 17;
+
 /// Continuous mode
 pub struct Continuous;
 /// Scan mode
@@ -456,7 +459,29 @@ macro_rules! adc_hal {
 
 impl Adc<pac::ADC1> {
     fn read_aux(&mut self, chan: u8) -> u16 {
-        let tsv_off = if self.rb.cr2.read().tsvrefe().bit_is_clear() {
+        let tsv_enabled = if chan == TEMP_CHANNEL || chan == VREF_CHANNEL {
+            self.enable_temp_vref()
+        } else {
+            false
+        };
+
+        let val = self.convert(chan);
+
+        if tsv_enabled {
+            self.disable_temp_vref();
+        }
+
+        val
+    }
+
+    /// Enables the temperature / VREF sensor.
+    ///
+    /// Enabling this before calling `read_temp` or `read_vref` will speed up the reading
+    /// since you won't have to wait for the sensor to start up.
+    ///
+    /// Returns true if the sensor was previously off.
+    pub fn enable_temp_vref(&mut self) -> bool {
+        if !self.is_temp_vref_enabled() {
             self.rb.cr2.modify(|_, w| w.tsvrefe().set_bit());
 
             // The reference manual says that a stabilization time is needed after the powering the
@@ -467,15 +492,19 @@ impl Adc<pac::ADC1> {
             true
         } else {
             false
-        };
-
-        let val = self.convert(chan);
-
-        if tsv_off {
-            self.rb.cr2.modify(|_, w| w.tsvrefe().clear_bit());
         }
+    }
 
-        val
+    /// Disables the temperature / VREF sensor.
+    ///
+    /// `read_temp` and `read_vref` will still work with this disabled, but will take a
+    /// bit longer since you have to wait for the sensor to start up.
+    pub fn disable_temp_vref(&mut self) {
+        self.rb.cr2.modify(|_, w| w.tsvrefe().clear_bit());
+    }
+
+    pub fn is_temp_vref_enabled(&self) -> bool {
+        self.rb.cr2.read().tsvrefe().bit_is_set()
     }
 
     /// Temperature sensor is connected to channel 16 on ADC1. This sensor can be used
@@ -490,6 +519,9 @@ impl Adc<pac::ADC1> {
     /// temperature readings are needed, an external temperature sensor part should be used."
     ///
     /// Formula to calculate temperature value is also taken from the section 11.10.
+    ///
+    /// If the temp/VREF sensor is disabled, this will still work but must wait
+    /// for the sensor to start up. Call `enable_temp_vref` to speed this up.
     pub fn read_temp(&mut self) -> i32 {
         /// According to section 5.3.18 "Temperature sensor characteristics"
         /// from STM32F1xx datasheets, TS constants values are as follows:
@@ -515,8 +547,8 @@ impl Adc<pac::ADC1> {
         };
 
         self.set_sample_time(sample_time);
-        let val_temp: i32 = self.read_aux(16u8).into();
-        let val_vref: i32 = self.read_aux(17u8).into();
+        let val_temp: i32 = self.read_aux(TEMP_CHANNEL).into();
+        let val_vref: i32 = self.read_aux(VREF_CHANNEL).into();
         let v_sense = val_temp * 1200 / val_vref;
 
         self.restore_cfg(prev_cfg);
@@ -532,8 +564,11 @@ impl Adc<pac::ADC1> {
     /// For instance, reading from any ADC channel can be converted into voltage (mV)
     /// using the following formula:
     ///     v_chan = adc.read(chan) * 1200 / adc.read_vref()
+    ///
+    /// If the temp/VREF sensor is disabled, this will still work but must wait
+    /// for the sensor to start up. Call `enable_temp_vref` to speed this up.
     pub fn read_vref(&mut self) -> u16 {
-        self.read_aux(17u8)
+        self.read_aux(VREF_CHANNEL)
     }
 }
 
