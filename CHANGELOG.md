@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Allow access to the `Tx` and `Rx` parts of the `Serial` without the need for splitting.
 - Allow `Serial` reconfiguration by references to the `Tx` and `Rx` parts.
 - Allow `Serial` release after splitting.
+- Allow to stop an incomplete DMA transfer.
 
 ## [v0.9.0] - 2022-03-02
 
