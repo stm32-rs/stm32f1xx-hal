@@ -460,6 +460,10 @@ where
     pub fn is_overrun(&self) -> bool {
         self.spi.sr.read().ovr().bit_is_set()
     }
+
+    pub fn is_busy(&self) -> bool {
+        self.spi.sr.read().bsy().bit_is_set()
+    }
 }
 
 impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8, Master>
