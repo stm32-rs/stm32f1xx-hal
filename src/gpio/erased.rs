@@ -22,6 +22,7 @@ macro_rules! impl_pxx {
                     $(Self::$pin(pin) => pin.pin_id()),*
                 }
             }
+
             #[inline(always)]
             fn port_id(&self) -> u8 {
                 match self {
@@ -116,6 +117,7 @@ impl<MODE> ErasedPin<Output<MODE>> {
 
 impl<MODE> OutputPin for ErasedPin<Output<MODE>> {
     type Error = Infallible;
+
     fn set_high(&mut self) -> Result<(), Infallible> {
         self.set_high();
         Ok(())
@@ -139,6 +141,7 @@ impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
 
 impl<MODE> InputPin for ErasedPin<Input<MODE>> {
     type Error = Infallible;
+
     fn is_high(&self) -> Result<bool, Infallible> {
         Ok(self.is_high())
     }
@@ -150,6 +153,7 @@ impl<MODE> InputPin for ErasedPin<Input<MODE>> {
 
 impl InputPin for ErasedPin<Output<OpenDrain>> {
     type Error = Infallible;
+
     fn is_high(&self) -> Result<bool, Infallible> {
         Ok(self.is_high())
     }

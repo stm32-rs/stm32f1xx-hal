@@ -7,14 +7,14 @@ pub type PEPin<const P: char, MODE> = PartiallyErasedPin<P, MODE>;
 /// - `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
 /// - `P` is port name: `A` for GPIOA, `B` for GPIOB, etc.
 pub struct PartiallyErasedPin<const P: char, MODE> {
-    i: u8,
+    pin_number: u8,
     _mode: PhantomData<MODE>,
 }
 
 impl<const P: char, MODE> PartiallyErasedPin<P, MODE> {
-    pub(crate) fn new(i: u8) -> Self {
+    pub(crate) fn new(pin_number: u8) -> Self {
         Self {
-            i,
+            pin_number,
             _mode: PhantomData,
         }
     }
@@ -25,11 +25,12 @@ impl<const P: char, MODE> PinExt for PartiallyErasedPin<P, MODE> {
 
     #[inline(always)]
     fn pin_id(&self) -> u8 {
-        self.i
+        self.pin_number
     }
+
     #[inline(always)]
     fn port_id(&self) -> u8 {
-        P as u8 - 0x41
+        P as u8 - b'A'
     }
 }
 
@@ -37,7 +38,11 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
     #[inline(always)]
     pub fn set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe { (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << self.i)) }
+        unsafe {
+            (*Gpio::<P>::ptr())
+                .bsrr
+                .write(|w| w.bits(1 << self.pin_number))
+        }
     }
 
     #[inline(always)]
@@ -46,7 +51,7 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
         unsafe {
             (*Gpio::<P>::ptr())
                 .bsrr
-                .write(|w| w.bits(1 << (self.i + 16)))
+                .write(|w| w.bits(1 << (self.pin_number + 16)))
         }
     }
 
@@ -75,7 +80,7 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
     #[inline(always)]
     pub fn is_set_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << self.i) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << self.pin_number) == 0 }
     }
 
     #[inline(always)]
@@ -135,7 +140,7 @@ impl<const P: char> PartiallyErasedPin<P, Output<OpenDrain>> {
     #[inline(always)]
     pub fn is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.i) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.pin_number) == 0 }
     }
 }
 
@@ -162,7 +167,7 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Input<MODE>> {
     #[inline(always)]
     pub fn is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.i) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.pin_number) == 0 }
     }
 }
 
