@@ -99,11 +99,14 @@ pub enum IOPinSpeed {
 
 pub trait PinExt {
     type Mode;
+
     /// Return pin number
     fn pin_id(&self) -> u8;
+
     /// Return port number
     fn port_id(&self) -> u8;
 }
+
 /// Allow setting of the slew rate of an IO pin
 ///
 /// Initially all pins are set to the maximum slew rate
@@ -128,17 +131,21 @@ pub trait Active {}
 pub struct Input<MODE = Floating> {
     _mode: PhantomData<MODE>,
 }
+
 impl<MODE> Active for Input<MODE> {}
 
 /// Used by the debugger (type state)
 #[derive(Default)]
 pub struct Debugger;
+
 /// Floating input (type state)
 #[derive(Default)]
 pub struct Floating;
+
 /// Pulled down input (type state)
 #[derive(Default)]
 pub struct PullDown;
+
 /// Pulled up input (type state)
 #[derive(Default)]
 pub struct PullUp;
@@ -148,11 +155,13 @@ pub struct PullUp;
 pub struct Output<MODE = PushPull> {
     _mode: PhantomData<MODE>,
 }
+
 impl<MODE> Active for Output<MODE> {}
 
 /// Push pull output (type state)
 #[derive(Default)]
 pub struct PushPull;
+
 /// Open drain output (type state)
 #[derive(Default)]
 pub struct OpenDrain;
@@ -160,6 +169,7 @@ pub struct OpenDrain;
 /// Analog mode (type state)
 #[derive(Default)]
 pub struct Analog;
+
 impl Active for Analog {}
 
 /// Alternate function
@@ -167,6 +177,7 @@ impl Active for Analog {}
 pub struct Alternate<MODE = PushPull> {
     _mode: PhantomData<MODE>,
 }
+
 impl<MODE> Active for Alternate<MODE> {}
 
 /// Digital output pin state
@@ -196,9 +207,10 @@ mod sealed {
         const PULL: Option<bool> = None;
     }
 }
-use sealed::PinMode;
 
 use sealed::Interruptable;
+use sealed::PinMode;
+
 impl<MODE> Interruptable for Input<MODE> {}
 impl Interruptable for Dynamic {}
 
@@ -219,10 +231,10 @@ where
 {
     /// Make corresponding EXTI line sensitive to this pin
     fn make_interrupt_source(&mut self, afio: &mut afio::Parts) {
-        let i = self.pin_id();
+        let pin_number = self.pin_id();
         let port = self.port_id() as u32;
-        let offset = 4 * (i % 4);
-        match i {
+        let offset = 4 * (pin_number % 4);
+        match pin_number {
             0..=3 => {
                 afio.exticr1.exticr1().modify(|r, w| unsafe {
                     w.bits((r.bits() & !(0xf << offset)) | (port << offset))
@@ -249,25 +261,25 @@ where
 
     /// Generate interrupt on rising edge, falling edge or both
     fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
-        let i = self.pin_id();
+        let pin_number = self.pin_id();
         match edge {
             Edge::Rising => {
                 exti.rtsr
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
+                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
                 exti.ftsr
-                    .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << i)) });
+                    .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << pin_number)) });
             }
             Edge::Falling => {
                 exti.ftsr
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
+                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
                 exti.rtsr
-                    .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << i)) });
+                    .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << pin_number)) });
             }
             Edge::RisingFalling => {
                 exti.rtsr
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
+                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
                 exti.ftsr
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
+                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
             }
         }
     }
@@ -325,6 +337,7 @@ impl Dynamic {
             OutputPushPull => false,
         }
     }
+
     fn is_output(&self) -> bool {
         use Dynamic::*;
         match self {
@@ -336,7 +349,7 @@ impl Dynamic {
 
 macro_rules! gpio {
     ($GPIOX:ident, $gpiox:ident, $PXx:ident, $port_id:expr, [
-        $($PXi:ident: ($pxi:ident, $i:expr $(, $MODE:ty)?),)+
+        $($PXi:ident: ($pxi:ident, $pin_number:expr $(, $MODE:ty)?),)+
     ]) => {
         /// GPIO
         pub mod $gpiox {
@@ -359,7 +372,7 @@ macro_rules! gpio {
             }
 
             $(
-                pub type $PXi<MODE = Input<Floating>> = Pin<$port_id, $i, MODE>;
+                pub type $PXi<MODE = Input<Floating>> = Pin<$port_id, $pin_number, MODE>;
             )+
 
             impl GpioExt for $GPIOX {
@@ -424,10 +437,10 @@ pub trait HL {
 }
 
 macro_rules! cr {
-    ($high:literal: [$($i:literal),+]) => {
+    ($cr_is_h:literal: [$($pin_number:literal),+]) => {
         $(
-            impl<const P: char, MODE> HL for Pin<P, $i, MODE> {
-                type Cr = Cr<P, $high>;
+            impl<const P: char, MODE> HL for Pin<P, $pin_number, MODE> {
+                type Cr = Cr<P, $cr_is_h>;
             }
         )+
     }
@@ -451,6 +464,7 @@ impl<const P: char, const N: u8, MODE> PinExt for Pin<P, N, MODE> {
     fn pin_id(&self) -> u8 {
         N
     }
+
     #[inline(always)]
     fn port_id(&self) -> u8 {
         P as u8 - b'A'
@@ -469,17 +483,19 @@ impl<const P: char, const N: u8> Pin<P, N, Debugger> {
 
 impl<const P: char, const N: u8> OutputPin for Pin<P, N, Dynamic> {
     type Error = PinModeError;
+
     fn set_high(&mut self) -> Result<(), Self::Error> {
         if self.mode.is_output() {
-            self._set_state(PinState::High);
+            self._set_high();
             Ok(())
         } else {
             Err(PinModeError::IncorrectMode)
         }
     }
+
     fn set_low(&mut self) -> Result<(), Self::Error> {
         if self.mode.is_output() {
-            self._set_state(PinState::Low);
+            self._set_low();
             Ok(())
         } else {
             Err(PinModeError::IncorrectMode)
@@ -489,9 +505,11 @@ impl<const P: char, const N: u8> OutputPin for Pin<P, N, Dynamic> {
 
 impl<const P: char, const N: u8> InputPin for Pin<P, N, Dynamic> {
     type Error = PinModeError;
+
     fn is_high(&self) -> Result<bool, Self::Error> {
         self.is_low().map(|b| !b)
     }
+
     fn is_low(&self) -> Result<bool, Self::Error> {
         if self.mode.is_input() {
             Ok(self._is_low())
@@ -513,6 +531,7 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
       before changing its mode to an output to avoid
       a short spike of an incorrect value
     */
+
     #[inline(always)]
     fn _set_state(&mut self, state: PinState) {
         match state {
@@ -520,11 +539,13 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
             PinState::Low => self._set_low(),
         }
     }
+
     #[inline(always)]
     fn _set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
         unsafe { (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << N)) }
     }
+
     #[inline(always)]
     fn _set_low(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
@@ -536,6 +557,7 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
         // NOTE(unsafe) atomic read with no side effects
         unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << N) == 0 }
     }
+
     #[inline(always)]
     fn _is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
@@ -559,10 +581,12 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, Output<MODE>> {
     pub fn set_high(&mut self) {
         self._set_high()
     }
+
     #[inline]
     pub fn set_low(&mut self) {
         self._set_low()
     }
+
     #[inline(always)]
     pub fn get_state(&self) -> PinState {
         if self._is_set_low() {
@@ -571,21 +595,22 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, Output<MODE>> {
             PinState::High
         }
     }
+
     #[inline(always)]
     pub fn set_state(&mut self, state: PinState) {
-        match state {
-            PinState::Low => self._set_low(),
-            PinState::High => self._set_high(),
-        }
+        self._set_state(state)
     }
+
     #[inline]
     pub fn is_set_high(&self) -> bool {
         !self._is_set_low()
     }
+
     #[inline]
     pub fn is_set_low(&self) -> bool {
         self._is_set_low()
     }
+
     #[inline]
     pub fn toggle(&mut self) {
         if self._is_set_low() {
@@ -598,11 +623,13 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, Output<MODE>> {
 
 impl<const P: char, const N: u8, MODE> OutputPin for Pin<P, N, Output<MODE>> {
     type Error = Infallible;
+
     #[inline]
     fn set_high(&mut self) -> Result<(), Self::Error> {
         self.set_high();
         Ok(())
     }
+
     #[inline]
     fn set_low(&mut self) -> Result<(), Self::Error> {
         self.set_low();
@@ -615,6 +642,7 @@ impl<const P: char, const N: u8, MODE> StatefulOutputPin for Pin<P, N, Output<MO
     fn is_set_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_set_high())
     }
+
     #[inline]
     fn is_set_low(&self) -> Result<bool, Self::Error> {
         Ok(self.is_set_low())
@@ -636,6 +664,7 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, Input<MODE>> {
     pub fn is_high(&self) -> bool {
         !self._is_low()
     }
+
     #[inline]
     pub fn is_low(&self) -> bool {
         self._is_low()
@@ -644,6 +673,7 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, Input<MODE>> {
 
 impl<const P: char, const N: u8, MODE> InputPin for Pin<P, N, Input<MODE>> {
     type Error = Infallible;
+
     #[inline]
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_high())
@@ -660,6 +690,7 @@ impl<const P: char, const N: u8> Pin<P, N, Output<OpenDrain>> {
     pub fn is_high(&self) -> bool {
         !self._is_low()
     }
+
     #[inline]
     pub fn is_low(&self) -> bool {
         self._is_low()
@@ -668,6 +699,7 @@ impl<const P: char, const N: u8> Pin<P, N, Output<OpenDrain>> {
 
 impl<const P: char, const N: u8> InputPin for Pin<P, N, Output<OpenDrain>> {
     type Error = Infallible;
+
     #[inline]
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_high())
@@ -749,6 +781,7 @@ where
         self.mode::<Output<OpenDrain>>(cr);
         Pin::new()
     }
+
     /// Configures the pin to operate as an push-pull output pin.
     /// Initial state will be low.
     #[inline]
@@ -866,21 +899,39 @@ where
     impl_temp_input!(as_pull_down_input, Input<PullDown>);
 }
 
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE>
+where
+    Self: HL,
+{
+    #[inline(always)]
+    fn cr_modify(&mut self, _cr: &mut <Self as HL>::Cr, f: impl FnOnce(u32) -> u32) {
+        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
+
+        match N {
+            0..=7 => {
+                gpio.crl.modify(|r, w| unsafe { w.bits(f(r.bits())) });
+            }
+            8..=15 => {
+                gpio.crh.modify(|r, w| unsafe { w.bits(f(r.bits())) });
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[inline(always)]
+    fn _set_speed(&mut self, cr: &mut <Self as HL>::Cr, speed: IOPinSpeed) {
+        self.cr_modify(cr, |r_bits| {
+            (r_bits & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET)
+        });
+    }
+}
+
 impl<const P: char, const N: u8, MODE> OutputSpeed for Pin<P, N, Output<MODE>>
 where
     Self: HL,
 {
-    fn set_speed(&mut self, _cr: &mut <Self as HL>::Cr, speed: IOPinSpeed) {
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        if N > 7 {
-            gpio.crh.modify(|r, w| unsafe {
-                w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
-            });
-        } else {
-            gpio.crl.modify(|r, w| unsafe {
-                w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
-            });
-        }
+    fn set_speed(&mut self, cr: &mut <Self as HL>::Cr, speed: IOPinSpeed) {
+        self._set_speed(cr, speed)
     }
 }
 
@@ -888,17 +939,8 @@ impl<const P: char, const N: u8> OutputSpeed for Pin<P, N, Alternate<PushPull>>
 where
     Self: HL,
 {
-    fn set_speed(&mut self, _cr: &mut <Self as HL>::Cr, speed: IOPinSpeed) {
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
-        if N > 7 {
-            gpio.crh.modify(|r, w| unsafe {
-                w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
-            });
-        } else {
-            gpio.crl.modify(|r, w| unsafe {
-                w.bits((r.bits() & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET))
-            });
-        }
+    fn set_speed(&mut self, cr: &mut <Self as HL>::Cr, speed: IOPinSpeed) {
+        self._set_speed(cr, speed)
     }
 }
 
@@ -914,24 +956,28 @@ where
         self.mode::<Input<PullUp>>(cr);
         self.mode = Dynamic::InputPullUp;
     }
+
     #[inline]
     pub fn make_pull_down_input(&mut self, cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
         self.mode::<Input<PullDown>>(cr);
         self.mode = Dynamic::InputPullDown;
     }
+
     #[inline]
     pub fn make_floating_input(&mut self, cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
         self.mode::<Input<Floating>>(cr);
         self.mode = Dynamic::InputFloating;
     }
+
     #[inline]
     pub fn make_push_pull_output(&mut self, cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
         self.mode::<Output<PushPull>>(cr);
         self.mode = Dynamic::OutputPushPull;
     }
+
     #[inline]
     pub fn make_open_drain_output(&mut self, cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
@@ -986,9 +1032,10 @@ impl<const P: char, const N: u8, M> Pin<P, N, M>
 where
     Self: HL,
 {
-    fn mode<MODE: PinMode>(&mut self, _cr: &mut <Self as HL>::Cr) {
-        // input mode
+    fn mode<MODE: PinMode>(&mut self, cr: &mut <Self as HL>::Cr) {
         let gpio = unsafe { &(*Gpio::<P>::ptr()) };
+
+        // Input<PullUp> or Input<PullDown> mode
         if let Some(pull) = MODE::PULL {
             if pull {
                 gpio.bsrr.write(|w| unsafe { w.bits(1 << N) });
@@ -999,15 +1046,9 @@ where
 
         let bits = (MODE::CNF << 2) | MODE::MODE;
 
-        if N > 7 {
-            gpio.crh.modify(|r, w| unsafe {
-                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (bits << Self::OFFSET))
-            });
-        } else {
-            gpio.crl.modify(|r, w| unsafe {
-                w.bits((r.bits() & !(0b1111 << Self::OFFSET)) | (bits << Self::OFFSET))
-            });
-        }
+        self.cr_modify(cr, |r_bits| {
+            (r_bits & !(0b1111 << Self::OFFSET)) | (bits << Self::OFFSET)
+        });
     }
 }
 
@@ -1159,7 +1200,7 @@ impl<const P: char> Gpio<P> {
             'F' => crate::pac::GPIOF::ptr() as _,
             #[cfg(any(feature = "xl", feature = "high"))]
             'G' => crate::pac::GPIOG::ptr() as _,
-            _ => crate::pac::GPIOA::ptr(),
+            _ => unreachable!(),
         }
     }
 }
