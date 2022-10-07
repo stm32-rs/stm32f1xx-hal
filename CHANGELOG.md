@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Allow `Serial` release after splitting.
 - `Spi::is_busy()`
 
+### Fixed
+
+- `CounterHz` and `Counter` do not `wait` properly after the second and subsequent `start`.
+
 ## [v0.9.0] - 2022-03-02
 
 ### Added

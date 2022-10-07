@@ -33,6 +33,9 @@ impl<TIM: Instance> CounterHz<TIM> {
     pub fn start(&mut self, timeout: Hertz) -> Result<(), Error> {
         // pause
         self.tim.disable_counter();
+
+        self.tim.clear_interrupt_flag(Event::Update);
+
         // reset counter
         self.tim.reset_counter();
 
@@ -158,6 +161,9 @@ impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
     pub fn start(&mut self, timeout: TimerDurationU32<FREQ>) -> Result<(), Error> {
         // pause
         self.tim.disable_counter();
+
+        self.tim.clear_interrupt_flag(Event::Update);
+
         // reset counter
         self.tim.reset_counter();
 
