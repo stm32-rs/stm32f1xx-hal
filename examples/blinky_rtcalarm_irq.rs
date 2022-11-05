@@ -24,7 +24,7 @@ use crate::hal::{
 };
 
 use core::cell::RefCell;
-use cortex_m::{asm::wfi, interrupt::Mutex};
+use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
 
 // A type definition for the GPIO pin to be used for our LED
@@ -108,7 +108,5 @@ fn main() -> ! {
     // Enable RTCALARM IRQ
     unsafe { cortex_m::peripheral::NVIC::unmask(Interrupt::RTCALARM) };
 
-    loop {
-        wfi();
-    }
+    loop {}
 }

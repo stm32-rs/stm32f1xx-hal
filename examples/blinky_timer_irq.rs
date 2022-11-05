@@ -7,6 +7,7 @@
 //! GPIOs PC13 to PC15 in output mode is restricted: the speed has to be limited to 2MHz with
 //! a maximum load of 30pF and these IOs must not be used as a current source (e.g. to drive a LED)"
 
+#![allow(clippy::empty_loop)]
 #![no_main]
 #![no_std]
 
@@ -22,7 +23,7 @@ use crate::hal::{
 };
 
 use core::cell::RefCell;
-use cortex_m::{asm::wfi, interrupt::Mutex};
+use cortex_m::interrupt::Mutex;
 use cortex_m_rt::entry;
 
 // NOTE You can uncomment 'hprintln' here and in the code below for a bit more
@@ -99,7 +100,5 @@ fn main() -> ! {
         cortex_m::peripheral::NVIC::unmask(Interrupt::TIM2);
     }
 
-    loop {
-        wfi();
-    }
+    loop {}
 }
