@@ -5,13 +5,12 @@ jobs:
   clippy_check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - run: rustup component add clippy
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: thumbv7m-none-eabi
-          override: true
+      - uses: actions/checkout@v3
+      - name: Use the latest stable rustc
+        run: rustup update stable && rustup default stable
+      - name: Add Cortex-M3 target
+        run: rustup target add thumbv7m-none-eabi
+
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

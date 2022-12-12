@@ -24,17 +24,17 @@ jobs:
             experimental: true
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          target: thumbv7m-none-eabi
-          override: true
+      - uses: actions/checkout@v3
+      - name: Use the latest ${{ matrix.rust }} rustc
+        run: rustup update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+      - name: Add Cortex-M3 target
+        run: rustup target add thumbv7m-none-eabi
+
       - uses: actions-rs/cargo@v1
         with:
           command: check
           args: --features=${{ matrix.mcu }},rt --examples
+
       - uses: actions-rs/cargo@v1
         with:
           command: test

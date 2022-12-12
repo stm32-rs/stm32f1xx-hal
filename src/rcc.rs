@@ -266,12 +266,9 @@ impl CFGR {
                 .bits(if cfg.pllmul.is_some() {
                     // PLL
                     0b10
-                } else if cfg.hse.is_some() {
-                    // HSE
-                    0b1
                 } else {
-                    // HSI
-                    0b0
+                    // HSE or HSI
+                    u8::from(cfg.hse.is_some())
                 })
         });
 
