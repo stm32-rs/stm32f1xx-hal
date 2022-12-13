@@ -11,10 +11,10 @@ name = "stm32f1xx-hal"
 repository = "https://github.com/stm32-rs/stm32f1xx-hal"
 documentation = "https://docs.rs/stm32f1xx-hal"
 readme = "README.md"
-version = "0.9.0"
+version = "0.10.0"
 
 [package.metadata.docs.rs]
-features = ["stm32f103", "rt"]
+features = ["stm32f103", "rtic", "high"]
 default-target = "x86_64-unknown-linux-gnu"
 
 [dependencies]

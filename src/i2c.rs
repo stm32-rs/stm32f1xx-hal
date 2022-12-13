@@ -243,7 +243,7 @@ where
     fn send_addr(&self, addr: u8, read: bool) {
         self.i2c
             .dr
-            .write(|w| w.dr().bits(addr << 1 | (if read { 1 } else { 0 })));
+            .write(|w| w.dr().bits(addr << 1 | (u8::from(read))));
     }
 
     /// Generate STOP condition
