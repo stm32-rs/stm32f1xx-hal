@@ -45,15 +45,15 @@ You also need to add some dependencies to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-embedded-hal = "0.2.3"
-nb = "0.1.2"
-cortex-m = "0.6.2"
-cortex-m-rt = "0.6.11"
+embedded-hal = "0.2.7"
+nb = "1"
+cortex-m = "0.7.6"
+cortex-m-rt = "0.7.1"
 # Panic behaviour, see https://crates.io/keywords/panic-impl for alternatives
 panic-halt = "0.2.0"
 
 [dependencies.stm32f1xx-hal]
-version = "0.6.1"
+version = "0.10.0"
 features = ["rt", "stm32f103", "medium"]
 ```
 
