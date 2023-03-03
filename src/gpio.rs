@@ -820,6 +820,17 @@ where
         Pin::new()
     }
 
+    /// Configures the pin to operate as an push-pull output pin.
+    /// The state will not be changed.
+    #[inline]
+    pub fn into_push_pull_output_with_current_state(
+        mut self,
+        cr: &mut <Self as HL>::Cr,
+    ) -> Pin<P, N, Output<PushPull>> {
+        self.mode::<Output<PushPull>>(cr);
+        Pin::new()
+    }
+
     /// Configures the pin to operate as an analog input pin
     #[inline]
     pub fn into_analog(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Analog> {
