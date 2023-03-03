@@ -125,7 +125,7 @@ pub trait GpioExt {
     fn split(self) -> Self::Parts;
 
     /// Splits the GPIO block into independent pins and registers without resetting its state.
-    fn split_without_reset(self) -> Self::Parts;
+    unsafe fn split_without_reset(self) -> Self::Parts;
 }
 
 /// Marker trait for active states.
@@ -397,7 +397,7 @@ macro_rules! gpio {
                     }
                 }
 
-                fn split_without_reset(self) -> Parts {
+                unsafe fn split_without_reset(self) -> Parts {
                     let rcc = unsafe { &(*RCC::ptr()) };
                     $GPIOX::enable(rcc);
 
