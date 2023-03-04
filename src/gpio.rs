@@ -119,8 +119,13 @@ pub trait GpioExt {
     /// The to split the GPIO into
     type Parts;
 
-    /// Splits the GPIO block into independent pins and registers
+    /// Splits the GPIO block into independent pins and registers.
+    ///
+    /// This resets the state of the GPIO block.
     fn split(self) -> Self::Parts;
+
+    /// Splits the GPIO block into independent pins and registers without resetting its state.
+    unsafe fn split_without_reset(self) -> Self::Parts;
 }
 
 /// Marker trait for active states.
@@ -382,6 +387,19 @@ macro_rules! gpio {
                     let rcc = unsafe { &(*RCC::ptr()) };
                     $GPIOX::enable(rcc);
                     $GPIOX::reset(rcc);
+
+                    Parts {
+                        crl: Cr::<$port_id, false>(()),
+                        crh: Cr::<$port_id, true>(()),
+                        $(
+                            $pxi: $PXi::new(),
+                        )+
+                    }
+                }
+
+                unsafe fn split_without_reset(self) -> Parts {
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    $GPIOX::enable(rcc);
 
                     Parts {
                         crl: Cr::<$port_id, false>(()),
@@ -798,6 +816,17 @@ where
         initial_state: PinState,
     ) -> Pin<P, N, Output<PushPull>> {
         self._set_state(initial_state);
+        self.mode::<Output<PushPull>>(cr);
+        Pin::new()
+    }
+
+    /// Configures the pin to operate as an push-pull output pin.
+    /// The state will not be changed.
+    #[inline]
+    pub fn into_push_pull_output_with_current_state(
+        mut self,
+        cr: &mut <Self as HL>::Cr,
+    ) -> Pin<P, N, Output<PushPull>> {
         self.mode::<Output<PushPull>>(cr);
         Pin::new()
     }
