@@ -49,8 +49,7 @@ fn main() -> ! {
 
     let serial = Serial::new(
         p.USART1,
-        (tx, rx),
-        &mut afio.mapr,
+        (tx, rx, &mut afio.mapr),
         Config::default().baudrate(9600.bps()),
         &clocks,
     );

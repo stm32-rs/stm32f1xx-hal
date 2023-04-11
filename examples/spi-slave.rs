@@ -20,28 +20,13 @@ pub const MODE: Mode = Mode {
 };
 
 use stm32f1xx_hal::{
-    gpio::{
-        gpiob::{PB13, PB14, PB15},
-        Alternate, Floating, Input, PushPull,
-    },
+    gpio::Floating,
     pac::{self, interrupt, Peripherals, SPI2},
     prelude::*,
-    spi::{Event, Slave, Spi, Spi2NoRemap},
+    spi::{Event, SpiSlave},
 };
 
-type SlaveSpi = Spi<
-    SPI2,
-    Spi2NoRemap,
-    (
-        PB13<Input<Floating>>,
-        PB14<Alternate<PushPull>>,
-        PB15<Input<Floating>>,
-    ),
-    u8,
-    Slave,
->;
-
-static mut SPI2SLAVE: Option<SlaveSpi> = None;
+static mut SPI2SLAVE: Option<SpiSlave<SPI2, u8>> = None;
 
 #[entry]
 fn main() -> ! {
@@ -53,29 +38,26 @@ fn main() -> ! {
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     let mut afio = dp.AFIO.constrain();
-    let mut gpioa = dp.GPIOA.split();
+    let gpioa = dp.GPIOA.split();
     let mut gpiob = dp.GPIOB.split();
 
     // SPI1
-    let sck = gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl);
+    // Convert pins during SPI initialization
+    let sck = gpioa.pa5;
     let miso = gpioa.pa6;
-    let mosi = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
+    let mosi = gpioa.pa7;
 
-    let spi1 = Spi::spi1(
-        dp.SPI1,
-        (sck, miso, mosi),
-        &mut afio.mapr,
-        MODE,
-        10.kHz(),
-        &clocks,
-    );
+    let spi1 = dp
+        .SPI1
+        .spi::<Floating>((sck, miso, mosi, &mut afio.mapr), MODE, 10.kHz(), &clocks);
 
     // SPI2
+    // Convert pins before SPI initialization
     let sck = gpiob.pb13;
     let miso = gpiob.pb14.into_alternate_push_pull(&mut gpiob.crh);
     let mosi = gpiob.pb15;
 
-    let spi2 = Spi::spi2_slave(dp.SPI2, (sck, miso, mosi), MODE);
+    let spi2 = dp.SPI2.spi_slave((sck, miso, mosi), MODE);
 
     // Set up the DMA device
     let dma = dp.DMA1.split();
@@ -133,7 +115,7 @@ unsafe fn SPI2() {
                 asm::bkpt();
             }
             if spi2.is_rx_not_empty() {
-                if let Ok(w) = nb::block!(spi2.read()) {
+                if let Ok(w) = nb::block!(spi2.read_nonblocking()) {
                     R_BUFFER[RIDX] = w;
                     RIDX += 1;
                     if RIDX >= R_BUFFER_LEN - 1 {
@@ -142,7 +124,7 @@ unsafe fn SPI2() {
                 }
             }
             if spi2.is_tx_empty() {
-                if let Ok(()) = nb::block!(spi2.send(W_BUFFER[WIDX])) {
+                if let Ok(()) = nb::block!(spi2.write_nonblocking(W_BUFFER[WIDX])) {
                     WIDX += 1;
                     if WIDX >= W_BUFFER_LEN {
                         WIDX = 0;

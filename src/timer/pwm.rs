@@ -94,11 +94,11 @@ macro_rules! pins_impl {
     ( $( ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ); )+ ) => {
         $(
             #[allow(unused_parens)]
-            impl<TIM, REMAP, OUTMODE, $($PINX,)+> Pins<REMAP, ($(Ch<$ENCHX>),+)> for ($($PINX),+)
+            impl<TIM, REMAP, Otype, $($PINX,)+> Pins<REMAP, ($(Ch<$ENCHX>),+)> for ($($PINX),+)
             where
                 TIM: Instance + WithPwm,
                 REMAP: Remap<Periph = TIM>,
-                $($PINX: CPin<REMAP, $ENCHX> + gpio::PinExt<Mode=Alternate<OUTMODE>>,)+
+                $($PINX: CPin<REMAP, $ENCHX> + gpio::PinExt<Mode=Alternate<Otype>>,)+
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(PwmChannel<TIM, $ENCHX>),+);

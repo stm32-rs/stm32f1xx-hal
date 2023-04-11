@@ -138,9 +138,7 @@ pub trait Active {}
 
 /// Input mode (type state)
 #[derive(Default)]
-pub struct Input<MODE = Floating> {
-    _mode: PhantomData<MODE>,
-}
+pub struct Input<PULL = Floating>(PhantomData<PULL>);
 
 impl<MODE> Active for Input<MODE> {}
 
@@ -162,9 +160,7 @@ pub struct PullUp;
 
 /// Output mode (type state)
 #[derive(Default)]
-pub struct Output<MODE = PushPull> {
-    _mode: PhantomData<MODE>,
-}
+pub struct Output<Otype = PushPull>(PhantomData<Otype>);
 
 impl<MODE> Active for Output<MODE> {}
 
@@ -184,9 +180,7 @@ impl Active for Analog {}
 
 /// Alternate function
 #[derive(Default)]
-pub struct Alternate<MODE = PushPull> {
-    _mode: PhantomData<MODE>,
-}
+pub struct Alternate<Otype = PushPull>(PhantomData<Otype>);
 
 impl<MODE> Active for Alternate<MODE> {}
 
