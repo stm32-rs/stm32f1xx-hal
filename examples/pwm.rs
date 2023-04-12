@@ -9,12 +9,7 @@ use panic_halt as _;
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{
-    pac,
-    prelude::*,
-    time::ms,
-    timer::{Channel, Tim2NoRemap},
-};
+use stm32f1xx_hal::{pac, prelude::*, time::ms, timer, timer::Channel};
 
 #[entry]
 fn main() -> ! {
@@ -36,7 +31,7 @@ fn main() -> ! {
     let c3 = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
     // If you don't want to use all channels, just leave some out
     // let c4 = gpioa.pa3.into_alternate_push_pull(&mut gpioa.crl);
-    let pins = (c1, c2, c3);
+    let pins = (c1, c2, c3, &mut afio.mapr);
 
     // TIM3
     // let c1 = gpioa.pa6.into_alternate_push_pull(&mut gpioa.crl);
@@ -55,7 +50,7 @@ fn main() -> ! {
     // or
     let mut pwm = p
         .TIM2
-        .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz(), &clocks);
+        .pwm_hz::<timer::tim2::Channels123>(pins, 1.kHz(), &clocks);
 
     // Enable clock on each of the channels
     pwm.enable(Channel::C1);

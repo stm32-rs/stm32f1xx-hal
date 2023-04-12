@@ -6,29 +6,13 @@ use core::mem;
 
 use crate::pac::{self, DBGMCU as DBG};
 
-use crate::afio::MAPR;
-use crate::gpio::{self, Input};
 use crate::rcc::{BusTimerClock, Clocks};
 use crate::time::Hertz;
-use crate::timer::Timer;
-
-pub trait Pins<REMAP> {}
-
-use super::pins::{sealed::Remap, CPin};
-
-impl<TIM, REMAP, P1, P2, MODE1, MODE2> Pins<REMAP> for (P1, P2)
-where
-    REMAP: Remap<Periph = TIM>,
-    P1: CPin<REMAP, 0> + gpio::PinExt<Mode = Input<MODE1>>,
-    P2: CPin<REMAP, 1> + gpio::PinExt<Mode = Input<MODE2>>,
-{
-}
+use crate::timer::{InputPins, Timer};
 
 /// PWM Input
-pub struct PwmInput<TIM, REMAP, PINS> {
+pub struct PwmInput<TIM> {
     _timer: PhantomData<TIM>,
-    _remap: PhantomData<REMAP>,
-    _pins: PhantomData<PINS>,
 }
 
 /// How the data is read from the timer
@@ -74,58 +58,87 @@ pub enum Configuration {
     RawValues { arr: u16, presc: u16 },
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
-impl Timer<pac::TIM1> {
-    pub fn pwm_input<REMAP, PINS>(
-        mut self,
-        pins: PINS,
-        mapr: &mut MAPR,
+pub trait PwmInputExt: Sized + InputPins {
+    fn pwm_input(
+        self,
+        pins: impl Into<<Self as InputPins>::Channels12>,
         dbg: &mut DBG,
         mode: Configuration,
-    ) -> PwmInput<pac::TIM1, REMAP, PINS>
-    where
-        REMAP: Remap<Periph = pac::TIM1>,
-        PINS: Pins<REMAP>,
-    {
-        REMAP::remap(mapr);
+        clocks: &Clocks,
+    ) -> PwmInput<Self>;
+}
+
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
+impl PwmInputExt for pac::TIM1 {
+    fn pwm_input(
+        self,
+        pins: impl Into<<Self as InputPins>::Channels12>,
+        dbg: &mut DBG,
+        mode: Configuration,
+        clocks: &Clocks,
+    ) -> PwmInput<Self> {
+        Timer::new(self, clocks).pwm_input(pins, dbg, mode)
+    }
+}
+
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
+impl Timer<pac::TIM1> {
+    pub fn pwm_input(
+        mut self,
+        pins: impl Into<<pac::TIM1 as InputPins>::Channels12>,
+        dbg: &mut DBG,
+        mode: Configuration,
+    ) -> PwmInput<pac::TIM1> {
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim1(tim, pins, clk, mode)
     }
 }
 
-impl Timer<pac::TIM2> {
-    pub fn pwm_input<REMAP, PINS>(
-        mut self,
-        pins: PINS,
-        mapr: &mut MAPR,
+impl PwmInputExt for pac::TIM2 {
+    fn pwm_input(
+        self,
+        pins: impl Into<<Self as InputPins>::Channels12>,
         dbg: &mut DBG,
         mode: Configuration,
-    ) -> PwmInput<pac::TIM2, REMAP, PINS>
-    where
-        REMAP: Remap<Periph = pac::TIM2>,
-        PINS: Pins<REMAP>,
-    {
-        REMAP::remap(mapr);
+        clocks: &Clocks,
+    ) -> PwmInput<Self> {
+        Timer::new(self, clocks).pwm_input(pins, dbg, mode)
+    }
+}
+
+impl Timer<pac::TIM2> {
+    pub fn pwm_input(
+        mut self,
+        pins: impl Into<<pac::TIM2 as InputPins>::Channels12>,
+        dbg: &mut DBG,
+        mode: Configuration,
+    ) -> PwmInput<pac::TIM2> {
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim2(tim, pins, clk, mode)
     }
 }
 
-impl Timer<pac::TIM3> {
-    pub fn pwm_input<REMAP, PINS>(
-        mut self,
-        pins: PINS,
-        mapr: &mut MAPR,
+impl PwmInputExt for pac::TIM3 {
+    fn pwm_input(
+        self,
+        pins: impl Into<<Self as InputPins>::Channels12>,
         dbg: &mut DBG,
         mode: Configuration,
-    ) -> PwmInput<pac::TIM3, REMAP, PINS>
-    where
-        REMAP: Remap<Periph = pac::TIM3>,
-        PINS: Pins<REMAP>,
-    {
-        REMAP::remap(mapr);
+        clocks: &Clocks,
+    ) -> PwmInput<Self> {
+        Timer::new(self, clocks).pwm_input(pins, dbg, mode)
+    }
+}
+
+impl Timer<pac::TIM3> {
+    pub fn pwm_input(
+        mut self,
+        pins: impl Into<<pac::TIM3 as InputPins>::Channels12>,
+        dbg: &mut DBG,
+        mode: Configuration,
+    ) -> PwmInput<pac::TIM3> {
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim3(tim, pins, clk, mode)
@@ -133,19 +146,26 @@ impl Timer<pac::TIM3> {
 }
 
 #[cfg(feature = "medium")]
-impl Timer<pac::TIM4> {
-    pub fn pwm_input<REMAP, PINS>(
-        mut self,
-        pins: PINS,
-        mapr: &mut MAPR,
+impl PwmInputExt for pac::TIM4 {
+    fn pwm_input(
+        self,
+        pins: impl Into<<Self as InputPins>::Channels12>,
         dbg: &mut DBG,
         mode: Configuration,
-    ) -> PwmInput<pac::TIM4, REMAP, PINS>
-    where
-        REMAP: Remap<Periph = pac::TIM4>,
-        PINS: Pins<REMAP>,
-    {
-        REMAP::remap(mapr);
+        clocks: &Clocks,
+    ) -> PwmInput<Self> {
+        Timer::new(self, &clocks).pwm_input(pins, dbg, mode)
+    }
+}
+
+#[cfg(feature = "medium")]
+impl Timer<pac::TIM4> {
+    pub fn pwm_input(
+        mut self,
+        pins: impl Into<<pac::TIM4 as InputPins>::Channels12>,
+        dbg: &mut DBG,
+        mode: Configuration,
+    ) -> PwmInput<pac::TIM4> {
         self.stop_in_debug(dbg, false);
         let Self { tim, clk } = self;
         tim4(tim, pins, clk, mode)
@@ -163,16 +183,14 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
 }
 macro_rules! hal {
     ($TIMX:ty: $timX:ident) => {
-        fn $timX<REMAP, PINS>(
+        fn $timX(
             tim: $TIMX,
-            _pins: PINS,
+            pins: impl Into<<$TIMX as InputPins>::Channels12>,
             clk: Hertz,
             mode: Configuration,
-        ) -> PwmInput<$TIMX, REMAP, PINS>
-        where
-            REMAP: Remap<Periph = $TIMX>,
-            PINS: Pins<REMAP>,
-        {
+        ) -> PwmInput<$TIMX> {
+            let _pins = pins.into();
+
             use Configuration::*;
             // Disable capture on both channels during setting
             // (for Channel X bit is CCXE)
@@ -238,11 +256,7 @@ macro_rules! hal {
             unsafe { mem::MaybeUninit::uninit().assume_init() }
         }
 
-        impl<REMAP, PINS> PwmInput<$TIMX, REMAP, PINS>
-        where
-            REMAP: Remap<Periph = $TIMX>,
-            PINS: Pins<REMAP>,
-        {
+        impl PwmInput<$TIMX> {
             /// Return the frequency sampled by the timer
             pub fn read_frequency(&self, mode: ReadMode, clocks: &Clocks) -> Result<Hertz, Error> {
                 if let ReadMode::WaitForNextCapture = mode {

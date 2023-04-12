@@ -8,7 +8,11 @@
 use panic_halt as _;
 
 use cortex_m::asm;
-use stm32f1xx_hal::{pac, prelude::*, timer::Timer};
+use stm32f1xx_hal::{
+    pac,
+    prelude::*,
+    timer::{self, Timer},
+};
 
 use cortex_m_rt::entry;
 
@@ -30,7 +34,8 @@ fn main() -> ! {
     let p0 = pb4.into_alternate_push_pull(&mut gpiob.crl);
     let p1 = gpiob.pb5.into_alternate_push_pull(&mut gpiob.crl);
 
-    let pwm = Timer::new(p.TIM3, &clocks).pwm_hz((p0, p1), &mut afio.mapr, 1.kHz());
+    let pwm = Timer::new(p.TIM3, &clocks)
+        .pwm_hz::<timer::tim3::Channels12>((p0, p1, &mut afio.mapr), 1.kHz());
 
     let max = pwm.get_max_duty();
 
