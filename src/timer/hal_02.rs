@@ -11,8 +11,8 @@ use fugit::{ExtU32, HertzU32 as Hertz, TimerDurationU32};
 use void::Void;
 
 use super::{
-    pins::sealed::Remap, pwm::Pins, Channel, Counter, CounterHz, Delay, Error, Instance, Pwm,
-    PwmChannel, PwmHz, SysCounter, SysCounterHz, SysDelay, WithPwm,
+    pwm::Pins, Channel, Counter, CounterHz, Delay, Error, Instance, Pwm, PwmChannel, PwmHz,
+    SysCounter, SysCounterHz, SysDelay, WithPwm,
 };
 
 impl DelayUs<u32> for SysDelay {
@@ -153,11 +153,10 @@ impl<TIM: Instance + WithPwm, const C: u8> embedded_hal_02::PwmPin for PwmChanne
     }
 }
 
-impl<TIM, REMAP, P, PINS> embedded_hal_02::Pwm for PwmHz<TIM, REMAP, P, PINS>
+impl<TIM, PINS> embedded_hal_02::Pwm for PwmHz<TIM, PINS>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     type Channel = Channel;
     type Duty = u16;
@@ -264,11 +263,10 @@ impl<TIM: Instance, const FREQ: u32> Cancel for Counter<TIM, FREQ> {
     }
 }
 
-impl<TIM, REMAP, P, PINS, const FREQ: u32> embedded_hal_02::Pwm for Pwm<TIM, REMAP, P, PINS, FREQ>
+impl<TIM, PINS, const FREQ: u32> embedded_hal_02::Pwm for Pwm<TIM, PINS, FREQ>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     type Channel = Channel;
     type Duty = u16;

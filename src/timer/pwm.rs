@@ -52,120 +52,46 @@
     c0.enable()
   ```
 */
-
-use crate::afio::MAPR;
-use crate::gpio::{self, Alternate};
+pub use super::pins::Pins;
 
 use super::{compute_arr_presc, Channel, FTimer, Instance, Ocm, Timer, WithPwm};
+pub use super::{C1, C2, C3, C4};
 use crate::rcc::Clocks;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use fugit::{HertzU32 as Hertz, TimerDurationU32};
 
-pub trait Pins<REMAP, P> {
-    const C1: bool = false;
-    const C2: bool = false;
-    const C3: bool = false;
-    const C4: bool = false;
-    type Channels;
-
-    fn check_used(c: Channel) -> Channel {
-        if (c == Channel::C1 && Self::C1)
-            || (c == Channel::C2 && Self::C2)
-            || (c == Channel::C3 && Self::C3)
-            || (c == Channel::C4 && Self::C4)
-        {
-            c
-        } else {
-            panic!("Unused channel")
-        }
-    }
-
-    fn split() -> Self::Channels;
-}
-
-pub use super::{pins::sealed::Remap, CPin, Ch, C1, C2, C3, C4};
-
 pub struct PwmChannel<TIM, const C: u8> {
     pub(super) _tim: PhantomData<TIM>,
 }
-
-macro_rules! pins_impl {
-    ( $( ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ); )+ ) => {
-        $(
-            #[allow(unused_parens)]
-            impl<TIM, REMAP, Otype, $($PINX,)+> Pins<REMAP, ($(Ch<$ENCHX>),+)> for ($($PINX),+)
-            where
-                TIM: Instance + WithPwm,
-                REMAP: Remap<Periph = TIM>,
-                $($PINX: CPin<REMAP, $ENCHX> + gpio::PinExt<Mode=Alternate<Otype>>,)+
-            {
-                $(const $ENCHX: bool = true;)+
-                type Channels = ($(PwmChannel<TIM, $ENCHX>),+);
-                fn split() -> Self::Channels {
-                    ($(PwmChannel::<TIM, $ENCHX>::new()),+)
-                }
-            }
-        )+
-    };
-}
-
-pins_impl!(
-    (P1, P2, P3, P4), (C1, C2, C3, C4);
-    (P2, P3, P4), (C2, C3, C4);
-    (P1, P3, P4), (C1, C3, C4);
-    (P1, P2, P4), (C1, C2, C4);
-    (P1, P2, P3), (C1, C2, C3);
-    (P3, P4), (C3, C4);
-    (P2, P4), (C2, C4);
-    (P2, P3), (C2, C3);
-    (P1, P4), (C1, C4);
-    (P1, P3), (C1, C3);
-    (P1, P2), (C1, C2);
-    (P1), (C1);
-    (P2), (C2);
-    (P3), (C3);
-    (P4), (C4);
-);
 
 pub trait PwmExt
 where
     Self: Sized + Instance + WithPwm,
 {
-    fn pwm<REMAP, P, PINS, const FREQ: u32>(
+    fn pwm<PINS, const FREQ: u32>(
         self,
-        pins: PINS,
-        mapr: &mut MAPR,
+        pins: impl Into<PINS>,
         time: TimerDurationU32<FREQ>,
         clocks: &Clocks,
-    ) -> Pwm<Self, REMAP, P, PINS, FREQ>
+    ) -> Pwm<Self, PINS, FREQ>
     where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>;
+        PINS: Pins<Self>;
 
-    fn pwm_hz<REMAP, P, PINS>(
-        self,
-        pins: PINS,
-        mapr: &mut MAPR,
-        freq: Hertz,
-        clocks: &Clocks,
-    ) -> PwmHz<Self, REMAP, P, PINS>
+    fn pwm_hz<PINS>(self, pins: impl Into<PINS>, freq: Hertz, clocks: &Clocks) -> PwmHz<Self, PINS>
     where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>;
+        PINS: Pins<Self>;
 
-    fn pwm_us<REMAP, P, PINS>(
+    fn pwm_us<PINS>(
         self,
-        pins: PINS,
-        mapr: &mut MAPR,
+        pins: impl Into<PINS>,
         time: TimerDurationU32<1_000_000>,
         clocks: &Clocks,
-    ) -> Pwm<Self, REMAP, P, PINS, 1_000_000>
+    ) -> Pwm<Self, PINS, 1_000_000>
     where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>,
+        PINS: Pins<Self>,
     {
-        self.pwm::<_, _, _, 1_000_000>(pins, mapr, time, clocks)
+        self.pwm::<_, 1_000_000>(pins, time, clocks)
     }
 }
 
@@ -173,32 +99,23 @@ impl<TIM> PwmExt for TIM
 where
     Self: Sized + Instance + WithPwm,
 {
-    fn pwm<REMAP, P, PINS, const FREQ: u32>(
+    fn pwm<PINS, const FREQ: u32>(
         self,
-        pins: PINS,
-        mapr: &mut MAPR,
+        pins: impl Into<PINS>,
         time: TimerDurationU32<FREQ>,
         clocks: &Clocks,
-    ) -> Pwm<TIM, REMAP, P, PINS, FREQ>
+    ) -> Pwm<TIM, PINS, FREQ>
     where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>,
+        PINS: Pins<Self>,
     {
-        FTimer::<Self, FREQ>::new(self, clocks).pwm(pins, mapr, time)
+        FTimer::<Self, FREQ>::new(self, clocks).pwm(pins, time)
     }
 
-    fn pwm_hz<REMAP, P, PINS>(
-        self,
-        pins: PINS,
-        mapr: &mut MAPR,
-        time: Hertz,
-        clocks: &Clocks,
-    ) -> PwmHz<TIM, REMAP, P, PINS>
+    fn pwm_hz<PINS>(self, pins: impl Into<PINS>, time: Hertz, clocks: &Clocks) -> PwmHz<TIM, PINS>
     where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>,
+        PINS: Pins<Self>,
     {
-        Timer::new(self, clocks).pwm_hz(pins, mapr, time)
+        Timer::new(self, clocks).pwm_hz(pins, time)
     }
 }
 
@@ -238,21 +155,19 @@ impl<TIM: Instance + WithPwm, const C: u8> PwmChannel<TIM, C> {
     }
 }
 
-pub struct PwmHz<TIM, REMAP, P, PINS>
+pub struct PwmHz<TIM, PINS>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     timer: Timer<TIM>,
-    _pins: PhantomData<(REMAP, P, PINS)>,
+    _pins: PhantomData<PINS>,
 }
 
-impl<TIM, REMAP, P, PINS> PwmHz<TIM, REMAP, P, PINS>
+impl<TIM, PINS> PwmHz<TIM, PINS>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     pub fn release(mut self) -> Timer<TIM> {
         // stop timer
@@ -265,11 +180,10 @@ where
     }
 }
 
-impl<TIM, REMAP, P, PINS> Deref for PwmHz<TIM, REMAP, P, PINS>
+impl<TIM, PINS> Deref for PwmHz<TIM, PINS>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     type Target = Timer<TIM>;
     fn deref(&self) -> &Self::Target {
@@ -277,11 +191,10 @@ where
     }
 }
 
-impl<TIM, REMAP, P, PINS> DerefMut for PwmHz<TIM, REMAP, P, PINS>
+impl<TIM, PINS> DerefMut for PwmHz<TIM, PINS>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.timer
@@ -289,17 +202,11 @@ where
 }
 
 impl<TIM: Instance + WithPwm> Timer<TIM> {
-    pub fn pwm_hz<REMAP, P, PINS>(
-        mut self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        freq: Hertz,
-    ) -> PwmHz<TIM, REMAP, P, PINS>
+    pub fn pwm_hz<PINS>(mut self, pins: impl Into<PINS>, freq: Hertz) -> PwmHz<TIM, PINS>
     where
-        REMAP: Remap<Periph = TIM>,
-        PINS: Pins<REMAP, P>,
+        PINS: Pins<TIM>,
     {
-        REMAP::remap(mapr);
+        let _pins = pins.into();
 
         if PINS::C1 {
             self.tim
@@ -339,11 +246,10 @@ impl<TIM: Instance + WithPwm> Timer<TIM> {
     }
 }
 
-impl<TIM, REMAP, P, PINS> PwmHz<TIM, REMAP, P, PINS>
+impl<TIM, PINS> PwmHz<TIM, PINS>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     pub fn enable(&mut self, channel: Channel) {
         TIM::enable_channel(PINS::check_used(channel) as u8, true)
@@ -384,21 +290,19 @@ where
     }
 }
 
-pub struct Pwm<TIM, REMAP, P, PINS, const FREQ: u32>
+pub struct Pwm<TIM, PINS, const FREQ: u32>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     timer: FTimer<TIM, FREQ>,
-    _pins: PhantomData<(REMAP, P, PINS)>,
+    _pins: PhantomData<PINS>,
 }
 
-impl<TIM, REMAP, P, PINS, const FREQ: u32> Pwm<TIM, REMAP, P, PINS, FREQ>
+impl<TIM, PINS, const FREQ: u32> Pwm<TIM, PINS, FREQ>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     pub fn split(self) -> PINS::Channels {
         PINS::split()
@@ -411,11 +315,10 @@ where
     }
 }
 
-impl<TIM, REMAP, P, PINS, const FREQ: u32> Deref for Pwm<TIM, REMAP, P, PINS, FREQ>
+impl<TIM, PINS, const FREQ: u32> Deref for Pwm<TIM, PINS, FREQ>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     type Target = FTimer<TIM, FREQ>;
     fn deref(&self) -> &Self::Target {
@@ -423,11 +326,10 @@ where
     }
 }
 
-impl<TIM, REMAP, P, PINS, const FREQ: u32> DerefMut for Pwm<TIM, REMAP, P, PINS, FREQ>
+impl<TIM, PINS, const FREQ: u32> DerefMut for Pwm<TIM, PINS, FREQ>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.timer
@@ -435,17 +337,15 @@ where
 }
 
 impl<TIM: Instance + WithPwm, const FREQ: u32> FTimer<TIM, FREQ> {
-    pub fn pwm<REMAP, P, PINS>(
+    pub fn pwm<PINS>(
         mut self,
-        _pins: PINS,
-        mapr: &mut MAPR,
+        pins: impl Into<PINS>,
         time: TimerDurationU32<FREQ>,
-    ) -> Pwm<TIM, REMAP, P, PINS, FREQ>
+    ) -> Pwm<TIM, PINS, FREQ>
     where
-        REMAP: Remap<Periph = TIM>,
-        PINS: Pins<REMAP, P>,
+        PINS: Pins<TIM>,
     {
-        REMAP::remap(mapr);
+        let _pins = pins.into();
 
         if PINS::C1 {
             self.tim
@@ -483,11 +383,10 @@ impl<TIM: Instance + WithPwm, const FREQ: u32> FTimer<TIM, FREQ> {
     }
 }
 
-impl<TIM, REMAP, P, PINS, const FREQ: u32> Pwm<TIM, REMAP, P, PINS, FREQ>
+impl<TIM, PINS, const FREQ: u32> Pwm<TIM, PINS, FREQ>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
+    PINS: Pins<TIM>,
 {
     pub fn enable(&mut self, channel: Channel) {
         TIM::enable_channel(PINS::check_used(channel) as u8, true)
