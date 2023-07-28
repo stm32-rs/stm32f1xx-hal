@@ -50,7 +50,8 @@ unwrap-infallible = "0.1.5"
 [features]
 device-selected = []
 doc = []
-rt = ["stm32f1/rt"]
+# deprecated feature
+rt = []
 stm32f100 = ["stm32f1/stm32f100", "device-selected"]
 stm32f101 = ["stm32f1/stm32f101", "device-selected"]
 stm32f103 = ["stm32f1/stm32f103", "device-selected", "has-can", "stm32-usbd"]
@@ -68,7 +69,7 @@ connectivity = ["medium", "has-can"]
 # Devices with CAN interface
 has-can = []
 
-rtic = ["rt", "rtic-monotonic"]
+rtic = ["rtic-monotonic"]
 
 [profile.dev]
 incremental = false
@@ -81,23 +82,23 @@ lto = true
 
 [[example]]
 name = "usb_serial"
-required-features = ["rt", "stm32-usbd"]
+required-features = ["stm32-usbd"]
 
 [[example]]
 name = "usb_serial_interrupt"
-required-features = ["rt", "stm32-usbd"]
+required-features = ["stm32-usbd"]
 
 [[example]]
 name = "usb_serial_rtic"
-required-features = ["rt", "stm32-usbd"]
+required-features = ["stm32-usbd"]
 
 [[example]]
 name = "blinky_timer_irq"
-required-features = ["rt"]
+required-features = []
 
 [[example]]
 name = "blinky_rtcalarm_irq"
-required-features = ["rt"]
+required-features = []
 
 [[example]]
 name = "qei"
@@ -105,11 +106,11 @@ required-features = ["medium"]
 
 [[example]]
 name = "timer-interrupt-rtic"
-required-features = ["rt", "medium"]
+required-features = ["stm32f103", "medium"]
 
 [[example]]
 name = "exti"
-required-features = ["rt"]
+required-features = []
 
 [[example]]
 name = "can-echo"
@@ -121,7 +122,7 @@ required-features = ["has-can"]
 
 [[example]]
 name = "can-rtic"
-required-features = ["has-can", "rt"]
+required-features = ["has-can"]
 
 [[example]]
 name = "gpio_input"
@@ -129,4 +130,4 @@ required-features = ["stm32f103"]
 
 [[example]]
 name = "serial-interrupt-idle"
-required-features = ["stm32f103", "rt", "medium"]
+required-features = ["stm32f103", "medium"]

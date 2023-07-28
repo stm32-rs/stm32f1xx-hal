@@ -125,6 +125,9 @@ pub trait GpioExt {
     fn split(self) -> Self::Parts;
 
     /// Splits the GPIO block into independent pins and registers without resetting its state.
+    ///
+    /// # Safety
+    /// Make sure that all pins modes are set in reset state.
     unsafe fn split_without_reset(self) -> Self::Parts;
 }
 

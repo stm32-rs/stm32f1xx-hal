@@ -62,9 +62,8 @@ use crate::time::Hertz;
 pub mod monotonic;
 #[cfg(feature = "rtic")]
 pub use monotonic::*;
-pub mod pwm_input;
-pub use pwm_input::*;
 pub(crate) mod pins;
+pub mod pwm_input;
 pub use pins::*;
 pub mod delay;
 pub use delay::*;

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Move from bors/manual merge to GH merge queue
+- Add tools/check.py python script for local check
+- Add changelog check on PRs
+
 ## [v0.10.0] - 2022-12-12
 
 - `Timer`: adds `get_interrupt` to `Timer`
