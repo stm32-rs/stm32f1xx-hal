@@ -112,7 +112,7 @@ impl<'a> FlashWriter<'a> {
     }
 
     fn valid_length(&self, offset: u32, length: usize) -> Result<()> {
-        if offset + length as u32 > self.flash_sz.kbytes() as u32 {
+        if offset + length as u32 > self.flash_sz.kbytes() {
             Err(Error::LengthTooLong)
         } else if length & 0x1 != 0 {
             Err(Error::LengthNotMultiple2)
@@ -178,7 +178,7 @@ impl<'a> FlashWriter<'a> {
                 let size = self.sector_sz.kbytes() as u32;
                 let start = start_offset & !(size - 1);
                 for idx in (start..start + size).step_by(2) {
-                    let write_address = (FLASH_START + idx as u32) as *const u16;
+                    let write_address = (FLASH_START + idx) as *const u16;
                     let verify: u16 = unsafe { core::ptr::read_volatile(write_address) };
                     if verify != 0xFFFF {
                         return Err(Error::VerifyError);
@@ -209,7 +209,7 @@ impl<'a> FlashWriter<'a> {
     pub fn read(&self, offset: u32, length: usize) -> Result<&[u8]> {
         self.valid_address(offset)?;
 
-        if offset + length as u32 > self.flash_sz.kbytes() as u32 {
+        if offset + length as u32 > self.flash_sz.kbytes() {
             return Err(Error::LengthTooLong);
         }
 
