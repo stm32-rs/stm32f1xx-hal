@@ -25,14 +25,14 @@
 //! - **Alternate**: Pin mode required when the pin is driven by other peripherals
 //! - **Dynamic**: Pin mode is selected at runtime. See changing configurations for more details
 //! - Input
-//!     - **PullUp**: Input connected to high with a weak pull up resistor. Will be high when nothing
+//!     - **PullUp**: Input connected to high with a weak pull-up resistor. Will be high when nothing
 //!     is connected
-//!     - **PullDown**: Input connected to high with a weak pull up resistor. Will be low when nothing
+//!     - **PullDown**: Input connected to ground with a weak pull-down resistor. Will be low when nothing
 //!     is connected
 //!     - **Floating**: Input not pulled to high or low. Will be undefined when nothing is connected
 //! - Output
 //!     - **PushPull**: Output which either drives the pin high or low
-//!     - **OpenDrain**: Output which leaves the gate floating, or pulls it do ground in drain
+//!     - **OpenDrain**: Output which leaves the gate floating, or pulls it to ground in drain
 //!     mode. Can be used as an input in the `open` configuration
 //! - **Debugger**: Some pins start out being used by the debugger. A pin in this mode can only be
 //! used if the [JTAG peripheral has been turned off](#accessing-pa15-pb3-and-pb14).
