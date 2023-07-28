@@ -20,6 +20,11 @@ pub struct RtcClkLse;
 /// RTC clock source LSI oscillator clock (type state)
 pub struct RtcClkLsi;
 
+pub enum RestoredOrNewRtc<CS> {
+    Restored(Rtc<CS>),
+    New(Rtc<CS>),
+}
+
 /**
   Real time clock
 
@@ -44,14 +49,19 @@ pub struct Rtc<CS = RtcClkLse> {
 
 impl Rtc<RtcClkLse> {
     /**
-      Initialises the RTC. The `BackupDomain` struct is created by
-      `Rcc.bkp.constrain()`.
+      Initialises the RTC with low-speed external crystal source (lse).
+      The `BackupDomain` struct is created by `Rcc.bkp.constrain()`.
 
       The frequency is set to 1 Hz.
 
       Since the RTC is part of the backup domain, The RTC counter is not reset by normal resets or
       power cycles where (VBAT) still has power. Use [set_time](#method.set_time) if you want to
       reset the counter.
+
+      In case application is running of a battery on VBAT,
+      this method will reset the RTC every time, leading to lost time,
+      you may want to use
+      [`restore_or_new`](Rtc::<RtcClkLse>::restore_or_new) instead.
     */
     pub fn new(regs: RTC, bkp: &mut BackupDomain) -> Self {
         let mut result = Rtc {
@@ -70,6 +80,37 @@ impl Rtc<RtcClkLse> {
         });
 
         result
+    }
+
+    /// Tries to obtain currently running RTC to prevent a reset in case it was running from VBAT.
+    /// If the RTC is not running, or is not LSE, it will be reinitialized.
+    ///
+    /// # Examples
+    /// ```
+    /// let rtc = match Rtc::restore_or_new(p.RTC, &mut backup_domain) {
+    ///    Restored(rtc) => rtc, // The rtc is restored from previous configuration. You may verify the frequency you want if needed.
+    ///    New(rtc) => { // The rtc was just initialized, the clock source selected, frequency is 1.Hz()
+    ///        // Initialize rtc with desired parameters
+    ///        rtc.select_frequency(2u16.Hz()); // Set the frequency to 2 Hz. This will stay same after reset
+    ///        rtc
+    ///    }
+    /// };
+    /// ```
+    pub fn restore_or_new(regs: RTC, bkp: &mut BackupDomain) -> RestoredOrNewRtc<RtcClkLse> {
+        if !Self::is_enabled() {
+            RestoredOrNewRtc::New(Rtc::new(regs, bkp))
+        } else {
+            RestoredOrNewRtc::Restored(Rtc {
+                regs,
+                _clock_source: PhantomData,
+            })
+        }
+    }
+
+    /// Returns whether the RTC is currently enabled and LSE is selected.
+    fn is_enabled() -> bool {
+        let rcc = unsafe { &*RCC::ptr() };
+        rcc.bdcr.read().rtcen().bit() && rcc.bdcr.read().rtcsel().is_lse()
     }
 
     /// Enables the RTC device with the lse as the clock
@@ -93,6 +134,21 @@ impl Rtc<RtcClkLse> {
 }
 
 impl Rtc<RtcClkLsi> {
+    /**
+      Initialises the RTC with low-speed internal oscillator source (lsi).
+      The `BackupDomain` struct is created by `Rcc.bkp.constrain()`.
+
+      The frequency is set to 1 Hz.
+
+      Since the RTC is part of the backup domain, The RTC counter is not reset by normal resets or
+      power cycles where (VBAT) still has power. Use [set_time](#method.set_time) if you want to
+      reset the counter.
+
+      In case application is running of a battery on VBAT,
+      this method will reset the RTC every time, leading to lost time,
+      you may want to use
+      [`restore_or_new_lsi`](Rtc::<RtcClkLsi>::restore_or_new_lsi) instead.
+    */
     pub fn new_lsi(regs: RTC, bkp: &mut BackupDomain) -> Self {
         let mut result = Rtc {
             regs,
@@ -110,6 +166,25 @@ impl Rtc<RtcClkLsi> {
         });
 
         result
+    }
+
+    /// Tries to obtain currently running RTC to prevent reset in case it was running from VBAT.
+    /// If the RTC is not running, or is not LSI, it will be reinitialized.
+    pub fn restore_or_new_lsi(regs: RTC, bkp: &mut BackupDomain) -> RestoredOrNewRtc<RtcClkLsi> {
+        if !Rtc::<RtcClkLsi>::is_enabled() {
+            RestoredOrNewRtc::New(Rtc::new_lsi(regs, bkp))
+        } else {
+            RestoredOrNewRtc::Restored(Rtc {
+                regs,
+                _clock_source: PhantomData,
+            })
+        }
+    }
+
+    /// Returns whether the RTC is currently enabled and LSI is selected.
+    fn is_enabled() -> bool {
+        let rcc = unsafe { &*RCC::ptr() };
+        rcc.bdcr.read().rtcen().bit() && rcc.bdcr.read().rtcsel().is_lsi()
     }
 
     /// Enables the RTC device with the lsi as the clock
@@ -136,6 +211,22 @@ impl Rtc<RtcClkLsi> {
 }
 
 impl Rtc<RtcClkHseDiv128> {
+    /**
+      Initialises the RTC with high-speed external oscillator source (hse)
+      divided by 128.
+      The `BackupDomain` struct is created by `Rcc.bkp.constrain()`.
+
+      The frequency is set to 1 Hz.
+
+      Since the RTC is part of the backup domain, The RTC counter is not reset by normal resets or
+      power cycles where (VBAT) still has power. Use [set_time](#method.set_time) if you want to
+      reset the counter.
+
+      In case application is running of a battery on VBAT,
+      this method will reset the RTC every time, leading to lost time,
+      you may want to use
+      [`restore_or_new_hse`](Rtc::<RtcClkHseDiv128>::restore_or_new_hse) instead.
+    */
     pub fn new_hse(regs: RTC, bkp: &mut BackupDomain, hse: Hertz) -> Self {
         let mut result = Rtc {
             regs,
@@ -153,6 +244,28 @@ impl Rtc<RtcClkHseDiv128> {
         });
 
         result
+    }
+
+    /// Tries to obtain currently running RTC to prevent reset in case it was running from VBAT.
+    /// If the RTC is not running, or is not HSE, it will be reinitialized.
+    pub fn restore_or_new_hse(
+        regs: RTC,
+        bkp: &mut BackupDomain,
+        hse: Hertz,
+    ) -> RestoredOrNewRtc<RtcClkHseDiv128> {
+        if !Self::is_enabled() {
+            RestoredOrNewRtc::New(Rtc::new_hse(regs, bkp, hse))
+        } else {
+            RestoredOrNewRtc::Restored(Rtc {
+                regs,
+                _clock_source: PhantomData,
+            })
+        }
+    }
+
+    fn is_enabled() -> bool {
+        let rcc = unsafe { &*RCC::ptr() };
+        rcc.bdcr.read().rtcen().bit() && rcc.bdcr.read().rtcsel().is_hse()
     }
 
     /// Enables the RTC device with the lsi as the clock
