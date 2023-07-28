@@ -43,7 +43,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --features=${{ matrix.mcu }},rtic,high,stm32-usbd --examples
+          args: --features=${{ matrix.mcu }},rtic,high --examples
 
       - uses: actions-rs/cargo@v1
         with:
