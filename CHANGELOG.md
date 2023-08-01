@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Move from bors/manual merge to GH merge queue
 - Add tools/check.py python script for local check
 - Add changelog check on PRs
+- `Rtc::restore_or_new`: adds restoring mechanism of running Rtc
+- `Rtc::select_frequency`: fix for LSI and HSE, where correct frequency was not selected
 
 ## [v0.10.0] - 2022-12-12
 

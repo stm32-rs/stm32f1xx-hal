@@ -8,6 +8,7 @@ use crate::time::{Hertz, Hz};
 
 use core::convert::Infallible;
 use core::marker::PhantomData;
+use fugit::RateExtU32;
 
 // The LSE runs at at 32 768 hertz unless an external clock is provided
 const LSE_HERTZ: Hertz = Hz(32_768);
@@ -44,6 +45,7 @@ pub enum RestoredOrNewRtc<CS> {
 
 pub struct Rtc<CS = RtcClkLse> {
     regs: RTC,
+    frequency: Hertz,
     _clock_source: PhantomData<CS>,
 }
 
@@ -64,20 +66,12 @@ impl Rtc<RtcClkLse> {
       [`restore_or_new`](Rtc::<RtcClkLse>::restore_or_new) instead.
     */
     pub fn new(regs: RTC, bkp: &mut BackupDomain) -> Self {
-        let mut result = Rtc {
-            regs,
-            _clock_source: PhantomData,
-        };
+        let mut result = Self::init(regs);
 
         Self::enable_rtc(bkp);
 
         // Set the prescaler to make it count up once every second.
-        let prl = LSE_HERTZ.raw() - 1;
-        assert!(prl < 1 << 20);
-        result.perform_write(|s| {
-            s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
-            s.regs.prll.write(|w| unsafe { w.bits(prl as u16 as u32) });
-        });
+        result.select_frequency(1u32.Hz());
 
         result
     }
@@ -100,10 +94,15 @@ impl Rtc<RtcClkLse> {
         if !Self::is_enabled() {
             RestoredOrNewRtc::New(Rtc::new(regs, bkp))
         } else {
-            RestoredOrNewRtc::Restored(Rtc {
-                regs,
-                _clock_source: PhantomData,
-            })
+            RestoredOrNewRtc::Restored(Self::init(regs))
+        }
+    }
+
+    fn init(regs: RTC) -> Self {
+        Self {
+            regs,
+            frequency: LSE_HERTZ,
+            _clock_source: PhantomData,
         }
     }
 
@@ -150,20 +149,12 @@ impl Rtc<RtcClkLsi> {
       [`restore_or_new_lsi`](Rtc::<RtcClkLsi>::restore_or_new_lsi) instead.
     */
     pub fn new_lsi(regs: RTC, bkp: &mut BackupDomain) -> Self {
-        let mut result = Rtc {
-            regs,
-            _clock_source: PhantomData,
-        };
+        let mut result = Self::init(regs);
 
         Self::enable_rtc(bkp);
 
         // Set the prescaler to make it count up once every second.
-        let prl = LSI_HERTZ.raw() - 1;
-        assert!(prl < 1 << 20);
-        result.perform_write(|s| {
-            s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
-            s.regs.prll.write(|w| unsafe { w.bits(prl as u16 as u32) });
-        });
+        result.select_frequency(1u32.Hz());
 
         result
     }
@@ -174,10 +165,15 @@ impl Rtc<RtcClkLsi> {
         if !Rtc::<RtcClkLsi>::is_enabled() {
             RestoredOrNewRtc::New(Rtc::new_lsi(regs, bkp))
         } else {
-            RestoredOrNewRtc::Restored(Rtc {
-                regs,
-                _clock_source: PhantomData,
-            })
+            RestoredOrNewRtc::Restored(Self::init(regs))
+        }
+    }
+
+    fn init(regs: RTC) -> Self {
+        Self {
+            regs,
+            frequency: LSI_HERTZ,
+            _clock_source: PhantomData,
         }
     }
 
@@ -228,20 +224,12 @@ impl Rtc<RtcClkHseDiv128> {
       [`restore_or_new_hse`](Rtc::<RtcClkHseDiv128>::restore_or_new_hse) instead.
     */
     pub fn new_hse(regs: RTC, bkp: &mut BackupDomain, hse: Hertz) -> Self {
-        let mut result = Rtc {
-            regs,
-            _clock_source: PhantomData,
-        };
+        let mut result = Self::init(regs, hse);
 
         Self::enable_rtc(bkp);
 
         // Set the prescaler to make it count up once every second.
-        let prl = hse.raw() / 128 - 1;
-        assert!(prl < 1 << 20);
-        result.perform_write(|s| {
-            s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
-            s.regs.prll.write(|w| unsafe { w.bits(prl as u16 as u32) });
-        });
+        result.select_frequency(1u32.Hz());
 
         result
     }
@@ -256,10 +244,15 @@ impl Rtc<RtcClkHseDiv128> {
         if !Self::is_enabled() {
             RestoredOrNewRtc::New(Rtc::new_hse(regs, bkp, hse))
         } else {
-            RestoredOrNewRtc::Restored(Rtc {
-                regs,
-                _clock_source: PhantomData,
-            })
+            RestoredOrNewRtc::Restored(Self::init(regs, hse))
+        }
+    }
+
+    fn init(regs: RTC, hse: Hertz) -> Self {
+        Self {
+            regs,
+            frequency: hse / 128,
+            _clock_source: PhantomData,
         }
     }
 
@@ -294,9 +287,10 @@ impl<CS> Rtc<CS> {
     pub fn select_frequency(&mut self, frequency: Hertz) {
         // The manual says that the zero value for the prescaler is not recommended, thus the
         // minimum division factor is 2 (prescaler + 1)
-        assert!(frequency <= LSE_HERTZ / 2);
+        assert!(frequency <= self.frequency / 2);
 
-        let prescaler = LSE_HERTZ / frequency - 1;
+        let prescaler = self.frequency / frequency - 1;
+        assert!(prescaler < 1 << 20);
         self.perform_write(|s| {
             s.regs.prlh.write(|w| unsafe { w.bits(prescaler >> 16) });
             s.regs
