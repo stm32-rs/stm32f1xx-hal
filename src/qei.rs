@@ -8,8 +8,8 @@ use core::u16;
 
 use core::marker::PhantomData;
 
-use crate::hal;
-pub use crate::hal::Direction;
+use embedded_hal_02 as hal;
+pub use hal::Direction;
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]

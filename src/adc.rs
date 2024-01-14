@@ -1,7 +1,7 @@
 //! # API for the Analog to Digital converter
 
 use core::marker::PhantomData;
-use embedded_hal::adc::{Channel, OneShot};
+use embedded_hal_02::adc::{Channel, OneShot};
 
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
 use crate::dma::dma2;

@@ -1,5 +1,5 @@
 use super::*;
-use embedded_hal::{blocking::serial as blocking, serial};
+use embedded_hal_02::{blocking::serial as blocking, serial};
 
 impl<USART: Instance> serial::Write<u8> for Tx<USART> {
     type Error = Infallible;

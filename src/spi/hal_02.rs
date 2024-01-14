@@ -1,6 +1,6 @@
 use super::*;
 
-use embedded_hal::{blocking::spi as blocking, spi};
+use embedded_hal_02::{blocking::spi as blocking, spi};
 
 impl<SPI, REMAP, PINS, FrameSize, OP> spi::FullDuplex<FrameSize>
     for Spi<SPI, REMAP, PINS, FrameSize, OP>

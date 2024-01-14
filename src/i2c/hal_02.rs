@@ -1,5 +1,5 @@
 use super::*;
-use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
+use embedded_hal_02::blocking::i2c::{Read, Write, WriteRead};
 
 impl<I2C: Instance, PINS> Write for BlockingI2c<I2C, PINS> {
     type Error = Error;

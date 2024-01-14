@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - Allow to set HSE bypass bit in `RCC` clock configuration register to use an external clock input on the `OSC_IN` pin
+- support `embedded-hal-1.0`
 
 ## [v0.10.0] - 2022-12-12
 
@@ -29,7 +30,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
            fix errata.
 - `PwmHz::get_period`: fix computation of return value, prevent division by zero
 - return `i2c::Error::Timeout` instead of `nb::WouldBlock` when time is out
-- support `embedded-hal-1.0-alpha`
 
 ### Breaking changes
 

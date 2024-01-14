@@ -191,7 +191,7 @@ pub struct Alternate<MODE = PushPull> {
 impl<MODE> Active for Alternate<MODE> {}
 
 /// Digital output pin state
-pub use embedded_hal::digital::v2::PinState;
+pub use embedded_hal_02::digital::v2::PinState;
 
 // Using SCREAMING_SNAKE_CASE to be consistent with other HALs
 // see 59b2740 and #125 for motivation

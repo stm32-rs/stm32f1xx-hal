@@ -39,7 +39,7 @@ use core::ops::Deref;
 use core::ptr;
 
 use crate::pac::{self, RCC};
-pub use embedded_hal::spi::{Mode, Phase, Polarity};
+pub use embedded_hal_02::spi::{Mode, Phase, Polarity};
 
 use crate::afio::MAPR;
 use crate::dma::dma1;

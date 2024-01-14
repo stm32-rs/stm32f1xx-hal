@@ -114,7 +114,9 @@ compile_error!(
 );
 
 #[cfg(feature = "device-selected")]
-use embedded_hal as hal;
+pub use embedded_hal as hal;
+#[cfg(feature = "device-selected")]
+pub use embedded_hal_02 as hal_02;
 
 #[cfg(feature = "stm32f100")]
 pub use stm32f1::stm32f100 as pac;

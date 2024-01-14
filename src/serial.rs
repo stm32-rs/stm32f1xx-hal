@@ -135,7 +135,7 @@ inst! {
 }
 
 /// Serial error
-pub use embedded_hal_one::serial::ErrorKind as Error;
+pub use embedded_hal_nb::serial::ErrorKind as Error;
 
 pub enum WordLength {
     /// When parity is enabled, a word has 7 data bits + 1 parity bit,
