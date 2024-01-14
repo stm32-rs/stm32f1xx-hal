@@ -15,6 +15,9 @@ pub mod blocking;
 pub use blocking::BlockingI2c;
 
 mod hal_02;
+mod hal_1;
+
+pub use embedded_hal::i2c::NoAcknowledgeSource;
 
 /// I2C error
 #[derive(Debug, Eq, PartialEq)]
@@ -23,9 +26,9 @@ pub enum Error {
     /// Bus error
     Bus,
     /// Arbitration loss
-    Arbitration,
+    ArbitrationLoss,
     /// No ack received
-    Acknowledge,
+    NoAcknowledge(NoAcknowledgeSource),
     /// Overrun/underrun
     Overrun,
     // Pec, // SMBUS mode only
