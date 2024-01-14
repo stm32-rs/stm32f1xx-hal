@@ -34,12 +34,12 @@
 */
 
 mod hal_02;
+mod hal_1;
 
 use core::ops::Deref;
 use core::ptr;
 
 use crate::pac::{self, RCC};
-pub use embedded_hal_02::spi::{Mode, Phase, Polarity};
 
 use crate::afio::MAPR;
 use crate::dma::dma1;
@@ -52,6 +52,33 @@ use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
+
+/// Clock polarity
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Polarity {
+    /// Clock signal low when idle
+    IdleLow,
+    /// Clock signal high when idle
+    IdleHigh,
+}
+
+/// Clock phase
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Phase {
+    /// Data in "captured" on the first clock transition
+    CaptureOnFirstTransition,
+    /// Data in "captured" on the second clock transition
+    CaptureOnSecondTransition,
+}
+
+/// SPI mode
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Mode {
+    /// Clock polarity
+    pub polarity: Polarity,
+    /// Clock phase
+    pub phase: Phase,
+}
 
 /// Interrupt event
 pub enum Event {
@@ -193,7 +220,7 @@ impl<REMAP, PINS> Spi<pac::SPI1, REMAP, PINS, u8, Master> {
         spi: pac::SPI1,
         pins: PINS,
         mapr: &mut MAPR,
-        mode: Mode,
+        mode: impl Into<Mode>,
         freq: Hertz,
         clocks: Clocks,
     ) -> Self
@@ -214,7 +241,7 @@ impl<REMAP, PINS> Spi<pac::SPI1, REMAP, PINS, u8, Slave> {
 
       You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn spi1_slave(spi: pac::SPI1, pins: PINS, mapr: &mut MAPR, mode: Mode) -> Self
+    pub fn spi1_slave(spi: pac::SPI1, pins: PINS, mapr: &mut MAPR, mode: impl Into<Mode>) -> Self
     where
         REMAP: Remap<Periph = pac::SPI1>,
         PINS: Pins<REMAP, Slave>,
@@ -457,7 +484,8 @@ impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8, Master>
 where
     SPI: Instance,
 {
-    fn configure(spi: SPI, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self {
+    fn configure(spi: SPI, pins: PINS, mode: impl Into<Mode>, freq: Hertz, clocks: Clocks) -> Self {
+        let mode = mode.into();
         // enable or reset SPI
         let rcc = unsafe { &(*RCC::ptr()) };
         SPI::enable(rcc);
@@ -517,7 +545,8 @@ impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8, Slave>
 where
     SPI: Instance,
 {
-    fn configure(spi: SPI, pins: PINS, mode: Mode) -> Self {
+    fn configure(spi: SPI, pins: PINS, mode: impl Into<Mode>) -> Self {
+        let mode = mode.into();
         // enable or reset SPI
         let rcc = unsafe { &(*RCC::ptr()) };
         SPI::enable(rcc);
@@ -594,6 +623,49 @@ where
             _framesize: PhantomData,
             _operation: PhantomData,
         }
+    }
+}
+
+impl<SPI, REMAP, PINS, FrameSize, OP> Spi<SPI, REMAP, PINS, FrameSize, OP>
+where
+    SPI: Instance,
+    FrameSize: Copy,
+{
+    pub fn read_nonblocking(&mut self) -> nb::Result<FrameSize, Error> {
+        let sr = self.spi.sr.read();
+
+        Err(if sr.ovr().bit_is_set() {
+            Error::Overrun.into()
+        } else if sr.modf().bit_is_set() {
+            Error::ModeFault.into()
+        } else if sr.crcerr().bit_is_set() {
+            Error::Crc.into()
+        } else if sr.rxne().bit_is_set() {
+            // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
+            // reading a half-word)
+            return Ok(self.read_data_reg());
+        } else {
+            nb::Error::WouldBlock
+        })
+    }
+    pub fn write_nonblocking(&mut self, data: FrameSize) -> nb::Result<(), Error> {
+        let sr = self.spi.sr.read();
+
+        // NOTE: Error::Overrun was deleted in #408. Need check
+        Err(if sr.modf().bit_is_set() {
+            Error::ModeFault.into()
+        } else if sr.crcerr().bit_is_set() {
+            Error::Crc.into()
+        } else if sr.txe().bit_is_set() {
+            // NOTE(write_volatile) see note above
+            self.write_data_reg(data);
+            return Ok(());
+        } else {
+            nb::Error::WouldBlock
+        })
+    }
+    pub fn write(&mut self, words: &[FrameSize]) -> Result<(), Error> {
+        self.spi_write(words)
     }
 }
 
