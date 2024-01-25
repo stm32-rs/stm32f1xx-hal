@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add tools/check.py python script for local check
 - Add changelog check on PRs
 - Replace UB code by a legitimate pointer access
+- Reexport `Direction` from `qei`
 
 ## [v0.10.0] - 2022-12-12
 
