@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Move from bors/manual merge to GH merge queue
 - Add tools/check.py python script for local check
 - Add changelog check on PRs
+- Replace UB code by a legitimate pointer access
 
 ## [v0.10.0] - 2022-12-12
 

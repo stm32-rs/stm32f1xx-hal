@@ -355,7 +355,7 @@ where
 
     fn write_data_reg(&mut self, data: FrameSize) {
         // NOTE(write_volatile) see note above
-        unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut FrameSize, data) }
+        unsafe { ptr::write_volatile(ptr::addr_of!(self.spi.dr) as *mut FrameSize, data) }
     }
 
     // Implement write as per the "Transmit only procedure" page 712
