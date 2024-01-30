@@ -8,7 +8,8 @@ use core::u16;
 
 use core::marker::PhantomData;
 
-use crate::hal::{self, Direction};
+use crate::hal;
+pub use crate::hal::Direction;
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
@@ -188,9 +189,9 @@ macro_rules! hal {
 
                 fn direction(&self) -> Direction {
                     if self.tim.cr1.read().dir().bit_is_clear() {
-                        hal::Direction::Upcounting
+                        Direction::Upcounting
                     } else {
-                        hal::Direction::Downcounting
+                        Direction::Downcounting
                     }
                 }
             }
