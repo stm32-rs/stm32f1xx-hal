@@ -61,13 +61,15 @@ stm32f107 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
 # Devices with 64 or 128 Kb ROM
 medium = []
 # Devices with 256 or 512 Kb ROM
-high = ["medium"]
+high = ["medium", "has-dac"]
 # Devices with 768 Kb ROM or more
 xl = ["high"]
 # Connectivity line devices (`stm32f105xx` and `stm32f107xx`)
-connectivity = ["medium", "has-can"]
+connectivity = ["medium", "has-can", "has-dac"]
 # Devices with CAN interface
 has-can = []
+# Devices with Dac
+has-dac = []
 
 rtic = ["rtic-monotonic"]
 

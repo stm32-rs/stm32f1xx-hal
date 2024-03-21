@@ -150,6 +150,8 @@ pub mod bb;
 pub mod can;
 #[cfg(feature = "device-selected")]
 pub mod crc;
+#[cfg(all(feature = "device-selected", feature = "has-dac"))]
+pub mod dac;
 #[cfg(feature = "device-selected")]
 pub mod dma;
 #[cfg(feature = "device-selected")]

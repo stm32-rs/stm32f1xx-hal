@@ -73,10 +73,13 @@ bus! {
     CAN1 => (APB1, 25),
     CAN2 => (APB1, 26),
 }
+#[cfg(feature = "has-dac")]
+bus! {
+    DAC => (APB1, 29),
+}
 #[cfg(all(feature = "stm32f103", feature = "high"))]
 bus! {
     ADC3 => (APB2, 15),
-    DAC => (APB1, 29),
     UART4 => (APB1, 19),
     UART5 => (APB1, 20),
 }
