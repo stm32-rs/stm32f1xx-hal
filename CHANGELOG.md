@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add changelog check on PRs
 - Replace UB code by a legitimate pointer access
 - Reexport `Direction` from `qei`
+- Add dac
 
 ## [v0.10.0] - 2022-12-12
 
