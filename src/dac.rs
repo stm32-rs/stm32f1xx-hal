@@ -53,14 +53,12 @@ pub fn dac<PINS>(_dac: DAC, _pins: PINS) -> PINS::Output
 where
     PINS: Pins<DAC>,
 {
-    unsafe {
-        // Enable and reset clock.
-        let rcc = unsafe { &(*RCC::ptr()) };
-        DAC::enable(rcc);
-        DAC::reset(rcc);
+    // Enable and reset clock.
+    let rcc = unsafe { &(*RCC::ptr()) };
+    DAC::enable(rcc);
+    DAC::reset(rcc);
 
-        PINS::init()
-    }
+    PINS::init()
 }
 
 macro_rules! dac {
