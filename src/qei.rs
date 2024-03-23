@@ -8,13 +8,13 @@ use core::u16;
 
 use core::marker::PhantomData;
 
-use embedded_hal_02 as hal;
-pub use hal::Direction;
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
 use crate::pac::TIM1;
 #[cfg(feature = "medium")]
 use crate::pac::TIM4;
 use crate::pac::{TIM2, TIM3};
+use embedded_hal_02 as hal;
+pub use hal::Direction;
 
 use crate::afio::MAPR;
 
