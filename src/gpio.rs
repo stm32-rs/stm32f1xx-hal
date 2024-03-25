@@ -390,8 +390,8 @@ macro_rules! gpio {
                     $GPIOX::reset(rcc);
 
                     Parts {
-                        crl: Cr::<$port_id, false>(()),
-                        crh: Cr::<$port_id, true>(()),
+                        crl: Cr::<$port_id, false>,
+                        crh: Cr::<$port_id, true>,
                         $(
                             $pxi: $PXi::new(),
                         )+
@@ -403,8 +403,8 @@ macro_rules! gpio {
                     $GPIOX::enable(rcc);
 
                     Parts {
-                        crl: Cr::<$port_id, false>(()),
-                        crh: Cr::<$port_id, true>(()),
+                        crl: Cr::<$port_id, false>,
+                        crh: Cr::<$port_id, true>,
                         $(
                             $pxi: $PXi::new(),
                         )+
@@ -627,7 +627,8 @@ impl<const P: char, const N: u8> Pin<P, N, Output<OpenDrain>> {
 }
 
 /// Opaque CR register
-pub struct Cr<const P: char, const H: bool>(());
+#[non_exhaustive]
+pub struct Cr<const P: char, const H: bool>;
 
 impl<const P: char, const N: u8, MODE> Pin<P, N, MODE>
 where
