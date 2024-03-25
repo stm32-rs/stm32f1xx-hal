@@ -41,7 +41,7 @@ fn main() -> ! {
         loop {
             // On for 1s, off for 3s.
             led.set_high();
-            // Use `embedded_hal::DelayMs` trait
+            // Use `embedded_hal_02::DelayMs` trait
             delay.delay_ms(1000_u32);
             led.set_low();
             // or use `fugit` duration units

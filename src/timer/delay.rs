@@ -58,7 +58,7 @@ impl SysDelay {
     }
 }
 
-/// Periodic non-blocking timer that imlements [embedded_hal::blocking::delay] traits
+/// Periodic non-blocking timer that imlements [embedded_hal_02::blocking::delay] traits
 pub struct Delay<TIM, const FREQ: u32>(pub(super) FTimer<TIM, FREQ>);
 
 impl<T, const FREQ: u32> Deref for Delay<T, FREQ> {

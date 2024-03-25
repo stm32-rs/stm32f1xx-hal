@@ -7,8 +7,8 @@ use panic_itm as _;
 use cortex_m::iprintln;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v1_compat::OldOutputPin;
-use embedded_hal::spi::{Mode, Phase, Polarity};
+use embedded_hal_02::digital::v1_compat::OldOutputPin;
+use embedded_hal_02::spi::{Mode, Phase, Polarity};
 use mfrc522::Mfrc522;
 use stm32f1xx_hal::{pac, prelude::*, spi::Spi};
 pub const MODE: Mode = Mode {

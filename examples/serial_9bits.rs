@@ -29,7 +29,7 @@ const MSG_MAX_LEN: usize = u8::MAX as usize;
 // Receives a message addressed to the slave device. Returns the size of the received message.
 fn receive_msg<RX>(serial_rx: &mut RX, buf: &mut [u8; MSG_MAX_LEN]) -> usize
 where
-    RX: embedded_hal::serial::Read<u16, Error = serial::Error>,
+    RX: embedded_hal_02::serial::Read<u16, Error = serial::Error>,
 {
     enum RxPhase {
         Start,
@@ -79,8 +79,8 @@ where
 // Send message.
 fn send_msg<TX>(serial_tx: &mut TX, msg: &[u8])
 where
-    TX: embedded_hal::serial::Write<u8, Error = Infallible>
-        + embedded_hal::serial::Write<u16, Error = Infallible>,
+    TX: embedded_hal_02::serial::Write<u8, Error = Infallible>
+        + embedded_hal_02::serial::Write<u16, Error = Infallible>,
 {
     // Send address.
     block!(serial_tx.write(SLAVE_ADDR as u16 | 0x100)).unwrap_infallible();

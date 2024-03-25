@@ -45,7 +45,7 @@ fn main() -> ! {
     // Set up the usart device. Takes ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
     let (mut tx, mut rx) =
-        Serial::new(p.USART1, (tx, rx), &mut afio.mapr, 115200.bps(), &clocks).split();
+        Serial::new(p.USART1, (tx, rx), &mut afio.mapr, 115_200.bps(), &clocks).split();
     tx.listen();
     rx.listen();
     rx.listen_idle();
