@@ -217,7 +217,7 @@ mod sealed {
 }
 
 use sealed::Interruptable;
-use sealed::PinMode;
+pub(crate) use sealed::PinMode;
 
 impl<MODE> Interruptable for Input<MODE> {}
 impl Interruptable for Dynamic {}
@@ -734,6 +734,11 @@ impl<const P: char, const N: u8> InputPin for Pin<P, N, Output<OpenDrain>> {
 
 /// Opaque CR register
 pub struct Cr<const P: char, const H: bool>(());
+impl<const P: char, const H: bool> Cr<P, H> {
+    pub(crate) fn new() -> Self {
+        Self(())
+    }
+}
 
 impl<const P: char, const N: u8, MODE> Pin<P, N, MODE>
 where
@@ -744,43 +749,38 @@ where
     /// pin.
     #[inline]
     pub fn into_alternate_push_pull(
-        mut self,
+        self,
         cr: &mut <Self as HL>::Cr,
     ) -> Pin<P, N, Alternate<PushPull>> {
-        self.mode::<Alternate<PushPull>>(cr);
-        Pin::new()
+        self.into_mode(cr)
     }
 
     /// Configures the pin to operate as an alternate function open-drain output
     /// pin.
     #[inline]
     pub fn into_alternate_open_drain(
-        mut self,
+        self,
         cr: &mut <Self as HL>::Cr,
     ) -> Pin<P, N, Alternate<OpenDrain>> {
-        self.mode::<Alternate<OpenDrain>>(cr);
-        Pin::new()
+        self.into_mode(cr)
     }
 
     /// Configures the pin to operate as a floating input pin
     #[inline]
-    pub fn into_floating_input(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<Floating>> {
-        self.mode::<Input<Floating>>(cr);
-        Pin::new()
+    pub fn into_floating_input(self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<Floating>> {
+        self.into_mode(cr)
     }
 
     /// Configures the pin to operate as a pulled down input pin
     #[inline]
-    pub fn into_pull_down_input(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<PullDown>> {
-        self.mode::<Input<PullDown>>(cr);
-        Pin::new()
+    pub fn into_pull_down_input(self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<PullDown>> {
+        self.into_mode(cr)
     }
 
     /// Configures the pin to operate as a pulled up input pin
     #[inline]
-    pub fn into_pull_up_input(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<PullUp>> {
-        self.mode::<Input<PullUp>>(cr);
-        Pin::new()
+    pub fn into_pull_up_input(self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<PullUp>> {
+        self.into_mode(cr)
     }
 
     /// Configures the pin to operate as an open-drain output pin.
@@ -799,8 +799,7 @@ where
         initial_state: PinState,
     ) -> Pin<P, N, Output<OpenDrain>> {
         self._set_state(initial_state);
-        self.mode::<Output<OpenDrain>>(cr);
-        Pin::new()
+        self.into_mode(cr)
     }
 
     /// Configures the pin to operate as an push-pull output pin.
@@ -819,26 +818,23 @@ where
         initial_state: PinState,
     ) -> Pin<P, N, Output<PushPull>> {
         self._set_state(initial_state);
-        self.mode::<Output<PushPull>>(cr);
-        Pin::new()
+        self.into_mode(cr)
     }
 
     /// Configures the pin to operate as an push-pull output pin.
     /// The state will not be changed.
     #[inline]
     pub fn into_push_pull_output_with_current_state(
-        mut self,
+        self,
         cr: &mut <Self as HL>::Cr,
     ) -> Pin<P, N, Output<PushPull>> {
-        self.mode::<Output<PushPull>>(cr);
-        Pin::new()
+        self.into_mode(cr)
     }
 
     /// Configures the pin to operate as an analog input pin
     #[inline]
-    pub fn into_analog(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Analog> {
-        self.mode::<Analog>(cr);
-        Pin::new()
+    pub fn into_analog(self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Analog> {
+        self.into_mode(cr)
     }
 
     /// Configures the pin as a pin that can change between input
@@ -1081,6 +1077,12 @@ where
         self.cr_modify(cr, |r_bits| {
             (r_bits & !(0b1111 << Self::OFFSET)) | (bits << Self::OFFSET)
         });
+    }
+
+    #[inline]
+    pub(crate) fn into_mode<MODE: PinMode>(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, MODE> {
+        self.mode::<MODE>(cr);
+        Pin::new()
     }
 }
 

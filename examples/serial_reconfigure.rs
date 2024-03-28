@@ -63,8 +63,7 @@ fn main() -> ! {
     // the registers are used to enable and configure the device.
     let mut serial = Serial::new(
         p.USART3,
-        (tx, rx),
-        &mut afio.mapr,
+        (tx, rx, &mut afio.mapr),
         Config::default().baudrate(9600.bps()),
         &clocks,
     );

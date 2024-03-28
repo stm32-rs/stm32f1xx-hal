@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Reexport `Direction` from `qei`
 - Add dac
 
+### Breaking changes
+
+- Relax pin type generics for `Serial`, `I2c`, `Spi`, `Can`.
+  Use enums of pin tuples and `Enum::from<(tuple)>` for pin remap before passing to peripheral.
+  Remove `RemapStruct`s.
+- Use independent `Spi` and `SpiSlave` structures instead of `OP` generic
+
 ## [v0.10.0] - 2022-12-12
 
 - `Timer`: adds `get_interrupt` to `Timer`

@@ -40,7 +40,7 @@ fn main() -> ! {
         polarity: Polarity::IdleLow,
         phase: Phase::CaptureOnFirstTransition,
     };
-    let spi = Spi::spi2(dp.SPI2, pins, spi_mode, 100.kHz(), clocks);
+    let spi = Spi::new(dp.SPI2, pins, spi_mode, 100.kHz(), &clocks);
 
     // Set up the DMA device
     let dma = dp.DMA1.split();

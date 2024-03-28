@@ -14,6 +14,7 @@ use cortex_m_rt::entry;
 use nb::block;
 use panic_halt as _;
 use stm32f1xx_hal::{
+    gpio::{Floating, PushPull},
     pac,
     prelude::*,
     serial::{self, Config, Serial},
@@ -113,17 +114,16 @@ fn main() -> ! {
     let mut afio = p.AFIO.constrain();
 
     // Prepare the GPIOB peripheral.
-    let mut gpiob = p.GPIOB.split();
+    let gpiob = p.GPIOB.split();
 
-    let tx_pin = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
+    let tx_pin = gpiob.pb10;
     let rx_pin = gpiob.pb11;
 
     // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let serial = Serial::new(
+    let serial = Serial::<_, PushPull, Floating>::new(
         p.USART3,
-        (tx_pin, rx_pin),
-        &mut afio.mapr,
+        (tx_pin, rx_pin, &mut afio.mapr),
         Config::default()
             .baudrate(9600.bps())
             .wordlength_9bits()

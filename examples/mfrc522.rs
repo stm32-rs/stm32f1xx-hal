@@ -7,7 +7,6 @@ use panic_itm as _;
 use cortex_m::iprintln;
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::v1_compat::OldOutputPin;
 use embedded_hal::spi::{Mode, Phase, Polarity};
 use mfrc522::Mfrc522;
 use stm32f1xx_hal::{pac, prelude::*, spi::Spi};
@@ -33,17 +32,16 @@ fn main() -> ! {
     let sck = gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl);
     let miso = gpioa.pa6;
     let mosi = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
-    let spi = Spi::spi1(
+    let spi = Spi::new(
         dp.SPI1,
-        (sck, miso, mosi),
-        &mut afio.mapr,
+        (sck, miso, mosi, &mut afio.mapr),
         MODE,
         1.MHz(),
-        clocks,
+        &clocks,
     );
 
     let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
-    let mut mfrc522 = Mfrc522::new(spi, OldOutputPin::from(nss)).unwrap();
+    let mut mfrc522 = Mfrc522::new(spi).with_nss(nss).init().unwrap();
 
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
     led.set_high();

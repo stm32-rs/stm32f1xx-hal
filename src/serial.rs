@@ -69,54 +69,150 @@ use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use crate::afio::MAPR;
 use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
-use crate::gpio::{self, Alternate, Input};
+use crate::gpio::{self, Alternate, Cr, Floating, Input, PinMode, PullUp, PushPull};
 use crate::pac::{RCC, USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
+pub trait InMode {}
+impl InMode for Floating {}
+impl InMode for PullUp {}
+
 // USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
 // Section 9.3.8
-pub trait Pins<USART> {
-    fn remap(mapr: &mut MAPR);
+pub mod usart1 {
+    use super::*;
+
+    remap! {
+        Pins: [
+            All, Tx, Rx, PA9, PA10 => { |_, w| w.usart1_remap().bit(false) };
+            Remap, RemapTx, RemapRx, PB6, PB7  => { |_, w| w.usart1_remap().bit(true) };
+        ]
+    }
+}
+
+pub mod usart2 {
+    use super::*;
+
+    remap! {
+        Pins: [
+            All, Tx, Rx, PA2, PA3 => { |_, w| w.usart2_remap().bit(false) };
+            Remap, RemapTx, RemapRx, PD5, PD6 => { |_, w| w.usart2_remap().bit(true) };
+        ]
+    }
+}
+
+pub mod usart3 {
+    use super::*;
+
+    remap! {
+        Pins: [
+            RxTx, Tx, Rx, PB10, PB11 => { |_, w| unsafe { w.usart3_remap().bits(0b00)} };
+            Remap1, Remap1Tx, Remap1Rx, PC10, PC11 => { |_, w| unsafe { w.usart3_remap().bits(0b01)} };
+            Remap2, Remap2Tx, Remap2Rx, PD8, PD9 => { |_, w| unsafe { w.usart3_remap().bits(0b11)} };
+        ]
+    }
 }
 
 macro_rules! remap {
-    ($($USART:ty, $TX:ident, $RX:ident => { $remapex:expr };)+) => {
+    ($name:ident: [
+        $($rname:ident, $txonly:ident, $rxonly:ident, $TX:ident, $RX:ident => { $remapex:expr };)+
+    ]) => {
+        pub enum $name<OUTMODE, INMODE> {
+            $(
+                $rname { tx: gpio::$TX<Alternate<OUTMODE>>, rx: gpio::$RX<Input<INMODE>> },
+                $txonly { tx: gpio::$TX<Alternate<OUTMODE>> },
+                $rxonly { rx: gpio::$RX<Input<INMODE>> },
+            )+
+        }
+
         $(
-            impl<INMODE, OUTMODE> Pins<$USART> for (gpio::$TX<Alternate<OUTMODE>>, gpio::$RX<Input<INMODE>>) {
-                fn remap(mapr: &mut MAPR) {
-                    mapr.modify_mapr($remapex);
+            impl<OUTMODE, INMODE: InMode> From<(gpio::$TX<Alternate<OUTMODE>>, gpio::$RX<Input<INMODE>>, &mut MAPR)> for $name<OUTMODE, INMODE> {
+                fn from(p: (gpio::$TX<Alternate<OUTMODE>>, gpio::$RX<Input<INMODE>>, &mut MAPR)) -> Self {
+                    p.2.modify_mapr($remapex);
+                    Self::$rname { tx: p.0, rx: p.1 }
+                }
+            }
+
+            impl<OUTMODE, INMODE> From<(gpio::$TX, gpio::$RX, &mut MAPR)> for $name<OUTMODE, INMODE>
+            where
+                Alternate<OUTMODE>: PinMode,
+                Input<INMODE>: PinMode,
+                INMODE: InMode,
+            {
+                fn from(p: (gpio::$TX, gpio::$RX, &mut MAPR)) -> Self {
+                    let mut cr = Cr::new();
+                    let tx = p.0.into_mode(&mut cr);
+                    let rx = p.1.into_mode(&mut cr);
+                    p.2.modify_mapr($remapex);
+                    Self::$rname { tx, rx }
+                }
+            }
+
+            impl<OUTMODE> From<(gpio::$TX, &mut MAPR)> for $name<OUTMODE, Floating>
+            where
+                Alternate<OUTMODE>: PinMode,
+            {
+                fn from(p: (gpio::$TX, &mut MAPR)) -> Self {
+                    let tx = p.0.into_mode(&mut Cr::new());
+                    p.1.modify_mapr($remapex);
+                    Self::$txonly { tx }
+                }
+            }
+
+            impl<INMODE> From<(gpio::$RX, &mut MAPR)> for $name<PushPull, INMODE>
+            where
+                Input<INMODE>: PinMode,
+                INMODE: InMode,
+            {
+                fn from(p: (gpio::$RX, &mut MAPR)) -> Self {
+                    let rx = p.0.into_mode(&mut Cr::new());
+                    p.1.modify_mapr($remapex);
+                    Self::$rxonly { rx }
                 }
             }
         )+
     }
 }
+use remap;
 
-remap!(
-    USART1, PA9, PA10 => { |_, w| w.usart1_remap().bit(false) };
-    USART1, PB6, PB7  => { |_, w| w.usart1_remap().bit(true) };
+pub trait SerialExt: Sized + Instance {
+    fn serial<OUTMODE, INMODE>(
+        self,
+        pins: impl Into<Self::Pins<OUTMODE, INMODE>>,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> Serial<Self, OUTMODE, INMODE>;
+}
 
-    USART2, PA2, PA3 => { |_, w| w.usart2_remap().bit(false) };
-    USART2, PD5, PD6 => { |_, w| w.usart2_remap().bit(true) };
-
-    USART3, PB10, PB11 => { |_, w| unsafe { w.usart3_remap().bits(0b00)} };
-    USART3, PC10, PC11 => { |_, w| unsafe { w.usart3_remap().bits(0b01)} };
-    USART3, PD8, PD9 => { |_, w| unsafe { w.usart3_remap().bits(0b11)} };
-);
+impl<USART: Instance> SerialExt for USART {
+    fn serial<OUTMODE, INMODE>(
+        self,
+        pins: impl Into<Self::Pins<OUTMODE, INMODE>>,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> Serial<Self, OUTMODE, INMODE> {
+        Serial::new(self, pins, config, clocks)
+    }
+}
 
 use crate::pac::usart1 as uart_base;
 
 pub trait Instance:
     crate::Sealed + Deref<Target = uart_base::RegisterBlock> + Enable + Reset + BusClock
 {
+    type Pins<OUTMODE, INMODE>;
+
     #[doc(hidden)]
     fn ptr() -> *const uart_base::RegisterBlock;
 }
 
 macro_rules! inst {
-    ($($USARTX:ident)+) => {
+    ($($USARTX:ident, $usart:ident;)+) => {
         $(
             impl Instance for $USARTX {
+                type Pins<OUTMODE, INMODE> = $usart::Pins<OUTMODE, INMODE>;
+
                 fn ptr() -> *const uart_base::RegisterBlock {
                     <$USARTX>::ptr() as *const _
                 }
@@ -126,9 +222,9 @@ macro_rules! inst {
 }
 
 inst! {
-    USART1
-    USART2
-    USART3
+    USART1, usart1;
+    USART2, usart2;
+    USART3, usart3;
 }
 
 /// Serial error
@@ -243,10 +339,10 @@ impl From<Bps> for Config {
 }
 
 /// Serial abstraction
-pub struct Serial<USART, PINS> {
+pub struct Serial<USART: Instance, OUTMODE = PushPull, INMODE = Floating> {
     pub tx: Tx<USART>,
     pub rx: Rx<USART>,
-    pub token: ReleaseToken<USART, PINS>,
+    pub token: ReleaseToken<USART, USART::Pins<OUTMODE, INMODE>>,
 }
 
 /// Serial transmitter
@@ -265,7 +361,7 @@ pub struct ReleaseToken<USART, PINS> {
     pins: PINS,
 }
 
-impl<USART: Instance, PINS> Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> Serial<USART, OUTMODE, INMODE> {
     /// Configures the serial interface and creates the interface
     /// struct.
     ///
@@ -283,22 +379,18 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
     /// corresponding pins. `APBX` is used to reset the USART.)
     pub fn new(
         usart: USART,
-        pins: PINS,
-        mapr: &mut MAPR,
+        pins: impl Into<USART::Pins<OUTMODE, INMODE>>,
         config: impl Into<Config>,
         clocks: &Clocks,
-    ) -> Self
-    where
-        PINS: Pins<USART>,
-    {
+    ) -> Self {
         // Enable and reset USART
         let rcc = unsafe { &(*RCC::ptr()) };
         USART::enable(rcc);
         USART::reset(rcc);
 
-        PINS::remap(mapr);
-
         apply_config::<USART>(config.into(), clocks);
+
+        let pins = pins.into();
 
         // UE: enable USART
         // TE: enable transceiver
@@ -351,7 +443,7 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
     /// // Release `Serial`
     /// let (usart, (tx_pin, rx_pin)) = serial.release();
     /// ```
-    pub fn release(self) -> (USART, PINS) {
+    pub fn release(self) -> (USART, USART::Pins<OUTMODE, INMODE>) {
         (self.token.usart, self.token.pins)
     }
 
@@ -655,7 +747,7 @@ pub enum Event {
     Idle,
 }
 
-impl<USART: Instance, PINS> Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> Serial<USART, OUTMODE, INMODE> {
     /// Starts listening to the USART by enabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
@@ -699,7 +791,9 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::serial::Write<u8> for Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> embedded_hal::serial::Write<u8>
+    for Serial<USART, OUTMODE, INMODE>
+{
     type Error = Infallible;
 
     fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
@@ -711,7 +805,9 @@ impl<USART: Instance, PINS> embedded_hal::serial::Write<u8> for Serial<USART, PI
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::serial::Write<u16> for Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> embedded_hal::serial::Write<u16>
+    for Serial<USART, OUTMODE, INMODE>
+{
     type Error = Infallible;
 
     fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
@@ -723,7 +819,9 @@ impl<USART: Instance, PINS> embedded_hal::serial::Write<u16> for Serial<USART, P
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u8> for Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> embedded_hal::blocking::serial::Write<u8>
+    for Serial<USART, OUTMODE, INMODE>
+{
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
@@ -735,7 +833,9 @@ impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u8> for Serial
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u16> for Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> embedded_hal::blocking::serial::Write<u16>
+    for Serial<USART, OUTMODE, INMODE>
+{
     type Error = Infallible;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
@@ -747,13 +847,15 @@ impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u16> for Seria
     }
 }
 
-impl<USART: Instance, PINS> core::fmt::Write for Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> core::fmt::Write for Serial<USART, OUTMODE, INMODE> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.tx.write_str(s)
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::serial::Read<u8> for Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> embedded_hal::serial::Read<u8>
+    for Serial<USART, OUTMODE, INMODE>
+{
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
@@ -761,7 +863,9 @@ impl<USART: Instance, PINS> embedded_hal::serial::Read<u8> for Serial<USART, PIN
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::serial::Read<u16> for Serial<USART, PINS> {
+impl<USART: Instance, OUTMODE, INMODE> embedded_hal::serial::Read<u16>
+    for Serial<USART, OUTMODE, INMODE>
+{
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u16, Error> {
@@ -779,186 +883,187 @@ pub type Tx3 = Tx<USART3>;
 use crate::dma::{Receive, TransferPayload, Transmit};
 
 macro_rules! serialdma {
-    ($(
+    (
         $USARTX:ident: (
             $rxdma:ident,
             $txdma:ident,
             $dmarxch:ty,
             $dmatxch:ty,
-        ),
-    )+) => {
-        $(
-            pub type $rxdma = RxDma<Rx<$USARTX>, $dmarxch>;
-            pub type $txdma = TxDma<Tx<$USARTX>, $dmatxch>;
+        )
+    ) => {
+        pub type $rxdma = RxDma<Rx<$USARTX>, $dmarxch>;
+        pub type $txdma = TxDma<Tx<$USARTX>, $dmatxch>;
 
-            impl Receive for $rxdma {
-                type RxChannel = $dmarxch;
-                type TransmittedWord = u8;
+        impl Receive for $rxdma {
+            type RxChannel = $dmarxch;
+            type TransmittedWord = u8;
+        }
+
+        impl Transmit for $txdma {
+            type TxChannel = $dmatxch;
+            type ReceivedWord = u8;
+        }
+
+        impl TransferPayload for $rxdma {
+            fn start(&mut self) {
+                self.channel.start();
             }
-
-            impl Transmit for $txdma {
-                type TxChannel = $dmatxch;
-                type ReceivedWord = u8;
+            fn stop(&mut self) {
+                self.channel.stop();
             }
+        }
 
-            impl TransferPayload for $rxdma {
-                fn start(&mut self) {
-                    self.channel.start();
-                }
-                fn stop(&mut self) {
-                    self.channel.stop();
-                }
+        impl TransferPayload for $txdma {
+            fn start(&mut self) {
+                self.channel.start();
             }
-
-            impl TransferPayload for $txdma {
-                fn start(&mut self) {
-                    self.channel.start();
-                }
-                fn stop(&mut self) {
-                    self.channel.stop();
-                }
+            fn stop(&mut self) {
+                self.channel.stop();
             }
+        }
 
-            impl Rx<$USARTX> {
-                pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
-                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().set_bit()); }
-                    RxDma {
-                        payload: self,
-                        channel,
-                    }
+        impl Rx<$USARTX> {
+            pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
+                unsafe {
+                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().set_bit());
                 }
-            }
-
-            impl Tx<$USARTX> {
-                pub fn with_dma(self, channel: $dmatxch) -> $txdma {
-                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().set_bit()); }
-                    TxDma {
-                        payload: self,
-                        channel,
-                    }
+                RxDma {
+                    payload: self,
+                    channel,
                 }
             }
+        }
 
-            impl $rxdma {
-                #[deprecated(since = "0.7.1", note = "Please use release instead")]
-                pub fn split(self) -> (Rx<$USARTX>, $dmarxch) {
-                    self.release()
+        impl Tx<$USARTX> {
+            pub fn with_dma(self, channel: $dmatxch) -> $txdma {
+                unsafe {
+                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().set_bit());
                 }
-                pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
-                    self.stop();
-                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().clear_bit()); }
-                    let RxDma {payload, channel} = self;
-                    (
-                        payload,
-                        channel
-                    )
+                TxDma {
+                    payload: self,
+                    channel,
                 }
             }
+        }
 
-            impl $txdma {
-                #[deprecated(since = "0.7.1", note = "Please use release instead")]
-                pub fn split(self) -> (Tx<$USARTX>, $dmatxch) {
-                    self.release()
+        impl $rxdma {
+            pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
+                self.stop();
+                unsafe {
+                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().clear_bit());
                 }
-                pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
-                    self.stop();
-                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().clear_bit()); }
-                    let TxDma {payload, channel} = self;
-                    (
-                        payload,
-                        channel,
-                    )
-                }
+                let RxDma { payload, channel } = self;
+                (payload, channel)
             }
+        }
 
-            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
-            where
-                &'static mut [B; 2]: WriteBuffer<Word = u8>,
-                B: 'static,
-            {
-                fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
-                    // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                    // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.write_buffer() };
-                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
-
-                    atomic::compiler_fence(Ordering::Release);
-
-                    self.channel.ch().cr.modify(|_, w| { w
-                        .mem2mem() .clear_bit()
-                        .pl()      .medium()
-                        .msize()   .bits8()
-                        .psize()   .bits8()
-                        .circ()    .set_bit()
-                        .dir()     .clear_bit()
-                    });
-
-                    self.start();
-
-                    CircBuffer::new(buffer, self)
+        impl $txdma {
+            pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
+                self.stop();
+                unsafe {
+                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().clear_bit());
                 }
+                let TxDma { payload, channel } = self;
+                (payload, channel)
             }
+        }
 
-            impl<B> crate::dma::ReadDma<B, u8> for $rxdma
-            where
-                B: WriteBuffer<Word = u8>,
-            {
-                fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
-                    // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                    // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.write_buffer() };
-                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
+        impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
+        where
+            &'static mut [B; 2]: WriteBuffer<Word = u8>,
+            B: 'static,
+        {
+            fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.write_buffer() };
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len);
 
-                    atomic::compiler_fence(Ordering::Release);
-                    self.channel.ch().cr.modify(|_, w| { w
-                        .mem2mem() .clear_bit()
-                        .pl()      .medium()
-                        .msize()   .bits8()
-                        .psize()   .bits8()
-                        .circ()    .clear_bit()
-                        .dir()     .clear_bit()
-                    });
-                    self.start();
+                atomic::compiler_fence(Ordering::Release);
 
-                    Transfer::w(buffer, self)
-                }
+                self.channel.ch().cr.modify(|_, w| {
+                    w.mem2mem().clear_bit();
+                    w.pl().medium();
+                    w.msize().bits8();
+                    w.psize().bits8();
+                    w.circ().set_bit();
+                    w.dir().clear_bit()
+                });
+
+                self.start();
+
+                CircBuffer::new(buffer, self)
             }
+        }
 
-            impl<B> crate::dma::WriteDma<B, u8> for $txdma
-            where
-                B: ReadBuffer<Word = u8>,
-            {
-                fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
-                    // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                    // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.read_buffer() };
+        impl<B> crate::dma::ReadDma<B, u8> for $rxdma
+        where
+            B: WriteBuffer<Word = u8>,
+        {
+            fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.write_buffer() };
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len);
 
-                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                atomic::compiler_fence(Ordering::Release);
+                self.channel.ch().cr.modify(|_, w| {
+                    w.mem2mem().clear_bit();
+                    w.pl().medium();
+                    w.msize().bits8();
+                    w.psize().bits8();
+                    w.circ().clear_bit();
+                    w.dir().clear_bit()
+                });
+                self.start();
 
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
-
-                    atomic::compiler_fence(Ordering::Release);
-
-                    self.channel.ch().cr.modify(|_, w| { w
-                        .mem2mem() .clear_bit()
-                        .pl()      .medium()
-                        .msize()   .bits8()
-                        .psize()   .bits8()
-                        .circ()    .clear_bit()
-                        .dir()     .set_bit()
-                    });
-                    self.start();
-
-                    Transfer::r(buffer, self)
-                }
+                Transfer::w(buffer, self)
             }
-        )+
-    }
+        }
+
+        impl<B> crate::dma::WriteDma<B, u8> for $txdma
+        where
+            B: ReadBuffer<Word = u8>,
+        {
+            fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.read_buffer() };
+
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len);
+
+                atomic::compiler_fence(Ordering::Release);
+
+                self.channel.ch().cr.modify(|_, w| {
+                    w.mem2mem().clear_bit();
+                    w.pl().medium();
+                    w.msize().bits8();
+                    w.psize().bits8();
+                    w.circ().clear_bit();
+                    w.dir().set_bit()
+                });
+                self.start();
+
+                Transfer::r(buffer, self)
+            }
+        }
+    };
 }
 
 serialdma! {
@@ -967,17 +1072,21 @@ serialdma! {
         TxDma1,
         dma1::C5,
         dma1::C4,
-    ),
+    )
+}
+serialdma! {
     USART2: (
         RxDma2,
         TxDma2,
         dma1::C6,
         dma1::C7,
-    ),
+    )
+}
+serialdma! {
     USART3: (
         RxDma3,
         TxDma3,
         dma1::C3,
         dma1::C2,
-    ),
+    )
 }

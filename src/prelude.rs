@@ -1,5 +1,7 @@
 pub use crate::adc::ChannelTimeSequence as _stm32_hal_adc_ChannelTimeSequence;
 pub use crate::afio::AfioExt as _stm32_hal_afio_AfioExt;
+#[cfg(feature = "has-can")]
+pub use crate::can::CanExt as _;
 pub use crate::crc::CrcExt as _stm32_hal_crc_CrcExt;
 pub use crate::dma::CircReadDma as _stm32_hal_dma_CircReadDma;
 pub use crate::dma::DmaExt as _stm32_hal_dma_DmaExt;
@@ -12,7 +14,10 @@ pub use crate::hal::adc::OneShot as _embedded_hal_adc_OneShot;
 pub use crate::hal::digital::v2::StatefulOutputPin as _embedded_hal_digital_StatefulOutputPin;
 pub use crate::hal::digital::v2::ToggleableOutputPin as _embedded_hal_digital_ToggleableOutputPin;
 pub use crate::hal::prelude::*;
+pub use crate::i2c::I2cExt as _;
 pub use crate::rcc::RccExt as _stm32_hal_rcc_RccExt;
+pub use crate::serial::SerialExt as _;
+pub use crate::spi::SpiExt as _;
 pub use crate::time::U32Ext as _stm32_hal_time_U32Ext;
 #[cfg(feature = "rtic")]
 pub use crate::timer::MonoTimerExt as _stm32f4xx_hal_timer_MonoTimerExt;
