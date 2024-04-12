@@ -22,6 +22,7 @@ impl RccExt for RCC {
         Rcc {
             cfgr: CFGR {
                 hse: None,
+                hse_bypass: false,
                 hclk: None,
                 pclk1: None,
                 pclk2: None,
@@ -110,6 +111,7 @@ const HSI: u32 = 8_000_000; // Hz
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct CFGR {
     hse: Option<u32>,
+    hse_bypass: bool,
     hclk: Option<u32>,
     pclk1: Option<u32>,
     pclk2: Option<u32>,
@@ -125,6 +127,20 @@ impl CFGR {
     pub fn use_hse(mut self, freq: Hertz) -> Self {
         self.hse = Some(freq.raw());
         self
+    }
+
+    /// Bypasses the high-speed external oscillator and uses an external clock input on the OSC_IN
+    /// pin.
+    ///
+    /// For this configuration, the OSC_IN pin should be connected to a clock source with a
+    /// frequency specified in the call to use_hse(), and the OSC_OUT pin should not be connected.
+    ///
+    /// This function has no effect unless use_hse() is also called.
+    pub fn bypass_hse_oscillator(self) -> Self {
+        Self {
+            hse_bypass: true,
+            ..self
+        }
     }
 
     /// Sets the desired frequency for the HCLK clock
@@ -208,7 +224,12 @@ impl CFGR {
         if cfg.hse.is_some() {
             // enable HSE and wait for it to be ready
 
-            rcc.cr.modify(|_, w| w.hseon().set_bit());
+            rcc.cr.modify(|_, w| {
+                if cfg.hse_bypass {
+                    w.hsebyp().bypassed();
+                }
+                w.hseon().set_bit()
+            });
 
             while rcc.cr.read().hserdy().bit_is_clear() {}
         }
@@ -478,6 +499,7 @@ pub trait Reset: RccBus {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
     pub hse: Option<u32>,
+    pub hse_bypass: bool,
     pub pllmul: Option<u8>,
     pub hpre: HPre,
     pub ppre1: PPre,
@@ -491,6 +513,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             hse: None,
+            hse_bypass: false,
             pllmul: None,
             hpre: HPre::Div1,
             ppre1: PPre::Div1,
@@ -549,6 +572,7 @@ pub type AdcPre = rcc::cfgr::ADCPRE_A;
 impl Config {
     pub const fn from_cfgr(cfgr: CFGR) -> Self {
         let hse = cfgr.hse;
+        let hse_bypass = cfgr.hse_bypass;
         let pllsrcclk = if let Some(hse) = hse { hse } else { HSI / 2 };
 
         let pllmul = if let Some(sysclk) = cfgr.sysclk {
@@ -649,6 +673,7 @@ impl Config {
 
         Self {
             hse,
+            hse_bypass,
             pllmul: pllmul_bits,
             hpre: hpre_bits,
             ppre1: ppre1_bits,
@@ -730,6 +755,7 @@ fn rcc_config_usb() {
     let config = Config::from_cfgr(cfgr);
     let config_expected = Config {
         hse: Some(8_000_000),
+        hse_bypass: false,
         pllmul: Some(4),
         hpre: HPre::Div1,
         ppre1: PPre::Div2,
