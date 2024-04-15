@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add dac
 - Fix flash error flag clearing
 
+### Added
+
+- Allow to set HSE bypass bit in `RCC` clock configuration register to use an external clock input on the `OSC_IN` pin
+
 ## [v0.10.0] - 2022-12-12
 
 - `Timer`: adds `get_interrupt` to `Timer`
