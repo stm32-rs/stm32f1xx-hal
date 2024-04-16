@@ -13,7 +13,7 @@ use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
 use embedded_dma::WriteBuffer;
 
-use crate::pac::{self, RCC};
+use crate::pac;
 
 /// Continuous mode
 pub struct Continuous;
@@ -271,18 +271,15 @@ macro_rules! adc_hal {
                 }
 
                 fn reset(&mut self) {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    <$ADC>::reset(rcc);
+                    self.rb.reset();
                 }
 
                 fn enable_clock(&mut self) {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    <$ADC>::enable(rcc);
+                    self.rb.enable();
                 }
 
                 fn disable_clock(&mut self) {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    <$ADC>::disable(rcc);
+                    self.rb.disable();
                 }
 
                 fn calibrate(&mut self) {

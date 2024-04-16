@@ -125,7 +125,7 @@ macro_rules! dma {
             pub mod $dmaX {
                 use core::{sync::atomic::{self, Ordering}, ptr, mem, convert::TryFrom};
 
-                use crate::pac::{RCC, $DMAX, dma1};
+                use crate::pac::{$DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W, RxDma, TxDma, RxTxDma, TransferPayload};
                 use crate::rcc::Enable;
@@ -448,8 +448,7 @@ macro_rules! dma {
                     type Channels = Channels;
 
                     fn split(self) -> Channels {
-                        let rcc = unsafe { &(*RCC::ptr()) };
-                        $DMAX::enable(rcc);
+                        self.enable();
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(

@@ -49,7 +49,7 @@
 #![allow(non_upper_case_globals)]
 
 use crate::bb;
-use crate::pac::{self, DBGMCU as DBG, RCC};
+use crate::pac::{self, DBGMCU as DBG};
 
 use crate::rcc::{self, Clocks};
 use core::convert::TryFrom;
@@ -581,13 +581,9 @@ macro_rules! with_pwm {
 impl<TIM: Instance> Timer<TIM> {
     /// Initialize timer
     pub fn new(tim: TIM, clocks: &Clocks) -> Self {
-        unsafe {
-            //NOTE(unsafe) this reference will only be used for atomic writes with no side effects
-            let rcc = &(*RCC::ptr());
-            // Enable and reset the timer peripheral
-            TIM::enable(rcc);
-            TIM::reset(rcc);
-        }
+        // Enable and reset the timer peripheral
+        tim.enable();
+        tim.reset();
 
         Self {
             clk: TIM::timer_clock(clocks),
@@ -662,13 +658,9 @@ pub type FTimerMs<TIM> = FTimer<TIM, 1_000>;
 impl<TIM: Instance, const FREQ: u32> FTimer<TIM, FREQ> {
     /// Initialize timer
     pub fn new(tim: TIM, clocks: &Clocks) -> Self {
-        unsafe {
-            //NOTE(unsafe) this reference will only be used for atomic writes with no side effects
-            let rcc = &(*RCC::ptr());
-            // Enable and reset the timer peripheral
-            TIM::enable(rcc);
-            TIM::reset(rcc);
-        }
+        // Enable and reset the timer peripheral
+        tim.enable();
+        tim.reset();
 
         let mut t = Self { tim };
         t.configure(clocks);
