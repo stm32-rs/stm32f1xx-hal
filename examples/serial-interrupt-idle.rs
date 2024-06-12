@@ -69,7 +69,7 @@ static mut WIDX: usize = 0;
 unsafe fn write(buf: &[u8]) {
     if let Some(tx) = TX.as_mut() {
         buf.iter()
-            .for_each(|w| if let Err(_err) = nb::block!(tx.write(*w)) {})
+            .for_each(|w| if let Err(_err) = nb::block!(tx.write_u8(*w)) {})
     }
 }
 #[interrupt]

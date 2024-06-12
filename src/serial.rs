@@ -49,10 +49,10 @@
 //!
 //! // Write data (9 bits) to the USART.
 //! // Depending on the configuration, only the lower 7, 8, or 9 bits are used.
-//! block!(tx.write_u16(0x1FF)).unwrap_infallible();
+//! block!(tx.write_u16(0x1FF)).unwrap();
 //!
 //! // Write 'R' (8 bits) to the USART
-//! block!(tx.write(b'R')).unwrap_infallible();
+//! block!(tx.write_u8(b'R')).unwrap();
 //!
 //! // Receive a data (9 bits) from the USART and store it in "received"
 //! let received = block!(rx.read_u16()).unwrap();
@@ -61,7 +61,6 @@
 //! let received = block!(rx.read()).unwrap();
 //!  ```
 
-use core::convert::Infallible;
 use core::marker::PhantomData;
 use core::ops::Deref;
 use core::sync::atomic::{self, Ordering};
@@ -134,8 +133,26 @@ inst! {
     USART3
 }
 
-/// Serial error
-pub use embedded_hal_nb::serial::ErrorKind as Error;
+/// Serial error kind
+///
+/// This represents a common set of serial operation errors. HAL implementations are
+/// free to define more specific or additional error types. However, by providing
+/// a mapping to these common serial errors, generic code can still react to them.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[non_exhaustive]
+pub enum Error {
+    /// The peripheral receive buffer was overrun.
+    Overrun,
+    /// Received data does not conform to the peripheral configuration.
+    /// Can be caused by a misconfigured device on either end of the serial line.
+    FrameFormat,
+    /// Parity check failed.
+    Parity,
+    /// Serial line is too noisy to read valid data.
+    Noise,
+    /// A different error occurred. The original error may contain more information.
+    Other,
+}
 
 pub enum WordLength {
     /// When parity is enabled, a word has 7 data bits + 1 parity bit,
@@ -321,7 +338,7 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
         &mut self,
         config: impl Into<Config>,
         clocks: &Clocks,
-    ) -> nb::Result<(), Infallible> {
+    ) -> nb::Result<(), Error> {
         reconfigure(&mut self.tx, &mut self.rx, config, clocks)
     }
 
@@ -403,7 +420,7 @@ pub fn reconfigure<USART: Instance>(
     #[allow(unused_variables)] rx: &mut Rx<USART>,
     config: impl Into<Config>,
     clocks: &Clocks,
-) -> nb::Result<(), Infallible> {
+) -> nb::Result<(), Error> {
     // if we're currently busy transmitting, we have to wait until that is
     // over -- regarding reception, we assume that the caller -- with
     // exclusive access to the Serial instance due to &mut self -- knows
@@ -419,7 +436,7 @@ impl<USART: Instance> Tx<USART> {
     /// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
     /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
     /// will be transmitted and the other 8 bits will be ignored.
-    pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Infallible> {
+    pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Error> {
         let usart = unsafe { &*USART::ptr() };
 
         if usart.sr.read().txe().bit_is_set() {
@@ -430,25 +447,25 @@ impl<USART: Instance> Tx<USART> {
         }
     }
 
-    pub fn write(&mut self, word: u8) -> nb::Result<(), Infallible> {
+    pub fn write_u8(&mut self, word: u8) -> nb::Result<(), Error> {
         self.write_u16(word as u16)
     }
 
-    pub fn bwrite_all_u16(&mut self, buffer: &[u16]) -> Result<(), Infallible> {
+    pub fn bwrite_all_u16(&mut self, buffer: &[u16]) -> Result<(), Error> {
         for &w in buffer {
             nb::block!(self.write_u16(w))?;
         }
         Ok(())
     }
 
-    pub fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Infallible> {
+    pub fn bwrite_all_u8(&mut self, buffer: &[u8]) -> Result<(), Error> {
         for &w in buffer {
-            nb::block!(self.write(w))?;
+            nb::block!(self.write_u8(w))?;
         }
         Ok(())
     }
 
-    pub fn flush(&mut self) -> nb::Result<(), Infallible> {
+    pub fn flush(&mut self) -> nb::Result<(), Error> {
         let usart = unsafe { &*USART::ptr() };
 
         if usart.sr.read().tc().bit_is_set() {
@@ -458,7 +475,7 @@ impl<USART: Instance> Tx<USART> {
         }
     }
 
-    pub fn bflush(&mut self) -> Result<(), Infallible> {
+    pub fn bflush(&mut self) -> Result<(), Error> {
         nb::block!(self.flush())
     }
 
@@ -485,7 +502,7 @@ impl<USART: Instance> Tx<USART> {
 impl<USART: Instance> core::fmt::Write for Tx<USART> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         s.bytes()
-            .try_for_each(|c| nb::block!(self.write(c)))
+            .try_for_each(|c| nb::block!(self.write_u8(c)))
             .map_err(|_| core::fmt::Error)
     }
 }

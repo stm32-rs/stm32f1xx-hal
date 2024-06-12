@@ -2,10 +2,10 @@ use super::*;
 use embedded_hal_02::{blocking::serial as blocking, serial};
 
 impl<USART: Instance> serial::Write<u8> for Tx<USART> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
-        self.write(word)
+        self.write_u8(word)
     }
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -14,7 +14,7 @@ impl<USART: Instance> serial::Write<u8> for Tx<USART> {
 }
 
 impl<USART: Instance> serial::Write<u16> for Tx<USART> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
         self.write_u16(word)
@@ -42,10 +42,10 @@ impl<USART: Instance> serial::Read<u16> for Rx<USART> {
 }
 
 impl<USART: Instance, PINS> serial::Write<u8> for Serial<USART, PINS> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
-        self.tx.write(word)
+        self.tx.write_u8(word)
     }
 
     fn flush(&mut self) -> nb::Result<(), Self::Error> {
@@ -54,7 +54,7 @@ impl<USART: Instance, PINS> serial::Write<u8> for Serial<USART, PINS> {
 }
 
 impl<USART: Instance, PINS> serial::Write<u16> for Serial<USART, PINS> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
         self.tx.write_u16(word)
@@ -84,10 +84,10 @@ impl<USART: Instance, PINS> serial::Read<u16> for Serial<USART, PINS> {
 // Blocking
 
 impl<USART: Instance> blocking::Write<u8> for Tx<USART> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-        self.bwrite_all(buffer)
+        self.bwrite_all_u8(buffer)
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
@@ -96,7 +96,7 @@ impl<USART: Instance> blocking::Write<u8> for Tx<USART> {
 }
 
 impl<USART: Instance> blocking::Write<u16> for Tx<USART> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
         self.bwrite_all_u16(buffer)
@@ -108,10 +108,10 @@ impl<USART: Instance> blocking::Write<u16> for Tx<USART> {
 }
 
 impl<USART: Instance, PINS> blocking::Write<u8> for Serial<USART, PINS> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all(buffer)
+        self.tx.bwrite_all_u8(buffer)
     }
 
     fn bflush(&mut self) -> Result<(), Self::Error> {
@@ -120,7 +120,7 @@ impl<USART: Instance, PINS> blocking::Write<u8> for Serial<USART, PINS> {
 }
 
 impl<USART: Instance, PINS> blocking::Write<u16> for Serial<USART, PINS> {
-    type Error = Infallible;
+    type Error = Error;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
         self.tx.bwrite_all_u16(buffer)
