@@ -49,10 +49,10 @@
 //!
 //! // Write data (9 bits) to the USART.
 //! // Depending on the configuration, only the lower 7, 8, or 9 bits are used.
-//! block!(tx.write_u16(0x1FF)).unwrap_infallible();
+//! block!(tx.write_u16(0x1FF)).unwrap();
 //!
 //! // Write 'R' (8 bits) to the USART
-//! block!(tx.write(b'R')).unwrap_infallible();
+//! block!(tx.write_u8(b'R')).unwrap();
 //!
 //! // Receive a data (9 bits) from the USART and store it in "received"
 //! let received = block!(rx.read_u16()).unwrap();
@@ -61,7 +61,6 @@
 //! let received = block!(rx.read()).unwrap();
 //!  ```
 
-use core::convert::Infallible;
 use core::marker::PhantomData;
 use core::ops::Deref;
 use core::sync::atomic::{self, Ordering};
@@ -73,6 +72,9 @@ use crate::gpio::{self, Alternate, Input};
 use crate::pac::{RCC, USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
+
+mod hal_02;
+mod hal_1;
 
 // USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
 // Section 9.3.8
@@ -131,18 +133,25 @@ inst! {
     USART3
 }
 
-/// Serial error
-#[derive(Debug)]
+/// Serial error kind
+///
+/// This represents a common set of serial operation errors. HAL implementations are
+/// free to define more specific or additional error types. However, by providing
+/// a mapping to these common serial errors, generic code can still react to them.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[non_exhaustive]
 pub enum Error {
-    /// Framing error
-    Framing,
-    /// Noise error
-    Noise,
-    /// RX buffer overrun
+    /// The peripheral receive buffer was overrun.
     Overrun,
-    /// Parity check error
+    /// Received data does not conform to the peripheral configuration.
+    /// Can be caused by a misconfigured device on either end of the serial line.
+    FrameFormat,
+    /// Parity check failed.
     Parity,
+    /// Serial line is too noisy to read valid data.
+    Noise,
+    /// A different error occurred. The original error may contain more information.
+    Other,
 }
 
 pub enum WordLength {
@@ -329,7 +338,7 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
         &mut self,
         config: impl Into<Config>,
         clocks: &Clocks,
-    ) -> nb::Result<(), Infallible> {
+    ) -> nb::Result<(), Error> {
         reconfigure(&mut self.tx, &mut self.rx, config, clocks)
     }
 
@@ -411,7 +420,7 @@ pub fn reconfigure<USART: Instance>(
     #[allow(unused_variables)] rx: &mut Rx<USART>,
     config: impl Into<Config>,
     clocks: &Clocks,
-) -> nb::Result<(), Infallible> {
+) -> nb::Result<(), Error> {
     // if we're currently busy transmitting, we have to wait until that is
     // over -- regarding reception, we assume that the caller -- with
     // exclusive access to the Serial instance due to &mut self -- knows
@@ -427,7 +436,7 @@ impl<USART: Instance> Tx<USART> {
     /// If the UART/USART was configured with `WordLength::Bits9`, the 9 least significant bits will
     /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
     /// will be transmitted and the other 8 bits will be ignored.
-    pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Infallible> {
+    pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Error> {
         let usart = unsafe { &*USART::ptr() };
 
         if usart.sr.read().txe().bit_is_set() {
@@ -438,25 +447,25 @@ impl<USART: Instance> Tx<USART> {
         }
     }
 
-    pub fn write(&mut self, word: u8) -> nb::Result<(), Infallible> {
+    pub fn write_u8(&mut self, word: u8) -> nb::Result<(), Error> {
         self.write_u16(word as u16)
     }
 
-    pub fn bwrite_all_u16(&mut self, buffer: &[u16]) -> Result<(), Infallible> {
+    pub fn bwrite_all_u16(&mut self, buffer: &[u16]) -> Result<(), Error> {
         for &w in buffer {
             nb::block!(self.write_u16(w))?;
         }
         Ok(())
     }
 
-    pub fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Infallible> {
+    pub fn bwrite_all_u8(&mut self, buffer: &[u8]) -> Result<(), Error> {
         for &w in buffer {
-            nb::block!(self.write(w))?;
+            nb::block!(self.write_u8(w))?;
         }
         Ok(())
     }
 
-    pub fn flush(&mut self) -> nb::Result<(), Infallible> {
+    pub fn flush(&mut self) -> nb::Result<(), Error> {
         let usart = unsafe { &*USART::ptr() };
 
         if usart.sr.read().tc().bit_is_set() {
@@ -466,7 +475,7 @@ impl<USART: Instance> Tx<USART> {
         }
     }
 
-    pub fn bflush(&mut self) -> Result<(), Infallible> {
+    pub fn bflush(&mut self) -> Result<(), Error> {
         nb::block!(self.flush())
     }
 
@@ -490,58 +499,10 @@ impl<USART: Instance> Tx<USART> {
     }
 }
 
-impl<USART: Instance> embedded_hal::serial::Write<u8> for Tx<USART> {
-    type Error = Infallible;
-
-    fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
-        self.write(word)
-    }
-
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.flush()
-    }
-}
-
-impl<USART: Instance> embedded_hal::serial::Write<u16> for Tx<USART> {
-    type Error = Infallible;
-
-    fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
-        self.write_u16(word)
-    }
-
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.flush()
-    }
-}
-
-impl<USART: Instance> embedded_hal::blocking::serial::Write<u8> for Tx<USART> {
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-        self.bwrite_all(buffer)
-    }
-
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.bflush()
-    }
-}
-
-impl<USART: Instance> embedded_hal::blocking::serial::Write<u16> for Tx<USART> {
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
-        self.bwrite_all_u16(buffer)
-    }
-
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.bflush()
-    }
-}
-
 impl<USART: Instance> core::fmt::Write for Tx<USART> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         s.bytes()
-            .try_for_each(|c| nb::block!(self.write(c)))
+            .try_for_each(|c| nb::block!(self.write_u8(c)))
             .map_err(|_| core::fmt::Error)
     }
 }
@@ -560,7 +521,7 @@ impl<USART: Instance> Rx<USART> {
         let err = if sr.pe().bit_is_set() {
             Some(Error::Parity)
         } else if sr.fe().bit_is_set() {
-            Some(Error::Framing)
+            Some(Error::FrameFormat)
         } else if sr.ne().bit_is_set() {
             Some(Error::Noise)
         } else if sr.ore().bit_is_set() {
@@ -629,22 +590,6 @@ impl<USART: Instance> Rx<USART> {
     }
 }
 
-impl<USART: Instance> embedded_hal::serial::Read<u8> for Rx<USART> {
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u8, Self::Error> {
-        self.read()
-    }
-}
-
-impl<USART: Instance> embedded_hal::serial::Read<u16> for Rx<USART> {
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u16, Error> {
-        self.read_u16()
-    }
-}
-
 /// Interrupt event
 pub enum Event {
     /// New data can be sent
@@ -699,73 +644,9 @@ impl<USART: Instance, PINS> Serial<USART, PINS> {
     }
 }
 
-impl<USART: Instance, PINS> embedded_hal::serial::Write<u8> for Serial<USART, PINS> {
-    type Error = Infallible;
-
-    fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
-        self.tx.write(word)
-    }
-
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.tx.flush()
-    }
-}
-
-impl<USART: Instance, PINS> embedded_hal::serial::Write<u16> for Serial<USART, PINS> {
-    type Error = Infallible;
-
-    fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
-        self.tx.write_u16(word)
-    }
-
-    fn flush(&mut self) -> nb::Result<(), Self::Error> {
-        self.tx.flush()
-    }
-}
-
-impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u8> for Serial<USART, PINS> {
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all(buffer)
-    }
-
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.tx.bflush()
-    }
-}
-
-impl<USART: Instance, PINS> embedded_hal::blocking::serial::Write<u16> for Serial<USART, PINS> {
-    type Error = Infallible;
-
-    fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
-        self.tx.bwrite_all_u16(buffer)
-    }
-
-    fn bflush(&mut self) -> Result<(), Self::Error> {
-        self.tx.bflush()
-    }
-}
-
 impl<USART: Instance, PINS> core::fmt::Write for Serial<USART, PINS> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.tx.write_str(s)
-    }
-}
-
-impl<USART: Instance, PINS> embedded_hal::serial::Read<u8> for Serial<USART, PINS> {
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u8, Error> {
-        self.rx.read()
-    }
-}
-
-impl<USART: Instance, PINS> embedded_hal::serial::Read<u16> for Serial<USART, PINS> {
-    type Error = Error;
-
-    fn read(&mut self) -> nb::Result<u16, Error> {
-        self.rx.read_u16()
     }
 }
 
@@ -840,10 +721,6 @@ macro_rules! serialdma {
             }
 
             impl $rxdma {
-                #[deprecated(since = "0.7.1", note = "Please use release instead")]
-                pub fn split(self) -> (Rx<$USARTX>, $dmarxch) {
-                    self.release()
-                }
                 pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
                     self.stop();
                     unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().clear_bit()); }
@@ -856,10 +733,6 @@ macro_rules! serialdma {
             }
 
             impl $txdma {
-                #[deprecated(since = "0.7.1", note = "Please use release instead")]
-                pub fn split(self) -> (Tx<$USARTX>, $dmatxch) {
-                    self.release()
-                }
                 pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
                     self.stop();
                     unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().clear_bit()); }
