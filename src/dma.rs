@@ -302,9 +302,16 @@ macro_rules! dma {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
+                        /// Waits for the transfer to complete,
+                        /// then stops it and returns the underlying buffer and RxDma.
+                        pub fn wait(self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
+                            self.stop()
+                        }
+
+                        /// Stops the transfer and returns the underlying buffer and RxDma.
+                        pub fn stop(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
                             atomic::compiler_fence(Ordering::Acquire);
 
                             self.payload.stop();
@@ -340,9 +347,16 @@ macro_rules! dma {
                             !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
+                        /// Waits for the transfer to complete,
+                        /// then stops it and returns the underlying buffer and TxDma.
+                        pub fn wait(self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
                             while !self.is_done() {}
 
+                            self.stop()
+                        }
+
+                        /// Stops the transfer and returns the underlying buffer and TxDma.
+                        pub fn stop(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
                             atomic::compiler_fence(Ordering::Acquire);
 
                             self.payload.stop();
@@ -378,9 +392,16 @@ macro_rules! dma {
                             !self.payload.rxchannel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, RxTxDma<PAYLOAD, $CX, TXC>) {
+                        /// Waits for the transfer to complete,
+                        /// then stops it and returns the underlying buffer and RxTxDma.
+                        pub fn wait(self) -> (BUFFER, RxTxDma<PAYLOAD, $CX, TXC>) {
                             while !self.is_done() {}
 
+                            self.stop()
+                        }
+
+                        /// Stops the transfer and returns the underlying buffer and RxTxDma.
+                        pub fn stop(mut self) -> (BUFFER, RxTxDma<PAYLOAD, $CX, TXC>) {
                             atomic::compiler_fence(Ordering::Acquire);
 
                             self.payload.stop();
