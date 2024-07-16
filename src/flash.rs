@@ -166,7 +166,8 @@ impl<'a> FlashWriter<'a> {
         self.lock()?;
 
         if sr.wrprterr().bit_is_set() {
-            self.flash.sr.sr().modify(|_, w| w.wrprterr().clear_bit());
+            // reset by writing 1
+            self.flash.sr.sr().modify(|_, w| w.wrprterr().bit(true));
             Err(Error::EraseError)
         } else {
             if self.verify {
@@ -257,12 +258,14 @@ impl<'a> FlashWriter<'a> {
 
             // Check for errors
             if self.flash.sr.sr().read().pgerr().bit_is_set() {
-                self.flash.sr.sr().modify(|_, w| w.pgerr().clear_bit());
+                // reset by writing 1
+                self.flash.sr.sr().modify(|_, w| w.pgerr().bit(true));
 
                 self.lock()?;
                 return Err(Error::ProgrammingError);
             } else if self.flash.sr.sr().read().wrprterr().bit_is_set() {
-                self.flash.sr.sr().modify(|_, w| w.wrprterr().clear_bit());
+                // reset by writing 1
+                self.flash.sr.sr().modify(|_, w| w.wrprterr().bit(true));
 
                 self.lock()?;
                 return Err(Error::WriteError);

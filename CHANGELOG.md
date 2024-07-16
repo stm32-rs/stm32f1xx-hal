@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Replace UB code by a legitimate pointer access
 - Reexport `Direction` from `qei`
 - Add dac
+- Fix flash error flag clearing
 
 ## [v0.10.0] - 2022-12-12
 
