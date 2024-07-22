@@ -74,14 +74,6 @@ impl APB1 {
     }
 }
 
-impl APB1 {
-    /// Set power interface clock (PWREN) bit in RCC_APB1ENR
-    pub fn set_pwren() {
-        let rcc = unsafe { &*RCC::ptr() };
-        PWR::enable(rcc);
-    }
-}
-
 /// Advanced Peripheral Bus 2 (APB2) registers
 pub struct APB2 {
     _0: (),
@@ -327,9 +319,8 @@ impl BKP {
     /// Enables write access to the registers in the backup domain
     pub fn constrain(self, bkp: crate::pac::BKP, pwr: &mut PWR) -> BackupDomain {
         // Enable the backup interface by setting PWREN and BKPEN
-        let rcc = unsafe { &(*RCC::ptr()) };
-        crate::pac::BKP::enable(rcc);
-        crate::pac::PWR::enable(rcc);
+        bkp.enable();
+        pwr.enable();
 
         // Enable access to the backup registers
         pwr.cr.modify(|_r, w| w.dbp().set_bit());
@@ -488,12 +479,12 @@ pub trait RccBus: crate::Sealed {
 
 /// Enable/disable peripheral
 pub trait Enable: RccBus {
-    fn enable(rcc: &rcc::RegisterBlock);
-    fn disable(rcc: &rcc::RegisterBlock);
+    fn enable(&self);
+    fn disable(&self);
 }
 /// Reset peripheral
 pub trait Reset: RccBus {
-    fn reset(rcc: &rcc::RegisterBlock);
+    fn reset(&self);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
