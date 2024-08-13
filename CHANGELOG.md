@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Allow `Serial` reconfiguration by references to the `Tx` and `Rx` parts.
 - Allow `Serial` release after splitting.
 - `Spi::is_busy()`
+- Allow to stop an incomplete DMA transfer.
 
 ### Fixed
 
