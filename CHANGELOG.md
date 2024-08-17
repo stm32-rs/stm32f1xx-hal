@@ -15,11 +15,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add dac
 - Fix flash error flag clearing
 - Clarify README for windows users
+- Add an option to allow overclocking [#494]
 
 ### Added
 
 - Allow to set HSE bypass bit in `RCC` clock configuration register to use an external clock input on the `OSC_IN` pin
 - support `embedded-hal-1.0`
+  
+[#494]: https://github.com/stm32-rs/stm32f1xx-hal/pull/494
 
 ## [v0.10.0] - 2022-12-12
 
