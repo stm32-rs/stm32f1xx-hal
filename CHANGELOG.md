@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Reexport `Direction` from `qei`
 - Add dac
 - Fix flash error flag clearing
+- Clarify README for windows users
 
 ### Added
 

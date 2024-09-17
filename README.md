@@ -102,6 +102,7 @@ working directory.
   ```batch
   echo set auto-load safe-path %CD% >> %USERPROFILE%\.gdbinit
   ```
+  *You may need restart your computer*
 
 If everything was successful, cargo should compile your project, start gdb,
 load your program and give you a prompt. If you type `continue` in the gdb
@@ -159,6 +160,7 @@ You may need to give `cargo` permission to call `gdb` from the working directory
   ```batch
   echo set auto-load safe-path %CD% >> %USERPROFILE%\.gdbinit
   ```
+  *You may need restart your computer*
 
 Compile, load, and launch the hardware debugger.
 ```bash
