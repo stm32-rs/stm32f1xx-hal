@@ -361,7 +361,7 @@ macro_rules! gpio {
     ]) => {
         /// GPIO
         pub mod $gpiox {
-            use crate::pac::{$GPIOX, RCC};
+            use crate::pac::$GPIOX;
             use crate::rcc::{Enable, Reset};
             use super::{Active, Floating, GpioExt, Input, PartiallyErasedPin, ErasedPin, Pin, Cr};
             #[allow(unused)]
@@ -387,9 +387,8 @@ macro_rules! gpio {
                 type Parts = Parts;
 
                 fn split(self) -> Parts {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    $GPIOX::enable(rcc);
-                    $GPIOX::reset(rcc);
+                    self.enable();
+                    self.reset();
 
                     Parts {
                         crl: Cr::<$port_id, false>(()),
