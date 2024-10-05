@@ -11,10 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Relax pin type generics for `Serial`, `I2c`, `Spi`, `Can`. [#462]
   Use enums of pin tuples and `Enum::from<(tuple)>` for pin remap before passing to peripheral.
-  Remove `RemapStruct`s. [#462]
+  Remove `RemapStruct`s. [#462] [#506]
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]
-- Temporary replace `stm32f1` with `stm32f1-staging`
+- Temporary replace `stm32f1` with `stm32f1-staging` [#503]
 
 ### Changed
 
@@ -23,8 +23,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Replace UB code by a legitimate pointer access [#480]
 - Fix flash error flag clearing [#489]
 - Clarify README for windows users [#496]
-- Check "device selected" in `build.rs`
-- Unmacro `dma.rs`
+- Check "device selected" in `build.rs` [#502]
+- Use gpio field enums internally [#506]
+- Unmacro `dma.rs` [#505]
 
 ### Added
 
@@ -35,6 +36,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Reexport `Direction` from `qei` [#479]
 - Add DAC [#483]
 - Add an option to allow overclocking [#494]
+- `new` on gpio mode [#506]
 
 [#416]: https://github.com/stm32-rs/stm32f1xx-hal/pull/416
 [#453]: https://github.com/stm32-rs/stm32f1xx-hal/pull/453
@@ -48,6 +50,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#494]: https://github.com/stm32-rs/stm32f1xx-hal/pull/494
 [#496]: https://github.com/stm32-rs/stm32f1xx-hal/pull/496
 [#498]: https://github.com/stm32-rs/stm32f1xx-hal/pull/498
+[#502]: https://github.com/stm32-rs/stm32f1xx-hal/pull/502
+[#503]: https://github.com/stm32-rs/stm32f1xx-hal/pull/503
+[#505]: https://github.com/stm32-rs/stm32f1xx-hal/pull/505
+[#506]: https://github.com/stm32-rs/stm32f1xx-hal/pull/506
 
 ## [v0.10.0] - 2022-12-12
 

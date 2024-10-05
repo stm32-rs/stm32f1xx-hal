@@ -20,7 +20,6 @@ pub const MODE: Mode = Mode {
 };
 
 use stm32f1xx_hal::{
-    gpio::Floating,
     pac::{self, interrupt, Peripherals, SPI2},
     prelude::*,
     spi::{Event, SpiSlave},
@@ -49,7 +48,7 @@ fn main() -> ! {
 
     let spi1 = dp
         .SPI1
-        .spi::<Floating>((sck, miso, mosi, &mut afio.mapr), MODE, 10.kHz(), &clocks);
+        .spi((sck, miso, mosi, &mut afio.mapr), MODE, 10.kHz(), &clocks);
 
     // SPI2
     // Convert pins before SPI initialization

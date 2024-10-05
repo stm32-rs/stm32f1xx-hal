@@ -13,10 +13,9 @@ use cortex_m_rt::entry;
 use nb::block;
 use panic_halt as _;
 use stm32f1xx_hal::{
-    gpio::{Floating, PushPull},
     pac,
     prelude::*,
-    serial::{self, Config, Error, Serial},
+    serial::{self, Config, Error},
 };
 
 // The address of the slave device.
@@ -119,8 +118,10 @@ fn main() -> ! {
 
     // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let serial = Serial::<_, PushPull, Floating>::new(
-        p.USART3,
+    //
+    //let serial = Serial::<_, PushPull, Floating>::new(p.USART3,
+    // or shorter
+    let serial = p.USART3.serial(
         (tx_pin, rx_pin, &mut afio.mapr),
         Config::default()
             .baudrate(9600.bps())

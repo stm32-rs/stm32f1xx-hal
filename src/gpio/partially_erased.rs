@@ -38,21 +38,15 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
     #[inline(always)]
     pub fn set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe {
-            (*Gpio::<P>::ptr())
-                .bsrr()
-                .write(|w| w.bits(1 << self.pin_number))
-        }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.bsrr().write(|w| w.bs(self.pin_number).set_bit());
     }
 
     #[inline(always)]
     pub fn set_low(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe {
-            (*Gpio::<P>::ptr())
-                .bsrr()
-                .write(|w| w.bits(1 << (self.pin_number + 16)))
-        }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.bsrr().write(|w| w.br(self.pin_number).set_bit());
     }
 
     #[inline(always)]
@@ -80,7 +74,8 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
     #[inline(always)]
     pub fn is_set_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).odr().read().bits() & (1 << self.pin_number) == 0 }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.odr().read().odr(self.pin_number).bit_is_clear()
     }
 
     #[inline(always)]
@@ -102,7 +97,8 @@ impl<const P: char> PartiallyErasedPin<P, Output<OpenDrain>> {
     #[inline(always)]
     pub fn is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr().read().bits() & (1 << self.pin_number) == 0 }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.idr().read().idr(self.pin_number).bit_is_clear()
     }
 }
 
@@ -115,6 +111,7 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Input<MODE>> {
     #[inline(always)]
     pub fn is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr().read().bits() & (1 << self.pin_number) == 0 }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.idr().read().idr(self.pin_number).bit_is_clear()
     }
 }
