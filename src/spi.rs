@@ -379,7 +379,7 @@ where
     fn read_data_reg(&mut self) -> FrameSize {
         // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
         // reading a half-word)
-        unsafe { ptr::read_volatile(&self.spi.dr as *const _ as *const FrameSize) }
+        unsafe { ptr::read_volatile(ptr::addr_of!(self.spi.dr) as *const FrameSize) }
     }
 
     fn write_data_reg(&mut self, data: FrameSize) {
@@ -807,10 +807,8 @@ macro_rules! spi_dma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel.set_peripheral_address(
-                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+                self.channel
+                    .set_peripheral_address(unsafe { (*<$SPIi>::ptr()).dr.as_ptr() as u32 }, false);
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
@@ -844,10 +842,8 @@ macro_rules! spi_dma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.read_buffer() };
-                self.channel.set_peripheral_address(
-                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+                self.channel
+                    .set_peripheral_address(unsafe { (*<$SPIi>::ptr()).dr.as_ptr() as u32 }, false);
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
@@ -892,17 +888,13 @@ macro_rules! spi_dma {
                     panic!("receive and send buffer lengths do not match!");
                 }
 
-                self.rxchannel.set_peripheral_address(
-                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+                self.rxchannel
+                    .set_peripheral_address(unsafe { (*<$SPIi>::ptr()).dr.as_ptr() as u32 }, false);
                 self.rxchannel.set_memory_address(rxptr as u32, true);
                 self.rxchannel.set_transfer_length(rxlen);
 
-                self.txchannel.set_peripheral_address(
-                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+                self.txchannel
+                    .set_peripheral_address(unsafe { (*<$SPIi>::ptr()).dr.as_ptr() as u32 }, false);
                 self.txchannel.set_memory_address(txptr as u32, true);
                 self.txchannel.set_transfer_length(txlen);
 

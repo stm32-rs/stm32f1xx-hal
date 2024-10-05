@@ -120,7 +120,7 @@ macro_rules! inst {
         $(
             impl Instance for $USARTX {
                 fn ptr() -> *const uart_base::RegisterBlock {
-                    <$USARTX>::ptr() as *const _
+                    <$USARTX>::ptr()
                 }
             }
         )+
@@ -753,10 +753,8 @@ macro_rules! serialdma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel.set_peripheral_address(
-                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+                self.channel
+                    .set_peripheral_address(unsafe { (*$USARTX::ptr()).dr.as_ptr() as u32 }, false);
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
@@ -785,10 +783,8 @@ macro_rules! serialdma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel.set_peripheral_address(
-                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+                self.channel
+                    .set_peripheral_address(unsafe { (*$USARTX::ptr()).dr.as_ptr() as u32 }, false);
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
@@ -816,10 +812,8 @@ macro_rules! serialdma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.read_buffer() };
 
-                self.channel.set_peripheral_address(
-                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+                self.channel
+                    .set_peripheral_address(unsafe { (*$USARTX::ptr()).dr.as_ptr() as u32 }, false);
 
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
