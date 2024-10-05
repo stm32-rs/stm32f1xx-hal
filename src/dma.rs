@@ -137,7 +137,8 @@ macro_rules! dma {
                     /// A singleton that represents a single DMAx channel (channel X in this case)
                     ///
                     /// This singleton has exclusive access to the registers of the DMAx channel X
-                    pub struct $CX { _0: () }
+                    #[non_exhaustive]
+                    pub struct $CX;
 
                     impl $CX {
                         /// Associated peripheral `address`
@@ -456,7 +457,7 @@ macro_rules! dma {
                             self.$chX().cr().reset();
                         )+
 
-                        Channels((), $($CX { _0: () }),+)
+                        Channels((), $($CX),+)
                     }
                 }
             }
