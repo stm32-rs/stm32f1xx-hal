@@ -4,8 +4,6 @@
   NOTE: In some cases you need to specify remap you need, especially for TIM2
   (see [Alternate function remapping](super::timer)):
 */
-use core::u16;
-
 use core::marker::PhantomData;
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
