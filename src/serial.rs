@@ -752,8 +752,8 @@ macro_rules! serialdma {
         $USARTX:ident,
         $rxdma:ident,
         $txdma:ident,
-        $dmarxch:ty,
-        $dmatxch:ty
+        rx: $dmarxch:ty,
+        tx: $dmatxch:ty
     ) => {
         pub type $rxdma = RxDma<Rx<$USARTX>, $dmarxch>;
         pub type $txdma = TxDma<Tx<$USARTX>, $dmatxch>;
@@ -934,20 +934,20 @@ serialdma! {
     USART1,
     RxDma1,
     TxDma1,
-    dma1::C5,
-    dma1::C4
+    rx: dma1::C5,
+    tx: dma1::C4
 }
 serialdma! {
     USART2,
     RxDma2,
     TxDma2,
-    dma1::C6,
-    dma1::C7
+    rx: dma1::C6,
+    tx: dma1::C7
 }
 serialdma! {
     USART3,
     RxDma3,
     TxDma3,
-    dma1::C3,
-    dma1::C2
+    rx: dma1::C3,
+    tx: dma1::C2
 }

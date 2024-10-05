@@ -761,7 +761,17 @@ pub type SpiSlaveRxTxDma<SPI, RXCHANNEL, TXCHANNEL, Otype, PULL = Floating> =
     RxTxDma<SpiSlave<SPI, u8, Otype, PULL>, RXCHANNEL, TXCHANNEL>;
 
 macro_rules! spi_dma {
-    ($SPIi:ty, $RCi:ty, $TCi:ty, $rxdma:ident, $txdma:ident, $rxtxdma:ident, $slaverxdma:ident, $slavetxdma:ident, $slaverxtxdma:ident) => {
+    (
+        $SPIi:ty,
+        rx: $RCi:ty,
+        tx: $TCi:ty,
+        $rxdma:ident,
+        $txdma:ident,
+        $rxtxdma:ident,
+        $slaverxdma:ident,
+        $slavetxdma:ident,
+        $slaverxtxdma:ident
+    ) => {
         pub type $rxdma<PULL = Floating> = SpiRxDma<$SPIi, $RCi, PULL>;
         pub type $txdma<PULL = Floating> = SpiTxDma<$SPIi, $TCi, PULL>;
         pub type $rxtxdma<PULL = Floating> = SpiRxTxDma<$SPIi, $RCi, $TCi, PULL>;
@@ -1281,8 +1291,8 @@ macro_rules! spi_dma {
 
 spi_dma!(
     pac::SPI1,
-    dma1::C2,
-    dma1::C3,
+    rx: dma1::C2,
+    tx: dma1::C3,
     Spi1RxDma,
     Spi1TxDma,
     Spi1RxTxDma,
@@ -1292,8 +1302,8 @@ spi_dma!(
 );
 spi_dma!(
     pac::SPI2,
-    dma1::C4,
-    dma1::C5,
+    rx: dma1::C4,
+    tx: dma1::C5,
     Spi2RxDma,
     Spi2TxDma,
     Spi2RxTxDma,
@@ -1304,8 +1314,8 @@ spi_dma!(
 #[cfg(feature = "connectivity")]
 spi_dma!(
     pac::SPI3,
-    dma2::C1,
-    dma2::C2,
+    rx: dma2::C1,
+    tx: dma2::C2,
     Spi3RxDma,
     Spi3TxDma,
     Spi3RxTxDma,
