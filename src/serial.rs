@@ -179,21 +179,21 @@ macro_rules! remap {
 use remap;
 
 pub trait SerialExt: Sized + Instance {
-    fn serial<Otype, PULL>(
+    fn serial(
         self,
-        pins: impl Into<Self::Pins<Otype, PULL>>,
+        pins: impl Into<Self::Pins<PushPull, Floating>>,
         config: impl Into<Config>,
         clocks: &Clocks,
-    ) -> Serial<Self, Otype, PULL>;
+    ) -> Serial<Self, PushPull, Floating>;
 }
 
 impl<USART: Instance> SerialExt for USART {
-    fn serial<Otype, PULL>(
+    fn serial(
         self,
-        pins: impl Into<Self::Pins<Otype, PULL>>,
+        pins: impl Into<Self::Pins<PushPull, Floating>>,
         config: impl Into<Config>,
         clocks: &Clocks,
-    ) -> Serial<Self, Otype, PULL> {
+    ) -> Serial<Self> {
         Serial::new(self, pins, config, clocks)
     }
 }

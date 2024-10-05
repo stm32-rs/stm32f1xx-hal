@@ -122,23 +122,23 @@ macro_rules! remap {
 use remap;
 
 pub trait CanExt: Sized + Instance {
-    fn can<PULL>(
+    fn can(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-        pins: impl Into<Self::Pins<PULL>>,
-    ) -> Can<Self, PULL>;
-    fn can_loopback<PULL>(
+        pins: impl Into<Self::Pins<Floating>>,
+    ) -> Can<Self, Floating>;
+    fn can_loopback(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-    ) -> Can<Self, PULL>;
+    ) -> Can<Self, Floating>;
 }
 
 impl<CAN: Instance> CanExt for CAN {
-    fn can<PULL>(
+    fn can(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-        pins: impl Into<Self::Pins<PULL>>,
-    ) -> Can<Self, PULL> {
+        pins: impl Into<Self::Pins<Floating>>,
+    ) -> Can<Self, Floating> {
         Can::new(
             self,
             #[cfg(not(feature = "connectivity"))]
@@ -146,10 +146,10 @@ impl<CAN: Instance> CanExt for CAN {
             pins,
         )
     }
-    fn can_loopback<PULL>(
+    fn can_loopback(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-    ) -> Can<Self, PULL> {
+    ) -> Can<Self, Floating> {
         Can::new_loopback(
             self,
             #[cfg(not(feature = "connectivity"))]

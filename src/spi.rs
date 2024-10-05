@@ -292,51 +292,51 @@ macro_rules! remap {
 use remap;
 
 pub trait SpiExt: Sized + Instance {
-    fn spi<PULL>(
+    fn spi(
         self,
-        pins: impl Into<Self::MasterPins<PULL>>,
+        pins: impl Into<Self::MasterPins<Floating>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
-    ) -> Spi<Self, u8, PULL>;
-    fn spi_u16<PULL>(
+    ) -> Spi<Self, u8, Floating>;
+    fn spi_u16(
         self,
-        pins: impl Into<Self::MasterPins<PULL>>,
+        pins: impl Into<Self::MasterPins<Floating>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
-    ) -> Spi<Self, u16, PULL> {
+    ) -> Spi<Self, u16> {
         Self::spi(self, pins, mode, freq, clocks).frame_size_16bit()
     }
-    fn spi_slave<Otype, PULL>(
+    fn spi_slave(
         self,
-        pins: impl Into<Self::SlavePins<Otype, PULL>>,
+        pins: impl Into<Self::SlavePins<PushPull, Floating>>,
         mode: Mode,
-    ) -> SpiSlave<Self, u8, Otype, PULL>;
-    fn spi_slave_u16<Otype, PULL>(
+    ) -> SpiSlave<Self, u8, PushPull, Floating>;
+    fn spi_slave_u16(
         self,
-        pins: impl Into<Self::SlavePins<Otype, PULL>>,
+        pins: impl Into<Self::SlavePins<PushPull, Floating>>,
         mode: Mode,
-    ) -> SpiSlave<Self, u16, Otype, PULL> {
+    ) -> SpiSlave<Self, u16, PushPull, Floating> {
         Self::spi_slave(self, pins, mode).frame_size_16bit()
     }
 }
 
 impl<SPI: Instance> SpiExt for SPI {
-    fn spi<PULL>(
+    fn spi(
         self,
-        pins: impl Into<Self::MasterPins<PULL>>,
+        pins: impl Into<Self::MasterPins<Floating>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
-    ) -> Spi<Self, u8, PULL> {
+    ) -> Spi<Self, u8, Floating> {
         Spi::new(self, pins, mode, freq, clocks)
     }
-    fn spi_slave<Otype, PULL>(
+    fn spi_slave(
         self,
-        pins: impl Into<Self::SlavePins<Otype, PULL>>,
+        pins: impl Into<Self::SlavePins<PushPull, Floating>>,
         mode: Mode,
-    ) -> SpiSlave<Self, u8, Otype, PULL> {
+    ) -> SpiSlave<Self, u8, PushPull, Floating> {
         SpiSlave::new(self, pins, mode)
     }
 }
