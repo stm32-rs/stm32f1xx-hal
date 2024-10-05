@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fix flash error flag clearing [#489]
 - Clarify README for windows users [#496]
 - Check "device selected" in `build.rs`
+- Unmacro `dma.rs`
 
 ### Added
 
