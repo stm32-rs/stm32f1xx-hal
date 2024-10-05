@@ -160,9 +160,9 @@ impl Timer<TIM4> {
 /// Courtesy of @TeXitoi (https://github.com/stm32-rs/stm32f1xx-hal/pull/10#discussion_r259535503)
 fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     if freq == 0 {
-        return (core::u16::MAX, core::u16::MAX);
+        return (u16::MAX, u16::MAX);
     }
-    let presc = clock / freq.saturating_mul(core::u16::MAX as u32 + 1);
+    let presc = clock / freq.saturating_mul(u16::MAX as u32 + 1);
     let arr = clock / freq.saturating_mul(presc + 1);
     (core::cmp::max(1, arr as u16), presc as u16)
 }

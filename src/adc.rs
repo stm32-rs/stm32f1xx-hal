@@ -249,7 +249,7 @@ macro_rules! adc_hal {
                 /// Returns the largest possible sample value for the current settings
                 pub fn max_sample(&self) -> u16 {
                     match self.align {
-                        Align::Left => u16::max_value(),
+                        Align::Left => u16::MAX,
                         Align::Right => (1 << 12) - 1,
                     }
                 }

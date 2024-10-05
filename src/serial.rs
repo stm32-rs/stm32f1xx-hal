@@ -759,13 +759,13 @@ macro_rules! serialdma {
 
                     atomic::compiler_fence(Ordering::Release);
 
-                    self.channel.ch().cr.modify(|_, w| { w
-                        .mem2mem() .clear_bit()
-                        .pl()      .medium()
-                        .msize()   .bits8()
-                        .psize()   .bits8()
-                        .circ()    .set_bit()
-                        .dir()     .clear_bit()
+                    self.channel.ch().cr.modify(|_, w| {
+                        w.mem2mem().clear_bit();
+                        w.pl().medium();
+                        w.msize().bits8();
+                        w.psize().bits8();
+                        w.circ().set_bit();
+                        w.dir().clear_bit()
                     });
 
                     self.start();
@@ -787,13 +787,13 @@ macro_rules! serialdma {
                     self.channel.set_transfer_length(len);
 
                     atomic::compiler_fence(Ordering::Release);
-                    self.channel.ch().cr.modify(|_, w| { w
-                        .mem2mem() .clear_bit()
-                        .pl()      .medium()
-                        .msize()   .bits8()
-                        .psize()   .bits8()
-                        .circ()    .clear_bit()
-                        .dir()     .clear_bit()
+                    self.channel.ch().cr.modify(|_, w| {
+                        w.mem2mem().clear_bit();
+                        w.pl().medium();
+                        w.msize().bits8();
+                        w.psize().bits8();
+                        w.circ().clear_bit();
+                        w.dir().clear_bit()
                     });
                     self.start();
 
@@ -817,13 +817,13 @@ macro_rules! serialdma {
 
                     atomic::compiler_fence(Ordering::Release);
 
-                    self.channel.ch().cr.modify(|_, w| { w
-                        .mem2mem() .clear_bit()
-                        .pl()      .medium()
-                        .msize()   .bits8()
-                        .psize()   .bits8()
-                        .circ()    .clear_bit()
-                        .dir()     .set_bit()
+                    self.channel.ch().cr.modify(|_, w| {
+                        w.mem2mem().clear_bit();
+                        w.pl().medium();
+                        w.msize().bits8();
+                        w.psize().bits8();
+                        w.circ().clear_bit();
+                        w.dir().set_bit()
                     });
                     self.start();
 
