@@ -150,7 +150,7 @@ pub trait Active {}
 #[derive(Default)]
 pub struct Input<PULL = Floating>(PhantomData<PULL>);
 
-impl<MODE> Active for Input<MODE> {}
+impl<PULL> Active for Input<PULL> {}
 
 /// Used by the debugger (type state)
 #[derive(Default)]
@@ -983,6 +983,61 @@ where
     pub(crate) fn into_mode<MODE: PinMode>(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, MODE> {
         self.mode::<MODE>(cr);
         Pin::new()
+    }
+}
+
+impl Analog {
+    pub fn new<const P: char, const N: u8, MODE>(
+        pin: Pin<P, N, MODE>,
+        cr: &mut <Pin<P, N, MODE> as HL>::Cr,
+    ) -> Pin<P, N, Self>
+    where
+        Pin<P, N, MODE>: HL,
+        Self: PinMode,
+    {
+        pin.into_mode(cr)
+    }
+}
+
+impl<PULL> Input<PULL> {
+    pub fn new<const P: char, const N: u8, MODE>(
+        pin: Pin<P, N, MODE>,
+        cr: &mut <Pin<P, N, MODE> as HL>::Cr,
+        _pull: PULL,
+    ) -> Pin<P, N, Self>
+    where
+        Pin<P, N, MODE>: HL,
+        Self: PinMode,
+    {
+        pin.into_mode(cr)
+    }
+}
+
+impl<Otype> Output<Otype> {
+    pub fn new<const P: char, const N: u8, MODE>(
+        mut pin: Pin<P, N, MODE>,
+        cr: &mut <Pin<P, N, MODE> as HL>::Cr,
+        state: PinState,
+    ) -> Pin<P, N, Self>
+    where
+        Pin<P, N, MODE>: HL,
+        Self: PinMode,
+    {
+        pin._set_state(state);
+        pin.into_mode(cr)
+    }
+}
+
+impl<Otype> Alternate<Otype> {
+    pub fn new<const P: char, const N: u8, MODE>(
+        pin: Pin<P, N, MODE>,
+        cr: &mut <Pin<P, N, MODE> as HL>::Cr,
+    ) -> Pin<P, N, Self>
+    where
+        Pin<P, N, MODE>: HL,
+        Self: PinMode,
+    {
+        pin.into_mode(cr)
     }
 }
 

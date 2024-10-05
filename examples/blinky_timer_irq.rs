@@ -15,7 +15,7 @@ use panic_halt as _;
 use stm32f1xx_hal as hal;
 
 use crate::hal::{
-    gpio::{gpioc, Output, PushPull},
+    gpio::{gpioc, Output, PinState, PushPull},
     pac::{interrupt, Interrupt, Peripherals, TIM2},
     prelude::*,
     timer::{CounterMs, Event},
@@ -79,8 +79,9 @@ fn main() -> ! {
 
     // Configure PC13 pin to blink LED
     let mut gpioc = dp.GPIOC.split();
-    let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    let _ = led.set_high(); // Turn off
+    let led = Output::new(gpioc.pc13, &mut gpioc.crh, PinState::High);
+    //or
+    //let led = gpioc.pc13.into_push_pull_output_with_state(&mut gpioc.crh, PinState::High);
 
     // Move the pin into our global storage
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
