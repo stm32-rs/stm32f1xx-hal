@@ -66,7 +66,7 @@ fn RTCALARM() {
         cortex_m::interrupt::free(|cs| G_EXTI.borrow(cs).replace(None).unwrap())
     });
 
-    exti.pr.write(|w| w.pr17().set_bit());
+    exti.pr().write(|w| w.pr17().clear_bit_by_one());
     rtc.set_alarm(rtc.current_time() + TOGGLE_INTERVAL_SECONDS);
 
     let _ = led.toggle();
@@ -89,8 +89,8 @@ fn main() -> ! {
 
     // Set up the EXTI (see notes in section 18.4.2 of reference manual)
     let exti = dp.EXTI;
-    exti.ftsr.write(|w| w.tr17().set_bit());
-    exti.imr.write(|w| w.mr17().set_bit());
+    exti.ftsr().write(|w| w.tr17().set_bit());
+    exti.imr().write(|w| w.mr17().set_bit());
 
     cortex_m::interrupt::free(|cs| *G_EXTI.borrow(cs).borrow_mut() = Some(exti));
 

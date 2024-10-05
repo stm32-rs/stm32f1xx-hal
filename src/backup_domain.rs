@@ -25,13 +25,13 @@ pub struct BackupDomain {
 
 macro_rules! write_drx {
     ($self:ident, $drx:ident, $idx:expr, $new:expr) => {
-        $self._regs.$drx[$idx].write(|w| w.d().bits($new))
+        $self._regs.$drx($idx).write(|w| w.d().set($new))
     };
 }
 
 macro_rules! read_drx {
     ($self:ident, $drx:ident, $idx:expr) => {
-        $self._regs.$drx[$idx].read().d().bits()
+        $self._regs.$drx($idx).read().d().bits()
     };
 }
 

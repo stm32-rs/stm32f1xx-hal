@@ -444,7 +444,7 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
         SPI::reset(rcc);
 
         // disable SS output
-        spi.cr2.write(|w| w.ssoe().clear_bit());
+        spi.cr2().write(|w| w.ssoe().clear_bit());
 
         let br = match SPI::clock(clocks) / freq {
             0 => unreachable!(),
@@ -460,7 +460,7 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
 
         let pins = pins.into();
 
-        spi.cr1.write(|w| {
+        spi.cr1().write(|w| {
             // clock phase from config
             w.cpha().bit(mode.phase == Phase::CaptureOnSecondTransition);
             // clock polarity from config
@@ -468,7 +468,7 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
             // mstr: master configuration
             w.mstr().set_bit();
             // baudrate value
-            w.br().bits(br);
+            w.br().set(br);
             // lsbfirst: MSB first
             w.lsbfirst().clear_bit();
             // ssm: enable software slave management (NSS pin free for other uses)
@@ -511,11 +511,11 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
         SPI::reset(rcc);
 
         // disable SS output
-        spi.cr2.write(|w| w.ssoe().clear_bit());
+        spi.cr2().write(|w| w.ssoe().clear_bit());
 
         let pins = pins.into();
 
-        spi.cr1.write(|w| {
+        spi.cr1().write(|w| {
             // clock phase from config
             w.cpha().bit(mode.phase == Phase::CaptureOnSecondTransition);
             // clock polarity from config
@@ -559,12 +559,12 @@ impl<SPI: Instance, W: Copy> SpiReadWrite<W> for SpiInner<SPI, W> {
     fn read_data_reg(&mut self) -> W {
         // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
         // reading a half-word)
-        unsafe { ptr::read_volatile(ptr::addr_of!(self.spi.dr) as *const W) }
+        unsafe { ptr::read_volatile(self.spi.dr().as_ptr() as *const W) }
     }
 
     fn write_data_reg(&mut self, data: W) {
         // NOTE(write_volatile) see note above
-        unsafe { ptr::write_volatile(ptr::addr_of!(self.spi.dr) as *mut W, data) }
+        unsafe { ptr::write_volatile(self.spi.dr().as_ptr() as *mut W, data) }
     }
 
     // Implement write as per the "Transmit only procedure" page 712
@@ -575,7 +575,7 @@ impl<SPI: Instance, W: Copy> SpiReadWrite<W> for SpiInner<SPI, W> {
         // Write each word when the tx buffer is empty
         for word in words {
             loop {
-                let sr = self.spi.sr.read();
+                let sr = self.spi.sr().read();
                 if sr.txe().bit_is_set() {
                     self.write_data_reg(*word);
                     if sr.modf().bit_is_set() {
@@ -591,7 +591,7 @@ impl<SPI: Instance, W: Copy> SpiReadWrite<W> for SpiInner<SPI, W> {
         while self.is_busy() {}
         // Clear OVR set due to dropped received values
         let _ = self.read_data_reg();
-        let _ = self.spi.sr.read();
+        let _ = self.spi.sr().read();
         Ok(())
     }
 }
@@ -599,65 +599,64 @@ impl<SPI: Instance, W: Copy> SpiReadWrite<W> for SpiInner<SPI, W> {
 impl<SPI: Instance, W: Copy> SpiInner<SPI, W> {
     /// Select which frame format is used for data transfers
     pub fn bit_format(&mut self, format: SpiBitFormat) {
-        match format {
-            SpiBitFormat::LsbFirst => self.spi.cr1.modify(|_, w| w.lsbfirst().set_bit()),
-            SpiBitFormat::MsbFirst => self.spi.cr1.modify(|_, w| w.lsbfirst().clear_bit()),
-        }
+        self.spi
+            .cr1()
+            .modify(|_, w| w.lsbfirst().bit(matches!(format, SpiBitFormat::LsbFirst)));
     }
 
     /// Starts listening to the SPI by enabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
     pub fn listen(&mut self, event: Event) {
-        match event {
-            Event::Rxne => self.spi.cr2.modify(|_, w| w.rxneie().set_bit()),
-            Event::Txe => self.spi.cr2.modify(|_, w| w.txeie().set_bit()),
-            Event::Error => self.spi.cr2.modify(|_, w| w.errie().set_bit()),
-        }
+        self.spi.cr2().modify(|_, w| match event {
+            Event::Rxne => w.rxneie().set_bit(),
+            Event::Txe => w.txeie().set_bit(),
+            Event::Error => w.errie().set_bit(),
+        });
     }
 
     /// Stops listening to the SPI by disabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
     pub fn unlisten(&mut self, event: Event) {
-        match event {
-            Event::Rxne => self.spi.cr2.modify(|_, w| w.rxneie().clear_bit()),
-            Event::Txe => self.spi.cr2.modify(|_, w| w.txeie().clear_bit()),
-            Event::Error => self.spi.cr2.modify(|_, w| w.errie().clear_bit()),
-        }
+        self.spi.cr2().modify(|_, w| match event {
+            Event::Rxne => w.rxneie().clear_bit(),
+            Event::Txe => w.txeie().clear_bit(),
+            Event::Error => w.errie().clear_bit(),
+        });
     }
 
     /// Returns true if the tx register is empty (and can accept data)
     #[inline]
     pub fn is_tx_empty(&self) -> bool {
-        self.spi.sr.read().txe().bit_is_set()
+        self.spi.sr().read().txe().bit_is_set()
     }
 
     /// Returns true if the rx register is not empty (and can be read)
     #[inline]
     pub fn is_rx_not_empty(&self) -> bool {
-        self.spi.sr.read().rxne().bit_is_set()
+        self.spi.sr().read().rxne().bit_is_set()
     }
 
     /// Returns true if the transfer is in progress
     #[inline]
     pub fn is_busy(&self) -> bool {
-        self.spi.sr.read().bsy().bit_is_set()
+        self.spi.sr().read().bsy().bit_is_set()
     }
 
     /// Returns true if data are received and the previous data have not yet been read from SPI_DR.
     #[inline]
     pub fn is_overrun(&self) -> bool {
-        self.spi.sr.read().ovr().bit_is_set()
+        self.spi.sr().read().ovr().bit_is_set()
     }
 }
 
 impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
     /// Converts from 8bit dataframe to 16bit.
     pub fn frame_size_16bit(self) -> Spi<SPI, u16, PULL> {
-        self.spi.cr1.modify(|_, w| w.spe().clear_bit());
-        self.spi.cr1.modify(|_, w| w.dff().set_bit());
-        self.spi.cr1.modify(|_, w| w.spe().set_bit());
+        self.spi.cr1().modify(|_, w| w.spe().clear_bit());
+        self.spi.cr1().modify(|_, w| w.dff().set_bit());
+        self.spi.cr1().modify(|_, w| w.spe().set_bit());
         Spi {
             inner: SpiInner::new(self.inner.spi),
             pins: self.pins,
@@ -668,9 +667,9 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
 impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
     /// Converts from 8bit dataframe to 16bit.
     pub fn frame_size_16bit(self) -> SpiSlave<SPI, u16, Otype, PULL> {
-        self.spi.cr1.modify(|_, w| w.spe().clear_bit());
-        self.spi.cr1.modify(|_, w| w.dff().set_bit());
-        self.spi.cr1.modify(|_, w| w.spe().set_bit());
+        self.spi.cr1().modify(|_, w| w.spe().clear_bit());
+        self.spi.cr1().modify(|_, w| w.dff().set_bit());
+        self.spi.cr1().modify(|_, w| w.spe().set_bit());
         SpiSlave {
             inner: SpiInner::new(self.inner.spi),
             pins: self.pins,
@@ -681,9 +680,9 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
 impl<SPI: Instance, PULL> Spi<SPI, u16, PULL> {
     /// Converts from 16bit dataframe to 8bit.
     pub fn frame_size_8bit(self) -> Spi<SPI, u16, PULL> {
-        self.spi.cr1.modify(|_, w| w.spe().clear_bit());
-        self.spi.cr1.modify(|_, w| w.dff().clear_bit());
-        self.spi.cr1.modify(|_, w| w.spe().set_bit());
+        self.spi.cr1().modify(|_, w| w.spe().clear_bit());
+        self.spi.cr1().modify(|_, w| w.dff().clear_bit());
+        self.spi.cr1().modify(|_, w| w.spe().set_bit());
         Spi {
             inner: SpiInner::new(self.inner.spi),
             pins: self.pins,
@@ -694,9 +693,9 @@ impl<SPI: Instance, PULL> Spi<SPI, u16, PULL> {
 impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u16, Otype, PULL> {
     /// Converts from 16bit dataframe to 8bit.
     pub fn frame_size_8bit(self) -> SpiSlave<SPI, u8, Otype, PULL> {
-        self.spi.cr1.modify(|_, w| w.spe().clear_bit());
-        self.spi.cr1.modify(|_, w| w.dff().clear_bit());
-        self.spi.cr1.modify(|_, w| w.spe().set_bit());
+        self.spi.cr1().modify(|_, w| w.spe().clear_bit());
+        self.spi.cr1().modify(|_, w| w.dff().clear_bit());
+        self.spi.cr1().modify(|_, w| w.spe().set_bit());
         SpiSlave {
             inner: SpiInner::new(self.inner.spi),
             pins: self.pins,
@@ -710,7 +709,7 @@ where
     W: Copy,
 {
     pub fn read_nonblocking(&mut self) -> nb::Result<W, Error> {
-        let sr = self.spi.sr.read();
+        let sr = self.spi.sr().read();
 
         Err(if sr.ovr().bit_is_set() {
             Error::Overrun.into()
@@ -727,7 +726,7 @@ where
         })
     }
     pub fn write_nonblocking(&mut self, data: W) -> nb::Result<(), Error> {
-        let sr = self.spi.sr.read();
+        let sr = self.spi.sr().read();
 
         // NOTE: Error::Overrun was deleted in #408. Need check
         Err(if sr.modf().bit_is_set() {
@@ -789,14 +788,14 @@ macro_rules! spi_dma {
 
         impl<PULL> Spi<$SPIi, u8, PULL> {
             pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, $TCi, PULL> {
-                self.spi.cr2.modify(|_, w| w.txdmaen().set_bit());
+                self.spi.cr2().modify(|_, w| w.txdmaen().set_bit());
                 SpiTxDma {
                     payload: self,
                     channel,
                 }
             }
             pub fn with_rx_dma(self, channel: $RCi) -> SpiRxDma<$SPIi, $RCi, PULL> {
-                self.spi.cr2.modify(|_, w| w.rxdmaen().set_bit());
+                self.spi.cr2().modify(|_, w| w.rxdmaen().set_bit());
                 SpiRxDma {
                     payload: self,
                     channel,
@@ -808,7 +807,7 @@ macro_rules! spi_dma {
                 txchannel: $TCi,
             ) -> SpiRxTxDma<$SPIi, $RCi, $TCi, PULL> {
                 self.spi
-                    .cr2
+                    .cr2()
                     .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
                 SpiRxTxDma {
                     payload: self,
@@ -821,7 +820,7 @@ macro_rules! spi_dma {
         impl<PULL> SpiTxDma<$SPIi, $TCi, PULL> {
             pub fn release(self) -> (Spi<$SPIi, u8, PULL>, $TCi) {
                 let SpiTxDma { payload, channel } = self;
-                payload.spi.cr2.modify(|_, w| w.txdmaen().clear_bit());
+                payload.spi.cr2().modify(|_, w| w.txdmaen().clear_bit());
                 (payload, channel)
             }
         }
@@ -829,7 +828,7 @@ macro_rules! spi_dma {
         impl<PULL> SpiRxDma<$SPIi, $RCi, PULL> {
             pub fn release(self) -> (Spi<$SPIi, u8, PULL>, $RCi) {
                 let SpiRxDma { payload, channel } = self;
-                payload.spi.cr2.modify(|_, w| w.rxdmaen().clear_bit());
+                payload.spi.cr2().modify(|_, w| w.rxdmaen().clear_bit());
                 (payload, channel)
             }
         }
@@ -843,7 +842,7 @@ macro_rules! spi_dma {
                 } = self;
                 payload
                     .spi
-                    .cr2
+                    .cr2()
                     .modify(|_, w| w.rxdmaen().clear_bit().txdmaen().clear_bit());
                 (payload, rxchannel, txchannel)
             }
@@ -886,13 +885,15 @@ macro_rules! spi_dma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel
-                    .set_peripheral_address(unsafe { (*<$SPIi>::ptr()).dr.as_ptr() as u32 }, false);
+                self.channel.set_peripheral_address(
+                    unsafe { (*<$SPIi>::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     // memory to memory mode disabled
                     w.mem2mem().clear_bit();
                     // medium channel priority level
@@ -920,13 +921,15 @@ macro_rules! spi_dma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.read_buffer() };
-                self.channel
-                    .set_peripheral_address(unsafe { (*<$SPIi>::ptr()).dr.as_ptr() as u32 }, false);
+                self.channel.set_peripheral_address(
+                    unsafe { (*<$SPIi>::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     // memory to memory mode disabled
                     w.mem2mem().clear_bit();
                     // medium channel priority level
@@ -967,21 +970,21 @@ macro_rules! spi_dma {
                 }
 
                 self.rxchannel.set_peripheral_address(
-                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
+                    unsafe { (*<$SPIi>::ptr()).dr().as_ptr() as u32 },
                     false,
                 );
                 self.rxchannel.set_memory_address(rxptr as u32, true);
                 self.rxchannel.set_transfer_length(rxlen);
 
                 self.txchannel.set_peripheral_address(
-                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
+                    unsafe { (*<$SPIi>::ptr()).dr().as_ptr() as u32 },
                     false,
                 );
                 self.txchannel.set_memory_address(txptr as u32, true);
                 self.txchannel.set_transfer_length(txlen);
 
                 atomic::compiler_fence(Ordering::Release);
-                self.rxchannel.ch().cr.modify(|_, w| {
+                self.rxchannel.ch().cr().modify(|_, w| {
                     // memory to memory mode disabled
                     w.mem2mem().clear_bit();
                     // medium channel priority level
@@ -995,7 +998,7 @@ macro_rules! spi_dma {
                     // write to memory
                     w.dir().clear_bit()
                 });
-                self.txchannel.ch().cr.modify(|_, w| {
+                self.txchannel.ch().cr().modify(|_, w| {
                     // memory to memory mode disabled
                     w.mem2mem().clear_bit();
                     // medium channel priority level
@@ -1044,14 +1047,14 @@ macro_rules! spi_dma {
 
         impl<Otype, PULL> SpiSlave<$SPIi, u8, Otype, PULL> {
             pub fn with_tx_dma(self, channel: $TCi) -> SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL> {
-                self.spi.cr2.modify(|_, w| w.txdmaen().set_bit());
+                self.spi.cr2().modify(|_, w| w.txdmaen().set_bit());
                 SpiSlaveTxDma {
                     payload: self,
                     channel,
                 }
             }
             pub fn with_rx_dma(self, channel: $RCi) -> SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL> {
-                self.spi.cr2.modify(|_, w| w.rxdmaen().set_bit());
+                self.spi.cr2().modify(|_, w| w.rxdmaen().set_bit());
                 SpiSlaveRxDma {
                     payload: self,
                     channel,
@@ -1063,7 +1066,7 @@ macro_rules! spi_dma {
                 txchannel: $TCi,
             ) -> SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL> {
                 self.spi
-                    .cr2
+                    .cr2()
                     .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
                 SpiSlaveRxTxDma {
                     payload: self,
@@ -1076,7 +1079,7 @@ macro_rules! spi_dma {
         impl<Otype, PULL> SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL> {
             pub fn release(self) -> (SpiSlave<$SPIi, u8, Otype, PULL>, $TCi) {
                 let SpiSlaveTxDma { payload, channel } = self;
-                payload.spi.cr2.modify(|_, w| w.txdmaen().clear_bit());
+                payload.spi.cr2().modify(|_, w| w.txdmaen().clear_bit());
                 (payload, channel)
             }
         }
@@ -1084,7 +1087,7 @@ macro_rules! spi_dma {
         impl<Otype, PULL> SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL> {
             pub fn release(self) -> (SpiSlave<$SPIi, u8, Otype, PULL>, $RCi) {
                 let SpiSlaveRxDma { payload, channel } = self;
-                payload.spi.cr2.modify(|_, w| w.rxdmaen().clear_bit());
+                payload.spi.cr2().modify(|_, w| w.rxdmaen().clear_bit());
                 (payload, channel)
             }
         }
@@ -1098,7 +1101,7 @@ macro_rules! spi_dma {
                 } = self;
                 payload
                     .spi
-                    .cr2
+                    .cr2()
                     .modify(|_, w| w.rxdmaen().clear_bit().txdmaen().clear_bit());
                 (payload, rxchannel, txchannel)
             }
@@ -1142,14 +1145,14 @@ macro_rules! spi_dma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
                 self.channel.set_peripheral_address(
-                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
+                    unsafe { (*<$SPIi>::ptr()).dr().as_ptr() as u32 },
                     false,
                 );
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     // memory to memory mode disabled
                     w.mem2mem().clear_bit();
                     // medium channel priority level
@@ -1178,14 +1181,14 @@ macro_rules! spi_dma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.read_buffer() };
                 self.channel.set_peripheral_address(
-                    unsafe { &(*<$SPIi>::ptr()).dr as *const _ as u32 },
+                    unsafe { (*<$SPIi>::ptr()).dr().as_ptr() as u32 },
                     false,
                 );
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     // memory to memory mode disabled
                     w.mem2mem().clear_bit();
                     // medium channel priority level
@@ -1225,18 +1228,22 @@ macro_rules! spi_dma {
                     panic!("receive and send buffer lengths do not match!");
                 }
 
-                self.rxchannel
-                    .set_peripheral_address(unsafe { (*<$SPIi>::ptr()).dr.as_ptr() as u32 }, false);
+                self.rxchannel.set_peripheral_address(
+                    unsafe { (*<$SPIi>::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
                 self.rxchannel.set_memory_address(rxptr as u32, true);
                 self.rxchannel.set_transfer_length(rxlen);
 
-                self.txchannel
-                    .set_peripheral_address(unsafe { (*<$SPIi>::ptr()).dr.as_ptr() as u32 }, false);
+                self.txchannel.set_peripheral_address(
+                    unsafe { (*<$SPIi>::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
                 self.txchannel.set_memory_address(txptr as u32, true);
                 self.txchannel.set_transfer_length(txlen);
 
                 atomic::compiler_fence(Ordering::Release);
-                self.rxchannel.ch().cr.modify(|_, w| {
+                self.rxchannel.ch().cr().modify(|_, w| {
                     // memory to memory mode disabled
                     w.mem2mem().clear_bit();
                     // medium channel priority level
@@ -1250,7 +1257,7 @@ macro_rules! spi_dma {
                     // write to memory
                     w.dir().clear_bit()
                 });
-                self.txchannel.ch().cr.modify(|_, w| {
+                self.txchannel.ch().cr().modify(|_, w| {
                     // memory to memory mode disabled
                     w.mem2mem().clear_bit();
                     // medium channel priority level

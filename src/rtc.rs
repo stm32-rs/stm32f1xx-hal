@@ -75,8 +75,10 @@ impl Rtc<RtcClkLse> {
         let prl = LSE_HERTZ.raw() - 1;
         assert!(prl < 1 << 20);
         result.perform_write(|s| {
-            s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
-            s.regs.prll.write(|w| unsafe { w.bits(prl as u16 as u32) });
+            s.regs.prlh().write(|w| unsafe { w.bits(prl >> 16) });
+            s.regs
+                .prll()
+                .write(|w| unsafe { w.bits(prl as u16 as u32) });
         });
 
         result
@@ -110,7 +112,8 @@ impl Rtc<RtcClkLse> {
     /// Returns whether the RTC is currently enabled and LSE is selected.
     fn is_enabled() -> bool {
         let rcc = unsafe { &*RCC::ptr() };
-        rcc.bdcr.read().rtcen().bit() && rcc.bdcr.read().rtcsel().is_lse()
+        let bdcr = rcc.bdcr().read();
+        bdcr.rtcen().is_enabled() && bdcr.rtcsel().is_lse()
     }
 
     /// Enables the RTC device with the lse as the clock
@@ -118,17 +121,13 @@ impl Rtc<RtcClkLse> {
         // NOTE: Safe RCC access because we are only accessing bdcr
         // and we have a &mut on BackupDomain
         let rcc = unsafe { &*RCC::ptr() };
-        rcc.bdcr.modify(|_, w| {
-            w
-                // start the LSE oscillator
-                .lseon()
-                .set_bit()
-                // Enable the RTC
-                .rtcen()
-                .set_bit()
-                // Set the source of the RTC to LSE
-                .rtcsel()
-                .lse()
+        rcc.bdcr().modify(|_, w| {
+            // start the LSE oscillator
+            w.lseon().set_bit();
+            // Enable the RTC
+            w.rtcen().set_bit();
+            // Set the source of the RTC to LSE
+            w.rtcsel().lse()
         })
     }
 }
@@ -161,8 +160,10 @@ impl Rtc<RtcClkLsi> {
         let prl = LSI_HERTZ.raw() - 1;
         assert!(prl < 1 << 20);
         result.perform_write(|s| {
-            s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
-            s.regs.prll.write(|w| unsafe { w.bits(prl as u16 as u32) });
+            s.regs.prlh().write(|w| unsafe { w.bits(prl >> 16) });
+            s.regs
+                .prll()
+                .write(|w| unsafe { w.bits(prl as u16 as u32) });
         });
 
         result
@@ -184,7 +185,7 @@ impl Rtc<RtcClkLsi> {
     /// Returns whether the RTC is currently enabled and LSI is selected.
     fn is_enabled() -> bool {
         let rcc = unsafe { &*RCC::ptr() };
-        rcc.bdcr.read().rtcen().bit() && rcc.bdcr.read().rtcsel().is_lsi()
+        rcc.bdcr().read().rtcen().bit() && rcc.bdcr().read().rtcsel().is_lsi()
     }
 
     /// Enables the RTC device with the lsi as the clock
@@ -192,20 +193,15 @@ impl Rtc<RtcClkLsi> {
         // NOTE: Safe RCC access because we are only accessing bdcr
         // and we have a &mut on BackupDomain
         let rcc = unsafe { &*RCC::ptr() };
-        rcc.csr.modify(|_, w| {
-            w
-                // start the LSI oscillator
-                .lsion()
-                .set_bit()
+        rcc.csr().modify(|_, w| {
+            // start the LSI oscillator
+            w.lsion().set_bit()
         });
-        rcc.bdcr.modify(|_, w| {
-            w
-                // Enable the RTC
-                .rtcen()
-                .set_bit()
-                // Set the source of the RTC to LSI
-                .rtcsel()
-                .lsi()
+        rcc.bdcr().modify(|_, w| {
+            // Enable the RTC
+            w.rtcen().set_bit();
+            // Set the source of the RTC to LSI
+            w.rtcsel().lsi()
         })
     }
 }
@@ -239,8 +235,10 @@ impl Rtc<RtcClkHseDiv128> {
         let prl = hse.raw() / 128 - 1;
         assert!(prl < 1 << 20);
         result.perform_write(|s| {
-            s.regs.prlh.write(|w| unsafe { w.bits(prl >> 16) });
-            s.regs.prll.write(|w| unsafe { w.bits(prl as u16 as u32) });
+            s.regs.prlh().write(|w| unsafe { w.bits(prl >> 16) });
+            s.regs
+                .prll()
+                .write(|w| unsafe { w.bits(prl as u16 as u32) });
         });
 
         result
@@ -265,7 +263,8 @@ impl Rtc<RtcClkHseDiv128> {
 
     fn is_enabled() -> bool {
         let rcc = unsafe { &*RCC::ptr() };
-        rcc.bdcr.read().rtcen().bit() && rcc.bdcr.read().rtcsel().is_hse()
+        let bdcr = rcc.bdcr().read();
+        bdcr.rtcen().is_enabled() && bdcr.rtcsel().is_hse()
     }
 
     /// Enables the RTC device with the lsi as the clock
@@ -273,17 +272,14 @@ impl Rtc<RtcClkHseDiv128> {
         // NOTE: Safe RCC access because we are only accessing bdcr
         // and we have a &mut on BackupDomain
         let rcc = unsafe { &*RCC::ptr() };
-        if rcc.cr.read().hserdy().bit_is_clear() {
+        if rcc.cr().read().hserdy().bit_is_clear() {
             panic!("HSE oscillator not ready");
         }
-        rcc.bdcr.modify(|_, w| {
-            w
-                // Enable the RTC
-                .rtcen()
-                .set_bit()
-                // Set the source of the RTC to HSE/128
-                .rtcsel()
-                .hse()
+        rcc.bdcr().modify(|_, w| {
+            // Enable the RTC
+            w.rtcen().set_bit();
+            // Set the source of the RTC to HSE/128
+            w.rtcsel().hse()
         })
     }
 }
@@ -298,9 +294,9 @@ impl<CS> Rtc<CS> {
 
         let prescaler = LSE_HERTZ / frequency - 1;
         self.perform_write(|s| {
-            s.regs.prlh.write(|w| unsafe { w.bits(prescaler >> 16) });
+            s.regs.prlh().write(|w| unsafe { w.bits(prescaler >> 16) });
             s.regs
-                .prll
+                .prll()
                 .write(|w| unsafe { w.bits(prescaler as u16 as u32) });
         });
     }
@@ -309,10 +305,10 @@ impl<CS> Rtc<CS> {
     pub fn set_time(&mut self, counter_value: u32) {
         self.perform_write(|s| {
             s.regs
-                .cnth
+                .cnth()
                 .write(|w| unsafe { w.bits(counter_value >> 16) });
             s.regs
-                .cntl
+                .cntl()
                 .write(|w| unsafe { w.bits(counter_value as u16 as u32) });
         });
     }
@@ -331,10 +327,10 @@ impl<CS> Rtc<CS> {
         #[allow(unused_unsafe)]
         self.perform_write(|s| {
             s.regs
-                .alrh
+                .alrh()
                 .write(|w| unsafe { w.alrh().bits((alarm_value >> 16) as u16) });
             s.regs
-                .alrl
+                .alrl()
                 .write(|w| unsafe { w.alrl().bits(alarm_value as u16) });
         });
 
@@ -347,7 +343,7 @@ impl<CS> Rtc<CS> {
     pub fn listen_alarm(&mut self) {
         // Enable alarm interrupt
         self.perform_write(|s| {
-            s.regs.crh.modify(|_, w| w.alrie().set_bit());
+            s.regs.crh().modify(|_, w| w.alrie().set_bit());
         })
     }
 
@@ -355,36 +351,36 @@ impl<CS> Rtc<CS> {
     pub fn unlisten_alarm(&mut self) {
         // Disable alarm interrupt
         self.perform_write(|s| {
-            s.regs.crh.modify(|_, w| w.alrie().clear_bit());
+            s.regs.crh().modify(|_, w| w.alrie().clear_bit());
         })
     }
 
     /// Reads the current counter
     pub fn current_time(&self) -> u32 {
         // Wait for the APB1 interface to be ready
-        while !self.regs.crl.read().rsf().bit() {}
+        while !self.regs.crl().read().rsf().bit() {}
 
-        self.regs.cnth.read().bits() << 16 | self.regs.cntl.read().bits()
+        self.regs.cnth().read().bits() << 16 | self.regs.cntl().read().bits()
     }
 
     /// Enables triggering the RTC interrupt every time the RTC counter is increased
     pub fn listen_seconds(&mut self) {
-        self.perform_write(|s| s.regs.crh.modify(|_, w| w.secie().set_bit()))
+        self.perform_write(|s| s.regs.crh().modify(|_, w| w.secie().set_bit()))
     }
 
     /// Disables the RTC second interrupt
     pub fn unlisten_seconds(&mut self) {
-        self.perform_write(|s| s.regs.crh.modify(|_, w| w.secie().clear_bit()))
+        self.perform_write(|s| s.regs.crh().modify(|_, w| w.secie().clear_bit()))
     }
 
     /// Clears the RTC second interrupt flag
     pub fn clear_second_flag(&mut self) {
-        self.perform_write(|s| s.regs.crl.modify(|_, w| w.secf().clear_bit()))
+        self.perform_write(|s| s.regs.crl().modify(|_, w| w.secf().clear_bit()))
     }
 
     /// Clears the RTC alarm interrupt flag
     pub fn clear_alarm_flag(&mut self) {
-        self.perform_write(|s| s.regs.crl.modify(|_, w| w.alrf().clear_bit()))
+        self.perform_write(|s| s.regs.crl().modify(|_, w| w.alrf().clear_bit()))
     }
 
     /**
@@ -399,8 +395,8 @@ impl<CS> Rtc<CS> {
       ```
     */
     pub fn wait_alarm(&mut self) -> nb::Result<(), Infallible> {
-        if self.regs.crl.read().alrf().bit() {
-            self.regs.crl.modify(|_, w| w.alrf().clear_bit());
+        if self.regs.crl().read().alrf().bit() {
+            self.regs.crl().modify(|_, w| w.alrf().clear_bit());
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -414,16 +410,16 @@ impl<CS> Rtc<CS> {
     */
     fn perform_write(&mut self, func: impl Fn(&mut Self)) {
         // Wait for the last write operation to be done
-        while !self.regs.crl.read().rtoff().bit() {}
+        while !self.regs.crl().read().rtoff().bit() {}
         // Put the clock into config mode
-        self.regs.crl.modify(|_, w| w.cnf().set_bit());
+        self.regs.crl().modify(|_, w| w.cnf().set_bit());
 
         // Perform the write operation
         func(self);
 
         // Take the device out of config mode
-        self.regs.crl.modify(|_, w| w.cnf().clear_bit());
+        self.regs.crl().modify(|_, w| w.cnf().clear_bit());
         // Wait for the write to be done
-        while !self.regs.crl.read().rtoff().bit() {}
+        while !self.regs.crl().read().rtoff().bit() {}
     }
 }

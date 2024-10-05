@@ -400,7 +400,7 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
         // UE: enable USART
         // TE: enable transceiver
         // RE: enable receiver
-        usart.cr1.modify(|_r, w| {
+        usart.cr1().modify(|_r, w| {
             w.ue().set_bit();
             w.te().set_bit();
             w.re().set_bit();
@@ -472,18 +472,18 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     // Configure baud rate
     let brr = USART::clock(clocks).raw() / config.baudrate.0;
     assert!(brr >= 16, "impossible baud rate");
-    usart.brr.write(|w| unsafe { w.bits(brr) });
+    usart.brr().write(|w| unsafe { w.bits(brr) });
 
     // Configure word
-    usart.cr1.modify(|_r, w| {
+    usart.cr1().modify(|_r, w| {
         w.m().bit(match config.wordlength {
             WordLength::Bits8 => false,
             WordLength::Bits9 => true,
         });
-        use crate::pac::usart1::cr1::PS_A;
+        use crate::pac::usart1::cr1::PS;
         w.ps().variant(match config.parity {
-            Parity::ParityOdd => PS_A::Odd,
-            _ => PS_A::Even,
+            Parity::ParityOdd => PS::Odd,
+            _ => PS::Even,
         });
         w.pce().bit(!matches!(config.parity, Parity::ParityNone));
         w
@@ -496,7 +496,7 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
         StopBits::STOP2 => 0b10,
         StopBits::STOP1P5 => 0b11,
     };
-    usart.cr2.modify(|_r, w| w.stop().bits(stop_bits));
+    usart.cr2().modify(|_r, w| w.stop().set(stop_bits));
 }
 
 /// Reconfigure the USART instance.
@@ -527,8 +527,8 @@ impl<USART: Instance> Tx<USART> {
     pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Error> {
         let usart = unsafe { &*USART::ptr() };
 
-        if usart.sr.read().txe().bit_is_set() {
-            usart.dr.write(|w| w.dr().bits(word));
+        if usart.sr().read().txe().bit_is_set() {
+            usart.dr().write(|w| w.dr().set(word));
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -556,7 +556,7 @@ impl<USART: Instance> Tx<USART> {
     pub fn flush(&mut self) -> nb::Result<(), Error> {
         let usart = unsafe { &*USART::ptr() };
 
-        if usart.sr.read().tc().bit_is_set() {
+        if usart.sr().read().tc().bit_is_set() {
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -569,21 +569,21 @@ impl<USART: Instance> Tx<USART> {
 
     /// Start listening for transmit interrupt event
     pub fn listen(&mut self) {
-        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.txeie().set_bit()) };
+        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.txeie().set_bit()) };
     }
 
     /// Stop listening for transmit interrupt event
     pub fn unlisten(&mut self) {
-        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.txeie().clear_bit()) };
+        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.txeie().clear_bit()) };
     }
 
     /// Returns true if the tx register is empty (and can accept data)
     pub fn is_tx_empty(&self) -> bool {
-        unsafe { (*USART::ptr()).sr.read().txe().bit_is_set() }
+        unsafe { (*USART::ptr()).sr().read().txe().bit_is_set() }
     }
 
     pub fn is_tx_complete(&self) -> bool {
-        unsafe { (*USART::ptr()).sr.read().tc().bit_is_set() }
+        unsafe { (*USART::ptr()).sr().read().tc().bit_is_set() }
     }
 }
 
@@ -603,7 +603,7 @@ impl<USART: Instance> Rx<USART> {
     /// 8 received data bits and all other bits set to zero.
     pub fn read_u16(&mut self) -> nb::Result<u16, Error> {
         let usart = unsafe { &*USART::ptr() };
-        let sr = usart.sr.read();
+        let sr = usart.sr().read();
 
         // Check for any errors
         let err = if sr.pe().bit_is_set() {
@@ -621,14 +621,14 @@ impl<USART: Instance> Rx<USART> {
         if let Some(err) = err {
             // Some error occurred. In order to clear that error flag, you have to
             // do a read from the sr register followed by a read from the dr register.
-            let _ = usart.sr.read();
-            let _ = usart.dr.read();
+            let _ = usart.sr().read();
+            let _ = usart.dr().read();
             Err(nb::Error::Other(err))
         } else {
             // Check if a byte is available
             if sr.rxne().bit_is_set() {
                 // Read the received byte
-                Ok(usart.dr.read().dr().bits())
+                Ok(usart.dr().read().dr().bits())
             } else {
                 Err(nb::Error::WouldBlock)
             }
@@ -641,39 +641,39 @@ impl<USART: Instance> Rx<USART> {
 
     /// Start listening for receive interrupt event
     pub fn listen(&mut self) {
-        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.rxneie().set_bit()) };
+        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.rxneie().set_bit()) };
     }
 
     /// Stop listening for receive interrupt event
     pub fn unlisten(&mut self) {
-        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.rxneie().clear_bit()) };
+        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.rxneie().clear_bit()) };
     }
 
     /// Start listening for idle interrupt event
     pub fn listen_idle(&mut self) {
-        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.idleie().set_bit()) };
+        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.idleie().set_bit()) };
     }
 
     /// Stop listening for idle interrupt event
     pub fn unlisten_idle(&mut self) {
-        unsafe { (*USART::ptr()).cr1.modify(|_, w| w.idleie().clear_bit()) };
+        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.idleie().clear_bit()) };
     }
 
     /// Returns true if the line idle status is set
     pub fn is_idle(&self) -> bool {
-        unsafe { (*USART::ptr()).sr.read().idle().bit_is_set() }
+        unsafe { (*USART::ptr()).sr().read().idle().bit_is_set() }
     }
 
     /// Returns true if the rx register is not empty (and can be read)
     pub fn is_rx_not_empty(&self) -> bool {
-        unsafe { (*USART::ptr()).sr.read().rxne().bit_is_set() }
+        unsafe { (*USART::ptr()).sr().read().rxne().bit_is_set() }
     }
 
     /// Clear idle line interrupt flag
     pub fn clear_idle_interrupt(&self) {
         unsafe {
-            let _ = (*USART::ptr()).sr.read();
-            let _ = (*USART::ptr()).dr.read();
+            let _ = (*USART::ptr()).sr().read();
+            let _ = (*USART::ptr()).dr().read();
         }
     }
 }
@@ -789,7 +789,7 @@ macro_rules! serialdma {
         impl Rx<$USARTX> {
             pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
                 unsafe {
-                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().set_bit());
+                    (*$USARTX::ptr()).cr3().modify(|_, w| w.dmar().set_bit());
                 }
                 RxDma {
                     payload: self,
@@ -801,7 +801,7 @@ macro_rules! serialdma {
         impl Tx<$USARTX> {
             pub fn with_dma(self, channel: $dmatxch) -> $txdma {
                 unsafe {
-                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().set_bit());
+                    (*$USARTX::ptr()).cr3().modify(|_, w| w.dmat().set_bit());
                 }
                 TxDma {
                     payload: self,
@@ -814,7 +814,7 @@ macro_rules! serialdma {
             pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
                 self.stop();
                 unsafe {
-                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().clear_bit());
+                    (*$USARTX::ptr()).cr3().modify(|_, w| w.dmar().clear_bit());
                 }
                 let RxDma { payload, channel } = self;
                 (payload, channel)
@@ -825,7 +825,7 @@ macro_rules! serialdma {
             pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
                 self.stop();
                 unsafe {
-                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().clear_bit());
+                    (*$USARTX::ptr()).cr3().modify(|_, w| w.dmat().clear_bit());
                 }
                 let TxDma { payload, channel } = self;
                 (payload, channel)
@@ -841,14 +841,16 @@ macro_rules! serialdma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel
-                    .set_peripheral_address(unsafe { (*$USARTX::ptr()).dr.as_ptr() as u32 }, false);
+                self.channel.set_peripheral_address(
+                    unsafe { (*$USARTX::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
 
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     w.mem2mem().clear_bit();
                     w.pl().medium();
                     w.msize().bits8();
@@ -871,13 +873,15 @@ macro_rules! serialdma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel
-                    .set_peripheral_address(unsafe { (*$USARTX::ptr()).dr.as_ptr() as u32 }, false);
+                self.channel.set_peripheral_address(
+                    unsafe { (*$USARTX::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     w.mem2mem().clear_bit();
                     w.pl().medium();
                     w.msize().bits8();
@@ -900,15 +904,17 @@ macro_rules! serialdma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.read_buffer() };
 
-                self.channel
-                    .set_peripheral_address(unsafe { (*$USARTX::ptr()).dr.as_ptr() as u32 }, false);
+                self.channel.set_peripheral_address(
+                    unsafe { (*$USARTX::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
 
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
 
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     w.mem2mem().clear_bit();
                     w.pl().medium();
                     w.msize().bits8();

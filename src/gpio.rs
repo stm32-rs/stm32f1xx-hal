@@ -264,21 +264,21 @@ where
         let pin_number = self.pin_id();
         match edge {
             Edge::Rising => {
-                exti.rtsr
+                exti.rtsr()
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
-                exti.ftsr
+                exti.ftsr()
                     .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << pin_number)) });
             }
             Edge::Falling => {
-                exti.ftsr
+                exti.ftsr()
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
-                exti.rtsr
+                exti.rtsr()
                     .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << pin_number)) });
             }
             Edge::RisingFalling => {
-                exti.rtsr
+                exti.rtsr()
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
-                exti.ftsr
+                exti.ftsr()
                     .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
             }
         }
@@ -286,24 +286,24 @@ where
 
     /// Enable external interrupts from this pin.
     fn enable_interrupt(&mut self, exti: &mut EXTI) {
-        exti.imr
+        exti.imr()
             .modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.pin_id())) });
     }
 
     /// Disable external interrupts from this pin
     fn disable_interrupt(&mut self, exti: &mut EXTI) {
-        exti.imr
+        exti.imr()
             .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.pin_id())) });
     }
 
     /// Clear the interrupt pending bit for this pin
     fn clear_interrupt_pending_bit(&mut self) {
-        unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << self.pin_id())) };
+        unsafe { (*EXTI::ptr()).pr().write(|w| w.bits(1 << self.pin_id())) };
     }
 
     /// Reads the interrupt pending bit for this pin
     fn check_interrupt(&self) -> bool {
-        unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << self.pin_id())) != 0 }
+        unsafe { ((*EXTI::ptr()).pr().read().bits() & (1 << self.pin_id())) != 0 }
     }
 }
 
@@ -518,25 +518,25 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
     #[inline(always)]
     fn _set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe { (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << N)) }
+        unsafe { (*Gpio::<P>::ptr()).bsrr().write(|w| w.bits(1 << N)) }
     }
 
     #[inline(always)]
     fn _set_low(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe { (*Gpio::<P>::ptr()).bsrr.write(|w| w.bits(1 << (16 + N))) }
+        unsafe { (*Gpio::<P>::ptr()).bsrr().write(|w| w.bits(1 << (16 + N))) }
     }
 
     #[inline(always)]
     fn _is_set_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << N) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).odr().read().bits() & (1 << N) == 0 }
     }
 
     #[inline(always)]
     fn _is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << N) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).idr().read().bits() & (1 << N) == 0 }
     }
 }
 
@@ -821,10 +821,10 @@ where
 
         match N {
             0..=7 => {
-                gpio.crl.modify(|r, w| unsafe { w.bits(f(r.bits())) });
+                gpio.crl().modify(|r, w| unsafe { w.bits(f(r.bits())) });
             }
             8..=15 => {
-                gpio.crh.modify(|r, w| unsafe { w.bits(f(r.bits())) });
+                gpio.crh().modify(|r, w| unsafe { w.bits(f(r.bits())) });
             }
             _ => unreachable!(),
         }
@@ -950,9 +950,9 @@ where
         // Input<PullUp> or Input<PullDown> mode
         if let Some(pull) = MODE::PULL {
             if pull {
-                gpio.bsrr.write(|w| unsafe { w.bits(1 << N) });
+                gpio.bsrr().write(|w| unsafe { w.bits(1 << N) });
             } else {
-                gpio.bsrr.write(|w| unsafe { w.bits(1 << (16 + N)) });
+                gpio.bsrr().write(|w| unsafe { w.bits(1 << (16 + N)) });
             }
         }
 

@@ -26,15 +26,15 @@ pub struct Crc {
 
 impl Crc {
     pub fn read(&self) -> u32 {
-        self.crc.dr.read().bits()
+        self.crc.dr().read().bits()
     }
 
     pub fn write(&mut self, val: u32) {
-        self.crc.dr.write(|w| w.dr().bits(val))
+        self.crc.dr().write(|w| w.dr().set(val))
     }
 
     pub fn reset(&self) {
-        self.crc.cr.write(|w| w.reset().set_bit());
+        self.crc.cr().write(|w| w.reset().set_bit());
         // calling CRC::dr::write() just after CRC::cr::reset() will not work as expected, and
         // inserting single nop() seems to solve the problem.
         cortex_m::asm::nop();

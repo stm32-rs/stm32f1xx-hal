@@ -325,7 +325,7 @@ macro_rules! hal {
                 }
                 #[inline(always)]
                 unsafe fn set_auto_reload_unchecked(&mut self, arr: u32) {
-                    self.arr.write(|w| w.bits(arr))
+                    self.arr().write(|w| w.bits(arr))
                 }
                 #[inline(always)]
                 fn set_auto_reload(&mut self, arr: u32) -> Result<(), Error> {
@@ -340,83 +340,85 @@ macro_rules! hal {
                 #[inline(always)]
                 fn read_auto_reload() -> u32 {
                     let tim = unsafe { &*<$TIM>::ptr() };
-                    tim.arr.read().bits()
+                    tim.arr().read().bits()
                 }
                 #[inline(always)]
                 fn enable_preload(&mut self, b: bool) {
-                    self.cr1.modify(|_, w| w.arpe().bit(b));
+                    self.cr1().modify(|_, w| w.arpe().bit(b));
                 }
                 #[inline(always)]
                 fn enable_counter(&mut self) {
-                    self.cr1.modify(|_, w| w.cen().set_bit());
+                    self.cr1().modify(|_, w| w.cen().set_bit());
                 }
                 #[inline(always)]
                 fn disable_counter(&mut self) {
-                    self.cr1.modify(|_, w| w.cen().clear_bit());
+                    self.cr1().modify(|_, w| w.cen().clear_bit());
                 }
                 #[inline(always)]
                 fn is_counter_enabled(&self) -> bool {
-                    self.cr1.read().cen().is_enabled()
+                    self.cr1().read().cen().is_enabled()
                 }
                 #[inline(always)]
                 fn reset_counter(&mut self) {
-                    self.cnt.reset();
+                    self.cnt().reset();
                 }
                 #[inline(always)]
                 fn set_prescaler(&mut self, psc: u16) {
-                    self.psc.write(|w| w.psc().bits(psc) );
+                    self.psc().write(|w| w.psc().set(psc) );
                 }
                 #[inline(always)]
                 fn read_prescaler(&self) -> u16 {
-                    self.psc.read().psc().bits()
+                    self.psc().read().psc().bits()
                 }
                 #[inline(always)]
                 fn trigger_update(&mut self) {
                     // Sets the URS bit to prevent an interrupt from being triggered by
                     // the UG bit
-                    self.cr1.modify(|_, w| w.urs().set_bit());
-                    self.egr.write(|w| w.ug().set_bit());
-                    self.cr1.modify(|_, w| w.urs().clear_bit());
+                    self.cr1().modify(|_, w| w.urs().set_bit());
+                    self.egr().write(|w| w.ug().set_bit());
+                    self.cr1().modify(|_, w| w.urs().clear_bit());
                 }
                 #[inline(always)]
                 fn clear_interrupt_flag(&mut self, event: Event) {
-                    self.sr.write(|w| unsafe { w.bits(0xffff & !event.bits()) });
+                    self.sr().write(|w| unsafe { w.bits(0xffff & !event.bits()) });
                 }
                 #[inline(always)]
                 fn listen_interrupt(&mut self, event: Event, b: bool) {
-                    if b {
-                        self.dier.modify(|r, w| unsafe { w.bits(r.bits() | event.bits()) });
-                    } else {
-                        self.dier.modify(|r, w| unsafe { w.bits(r.bits() & !event.bits()) });
-                    }
+                    self.dier().modify(|r, w| unsafe { w.bits(
+                        if b {
+                            r.bits() | event.bits()
+                        } else {
+                            r.bits() & !event.bits()
+                        }
+                    ) });
                 }
                 #[inline(always)]
                 fn get_interrupt_flag(&self) -> Event {
-                    Event::from_bits_truncate(self.sr.read().bits())
+                    Event::from_bits_truncate(self.sr().read().bits())
                 }
                 #[inline(always)]
                 fn read_count(&self) -> Self::Width {
-                    self.cnt.read().bits() as Self::Width
+                    self.cnt().read().bits() as Self::Width
                 }
                 #[inline(always)]
                 fn start_one_pulse(&mut self) {
-                    self.cr1.modify(|_, w| w.opm().set_bit().cen().set_bit());
+                    self.cr1().modify(|_, w| w.opm().set_bit().cen().set_bit());
                 }
                 #[inline(always)]
                 fn cr1_reset(&mut self) {
-                    self.cr1.reset();
+                    self.cr1().reset();
                 }
                 #[inline(always)]
                 fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
-                    dbg.cr.modify(|_, w| w.$dbg_timX_stop().bit(state));
+                    dbg.cr().modify(|_, w| w.$dbg_timX_stop().bit(state));
                 }
             }
             $(with_pwm!($TIM: $cnum $(, $aoe)?);)?
 
             $(impl MasterTimer for $TIM {
-                type Mms = pac::$timbase::cr2::MMS_A;
+                type Mms = pac::$timbase::cr2::MMS;
                 fn master_mode(&mut self, mode: Self::Mms) {
-                    self.cr2.modify(|_,w| w.mms().variant(mode));
+                    self.cr2().modify(|_,w| w.mms().variant(mode));
                 }
             })?
         )+
@@ -432,7 +434,7 @@ macro_rules! with_pwm {
             fn read_cc_value(channel: u8) -> u32 {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 if channel < Self::CH_NUMBER {
-                    tim.ccr[channel as usize].read().bits()
+                    tim.ccr(channel as usize).read().bits()
                 } else {
                     0
                 }
@@ -443,7 +445,7 @@ macro_rules! with_pwm {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 #[allow(unused_unsafe)]
                 if channel < Self::CH_NUMBER {
-                    tim.ccr[channel as usize].write(|w| unsafe { w.bits(value) })
+                    tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) })
                 }
             }
 
@@ -452,7 +454,7 @@ macro_rules! with_pwm {
                 match channel {
                     Channel::C1 => {
                         self.ccmr1_output()
-                        .modify(|_, w| w.oc1pe().set_bit().oc1m().bits(mode as _) );
+                        .modify(|_, w| w.oc1pe().set_bit().oc1m().set(mode as _) );
                     }
                     _ => {},
                 }
@@ -460,14 +462,14 @@ macro_rules! with_pwm {
 
             #[inline(always)]
             fn start_pwm(&mut self) {
-                self.cr1.modify(|_, w| w.cen().set_bit());
+                self.cr1().modify(|_, w| w.cen().set_bit());
             }
 
             #[inline(always)]
             fn enable_channel(c: u8, b: bool) {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 if c < Self::CH_NUMBER {
-                    unsafe { bb::write(&tim.ccer, c*4, b); }
+                    unsafe { bb::write(tim.ccer(), c*4, b); }
                 }
             }
         }
@@ -480,7 +482,7 @@ macro_rules! with_pwm {
             fn read_cc_value(channel: u8) -> u32 {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 if channel < Self::CH_NUMBER {
-                    tim.ccr[channel as usize].read().bits()
+                    tim.ccr(channel as usize).read().bits()
                 } else {
                     0
                 }
@@ -491,7 +493,7 @@ macro_rules! with_pwm {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 #[allow(unused_unsafe)]
                 if channel < Self::CH_NUMBER {
-                    tim.ccr[channel as usize].write(|w| unsafe { w.bits(value) })
+                    tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) })
                 }
             }
 
@@ -500,11 +502,11 @@ macro_rules! with_pwm {
                 match channel {
                     Channel::C1 => {
                         self.ccmr1_output()
-                        .modify(|_, w| w.oc1pe().set_bit().oc1m().bits(mode as _) );
+                        .modify(|_, w| w.oc1pe().set_bit().oc1m().set(mode as _) );
                     }
                     Channel::C2 => {
                         self.ccmr1_output()
-                        .modify(|_, w| w.oc2pe().set_bit().oc2m().bits(mode as _) );
+                        .modify(|_, w| w.oc2pe().set_bit().oc2m().set(mode as _) );
                     }
                     _ => {},
                 }
@@ -512,14 +514,14 @@ macro_rules! with_pwm {
 
             #[inline(always)]
             fn start_pwm(&mut self) {
-                self.cr1.modify(|_, w| w.cen().set_bit());
+                self.cr1().modify(|_, w| w.cen().set_bit());
             }
 
             #[inline(always)]
             fn enable_channel(c: u8, b: bool) {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 if c < Self::CH_NUMBER {
-                    unsafe { bb::write(&tim.ccer, c*4, b); }
+                    unsafe { bb::write(tim.ccer(), c*4, b); }
                 }
             }
         }
@@ -531,13 +533,13 @@ macro_rules! with_pwm {
             #[inline(always)]
             fn read_cc_value(channel: u8) -> u32 {
                 let tim = unsafe { &*<$TIM>::ptr() };
-                tim.ccr[channel as usize].read().bits()
+                tim.ccr(channel as usize).read().bits()
             }
 
             #[inline(always)]
             fn set_cc_value(channel: u8, value: u32) {
                 let tim = unsafe { &*<$TIM>::ptr() };
-                tim.ccr[channel as usize].write(|w| unsafe { w.bits(value) })
+                tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) })
             }
 
             #[inline(always)]
@@ -545,34 +547,34 @@ macro_rules! with_pwm {
                 match channel {
                     Channel::C1 => {
                         self.ccmr1_output()
-                        .modify(|_, w| w.oc1pe().set_bit().oc1m().bits(mode as _) );
+                        .modify(|_, w| w.oc1pe().set_bit().oc1m().set(mode as _) );
                     }
                     Channel::C2 => {
                         self.ccmr1_output()
-                        .modify(|_, w| w.oc2pe().set_bit().oc2m().bits(mode as _) );
+                        .modify(|_, w| w.oc2pe().set_bit().oc2m().set(mode as _) );
                     }
                     Channel::C3 => {
                         self.ccmr2_output()
-                        .modify(|_, w| w.oc3pe().set_bit().oc3m().bits(mode as _) );
+                        .modify(|_, w| w.oc3pe().set_bit().oc3m().set(mode as _) );
                     }
                     Channel::C4 => {
                         self.ccmr2_output()
-                        .modify(|_, w| w.oc4pe().set_bit().oc4m().bits(mode as _) );
+                        .modify(|_, w| w.oc4pe().set_bit().oc4m().set(mode as _) );
                     }
                 }
             }
 
             #[inline(always)]
             fn start_pwm(&mut self) {
-                $(let $aoe = self.bdtr.modify(|_, w| w.aoe().set_bit());)?
-                self.cr1.modify(|_, w| w.cen().set_bit());
+                $(let $aoe = self.bdtr().modify(|_, w| w.aoe().set_bit());)?
+                self.cr1().modify(|_, w| w.cen().set_bit());
             }
 
             #[inline(always)]
             fn enable_channel(c: u8, b: bool) {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 if c < Self::CH_NUMBER {
-                    unsafe { bb::write(&tim.ccer, c*4, b); }
+                    unsafe { bb::write(tim.ccer(), c*4, b); }
                 }
             }
         }
