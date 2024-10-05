@@ -222,7 +222,7 @@ impl<REMAP, PINS> Spi<pac::SPI1, REMAP, PINS, u8, Master> {
         mapr: &mut MAPR,
         mode: impl Into<Mode>,
         freq: Hertz,
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> Self
     where
         REMAP: Remap<Periph = pac::SPI1>,
@@ -259,7 +259,7 @@ impl<REMAP, PINS> Spi<pac::SPI2, REMAP, PINS, u8, Master> {
 
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn spi2(spi: pac::SPI2, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self
+    pub fn spi2(spi: pac::SPI2, pins: PINS, mode: Mode, freq: Hertz, clocks: &Clocks) -> Self
     where
         REMAP: Remap<Periph = pac::SPI2>,
         PINS: Pins<REMAP>,
@@ -295,7 +295,7 @@ impl<REMAP, PINS> Spi<pac::SPI3, REMAP, PINS, u8, Master> {
       You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
     */
     #[cfg(not(feature = "connectivity"))]
-    pub fn spi3(spi: pac::SPI3, pins: PINS, mode: Mode, freq: Hertz, clocks: Clocks) -> Self
+    pub fn spi3(spi: pac::SPI3, pins: PINS, mode: Mode, freq: Hertz, clocks: &Clocks) -> Self
     where
         REMAP: Remap<Periph = pac::SPI3>,
         PINS: Pins<REMAP>,
@@ -317,7 +317,7 @@ impl<REMAP, PINS> Spi<pac::SPI3, REMAP, PINS, u8, Master> {
         mapr: &mut MAPR,
         mode: Mode,
         freq: Hertz,
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> Self
     where
         REMAP: Remap<Periph = pac::SPI3>,
@@ -484,7 +484,13 @@ impl<SPI, REMAP, PINS> Spi<SPI, REMAP, PINS, u8, Master>
 where
     SPI: Instance,
 {
-    fn configure(spi: SPI, pins: PINS, mode: impl Into<Mode>, freq: Hertz, clocks: Clocks) -> Self {
+    fn configure(
+        spi: SPI,
+        pins: PINS,
+        mode: impl Into<Mode>,
+        freq: Hertz,
+        clocks: &Clocks,
+    ) -> Self {
         let mode = mode.into();
         // enable or reset SPI
         let rcc = unsafe { &(*RCC::ptr()) };

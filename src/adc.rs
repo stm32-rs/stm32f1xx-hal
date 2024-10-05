@@ -2,6 +2,7 @@
 
 use core::marker::PhantomData;
 use embedded_hal_02::adc::{Channel, OneShot};
+use fugit::HertzU32 as Hertz;
 
 #[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
 use crate::dma::dma2;
@@ -25,7 +26,8 @@ pub struct Adc<ADC> {
     rb: ADC,
     sample_time: SampleTime,
     align: Align,
-    clocks: Clocks,
+    sysclk: Hertz,
+    adcclk: Hertz,
 }
 
 /// ADC sampling time
@@ -183,12 +185,13 @@ macro_rules! adc_hal {
                 ///
                 /// Sets all configurable parameters to one-shot defaults,
                 /// performs a boot-time calibration.
-                pub fn $adc(adc: $ADC, clocks: Clocks) -> Self {
+                pub fn $adc(adc: $ADC, clocks: &Clocks) -> Self {
                     let mut s = Self {
                         rb: adc,
                         sample_time: SampleTime::default(),
                         align: Align::default(),
-                        clocks,
+                        sysclk: clocks.sysclk(),
+                        adcclk: clocks.adcclk(),
                     };
                     s.enable_clock();
                     s.power_down();
@@ -199,9 +202,9 @@ macro_rules! adc_hal {
                     // The manual states that we need to wait two ADC clocks cycles after power-up
                     // before starting calibration, we already delayed in the power-up process, but
                     // if the adc clock is too low that was not enough.
-                    if s.clocks.adcclk() < kHz(2500) {
-                        let two_adc_cycles = s.clocks.sysclk() / s.clocks.adcclk() * 2;
-                        let already_delayed = s.clocks.sysclk() / kHz(800);
+                    if s.adcclk < kHz(2500) {
+                        let two_adc_cycles = s.sysclk / s.adcclk * 2;
+                        let already_delayed = s.sysclk / kHz(800);
                         if two_adc_cycles > already_delayed {
                             delay(two_adc_cycles - already_delayed);
                         }
@@ -263,7 +266,7 @@ macro_rules! adc_hal {
                     // this time can be found in the datasheets.
                     // Here we are delaying for approximately 1us, considering 1.25 instructions per
                     // cycle. Do we support a chip which needs more than 1us ?
-                    delay(self.clocks.sysclk() / kHz(800));
+                    delay(self.sysclk / kHz(800));
                 }
 
                 fn power_down(&mut self) {
@@ -463,7 +466,7 @@ impl Adc<pac::ADC1> {
             // sensor, this time can be found in the datasheets.
             // Here we are delaying for approximately 10us, considering 1.25 instructions per
             // cycle. Do we support a chip which needs more than 10us ?
-            delay(self.clocks.sysclk().raw() / 80_000);
+            delay(self.sysclk.raw() / 80_000);
             true
         } else {
             false
@@ -503,7 +506,7 @@ impl Adc<pac::ADC1> {
         // recommended ADC sampling for temperature sensor is 17.1 usec,
         // so use the following approximate settings
         // to support all ADC frequencies
-        let sample_time = match self.clocks.adcclk().raw() {
+        let sample_time = match self.adcclk.raw() {
             0..=1_200_000 => SampleTime::T_1,
             1_200_001..=1_500_000 => SampleTime::T_7,
             1_500_001..=2_400_000 => SampleTime::T_13,

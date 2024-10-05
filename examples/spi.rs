@@ -46,7 +46,7 @@ fn setup() -> (
         &mut afio.mapr,
         MODE,
         1.MHz(),
-        clocks,
+        &clocks,
     );
 
     (spi, cs)

@@ -129,7 +129,7 @@ pub struct MonoTimer {
 
 impl MonoTimer {
     /// Creates a new `Monotonic` timer
-    pub fn new(mut dwt: DWT, mut dcb: DCB, clocks: Clocks) -> Self {
+    pub fn new(mut dwt: DWT, mut dcb: DCB, clocks: &Clocks) -> Self {
         dcb.enable_trace();
         dwt.enable_cycle_counter();
 

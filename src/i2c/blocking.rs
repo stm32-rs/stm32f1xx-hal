@@ -25,7 +25,7 @@ impl<PINS> BlockingI2c<I2C1, PINS> {
         pins: PINS,
         mapr: &mut MAPR,
         mode: M,
-        clocks: Clocks,
+        clocks: &Clocks,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
@@ -55,7 +55,7 @@ impl<PINS> BlockingI2c<I2C2, PINS> {
         i2c: I2C2,
         pins: PINS,
         mode: M,
-        clocks: Clocks,
+        clocks: &Clocks,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
@@ -85,7 +85,7 @@ impl<I2C, PINS> I2c<I2C, PINS> {
         start_retries: u8,
         addr_timeout_us: u32,
         data_timeout_us: u32,
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> BlockingI2c<I2C, PINS> {
         let sysclk_mhz = clocks.sysclk().to_MHz();
         BlockingI2c {
@@ -98,7 +98,7 @@ impl<I2C, PINS> I2c<I2C, PINS> {
             },
         }
     }
-    pub fn blocking_default(self, clocks: Clocks) -> BlockingI2c<I2C, PINS> {
+    pub fn blocking_default(self, clocks: &Clocks) -> BlockingI2c<I2C, PINS> {
         let sysclk_mhz = clocks.sysclk().to_MHz();
         BlockingI2c {
             nb: self,
@@ -169,7 +169,7 @@ impl<I2C: Instance, PINS> BlockingI2c<I2C, PINS> {
         i2c: I2C,
         pins: PINS,
         mode: M,
-        clocks: Clocks,
+        clocks: &Clocks,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
