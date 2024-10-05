@@ -82,7 +82,7 @@ use crate::pac::EXTI;
 mod partially_erased;
 pub use partially_erased::{PEPin, PartiallyErasedPin};
 mod erased;
-pub use erased::{EPin, ErasedPin};
+pub use erased::{AnyPin, ErasedPin};
 
 mod hal_02;
 mod hal_1;
@@ -97,6 +97,16 @@ pub enum IOPinSpeed {
     Mhz2 = 0b10,
     /// Slew at 50Mhz
     Mhz50 = 0b11,
+}
+
+impl From<IOPinSpeed> for Mode {
+    fn from(value: IOPinSpeed) -> Self {
+        match value {
+            IOPinSpeed::Mhz10 => Self::Output,
+            IOPinSpeed::Mhz2 => Self::Output2,
+            IOPinSpeed::Mhz50 => Self::Output50,
+        }
+    }
 }
 
 pub trait PinExt {
@@ -202,11 +212,13 @@ mod sealed {
     pub trait Interruptable {}
 
     pub trait PinMode: Default {
-        const CNF: u32;
-        const MODE: u32;
+        const CNF: super::Cnf;
+        const MODE: super::Mode;
         const PULL: Option<bool> = None;
     }
 }
+
+use crate::pac::gpioa::crl::{CNF0 as Cnf, MODE0 as Mode};
 
 use sealed::Interruptable;
 pub(crate) use sealed::PinMode;
@@ -270,10 +282,10 @@ where
                     .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << pin_number)) });
             }
             Edge::Falling => {
-                exti.ftsr()
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
                 exti.rtsr()
                     .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << pin_number)) });
+                exti.ftsr()
+                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << pin_number)) });
             }
             Edge::RisingFalling => {
                 exti.rtsr()
@@ -439,10 +451,6 @@ pub struct Pin<const P: char, const N: u8, MODE = Input<Floating>> {
     mode: MODE,
 }
 
-impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
-    const OFFSET: u32 = (4 * (N as u32)) % 32;
-}
-
 /// Represents high or low configuration register
 pub trait HL {
     /// Configuration register associated to pin
@@ -518,25 +526,29 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
     #[inline(always)]
     fn _set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe { (*Gpio::<P>::ptr()).bsrr().write(|w| w.bits(1 << N)) }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.bsrr().write(|w| w.bs(N).set_bit())
     }
 
     #[inline(always)]
     fn _set_low(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
-        unsafe { (*Gpio::<P>::ptr()).bsrr().write(|w| w.bits(1 << (16 + N))) }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.bsrr().write(|w| w.br(N).set_bit())
     }
 
     #[inline(always)]
     fn _is_set_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).odr().read().bits() & (1 << N) == 0 }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.odr().read().odr(N).bit_is_clear()
     }
 
     #[inline(always)]
     fn _is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr().read().bits() & (1 << N) == 0 }
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.idr().read().idr(N).bit_is_clear()
     }
 }
 
@@ -816,25 +828,19 @@ where
     Self: HL,
 {
     #[inline(always)]
-    fn cr_modify(&mut self, _cr: &mut <Self as HL>::Cr, f: impl FnOnce(u32) -> u32) {
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
+    fn _set_speed(&mut self, _cr: &mut <Self as HL>::Cr, speed: IOPinSpeed) {
+        let gpio = unsafe { &(*gpiox::<P>()) };
 
         match N {
             0..=7 => {
-                gpio.crl().modify(|r, w| unsafe { w.bits(f(r.bits())) });
+                gpio.crl().modify(|_, w| w.mode(N).variant(speed.into()));
             }
             8..=15 => {
-                gpio.crh().modify(|r, w| unsafe { w.bits(f(r.bits())) });
+                gpio.crh()
+                    .modify(|_, w| unsafe { w.mode(N - 16).bits(speed as u8) });
             }
             _ => unreachable!(),
         }
-    }
-
-    #[inline(always)]
-    fn _set_speed(&mut self, cr: &mut <Self as HL>::Cr, speed: IOPinSpeed) {
-        self.cr_modify(cr, |r_bits| {
-            (r_bits & !(0b11 << Self::OFFSET)) | ((speed as u32) << Self::OFFSET)
-        });
     }
 }
 
@@ -898,69 +904,79 @@ where
     }
 }
 
+impl PinMode for Analog {
+    const MODE: Mode = Mode::Input;
+    const CNF: Cnf = Cnf::PushPull;
+}
+
 impl PinMode for Input<Floating> {
-    const CNF: u32 = 0b01;
-    const MODE: u32 = 0b00;
+    const MODE: Mode = Mode::Input;
+    const CNF: Cnf = Cnf::OpenDrain;
 }
 
 impl PinMode for Input<PullDown> {
-    const CNF: u32 = 0b10;
-    const MODE: u32 = 0b00;
+    const MODE: Mode = Mode::Input;
+    const CNF: Cnf = Cnf::AltPushPull;
     const PULL: Option<bool> = Some(false);
 }
 
 impl PinMode for Input<PullUp> {
-    const CNF: u32 = 0b10;
-    const MODE: u32 = 0b00;
+    const MODE: Mode = Mode::Input;
+    const CNF: Cnf = Cnf::AltPushPull;
     const PULL: Option<bool> = Some(true);
 }
 
-impl PinMode for Output<OpenDrain> {
-    const CNF: u32 = 0b01;
-    const MODE: u32 = 0b11;
-}
-
 impl PinMode for Output<PushPull> {
-    const CNF: u32 = 0b00;
-    const MODE: u32 = 0b11;
+    const MODE: Mode = Mode::Output50;
+    const CNF: Cnf = Cnf::PushPull;
 }
 
-impl PinMode for Analog {
-    const CNF: u32 = 0b00;
-    const MODE: u32 = 0b00;
+impl PinMode for Output<OpenDrain> {
+    const MODE: Mode = Mode::Output50;
+    const CNF: Cnf = Cnf::OpenDrain;
 }
 
 impl PinMode for Alternate<PushPull> {
-    const CNF: u32 = 0b10;
-    const MODE: u32 = 0b11;
+    const MODE: Mode = Mode::Output50;
+    const CNF: Cnf = Cnf::AltPushPull;
 }
 
 impl PinMode for Alternate<OpenDrain> {
-    const CNF: u32 = 0b11;
-    const MODE: u32 = 0b11;
+    const MODE: Mode = Mode::Output50;
+    const CNF: Cnf = Cnf::AltOpenDrain;
 }
 
 impl<const P: char, const N: u8, M> Pin<P, N, M>
 where
     Self: HL,
 {
-    fn mode<MODE: PinMode>(&mut self, cr: &mut <Self as HL>::Cr) {
-        let gpio = unsafe { &(*Gpio::<P>::ptr()) };
+    fn mode<MODE: PinMode>(&mut self, _cr: &mut <Self as HL>::Cr) {
+        let gpio = unsafe { &(*gpiox::<P>()) };
 
         // Input<PullUp> or Input<PullDown> mode
         if let Some(pull) = MODE::PULL {
-            if pull {
-                gpio.bsrr().write(|w| unsafe { w.bits(1 << N) });
-            } else {
-                gpio.bsrr().write(|w| unsafe { w.bits(1 << (16 + N)) });
-            }
+            gpio.bsrr().write(|w| {
+                if pull {
+                    w.bs(N).set_bit()
+                } else {
+                    w.br(N).set_bit()
+                }
+            })
         }
 
-        let bits = (MODE::CNF << 2) | MODE::MODE;
-
-        self.cr_modify(cr, |r_bits| {
-            (r_bits & !(0b1111 << Self::OFFSET)) | (bits << Self::OFFSET)
-        });
+        match N {
+            0..=7 => {
+                gpio.crl()
+                    .modify(|_, w| w.mode(N).variant(MODE::MODE).cnf(N).variant(MODE::CNF));
+            }
+            8..=15 => {
+                gpio.crh().modify(|_, w| unsafe {
+                    w.mode(N - 16).bits(MODE::MODE as u8);
+                    w.cnf(N - 16).bits(MODE::CNF as u8)
+                });
+            }
+            _ => unreachable!(),
+        }
     }
 
     #[inline]
@@ -1105,20 +1121,17 @@ gpio!(GPIOG, gpiog, PGx, 'G', [
     PG15: (pg15, 15),
 ]);
 
-struct Gpio<const P: char>;
-impl<const P: char> Gpio<P> {
-    const fn ptr() -> *const crate::pac::gpioa::RegisterBlock {
-        match P {
-            'A' => crate::pac::GPIOA::ptr(),
-            'B' => crate::pac::GPIOB::ptr() as _,
-            'C' => crate::pac::GPIOC::ptr() as _,
-            'D' => crate::pac::GPIOD::ptr() as _,
-            'E' => crate::pac::GPIOE::ptr() as _,
-            #[cfg(any(feature = "xl", feature = "high"))]
-            'F' => crate::pac::GPIOF::ptr() as _,
-            #[cfg(any(feature = "xl", feature = "high"))]
-            'G' => crate::pac::GPIOG::ptr() as _,
-            _ => unreachable!(),
-        }
+const fn gpiox<const P: char>() -> *const crate::pac::gpioa::RegisterBlock {
+    match P {
+        'A' => crate::pac::GPIOA::ptr(),
+        'B' => crate::pac::GPIOB::ptr() as _,
+        'C' => crate::pac::GPIOC::ptr() as _,
+        'D' => crate::pac::GPIOD::ptr() as _,
+        'E' => crate::pac::GPIOE::ptr() as _,
+        #[cfg(any(feature = "xl", feature = "high"))]
+        'F' => crate::pac::GPIOF::ptr() as _,
+        #[cfg(any(feature = "xl", feature = "high"))]
+        'G' => crate::pac::GPIOG::ptr() as _,
+        _ => unreachable!(),
     }
 }

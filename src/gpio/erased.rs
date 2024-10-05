@@ -1,6 +1,6 @@
 use super::*;
 
-pub type EPin<MODE> = ErasedPin<MODE>;
+pub type AnyPin<MODE> = ErasedPin<MODE>;
 
 macro_rules! impl_pxx {
     ($(($port_id:literal :: $pin:ident)),*) => {

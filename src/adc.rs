@@ -400,11 +400,10 @@ macro_rules! adc_hal {
                     self.rb.sqr3().modify(|_, w| unsafe { w.sq1().bits(chan) });
 
                     // ADC start conversion of regular sequence
-                    self.rb.cr2().modify(|_, w|
-                        w
-                            .swstart().set_bit()
-                            .align().bit(self.align.into())
-                    );
+                    self.rb.cr2().modify(|_, w| {
+                        w.swstart().set_bit();
+                        w.align().bit(self.align.into())
+                    });
                     while self.rb.cr2().read().swstart().bit_is_set() {}
                     // ADC wait for conversion results
                     while self.rb.sr().read().eoc().bit_is_clear() {}
@@ -680,14 +679,10 @@ macro_rules! adcdma {
                 Self: SetChannels<PINS>,
             {
                 self.rb.cr2().modify(|_, w| {
-                    w.adon()
-                        .clear_bit()
-                        .dma()
-                        .clear_bit()
-                        .cont()
-                        .clear_bit()
-                        .align()
-                        .bit(self.align.into())
+                    w.adon().clear_bit();
+                    w.dma().clear_bit();
+                    w.cont().clear_bit();
+                    w.align().bit(self.align.into())
                 });
                 self.rb
                     .cr1()
@@ -761,18 +756,12 @@ macro_rules! adcdma {
                 atomic::compiler_fence(Ordering::Release);
 
                 self.channel.ch().cr().modify(|_, w| {
-                    w.mem2mem()
-                        .clear_bit()
-                        .pl()
-                        .medium()
-                        .msize()
-                        .bits16()
-                        .psize()
-                        .bits16()
-                        .circ()
-                        .set_bit()
-                        .dir()
-                        .clear_bit()
+                    w.mem2mem().clear_bit();
+                    w.pl().medium();
+                    w.msize().bits16();
+                    w.psize().bits16();
+                    w.circ().set_bit();
+                    w.dir().clear_bit()
                 });
 
                 self.start();
@@ -799,18 +788,12 @@ macro_rules! adcdma {
 
                 atomic::compiler_fence(Ordering::Release);
                 self.channel.ch().cr().modify(|_, w| {
-                    w.mem2mem()
-                        .clear_bit()
-                        .pl()
-                        .medium()
-                        .msize()
-                        .bits16()
-                        .psize()
-                        .bits16()
-                        .circ()
-                        .clear_bit()
-                        .dir()
-                        .clear_bit()
+                    w.mem2mem().clear_bit();
+                    w.pl().medium();
+                    w.msize().bits16();
+                    w.psize().bits16();
+                    w.circ().clear_bit();
+                    w.dir().clear_bit()
                 });
                 self.start();
 
