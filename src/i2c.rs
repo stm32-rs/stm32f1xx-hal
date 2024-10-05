@@ -4,8 +4,7 @@
 // parts of this code is based on
 // https://www.st.com/content/ccc/resource/technical/document/application_note/5d/ae/a3/6f/08/69/4e/9b/CD00209826.pdf/files/CD00209826.pdf/jcr:content/translations/en.CD00209826.pdf
 
-use crate::afio::MAPR;
-use crate::gpio::{self, Alternate, OpenDrain};
+use crate::gpio::{self, Alternate, Cr, OpenDrain};
 use crate::pac::{DWT, I2C1, I2C2, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{kHz, Hertz};
@@ -86,42 +85,94 @@ impl From<Hertz> for Mode {
     }
 }
 
-/// Helper trait to ensure that the correct I2C pins are used for the corresponding interface
-pub trait Pins<I2C> {
-    const REMAP: bool;
+pub mod i2c1 {
+    use crate::afio::MAPR;
+
+    use super::*;
+
+    remap! {
+        Pins: [
+            No, PB6, PB7 => MAPR { |_, w| w.i2c1_remap().bit(false) };
+            Remap, PB8, PB9 => MAPR { |_, w| w.i2c1_remap().bit(true) };
+        ]
+    }
+}
+pub mod i2c2 {
+    use super::*;
+
+    remap! {
+        Pins: [
+            No, PB10, PB11;
+        ]
+    }
 }
 
-impl Pins<I2C1>
-    for (
-        gpio::PB6<Alternate<OpenDrain>>,
-        gpio::PB7<Alternate<OpenDrain>>,
-    )
-{
-    const REMAP: bool = false;
+macro_rules! remap {
+    ($name:ident: [
+        $($rname:ident, $SCL:ident, $SDA:ident $( => $MAPR:ident { $remapex:expr })?;)+
+    ]) => {
+        pub enum $name {
+            $(
+                $rname { scl: gpio::$SCL<Alternate<OpenDrain>>, sda: gpio::$SDA<Alternate<OpenDrain>> },
+            )+
+        }
+
+        $(
+            impl From<(gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)> for $name {
+                fn from(p: (gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)) -> Self {
+                    $(p.2.modify_mapr($remapex);)?
+                    Self::$rname { scl: p.0, sda: p.1 }
+                }
+            }
+
+            impl From<(gpio::$SCL, gpio::$SDA $(, &mut $MAPR)?)> for $name {
+                fn from(p: (gpio::$SCL, gpio::$SDA $(, &mut $MAPR)?)) -> Self {
+                    let mut cr = Cr;
+                    let scl = p.0.into_mode(&mut cr);
+                    let sda = p.1.into_mode(&mut cr);
+                    $(p.2.modify_mapr($remapex);)?
+                    Self::$rname { scl, sda }
+                }
+            }
+        )+
+    }
+}
+use remap;
+
+pub trait I2cExt: Sized + Instance {
+    fn i2c(self, pins: impl Into<Self::Pins>, mode: impl Into<Mode>, clocks: &Clocks) -> I2c<Self>;
+
+    #[allow(clippy::too_many_arguments)]
+    fn blocking_i2c(
+        self,
+        pins: impl Into<Self::Pins>,
+        mode: impl Into<Mode>,
+        clocks: &Clocks,
+        start_timeout_us: u32,
+        start_retries: u8,
+        addr_timeout_us: u32,
+        data_timeout_us: u32,
+    ) -> BlockingI2c<Self> {
+        Self::i2c(self, pins, mode, clocks).blocking(
+            start_timeout_us,
+            start_retries,
+            addr_timeout_us,
+            data_timeout_us,
+            clocks,
+        )
+    }
 }
 
-impl Pins<I2C1>
-    for (
-        gpio::PB8<Alternate<OpenDrain>>,
-        gpio::PB9<Alternate<OpenDrain>>,
-    )
-{
-    const REMAP: bool = true;
-}
-
-impl Pins<I2C2>
-    for (
-        gpio::PB10<Alternate<OpenDrain>>,
-        gpio::PB11<Alternate<OpenDrain>>,
-    )
-{
-    const REMAP: bool = false;
+impl<I2C: Instance> I2cExt for I2C {
+    fn i2c(self, pins: impl Into<Self::Pins>, mode: impl Into<Mode>, clocks: &Clocks) -> I2c<Self> {
+        I2c::new(self, pins, mode, clocks)
+    }
 }
 
 /// I2C peripheral operating in master mode
-pub struct I2c<I2C, PINS> {
+pub struct I2c<I2C: Instance> {
     i2c: I2C,
-    pins: PINS,
+    pins: I2C::Pins,
     mode: Mode,
     pclk1: Hertz,
 }
@@ -129,44 +180,24 @@ pub struct I2c<I2C, PINS> {
 pub trait Instance:
     crate::Sealed + Deref<Target = crate::pac::i2c1::RegisterBlock> + Enable + Reset + BusClock
 {
+    type Pins;
 }
 
-impl Instance for I2C1 {}
-impl Instance for I2C2 {}
+impl Instance for I2C1 {
+    type Pins = i2c1::Pins;
+}
+impl Instance for I2C2 {
+    type Pins = i2c2::Pins;
+}
 
-impl<PINS> I2c<I2C1, PINS> {
-    /// Creates a generic I2C1 object on pins PB6 and PB7 or PB8 and PB9 (if remapped)
-    pub fn i2c1<M: Into<Mode>>(
-        i2c: I2C1,
-        pins: PINS,
-        mapr: &mut MAPR,
-        mode: M,
+impl<I2C: Instance> I2c<I2C> {
+    /// Creates a generic I2C object
+    pub fn new(
+        i2c: I2C,
+        pins: impl Into<I2C::Pins>,
+        mode: impl Into<Mode>,
         clocks: &Clocks,
-    ) -> Self
-    where
-        PINS: Pins<I2C1>,
-    {
-        mapr.modify_mapr(|_, w| w.i2c1_remap().bit(PINS::REMAP));
-        I2c::<I2C1, _>::configure(i2c, pins, mode, clocks)
-    }
-}
-
-impl<PINS> I2c<I2C2, PINS> {
-    /// Creates a generic I2C2 object on pins PB10 and PB11 using the embedded-hal `BlockingI2c` trait.
-    pub fn i2c2<M: Into<Mode>>(i2c: I2C2, pins: PINS, mode: M, clocks: &Clocks) -> Self
-    where
-        PINS: Pins<I2C2>,
-    {
-        I2c::<I2C2, _>::configure(i2c, pins, mode, clocks)
-    }
-}
-
-impl<I2C, PINS> I2c<I2C, PINS>
-where
-    I2C: Instance,
-{
-    /// Configures the I2C peripheral to work in master mode
-    fn configure<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: &Clocks) -> Self {
+    ) -> Self {
         let mode = mode.into();
         let rcc = unsafe { &(*RCC::ptr()) };
         I2C::enable(rcc);
@@ -178,7 +209,7 @@ where
 
         let mut i2c = I2c {
             i2c,
-            pins,
+            pins: pins.into(),
             mode,
             pclk1,
         };
@@ -187,10 +218,7 @@ where
     }
 }
 
-impl<I2C, PINS> I2c<I2C, PINS>
-where
-    I2C: Instance,
-{
+impl<I2C: Instance> I2c<I2C> {
     /// Initializes I2C. Configures the `I2C_TRISE`, `I2C_CRX`, and `I2C_CCR` registers
     /// according to the system frequency and I2C mode.
     fn init(&mut self) {
@@ -256,7 +284,7 @@ where
     }
 
     /// Releases the I2C peripheral and associated pins
-    pub fn release(self) -> (I2C, PINS) {
+    pub fn release(self) -> (I2C, I2C::Pins) {
         (self.i2c, self.pins)
     }
 }

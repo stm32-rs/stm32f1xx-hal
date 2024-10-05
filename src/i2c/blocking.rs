@@ -4,8 +4,8 @@ use super::*;
 ///
 /// **NOTE**: Before using blocking I2C, you need to enable the DWT cycle counter using the
 /// [DWT::enable_cycle_counter] method.
-pub struct BlockingI2c<I2C, PINS> {
-    nb: I2c<I2C, PINS>,
+pub struct BlockingI2c<I2C: Instance> {
+    nb: I2c<I2C>,
     start_retries: u8,
     timeouts: DwtTimeouts,
 }
@@ -17,67 +17,30 @@ pub struct DwtTimeouts {
     data: u32,
 }
 
-impl<PINS> BlockingI2c<I2C1, PINS> {
+impl<I2C: Instance> BlockingI2c<I2C> {
     /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 using the embedded-hal `BlockingI2c` trait.
     #[allow(clippy::too_many_arguments)]
-    pub fn i2c1<M: Into<Mode>>(
-        i2c: I2C1,
-        pins: PINS,
-        mapr: &mut MAPR,
-        mode: M,
+    pub fn new(
+        i2c: I2C,
+        pins: impl Into<I2C::Pins>,
+        mode: impl Into<Mode>,
         clocks: &Clocks,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
         data_timeout_us: u32,
-    ) -> Self
-    where
-        PINS: Pins<I2C1>,
-    {
-        mapr.modify_mapr(|_, w| w.i2c1_remap().bit(PINS::REMAP));
-        BlockingI2c::<I2C1, _>::configure(
-            i2c,
-            pins,
-            mode,
-            clocks,
+    ) -> Self {
+        I2c::new(i2c, pins, mode, clocks).blocking(
             start_timeout_us,
             start_retries,
             addr_timeout_us,
             data_timeout_us,
-        )
-    }
-}
-
-impl<PINS> BlockingI2c<I2C2, PINS> {
-    /// Creates a blocking I2C2 object on pins PB10 and PB11
-    #[allow(clippy::too_many_arguments)]
-    pub fn i2c2<M: Into<Mode>>(
-        i2c: I2C2,
-        pins: PINS,
-        mode: M,
-        clocks: &Clocks,
-        start_timeout_us: u32,
-        start_retries: u8,
-        addr_timeout_us: u32,
-        data_timeout_us: u32,
-    ) -> Self
-    where
-        PINS: Pins<I2C2>,
-    {
-        BlockingI2c::<I2C2, _>::configure(
-            i2c,
-            pins,
-            mode,
             clocks,
-            start_timeout_us,
-            start_retries,
-            addr_timeout_us,
-            data_timeout_us,
         )
     }
 }
 
-impl<I2C, PINS> I2c<I2C, PINS> {
+impl<I2C: Instance> I2c<I2C> {
     /// Generates a blocking I2C instance from a universal I2C object
     pub fn blocking(
         self,
@@ -86,7 +49,7 @@ impl<I2C, PINS> I2c<I2C, PINS> {
         addr_timeout_us: u32,
         data_timeout_us: u32,
         clocks: &Clocks,
-    ) -> BlockingI2c<I2C, PINS> {
+    ) -> BlockingI2c<I2C> {
         let sysclk_mhz = clocks.sysclk().to_MHz();
         BlockingI2c {
             nb: self,
@@ -98,7 +61,7 @@ impl<I2C, PINS> I2c<I2C, PINS> {
             },
         }
     }
-    pub fn blocking_default(self, clocks: &Clocks) -> BlockingI2c<I2C, PINS> {
+    pub fn blocking_default(self, clocks: Clocks) -> BlockingI2c<I2C> {
         let sysclk_mhz = clocks.sysclk().to_MHz();
         BlockingI2c {
             nb: self,
@@ -163,29 +126,7 @@ macro_rules! busy_wait_cycles {
     }};
 }
 
-impl<I2C: Instance, PINS> BlockingI2c<I2C, PINS> {
-    #[allow(clippy::too_many_arguments)]
-    fn configure<M: Into<Mode>>(
-        i2c: I2C,
-        pins: PINS,
-        mode: M,
-        clocks: &Clocks,
-        start_timeout_us: u32,
-        start_retries: u8,
-        addr_timeout_us: u32,
-        data_timeout_us: u32,
-    ) -> Self {
-        I2c::<I2C, _>::configure(i2c, pins, mode, clocks).blocking(
-            start_timeout_us,
-            start_retries,
-            addr_timeout_us,
-            data_timeout_us,
-            clocks,
-        )
-    }
-}
-
-impl<I2C: Instance, PINS> BlockingI2c<I2C, PINS> {
+impl<I2C: Instance> BlockingI2c<I2C> {
     /// Check if START condition is generated. If the condition is not generated, this
     /// method returns `WouldBlock` so the program can act accordingly
     /// (busy wait, async, ...)

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- Relax pin type generics for `Serial`, `I2c`, `Spi`, `Can`. [#462]
+  Use enums of pin tuples and `Enum::from<(tuple)>` for pin remap before passing to peripheral.
+  Remove `RemapStruct`s. [#462]
+- Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
+- Take `&Clocks` instead of `Clocks` [#498]
+
 ### Changed
 
 - PWM timer auto reload value is now preloaded/buffered [#453]
@@ -14,7 +22,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Replace UB code by a legitimate pointer access [#480]
 - Fix flash error flag clearing [#489]
 - Clarify README for windows users [#496]
-- Take `&Clocks` instead of `Clocks`
 
 ### Added
 
@@ -28,6 +35,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 [#416]: https://github.com/stm32-rs/stm32f1xx-hal/pull/416
 [#453]: https://github.com/stm32-rs/stm32f1xx-hal/pull/453
+[#462]: https://github.com/stm32-rs/stm32f1xx-hal/pull/462
 [#467]: https://github.com/stm32-rs/stm32f1xx-hal/pull/467
 [#479]: https://github.com/stm32-rs/stm32f1xx-hal/pull/479
 [#480]: https://github.com/stm32-rs/stm32f1xx-hal/pull/480
@@ -36,6 +44,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#489]: https://github.com/stm32-rs/stm32f1xx-hal/pull/489
 [#494]: https://github.com/stm32-rs/stm32f1xx-hal/pull/494
 [#496]: https://github.com/stm32-rs/stm32f1xx-hal/pull/496
+[#498]: https://github.com/stm32-rs/stm32f1xx-hal/pull/498
 
 ## [v0.10.0] - 2022-12-12
 

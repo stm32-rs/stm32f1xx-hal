@@ -38,7 +38,7 @@ impl embedded_hal::spi::Error for Error {
     }
 }
 
-impl<SPI: Instance, REMAP, PINS, W, OP> ErrorType for Spi<SPI, REMAP, PINS, W, OP> {
+impl<SPI: Instance, W, PULL> ErrorType for Spi<SPI, W, PULL> {
     type Error = Error;
 }
 
@@ -46,7 +46,7 @@ mod nb {
     use super::{Error, Instance, Spi};
     use embedded_hal_nb::spi::FullDuplex;
 
-    impl<SPI, REMAP, PINS, W, OP> FullDuplex<W> for Spi<SPI, REMAP, PINS, W, OP>
+    impl<SPI, W, PULL> FullDuplex<W> for Spi<SPI, W, PULL>
     where
         SPI: Instance,
         W: Copy,
@@ -63,9 +63,10 @@ mod nb {
 
 mod blocking {
     use super::super::{Instance, Spi};
+    use core::ops::DerefMut;
     use embedded_hal::spi::SpiBus;
 
-    impl<SPI: Instance, REMAP, PINS, W, OP> SpiBus<W> for Spi<SPI, REMAP, PINS, W, OP>
+    impl<SPI: Instance, W, PULL> SpiBus<W> for Spi<SPI, W, PULL>
     where
         SPI: Instance,
         W: Copy + 'static,
@@ -83,7 +84,7 @@ mod blocking {
         }
 
         fn write(&mut self, words: &[W]) -> Result<(), Self::Error> {
-            self.write(words)
+            self.deref_mut().write(words)
         }
 
         fn flush(&mut self) -> Result<(), Self::Error> {
