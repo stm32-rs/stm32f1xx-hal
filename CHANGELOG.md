@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - Allow to set HSE bypass bit in `RCC` clock configuration register to use an external clock input on the `OSC_IN` pin
+- support `embedded-hal-1.0`
 
 ## [v0.10.0] - 2022-12-12
 

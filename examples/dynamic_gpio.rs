@@ -8,7 +8,7 @@ use nb::block;
 
 use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
-use embedded_hal::digital::v2::{InputPin, OutputPin};
+use embedded_hal_02::digital::v2::{InputPin, OutputPin};
 use stm32f1xx_hal::{pac, prelude::*};
 
 #[entry]

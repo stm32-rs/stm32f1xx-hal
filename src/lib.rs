@@ -114,7 +114,9 @@ compile_error!(
 );
 
 #[cfg(feature = "device-selected")]
-use embedded_hal as hal;
+pub use embedded_hal as hal;
+#[cfg(feature = "device-selected")]
+pub use embedded_hal_02 as hal_02;
 
 #[cfg(feature = "stm32f100")]
 pub use stm32f1::stm32f100 as pac;
@@ -127,16 +129,6 @@ pub use stm32f1::stm32f103 as pac;
 
 #[cfg(any(feature = "stm32f105", feature = "stm32f107"))]
 pub use stm32f1::stm32f107 as pac;
-
-#[cfg(feature = "device-selected")]
-#[deprecated(since = "0.6.0", note = "please use `pac` instead")]
-#[doc(hidden)]
-pub use crate::pac as device;
-
-#[cfg(feature = "device-selected")]
-#[deprecated(since = "0.6.0", note = "please use `pac` instead")]
-#[doc(hidden)]
-pub use crate::pac as stm32;
 
 #[cfg(feature = "device-selected")]
 pub mod adc;

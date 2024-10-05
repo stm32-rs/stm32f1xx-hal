@@ -115,54 +115,6 @@ impl<MODE> ErasedPin<Output<MODE>> {
     }
 }
 
-impl<MODE> OutputPin for ErasedPin<Output<MODE>> {
-    type Error = Infallible;
-
-    fn set_high(&mut self) -> Result<(), Infallible> {
-        self.set_high();
-        Ok(())
-    }
-
-    fn set_low(&mut self) -> Result<(), Infallible> {
-        self.set_low();
-        Ok(())
-    }
-}
-
-impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_set_high())
-    }
-
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_set_low())
-    }
-}
-
-impl<MODE> InputPin for ErasedPin<Input<MODE>> {
-    type Error = Infallible;
-
-    fn is_high(&self) -> Result<bool, Infallible> {
-        Ok(self.is_high())
-    }
-
-    fn is_low(&self) -> Result<bool, Infallible> {
-        Ok(self.is_low())
-    }
-}
-
-impl InputPin for ErasedPin<Output<OpenDrain>> {
-    type Error = Infallible;
-
-    fn is_high(&self) -> Result<bool, Infallible> {
-        Ok(self.is_high())
-    }
-
-    fn is_low(&self) -> Result<bool, Infallible> {
-        Ok(self.is_low())
-    }
-}
-
 #[cfg(not(any(feature = "xl", feature = "high")))]
 impl_pxx! {
     ('A'::PAx),

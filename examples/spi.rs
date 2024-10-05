@@ -6,7 +6,7 @@
 use cortex_m_rt::entry;
 use panic_halt as _;
 
-use embedded_hal::spi::{Mode, Phase, Polarity};
+use embedded_hal_02::spi::{Mode, Phase, Polarity};
 pub const MODE: Mode = Mode {
     phase: Phase::CaptureOnSecondTransition,
     polarity: Polarity::IdleHigh,

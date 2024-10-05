@@ -17,7 +17,6 @@ use stm32f1xx_hal::{
     prelude::*,
     serial::{self, Serial},
 };
-use unwrap_infallible::UnwrapInfallible;
 
 #[entry]
 fn main() -> ! {
@@ -75,8 +74,8 @@ fn main() -> ! {
     let (mut tx, _rx) = serial.split();
 
     let sent = b'U';
-    block!(tx.write(sent)).unwrap_infallible();
-    block!(tx.write(sent)).unwrap_infallible();
+    block!(tx.write_u8(sent)).unwrap();
+    block!(tx.write_u8(sent)).unwrap();
 
     loop {}
 }
