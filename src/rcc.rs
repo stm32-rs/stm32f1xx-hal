@@ -507,6 +507,7 @@ pub struct Config {
     #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
     pub usbpre: UsbPre,
     pub adcpre: AdcPre,
+    pub allow_overclock: bool,
 }
 
 impl Default for Config {
@@ -521,6 +522,7 @@ impl Default for Config {
             #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
             usbpre: UsbPre::Div15,
             adcpre: AdcPre::Div2,
+            allow_overclock: false,
         }
     }
 }
@@ -681,6 +683,7 @@ impl Config {
             #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
             usbpre,
             adcpre: apre_bits,
+            allow_overclock: false,
         }
     }
 
@@ -724,11 +727,12 @@ impl Config {
         );
 
         assert!(
-            sysclk <= 72_000_000
-                && hclk <= 72_000_000
-                && pclk1 <= 36_000_000
-                && pclk2 <= 72_000_000
-                && adcclk <= 14_000_000
+            self.allow_overclock
+                || (sysclk <= 72_000_000
+                    && hclk <= 72_000_000
+                    && pclk1 <= 36_000_000
+                    && pclk2 <= 72_000_000
+                    && adcclk <= 14_000_000)
         );
 
         Clocks {
@@ -763,6 +767,7 @@ fn rcc_config_usb() {
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         usbpre: UsbPre::Div1,
         adcpre: AdcPre::Div8,
+        allow_overclock: false,
     };
     assert_eq!(config, config_expected);
 
