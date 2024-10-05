@@ -226,25 +226,25 @@ impl<I2C: Instance> I2c<I2C> {
         let pclk1_mhz = self.pclk1.to_MHz() as u16;
 
         self.i2c
-            .cr2
+            .cr2()
             .write(|w| unsafe { w.freq().bits(pclk1_mhz as u8) });
-        self.i2c.cr1.write(|w| w.pe().clear_bit());
+        self.i2c.cr1().write(|w| w.pe().clear_bit());
 
         match self.mode {
             Mode::Standard { .. } => {
                 self.i2c
-                    .trise
-                    .write(|w| w.trise().bits((pclk1_mhz + 1) as u8));
+                    .trise()
+                    .write(|w| w.trise().set((pclk1_mhz + 1) as u8));
                 self.i2c
-                    .ccr
+                    .ccr()
                     .write(|w| unsafe { w.ccr().bits(((self.pclk1 / (freq * 2)) as u16).max(4)) });
             }
             Mode::Fast { ref duty_cycle, .. } => {
                 self.i2c
-                    .trise
-                    .write(|w| w.trise().bits((pclk1_mhz * 300 / 1000 + 1) as u8));
+                    .trise()
+                    .write(|w| w.trise().set((pclk1_mhz * 300 / 1000 + 1) as u8));
 
-                self.i2c.ccr.write(|w| {
+                self.i2c.ccr().write(|w| {
                     let (freq, duty) = match duty_cycle {
                         DutyCycle::Ratio2to1 => (((self.pclk1 / (freq * 3)) as u16).max(1), false),
                         DutyCycle::Ratio16to9 => (((self.pclk1 / (freq * 25)) as u16).max(1), true),
@@ -255,32 +255,32 @@ impl<I2C: Instance> I2c<I2C> {
             }
         };
 
-        self.i2c.cr1.modify(|_, w| w.pe().set_bit());
+        self.i2c.cr1().modify(|_, w| w.pe().set_bit());
     }
 
     /// Perform an I2C software reset
     fn reset(&mut self) {
-        self.i2c.cr1.write(|w| w.pe().set_bit().swrst().set_bit());
-        self.i2c.cr1.reset();
+        self.i2c.cr1().write(|w| w.pe().set_bit().swrst().set_bit());
+        self.i2c.cr1().reset();
         self.init();
     }
 
     /// Generate START condition
     fn send_start(&mut self) {
-        self.i2c.cr1.modify(|_, w| w.start().set_bit());
+        self.i2c.cr1().modify(|_, w| w.start().set_bit());
     }
 
     /// Sends the (7-Bit) address on the I2C bus. The 8th bit on the bus is set
     /// depending on wether it is a read or write transfer.
     fn send_addr(&self, addr: u8, read: bool) {
         self.i2c
-            .dr
-            .write(|w| w.dr().bits(addr << 1 | (u8::from(read))));
+            .dr()
+            .write(|w| w.dr().set(addr << 1 | (u8::from(read))));
     }
 
     /// Generate STOP condition
     fn send_stop(&self) {
-        self.i2c.cr1.modify(|_, w| w.stop().set_bit());
+        self.i2c.cr1().modify(|_, w| w.stop().set_bit());
     }
 
     /// Releases the I2C peripheral and associated pins

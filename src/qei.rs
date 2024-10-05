@@ -153,7 +153,7 @@ macro_rules! hal {
                     tim.ccmr1_input().write(|w| w.cc1s().ti1().cc2s().ti2());
 
                     // enable and configure to capture on rising edge
-                    tim.ccer.write(|w| {
+                    tim.ccer().write(|w| {
                         w.cc1e()
                             .set_bit()
                             .cc1p()
@@ -165,10 +165,10 @@ macro_rules! hal {
                     });
 
                     // configure as quadrature encoder
-                    tim.smcr.write(|w| w.sms().bits(options.slave_mode as u8));
+                    tim.smcr().write(|w| w.sms().set(options.slave_mode as u8));
 
-                    tim.arr.write(|w| w.arr().bits(options.auto_reload_value));
-                    tim.cr1.write(|w| w.cen().set_bit());
+                    tim.arr().write(|w| w.arr().set(options.auto_reload_value));
+                    tim.cr1().write(|w| w.cen().set_bit());
 
                     Qei { tim, pins, _remap: PhantomData }
                 }
@@ -182,11 +182,11 @@ macro_rules! hal {
                 type Count = u16;
 
                 fn count(&self) -> u16 {
-                    self.tim.cnt.read().cnt().bits()
+                    self.tim.cnt().read().cnt().bits()
                 }
 
                 fn direction(&self) -> Direction {
-                    if self.tim.cr1.read().dir().bit_is_clear() {
+                    if self.tim.cr1().read().dir().bit_is_clear() {
                         Direction::Upcounting
                     } else {
                         Direction::Downcounting

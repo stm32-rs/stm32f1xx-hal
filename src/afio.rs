@@ -57,7 +57,7 @@ pub struct EVCR {
 
 impl EVCR {
     pub fn evcr(&mut self) -> &afio::EVCR {
-        unsafe { &(*AFIO::ptr()).evcr }
+        unsafe { (*AFIO::ptr()).evcr() }
     }
 }
 
@@ -78,7 +78,7 @@ pub struct MAPR {
 
 impl MAPR {
     fn mapr(&mut self) -> &afio::MAPR {
-        unsafe { &(*AFIO::ptr()).mapr }
+        unsafe { (*AFIO::ptr()).mapr() }
     }
 
     pub fn modify_mapr<F>(&mut self, mod_fn: F)
@@ -117,7 +117,7 @@ pub struct EXTICR1 {
 
 impl EXTICR1 {
     pub fn exticr1(&mut self) -> &afio::EXTICR1 {
-        unsafe { &(*AFIO::ptr()).exticr1 }
+        unsafe { (*AFIO::ptr()).exticr1() }
     }
 }
 
@@ -127,7 +127,7 @@ pub struct EXTICR2 {
 
 impl EXTICR2 {
     pub fn exticr2(&mut self) -> &afio::EXTICR2 {
-        unsafe { &(*AFIO::ptr()).exticr2 }
+        unsafe { (*AFIO::ptr()).exticr2() }
     }
 }
 
@@ -137,7 +137,7 @@ pub struct EXTICR3 {
 
 impl EXTICR3 {
     pub fn exticr3(&mut self) -> &afio::EXTICR3 {
-        unsafe { &(*AFIO::ptr()).exticr3 }
+        unsafe { (*AFIO::ptr()).exticr3() }
     }
 }
 
@@ -147,7 +147,7 @@ pub struct EXTICR4 {
 
 impl EXTICR4 {
     pub fn exticr4(&mut self) -> &afio::EXTICR4 {
-        unsafe { &(*AFIO::ptr()).exticr4 }
+        unsafe { (*AFIO::ptr()).exticr4() }
     }
 }
 
@@ -157,6 +157,6 @@ pub struct MAPR2 {
 
 impl MAPR2 {
     pub fn mapr2(&mut self) -> &afio::MAPR2 {
-        unsafe { &(*AFIO::ptr()).mapr2 }
+        unsafe { (*AFIO::ptr()).mapr2() }
     }
 }

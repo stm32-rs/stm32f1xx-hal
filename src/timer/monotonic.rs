@@ -60,12 +60,12 @@ macro_rules! mono {
 
             impl<const FREQ: u32> MonoTimer<$TIM, FREQ> {
                 fn _new(timer: FTimer<$TIM, FREQ>) -> Self {
-                    timer.tim.arr.write(|w| w.arr().bits(u16::MAX)); // Set auto-reload value.
-                    timer.tim.egr.write(|w| w.ug().set_bit()); // Generate interrupt on overflow.
+                    timer.tim.arr().write(|w| w.arr().set(u16::MAX)); // Set auto-reload value.
+                    timer.tim.egr().write(|w| w.ug().set_bit()); // Generate interrupt on overflow.
 
                     // Start timer.
-                    timer.tim.sr.modify(|_, w| w.uif().clear_bit()); // Clear interrupt flag.
-                    timer.tim.cr1.modify(|_, w| {
+                    timer.tim.sr().modify(|_, w| w.uif().clear_bit()); // Clear interrupt flag.
+                    timer.tim.cr1().modify(|_, w| {
                         w.cen()
                             .set_bit() // Enable counter.
                             .udis()
@@ -83,16 +83,16 @@ macro_rules! mono {
                 type Duration = fugit::TimerDurationU32<FREQ>;
 
                 unsafe fn reset(&mut self) {
-                    self.tim.dier.modify(|_, w| w.cc1ie().set_bit());
+                    self.tim.dier().modify(|_, w| w.cc1ie().set_bit());
                 }
 
                 #[inline(always)]
                 fn now(&mut self) -> Self::Instant {
-                    let cnt = self.tim.cnt.read().cnt().bits() as u32;
+                    let cnt = self.tim.cnt().read().cnt().bits() as u32;
 
                     // If the overflow bit is set, we add this to the timer value. It means the `on_interrupt`
                     // has not yet happened, and we need to compensate here.
-                    let ovf = if self.tim.sr.read().uif().bit_is_set() {
+                    let ovf = if self.tim.sr().read().uif().bit_is_set() {
                         0x10000
                     } else {
                         0
@@ -103,7 +103,7 @@ macro_rules! mono {
 
                 fn set_compare(&mut self, instant: Self::Instant) {
                     let now = self.now();
-                    let cnt = self.tim.cnt.read().cnt().bits();
+                    let cnt = self.tim.cnt().read().cnt().bits();
 
                     // Since the timer may or may not overflow based on the requested compare val, we check
                     // how many ticks are left.
@@ -113,17 +113,17 @@ macro_rules! mono {
                         Some(_) => cnt.wrapping_add(0xffff), // Will overflow, run for as long as possible
                     };
 
-                    self.tim.ccr1().write(|w| w.ccr().bits(val));
+                    self.tim.ccr1().write(|w| w.ccr().set(val));
                 }
 
                 fn clear_compare_flag(&mut self) {
-                    self.tim.sr.modify(|_, w| w.cc1if().clear_bit());
+                    self.tim.sr().modify(|_, w| w.cc1if().clear_bit());
                 }
 
                 fn on_interrupt(&mut self) {
                     // If there was an overflow, increment the overflow counter.
-                    if self.tim.sr.read().uif().bit_is_set() {
-                        self.tim.sr.modify(|_, w| w.uif().clear_bit());
+                    if self.tim.sr().read().uif().bit_is_set() {
+                        self.tim.sr().modify(|_, w| w.uif().clear_bit());
 
                         self.ovf += 0x10000;
                     }

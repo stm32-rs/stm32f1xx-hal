@@ -367,7 +367,7 @@ pub struct ACR {
 impl ACR {
     pub(crate) fn acr(&mut self) -> &flash::ACR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).acr }
+        unsafe { (*FLASH::ptr()).acr() }
     }
 }
 
@@ -380,7 +380,7 @@ pub struct AR {
 impl AR {
     pub(crate) fn ar(&mut self) -> &flash::AR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).ar }
+        unsafe { (*FLASH::ptr()).ar() }
     }
 }
 
@@ -393,7 +393,7 @@ pub struct CR {
 impl CR {
     pub(crate) fn cr(&mut self) -> &flash::CR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).cr }
+        unsafe { (*FLASH::ptr()).cr() }
     }
 }
 
@@ -406,7 +406,7 @@ pub struct KEYR {
 impl KEYR {
     pub(crate) fn keyr(&mut self) -> &flash::KEYR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).keyr }
+        unsafe { (*FLASH::ptr()).keyr() }
     }
 }
 
@@ -419,7 +419,7 @@ pub struct OBR {
 impl OBR {
     pub(crate) fn obr(&mut self) -> &flash::OBR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).obr }
+        unsafe { (*FLASH::ptr()).obr() }
     }
 }
 
@@ -432,7 +432,7 @@ pub struct OPTKEYR {
 impl OPTKEYR {
     pub(crate) fn optkeyr(&mut self) -> &flash::OPTKEYR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).optkeyr }
+        unsafe { (*FLASH::ptr()).optkeyr() }
     }
 }
 
@@ -445,7 +445,7 @@ pub struct SR {
 impl SR {
     pub(crate) fn sr(&mut self) -> &flash::SR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).sr }
+        unsafe { (*FLASH::ptr()).sr() }
     }
 }
 
@@ -458,6 +458,6 @@ pub struct WRPR {
 impl WRPR {
     pub(crate) fn wrpr(&mut self) -> &flash::WRPR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*FLASH::ptr()).wrpr }
+        unsafe { (*FLASH::ptr()).wrpr() }
     }
 }

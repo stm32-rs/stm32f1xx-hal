@@ -40,7 +40,7 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
         // NOTE(unsafe) atomic write to a stateless register
         unsafe {
             (*Gpio::<P>::ptr())
-                .bsrr
+                .bsrr()
                 .write(|w| w.bits(1 << self.pin_number))
         }
     }
@@ -50,7 +50,7 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
         // NOTE(unsafe) atomic write to a stateless register
         unsafe {
             (*Gpio::<P>::ptr())
-                .bsrr
+                .bsrr()
                 .write(|w| w.bits(1 << (self.pin_number + 16)))
         }
     }
@@ -80,7 +80,7 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Output<MODE>> {
     #[inline(always)]
     pub fn is_set_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << self.pin_number) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).odr().read().bits() & (1 << self.pin_number) == 0 }
     }
 
     #[inline(always)]
@@ -102,7 +102,7 @@ impl<const P: char> PartiallyErasedPin<P, Output<OpenDrain>> {
     #[inline(always)]
     pub fn is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.pin_number) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).idr().read().bits() & (1 << self.pin_number) == 0 }
     }
 }
 
@@ -115,6 +115,6 @@ impl<const P: char, MODE> PartiallyErasedPin<P, Input<MODE>> {
     #[inline(always)]
     pub fn is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
-        unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << self.pin_number) == 0 }
+        unsafe { (*Gpio::<P>::ptr()).idr().read().bits() & (1 << self.pin_number) == 0 }
     }
 }

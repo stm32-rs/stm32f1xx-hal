@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   Remove `RemapStruct`s. [#462]
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]
+- Temporary replace `stm32f1` with `stm32f1-staging`
 
 ### Changed
 

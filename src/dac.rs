@@ -66,19 +66,19 @@ macro_rules! dac {
         impl DacPin for $CX {
             fn enable(&mut self) {
                 let dac = unsafe { &(*DAC::ptr()) };
-                dac.cr.modify(|_, w| w.$en().set_bit());
+                dac.cr().modify(|_, w| w.$en().set_bit());
             }
         }
 
         impl DacOut<u16> for $CX {
             fn set_value(&mut self, val: u16) {
                 let dac = unsafe { &(*DAC::ptr()) };
-                dac.$dhrx.write(|w| unsafe { w.bits(val as u32) });
+                dac.$dhrx().write(|w| unsafe { w.bits(val as u32) });
             }
 
             fn get_value(&mut self) -> u16 {
                 let dac = unsafe { &(*DAC::ptr()) };
-                dac.$dac_dor.read().bits() as u16
+                dac.$dac_dor().read().bits() as u16
             }
         }
     };

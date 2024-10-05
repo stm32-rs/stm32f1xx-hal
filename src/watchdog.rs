@@ -27,7 +27,7 @@ impl IndependentWatchdog {
 
     /// Debug independent watchdog stopped when core is halted
     pub fn stop_on_debug(&self, dbg: &DBG, stop: bool) {
-        dbg.cr.modify(|_, w| w.dbg_iwdg_stop().bit(stop));
+        dbg.cr().modify(|_, w| w.dbg_iwdg_stop().bit(stop));
     }
 
     fn setup(&self, timeout_ms: u32) {
@@ -41,21 +41,21 @@ impl IndependentWatchdog {
         let rl = (timeout_ms * max_rl / max_period).min(max_rl) as u16;
 
         self.access_registers(|iwdg| {
-            iwdg.pr.modify(|_, w| w.pr().bits(pr));
-            iwdg.rlr.modify(|_, w| w.rl().bits(rl));
+            iwdg.pr().modify(|_, w| unsafe { w.pr().bits(pr) });
+            iwdg.rlr().modify(|_, w| w.rl().set(rl));
         });
     }
 
     fn is_pr_updating(&self) -> bool {
-        self.iwdg.sr.read().pvu().bit()
+        self.iwdg.sr().read().pvu().bit()
     }
 
     /// Returns the interval in ms
     pub fn interval(&self) -> MilliSeconds {
         while self.is_pr_updating() {}
 
-        let pr = self.iwdg.pr.read().pr().bits();
-        let rl = self.iwdg.rlr.read().rl().bits();
+        let pr = self.iwdg.pr().read().pr().bits();
+        let rl = self.iwdg.rlr().read().rl().bits();
         let ms = Self::timeout_period(pr, rl);
         ms.millis()
     }
@@ -80,22 +80,22 @@ impl IndependentWatchdog {
 
     fn access_registers<A, F: FnMut(&IWDG) -> A>(&self, mut f: F) -> A {
         // Unprotect write access to registers
-        self.iwdg.kr.write(|w| unsafe { w.key().bits(KR_ACCESS) });
+        self.iwdg.kr().write(|w| unsafe { w.key().bits(KR_ACCESS) });
         let a = f(&self.iwdg);
 
         // Protect again
-        self.iwdg.kr.write(|w| unsafe { w.key().bits(KR_RELOAD) });
+        self.iwdg.kr().write(|w| unsafe { w.key().bits(KR_RELOAD) });
         a
     }
 
     pub fn start(&mut self, period: MilliSeconds) {
         self.setup(period.ticks());
 
-        self.iwdg.kr.write(|w| unsafe { w.key().bits(KR_START) });
+        self.iwdg.kr().write(|w| unsafe { w.key().bits(KR_START) });
     }
 
     pub fn feed(&mut self) {
-        self.iwdg.kr.write(|w| unsafe { w.key().bits(KR_RELOAD) });
+        self.iwdg.kr().write(|w| unsafe { w.key().bits(KR_RELOAD) });
     }
 }
 

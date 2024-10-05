@@ -255,12 +255,12 @@ macro_rules! adc_hal {
                 }
 
                 #[inline(always)]
-                pub fn set_external_trigger(&mut self, trigger: crate::pac::$adc::cr2::EXTSEL_A) {
-                    self.rb.cr2.modify(|_, w| w.extsel().variant(trigger))
+                pub fn set_external_trigger(&mut self, trigger: crate::pac::$adc::cr2::EXTSEL) {
+                    self.rb.cr2().modify(|_, w| w.extsel().variant(trigger))
                 }
 
                 fn power_up(&mut self) {
-                    self.rb.cr2.modify(|_, w| w.adon().set_bit());
+                    self.rb.cr2().modify(|_, w| w.adon().set_bit());
 
                     // The reference manual says that a stabilization time is needed after power_up,
                     // this time can be found in the datasheets.
@@ -270,7 +270,7 @@ macro_rules! adc_hal {
                 }
 
                 fn power_down(&mut self) {
-                    self.rb.cr2.modify(|_, w| w.adon().clear_bit());
+                    self.rb.cr2().modify(|_, w| w.adon().clear_bit());
                 }
 
                 fn reset(&mut self) {
@@ -290,51 +290,51 @@ macro_rules! adc_hal {
 
                 fn calibrate(&mut self) {
                     /* reset calibration */
-                    self.rb.cr2.modify(|_, w| w.rstcal().set_bit());
-                    while self.rb.cr2.read().rstcal().bit_is_set() {}
+                    self.rb.cr2().modify(|_, w| w.rstcal().set_bit());
+                    while self.rb.cr2().read().rstcal().bit_is_set() {}
 
                     /* calibrate */
-                    self.rb.cr2.modify(|_, w| w.cal().set_bit());
-                    while self.rb.cr2.read().cal().bit_is_set() {}
+                    self.rb.cr2().modify(|_, w| w.cal().set_bit());
+                    while self.rb.cr2().read().cal().bit_is_set() {}
                 }
 
                 fn setup_oneshot(&mut self) {
-                    self.rb.cr2.modify(|_, w| w
+                    self.rb.cr2().modify(|_, w| w
                         .cont().clear_bit()
                         .exttrig().set_bit()
-                        .extsel().bits(0b111)
+                        .extsel().swstart()
                     );
 
-                    self.rb.cr1.modify(|_, w| w
+                    self.rb.cr1().modify(|_, w| w
                         .scan().clear_bit()
                         .discen().set_bit()
                     );
 
-                    self.rb.sqr1.modify(|_, w| w.l().bits(0b0));
+                    self.rb.sqr1().modify(|_, w| w.l().set(0b0));
                 }
 
                 fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime) {
                     let sample_time = sample_time.into();
                     match chan {
-                        0 => self.rb.smpr2.modify(|_, w| w.smp0().bits(sample_time)),
-                        1 => self.rb.smpr2.modify(|_, w| w.smp1().bits(sample_time)),
-                        2 => self.rb.smpr2.modify(|_, w| w.smp2().bits(sample_time)),
-                        3 => self.rb.smpr2.modify(|_, w| w.smp3().bits(sample_time)),
-                        4 => self.rb.smpr2.modify(|_, w| w.smp4().bits(sample_time)),
-                        5 => self.rb.smpr2.modify(|_, w| w.smp5().bits(sample_time)),
-                        6 => self.rb.smpr2.modify(|_, w| w.smp6().bits(sample_time)),
-                        7 => self.rb.smpr2.modify(|_, w| w.smp7().bits(sample_time)),
-                        8 => self.rb.smpr2.modify(|_, w| w.smp8().bits(sample_time)),
-                        9 => self.rb.smpr2.modify(|_, w| w.smp9().bits(sample_time)),
+                        0 => self.rb.smpr2().modify(|_, w| w.smp0().set(sample_time)),
+                        1 => self.rb.smpr2().modify(|_, w| w.smp1().set(sample_time)),
+                        2 => self.rb.smpr2().modify(|_, w| w.smp2().set(sample_time)),
+                        3 => self.rb.smpr2().modify(|_, w| w.smp3().set(sample_time)),
+                        4 => self.rb.smpr2().modify(|_, w| w.smp4().set(sample_time)),
+                        5 => self.rb.smpr2().modify(|_, w| w.smp5().set(sample_time)),
+                        6 => self.rb.smpr2().modify(|_, w| w.smp6().set(sample_time)),
+                        7 => self.rb.smpr2().modify(|_, w| w.smp7().set(sample_time)),
+                        8 => self.rb.smpr2().modify(|_, w| w.smp8().set(sample_time)),
+                        9 => self.rb.smpr2().modify(|_, w| w.smp9().set(sample_time)),
 
-                        10 => self.rb.smpr1.modify(|_, w| w.smp10().bits(sample_time)),
-                        11 => self.rb.smpr1.modify(|_, w| w.smp11().bits(sample_time)),
-                        12 => self.rb.smpr1.modify(|_, w| w.smp12().bits(sample_time)),
-                        13 => self.rb.smpr1.modify(|_, w| w.smp13().bits(sample_time)),
-                        14 => self.rb.smpr1.modify(|_, w| w.smp14().bits(sample_time)),
-                        15 => self.rb.smpr1.modify(|_, w| w.smp15().bits(sample_time)),
-                        16 => self.rb.smpr1.modify(|_, w| w.smp16().bits(sample_time)),
-                        17 => self.rb.smpr1.modify(|_, w| w.smp17().bits(sample_time)),
+                        10 => self.rb.smpr1().modify(|_, w| w.smp10().set(sample_time)),
+                        11 => self.rb.smpr1().modify(|_, w| w.smp11().set(sample_time)),
+                        12 => self.rb.smpr1().modify(|_, w| w.smp12().set(sample_time)),
+                        13 => self.rb.smpr1().modify(|_, w| w.smp13().set(sample_time)),
+                        14 => self.rb.smpr1().modify(|_, w| w.smp14().set(sample_time)),
+                        15 => self.rb.smpr1().modify(|_, w| w.smp15().set(sample_time)),
+                        16 => self.rb.smpr1().modify(|_, w| w.smp16().set(sample_time)),
+                        17 => self.rb.smpr1().modify(|_, w| w.smp17().set(sample_time)),
                         _ => unreachable!(),
                     }
                 }
@@ -344,14 +344,14 @@ macro_rules! adc_hal {
                     let bits = channels.iter().take(6).enumerate().fold(0u32, |s, (i, c)|
                         s | ((*c as u32) << (i * 5))
                     );
-                    self.rb.sqr3.write(|w| unsafe { w
+                    self.rb.sqr3().write(|w| unsafe { w
                         .bits( bits )
                     });
                     if len > 6 {
                         let bits = channels.iter().skip(6).take(6).enumerate().fold(0u32, |s, (i, c)|
                             s | ((*c as u32) << (i * 5))
                         );
-                        self.rb.sqr2.write(|w| unsafe { w
+                        self.rb.sqr2().write(|w| unsafe { w
                             .bits( bits )
                         });
                     }
@@ -359,20 +359,20 @@ macro_rules! adc_hal {
                         let bits = channels.iter().skip(12).take(4).enumerate().fold(0u32, |s, (i, c)|
                             s | ((*c as u32) << (i * 5))
                         );
-                        self.rb.sqr1.write(|w| unsafe { w
+                        self.rb.sqr1().write(|w| unsafe { w
                             .bits( bits )
                         });
                     }
-                    self.rb.sqr1.modify(|_, w| w.l().bits((len-1) as u8));
+                    self.rb.sqr1().modify(|_, w| w.l().set((len-1) as u8));
                 }
 
                 fn set_continuous_mode(&mut self, continuous: bool) {
-                    self.rb.cr2.modify(|_, w| w.cont().bit(continuous));
+                    self.rb.cr2().modify(|_, w| w.cont().bit(continuous));
                 }
 
                 fn set_discontinuous_mode(&mut self, channels_count: Option<u8>) {
-                    self.rb.cr1.modify(|_, w| match channels_count {
-                        Some(count) => w.discen().set_bit().discnum().bits(count),
+                    self.rb.cr1().modify(|_, w| match channels_count {
+                        Some(count) => w.discen().set_bit().discnum().set(count),
                         None => w.discen().clear_bit(),
                     });
                 }
@@ -394,22 +394,22 @@ macro_rules! adc_hal {
                     // Dummy read in case something accidentally triggered
                     // a conversion by writing to CR2 without changing any
                     // of the bits
-                    self.rb.dr.read().data().bits();
+                    self.rb.dr().read().data().bits();
 
                     self.set_channel_sample_time(chan, self.sample_time);
-                    self.rb.sqr3.modify(|_, w| unsafe { w.sq1().bits(chan) });
+                    self.rb.sqr3().modify(|_, w| unsafe { w.sq1().bits(chan) });
 
                     // ADC start conversion of regular sequence
-                    self.rb.cr2.modify(|_, w|
+                    self.rb.cr2().modify(|_, w|
                         w
                             .swstart().set_bit()
                             .align().bit(self.align.into())
                     );
-                    while self.rb.cr2.read().swstart().bit_is_set() {}
+                    while self.rb.cr2().read().swstart().bit_is_set() {}
                     // ADC wait for conversion results
-                    while self.rb.sr.read().eoc().bit_is_clear() {}
+                    while self.rb.sr().read().eoc().bit_is_clear() {}
 
-                    let res = self.rb.dr.read().data().bits();
+                    let res = self.rb.dr().read().data().bits();
                     res
                 }
 
@@ -459,8 +459,8 @@ macro_rules! adc_hal {
 
 impl Adc<pac::ADC1> {
     fn read_aux(&mut self, chan: u8) -> u16 {
-        let tsv_off = if self.rb.cr2.read().tsvrefe().bit_is_clear() {
-            self.rb.cr2.modify(|_, w| w.tsvrefe().set_bit());
+        let tsv_off = if self.rb.cr2().read().tsvrefe().bit_is_clear() {
+            self.rb.cr2().modify(|_, w| w.tsvrefe().set_bit());
 
             // The reference manual says that a stabilization time is needed after the powering the
             // sensor, this time can be found in the datasheets.
@@ -475,7 +475,7 @@ impl Adc<pac::ADC1> {
         let val = self.convert(chan);
 
         if tsv_off {
-            self.rb.cr2.modify(|_, w| w.tsvrefe().clear_bit());
+            self.rb.cr2().modify(|_, w| w.tsvrefe().clear_bit());
         }
 
         val
@@ -618,19 +618,23 @@ macro_rules! adcdma {
         impl<PINS> TransferPayload for AdcDma<$ADCX, PINS, Continuous, $dmarxch> {
             fn start(&mut self) {
                 self.channel.start();
-                self.payload.adc.rb.cr2.modify(|_, w| w.cont().set_bit());
-                self.payload.adc.rb.cr2.modify(|_, w| w.adon().set_bit());
+                self.payload.adc.rb.cr2().modify(|_, w| w.cont().set_bit());
+                self.payload.adc.rb.cr2().modify(|_, w| w.adon().set_bit());
             }
             fn stop(&mut self) {
                 self.channel.stop();
-                self.payload.adc.rb.cr2.modify(|_, w| w.cont().clear_bit());
+                self.payload
+                    .adc
+                    .rb
+                    .cr2()
+                    .modify(|_, w| w.cont().clear_bit());
             }
         }
 
         impl<PINS> TransferPayload for AdcDma<$ADCX, PINS, Scan, $dmarxch> {
             fn start(&mut self) {
                 self.channel.start();
-                self.payload.adc.rb.cr2.modify(|_, w| w.adon().set_bit());
+                self.payload.adc.rb.cr2().modify(|_, w| w.adon().set_bit());
             }
             fn stop(&mut self) {
                 self.channel.stop();
@@ -646,13 +650,15 @@ macro_rules! adcdma {
             where
                 PIN: Channel<$ADCX, ID = u8>,
             {
-                self.rb.cr1.modify(|_, w| w.discen().clear_bit());
-                self.rb.cr2.modify(|_, w| w.align().bit(self.align.into()));
+                self.rb.cr1().modify(|_, w| w.discen().clear_bit());
+                self.rb
+                    .cr2()
+                    .modify(|_, w| w.align().bit(self.align.into()));
                 self.set_channel_sample_time(PIN::channel(), self.sample_time);
                 self.rb
-                    .sqr3
+                    .sqr3()
                     .modify(|_, w| unsafe { w.sq1().bits(PIN::channel()) });
-                self.rb.cr2.modify(|_, w| w.dma().set_bit());
+                self.rb.cr2().modify(|_, w| w.dma().set_bit());
 
                 let payload = AdcPayload {
                     adc: self,
@@ -673,7 +679,7 @@ macro_rules! adcdma {
             where
                 Self: SetChannels<PINS>,
             {
-                self.rb.cr2.modify(|_, w| {
+                self.rb.cr2().modify(|_, w| {
                     w.adon()
                         .clear_bit()
                         .dma()
@@ -684,12 +690,12 @@ macro_rules! adcdma {
                         .bit(self.align.into())
                 });
                 self.rb
-                    .cr1
+                    .cr1()
                     .modify(|_, w| w.scan().set_bit().discen().clear_bit());
                 self.set_samples();
                 self.set_sequence();
                 self.rb
-                    .cr2
+                    .cr2()
                     .modify(|_, w| w.dma().set_bit().adon().set_bit());
 
                 let payload = AdcPayload {
@@ -712,8 +718,8 @@ macro_rules! adcdma {
                 self.stop();
 
                 let AdcDma { payload, channel } = self;
-                payload.adc.rb.cr2.modify(|_, w| w.dma().clear_bit());
-                payload.adc.rb.cr1.modify(|_, w| w.discen().set_bit());
+                payload.adc.rb.cr2().modify(|_, w| w.dma().clear_bit());
+                payload.adc.rb.cr1().modify(|_, w| w.discen().set_bit());
 
                 (payload.adc, payload.pins, channel)
             }
@@ -727,9 +733,9 @@ macro_rules! adcdma {
                 self.stop();
 
                 let AdcDma { payload, channel } = self;
-                payload.adc.rb.cr2.modify(|_, w| w.dma().clear_bit());
-                payload.adc.rb.cr1.modify(|_, w| w.discen().set_bit());
-                payload.adc.rb.cr1.modify(|_, w| w.scan().clear_bit());
+                payload.adc.rb.cr2().modify(|_, w| w.dma().clear_bit());
+                payload.adc.rb.cr1().modify(|_, w| w.discen().set_bit());
+                payload.adc.rb.cr1().modify(|_, w| w.scan().clear_bit());
 
                 (payload.adc, payload.pins, channel)
             }
@@ -745,14 +751,16 @@ macro_rules! adcdma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel
-                    .set_peripheral_address(unsafe { (*<$ADCX>::ptr()).dr.as_ptr() as u32 }, false);
+                self.channel.set_peripheral_address(
+                    unsafe { (*<$ADCX>::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
 
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     w.mem2mem()
                         .clear_bit()
                         .pl()
@@ -782,13 +790,15 @@ macro_rules! adcdma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel
-                    .set_peripheral_address(unsafe { (*<$ADCX>::ptr()).dr.as_ptr() as u32 }, false);
+                self.channel.set_peripheral_address(
+                    unsafe { (*<$ADCX>::ptr()).dr().as_ptr() as u32 },
+                    false,
+                );
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len);
 
                 atomic::compiler_fence(Ordering::Release);
-                self.channel.ch().cr.modify(|_, w| {
+                self.channel.ch().cr().modify(|_, w| {
                     w.mem2mem()
                         .clear_bit()
                         .pl()

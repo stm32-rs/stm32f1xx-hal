@@ -55,7 +55,7 @@ pub struct AHB {
 
 impl AHB {
     fn enr(rcc: &rcc::RegisterBlock) -> &rcc::AHBENR {
-        &rcc.ahbenr
+        rcc.ahbenr()
     }
 }
 
@@ -66,11 +66,11 @@ pub struct APB1 {
 
 impl APB1 {
     fn enr(rcc: &rcc::RegisterBlock) -> &rcc::APB1ENR {
-        &rcc.apb1enr
+        rcc.apb1enr()
     }
 
     fn rstr(rcc: &rcc::RegisterBlock) -> &rcc::APB1RSTR {
-        &rcc.apb1rstr
+        rcc.apb1rstr()
     }
 }
 
@@ -89,11 +89,11 @@ pub struct APB2 {
 
 impl APB2 {
     fn enr(rcc: &rcc::RegisterBlock) -> &rcc::APB2ENR {
-        &rcc.apb2enr
+        rcc.apb2enr()
     }
 
     fn rstr(rcc: &rcc::RegisterBlock) -> &rcc::APB2RSTR {
-        &rcc.apb2rstr
+        rcc.apb2rstr()
     }
 }
 
@@ -224,32 +224,32 @@ impl CFGR {
         if cfg.hse.is_some() {
             // enable HSE and wait for it to be ready
 
-            rcc.cr.modify(|_, w| {
+            rcc.cr().modify(|_, w| {
                 if cfg.hse_bypass {
                     w.hsebyp().bypassed();
                 }
                 w.hseon().set_bit()
             });
 
-            while rcc.cr.read().hserdy().bit_is_clear() {}
+            while rcc.cr().read().hserdy().bit_is_clear() {}
         }
 
         if let Some(pllmul_bits) = cfg.pllmul {
             // enable PLL and wait for it to be ready
 
             #[allow(unused_unsafe)]
-            rcc.cfgr.modify(|_, w| unsafe {
+            rcc.cfgr().modify(|_, w| unsafe {
                 w.pllmul().bits(pllmul_bits).pllsrc().bit(cfg.hse.is_some())
             });
 
-            rcc.cr.modify(|_, w| w.pllon().set_bit());
+            rcc.cr().modify(|_, w| w.pllon().set_bit());
 
-            while rcc.cr.read().pllrdy().bit_is_clear() {}
+            while rcc.cr().read().pllrdy().bit_is_clear() {}
         }
 
         // set prescalers and clock source
         #[cfg(feature = "connectivity")]
-        rcc.cfgr.modify(|_, w| unsafe {
+        rcc.cfgr().modify(|_, w| unsafe {
             w.adcpre().variant(cfg.adcpre);
             w.ppre2()
                 .bits(cfg.ppre2 as u8)
@@ -273,7 +273,7 @@ impl CFGR {
         });
 
         #[cfg(feature = "stm32f103")]
-        rcc.cfgr.modify(|_, w| unsafe {
+        rcc.cfgr().modify(|_, w| unsafe {
             w.adcpre().variant(cfg.adcpre);
             w.ppre2()
                 .bits(cfg.ppre2 as u8)
@@ -294,7 +294,7 @@ impl CFGR {
         });
 
         #[cfg(any(feature = "stm32f100", feature = "stm32f101"))]
-        rcc.cfgr.modify(|_, w| unsafe {
+        rcc.cfgr().modify(|_, w| unsafe {
             w.adcpre().variant(cfg.adcpre);
             w.ppre2()
                 .bits(cfg.ppre2 as u8)
@@ -332,7 +332,7 @@ impl BKP {
         crate::pac::PWR::enable(rcc);
 
         // Enable access to the backup registers
-        pwr.cr.modify(|_r, w| w.dbp().set_bit());
+        pwr.cr().modify(|_r, w| w.dbp().set_bit());
 
         BackupDomain { _regs: bkp }
     }
@@ -520,7 +520,7 @@ impl Default for Config {
             ppre1: PPre::Div1,
             ppre2: PPre::Div1,
             #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
-            usbpre: UsbPre::Div15,
+            usbpre: UsbPre::Div1_5,
             adcpre: AdcPre::Div2,
             allow_overclock: false,
         }
@@ -566,10 +566,10 @@ pub enum PPre {
 }
 
 #[cfg(feature = "stm32f103")]
-pub type UsbPre = rcc::cfgr::USBPRE_A;
+pub type UsbPre = rcc::cfgr::USBPRE;
 #[cfg(feature = "connectivity")]
-pub type UsbPre = rcc::cfgr::OTGFSPRE_A;
-pub type AdcPre = rcc::cfgr::ADCPRE_A;
+pub type UsbPre = rcc::cfgr::OTGFSPRE;
+pub type AdcPre = rcc::cfgr::ADCPRE;
 
 impl Config {
     pub const fn from_cfgr(cfgr: CFGR) -> Self {
@@ -658,7 +658,7 @@ impl Config {
         // usbpre == false: divide clock by 1.5, otherwise no division
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
         let usbpre = match (hse, pllmul_bits, sysclk) {
-            (Some(_), Some(_), 72_000_000) => UsbPre::Div15,
+            (Some(_), Some(_), 72_000_000) => UsbPre::Div1_5,
             _ => UsbPre::Div1,
         };
 
