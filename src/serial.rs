@@ -660,197 +660,206 @@ pub type Tx3 = Tx<USART3>;
 use crate::dma::{Receive, TransferPayload, Transmit};
 
 macro_rules! serialdma {
-    ($(
-        $USARTX:ident: (
-            $rxdma:ident,
-            $txdma:ident,
-            $dmarxch:ty,
-            $dmatxch:ty,
-        ),
-    )+) => {
-        $(
-            pub type $rxdma = RxDma<Rx<$USARTX>, $dmarxch>;
-            pub type $txdma = TxDma<Tx<$USARTX>, $dmatxch>;
+    (
+        $USARTX:ident,
+        $rxdma:ident,
+        $txdma:ident,
+        $dmarxch:ty,
+        $dmatxch:ty
+    ) => {
+        pub type $rxdma = RxDma<Rx<$USARTX>, $dmarxch>;
+        pub type $txdma = TxDma<Tx<$USARTX>, $dmatxch>;
 
-            impl Receive for $rxdma {
-                type RxChannel = $dmarxch;
-                type TransmittedWord = u8;
+        impl Receive for $rxdma {
+            type RxChannel = $dmarxch;
+            type TransmittedWord = u8;
+        }
+
+        impl Transmit for $txdma {
+            type TxChannel = $dmatxch;
+            type ReceivedWord = u8;
+        }
+
+        impl TransferPayload for $rxdma {
+            fn start(&mut self) {
+                self.channel.start();
             }
-
-            impl Transmit for $txdma {
-                type TxChannel = $dmatxch;
-                type ReceivedWord = u8;
+            fn stop(&mut self) {
+                self.channel.stop();
             }
+        }
 
-            impl TransferPayload for $rxdma {
-                fn start(&mut self) {
-                    self.channel.start();
-                }
-                fn stop(&mut self) {
-                    self.channel.stop();
-                }
+        impl TransferPayload for $txdma {
+            fn start(&mut self) {
+                self.channel.start();
             }
-
-            impl TransferPayload for $txdma {
-                fn start(&mut self) {
-                    self.channel.start();
-                }
-                fn stop(&mut self) {
-                    self.channel.stop();
-                }
+            fn stop(&mut self) {
+                self.channel.stop();
             }
+        }
 
-            impl Rx<$USARTX> {
-                pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
-                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().set_bit()); }
-                    RxDma {
-                        payload: self,
-                        channel,
-                    }
+        impl Rx<$USARTX> {
+            pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
+                unsafe {
+                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().set_bit());
                 }
-            }
-
-            impl Tx<$USARTX> {
-                pub fn with_dma(self, channel: $dmatxch) -> $txdma {
-                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().set_bit()); }
-                    TxDma {
-                        payload: self,
-                        channel,
-                    }
+                RxDma {
+                    payload: self,
+                    channel,
                 }
             }
+        }
 
-            impl $rxdma {
-                pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
-                    self.stop();
-                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().clear_bit()); }
-                    let RxDma {payload, channel} = self;
-                    (
-                        payload,
-                        channel
-                    )
+        impl Tx<$USARTX> {
+            pub fn with_dma(self, channel: $dmatxch) -> $txdma {
+                unsafe {
+                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().set_bit());
+                }
+                TxDma {
+                    payload: self,
+                    channel,
                 }
             }
+        }
 
-            impl $txdma {
-                pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
-                    self.stop();
-                    unsafe { (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().clear_bit()); }
-                    let TxDma {payload, channel} = self;
-                    (
-                        payload,
-                        channel,
-                    )
+        impl $rxdma {
+            pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
+                self.stop();
+                unsafe {
+                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmar().clear_bit());
                 }
+                let RxDma { payload, channel } = self;
+                (payload, channel)
             }
+        }
 
-            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
-            where
-                &'static mut [B; 2]: WriteBuffer<Word = u8>,
-                B: 'static,
-            {
-                fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
-                    // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                    // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.write_buffer() };
-                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
-
-                    atomic::compiler_fence(Ordering::Release);
-
-                    self.channel.ch().cr.modify(|_, w| {
-                        w.mem2mem().clear_bit();
-                        w.pl().medium();
-                        w.msize().bits8();
-                        w.psize().bits8();
-                        w.circ().set_bit();
-                        w.dir().clear_bit()
-                    });
-
-                    self.start();
-
-                    CircBuffer::new(buffer, self)
+        impl $txdma {
+            pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
+                self.stop();
+                unsafe {
+                    (*$USARTX::ptr()).cr3.modify(|_, w| w.dmat().clear_bit());
                 }
+                let TxDma { payload, channel } = self;
+                (payload, channel)
             }
+        }
 
-            impl<B> crate::dma::ReadDma<B, u8> for $rxdma
-            where
-                B: WriteBuffer<Word = u8>,
-            {
-                fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
-                    // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                    // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.write_buffer() };
-                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
+        impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
+        where
+            &'static mut [B; 2]: WriteBuffer<Word = u8>,
+            B: 'static,
+        {
+            fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.write_buffer() };
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len);
 
-                    atomic::compiler_fence(Ordering::Release);
-                    self.channel.ch().cr.modify(|_, w| {
-                        w.mem2mem().clear_bit();
-                        w.pl().medium();
-                        w.msize().bits8();
-                        w.psize().bits8();
-                        w.circ().clear_bit();
-                        w.dir().clear_bit()
-                    });
-                    self.start();
+                atomic::compiler_fence(Ordering::Release);
 
-                    Transfer::w(buffer, self)
-                }
+                self.channel.ch().cr.modify(|_, w| {
+                    w.mem2mem().clear_bit();
+                    w.pl().medium();
+                    w.msize().bits8();
+                    w.psize().bits8();
+                    w.circ().set_bit();
+                    w.dir().clear_bit()
+                });
+
+                self.start();
+
+                CircBuffer::new(buffer, self)
             }
+        }
 
-            impl<B> crate::dma::WriteDma<B, u8> for $txdma
-            where
-                B: ReadBuffer<Word = u8>,
-            {
-                fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
-                    // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                    // until the end of the transfer.
-                    let (ptr, len) = unsafe { buffer.read_buffer() };
+        impl<B> crate::dma::ReadDma<B, u8> for $rxdma
+        where
+            B: WriteBuffer<Word = u8>,
+        {
+            fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.write_buffer() };
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len);
 
-                    self.channel.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).dr as *const _ as u32 }, false);
+                atomic::compiler_fence(Ordering::Release);
+                self.channel.ch().cr.modify(|_, w| {
+                    w.mem2mem().clear_bit();
+                    w.pl().medium();
+                    w.msize().bits8();
+                    w.psize().bits8();
+                    w.circ().clear_bit();
+                    w.dir().clear_bit()
+                });
+                self.start();
 
-                    self.channel.set_memory_address(ptr as u32, true);
-                    self.channel.set_transfer_length(len);
-
-                    atomic::compiler_fence(Ordering::Release);
-
-                    self.channel.ch().cr.modify(|_, w| {
-                        w.mem2mem().clear_bit();
-                        w.pl().medium();
-                        w.msize().bits8();
-                        w.psize().bits8();
-                        w.circ().clear_bit();
-                        w.dir().set_bit()
-                    });
-                    self.start();
-
-                    Transfer::r(buffer, self)
-                }
+                Transfer::w(buffer, self)
             }
-        )+
-    }
+        }
+
+        impl<B> crate::dma::WriteDma<B, u8> for $txdma
+        where
+            B: ReadBuffer<Word = u8>,
+        {
+            fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.read_buffer() };
+
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$USARTX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len);
+
+                atomic::compiler_fence(Ordering::Release);
+
+                self.channel.ch().cr.modify(|_, w| {
+                    w.mem2mem().clear_bit();
+                    w.pl().medium();
+                    w.msize().bits8();
+                    w.psize().bits8();
+                    w.circ().clear_bit();
+                    w.dir().set_bit()
+                });
+                self.start();
+
+                Transfer::r(buffer, self)
+            }
+        }
+    };
 }
 
 serialdma! {
-    USART1: (
-        RxDma1,
-        TxDma1,
-        dma1::C5,
-        dma1::C4,
-    ),
-    USART2: (
-        RxDma2,
-        TxDma2,
-        dma1::C6,
-        dma1::C7,
-    ),
-    USART3: (
-        RxDma3,
-        TxDma3,
-        dma1::C3,
-        dma1::C2,
-    ),
+    USART1,
+    RxDma1,
+    TxDma1,
+    dma1::C5,
+    dma1::C4
+}
+serialdma! {
+    USART2,
+    RxDma2,
+    TxDma2,
+    dma1::C6,
+    dma1::C7
+}
+serialdma! {
+    USART3,
+    RxDma3,
+    TxDma3,
+    dma1::C3,
+    dma1::C2
 }
