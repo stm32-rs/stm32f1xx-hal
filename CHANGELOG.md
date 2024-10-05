@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Replace UB code by a legitimate pointer access [#480]
 - Fix flash error flag clearing [#489]
 - Clarify README for windows users [#496]
+- Check "device selected" in `build.rs`
 
 ### Added
 
