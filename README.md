@@ -4,9 +4,11 @@
 
 [HAL]: https://crates.io/crates/embedded-hal
 
-[![Continuous integration](https://github.com/stm32-rs/stm32f1xx-hal/workflows/Continuous%20integration/badge.svg)](https://github.com/stm32-rs/stm32f1xx-hal)
-[![crates.io](https://img.shields.io/crates/v/stm32f1xx-hal.svg)](https://crates.io/crates/stm32f1xx-hal)
+[![Crates.io](https://img.shields.io/crates/d/stm32f1xx-hal.svg)](https://crates.io/crates/stm32f1xx-hal)
+[![Crates.io](https://img.shields.io/crates/v/stm32f1xx-hal.svg)](https://crates.io/crates/stm32f1xx-hal)
 [![Released API docs](https://docs.rs/stm32f1xx-hal/badge.svg)](https://docs.rs/stm32f1xx-hal)
+[![dependency status](https://deps.rs/repo/github/stm32-rs/stm32f1xx-hal/status.svg)](https://deps.rs/repo/github/stm32-rs/stm32f1xx-hal)
+[![Continuous integration](https://github.com/stm32-rs/stm32f1xx-hal/workflows/Continuous%20integration/badge.svg)](https://github.com/stm32-rs/stm32f1xx-hal)
 
 ## Quick start guide
 

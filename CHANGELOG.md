@@ -7,22 +7,34 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
-- Move from bors/manual merge to GH merge queue
-- Add tools/check.py python script for local check
-- Add changelog check on PRs
-- Replace UB code by a legitimate pointer access
-- Reexport `Direction` from `qei`
-- Add dac
-- Fix flash error flag clearing
-- Clarify README for windows users
-- Add an option to allow overclocking [#494]
+### Changed
+
+- PWM timer auto reload value is now preloaded/buffered [#453]
+- Move from bors/manual merge to GH merge queue [#467]
+- Replace UB code by a legitimate pointer access [#480]
+- Fix flash error flag clearing [#489]
+- Clarify README for windows users [#496]
 
 ### Added
 
-- Allow to set HSE bypass bit in `RCC` clock configuration register to use an external clock input on the `OSC_IN` pin
-- support `embedded-hal-1.0`
-  
+- Allow to set HSE bypass bit in `RCC` clock configuration register to use an external clock input on the `OSC_IN` pin [#485]
+- initial support of `embedded-hal-1.0` [#416]
+- Add tools/check.py python script for local check [#467]
+- Add changelog check on PRs [#467]
+- Reexport `Direction` from `qei` [#479]
+- Add DAC [#483]
+- Add an option to allow overclocking [#494]
+
+[#416]: https://github.com/stm32-rs/stm32f1xx-hal/pull/416
+[#453]: https://github.com/stm32-rs/stm32f1xx-hal/pull/453
+[#467]: https://github.com/stm32-rs/stm32f1xx-hal/pull/467
+[#479]: https://github.com/stm32-rs/stm32f1xx-hal/pull/479
+[#480]: https://github.com/stm32-rs/stm32f1xx-hal/pull/480
+[#483]: https://github.com/stm32-rs/stm32f1xx-hal/pull/483
+[#485]: https://github.com/stm32-rs/stm32f1xx-hal/pull/485
+[#489]: https://github.com/stm32-rs/stm32f1xx-hal/pull/489
 [#494]: https://github.com/stm32-rs/stm32f1xx-hal/pull/494
+[#496]: https://github.com/stm32-rs/stm32f1xx-hal/pull/496
 
 ## [v0.10.0] - 2022-12-12
 
@@ -40,7 +52,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `Serial::usart1/2/3` -> `Serial::new`.
 - `Serial` implements `Write<WORD>` and `Read<WORD>` for `WORD` simultaneously as u8 and u16.
 - Bump bxcan version to [v0.7.0](https://github.com/stm32-rs/bxcan/releases/tag/v0.7.0)
-- PWM timer auto reload value is now preloaded/buffered
 
 ### Added
 
