@@ -29,7 +29,7 @@ impl RccExt for RCC {
                 sysclk: None,
                 adcclk: None,
             },
-            bkp: BKP { _0: () },
+            bkp: BKP,
         }
     }
 }
@@ -49,9 +49,8 @@ pub struct Rcc {
 }
 
 /// AMBA High-performance Bus (AHB) registers
-pub struct AHB {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct AHB;
 
 impl AHB {
     fn enr(rcc: &rcc::RegisterBlock) -> &rcc::AHBENR {
@@ -60,9 +59,8 @@ impl AHB {
 }
 
 /// Advanced Peripheral Bus 1 (APB1) registers
-pub struct APB1 {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct APB1;
 
 impl APB1 {
     fn enr(rcc: &rcc::RegisterBlock) -> &rcc::APB1ENR {
@@ -83,9 +81,8 @@ impl APB1 {
 }
 
 /// Advanced Peripheral Bus 2 (APB2) registers
-pub struct APB2 {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct APB2;
 
 impl APB2 {
     fn enr(rcc: &rcc::RegisterBlock) -> &rcc::APB2ENR {
@@ -319,9 +316,8 @@ impl CFGR {
     }
 }
 
-pub struct BKP {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct BKP;
 
 impl BKP {
     /// Enables write access to the registers in the backup domain

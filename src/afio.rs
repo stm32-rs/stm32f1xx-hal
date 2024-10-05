@@ -18,16 +18,13 @@ impl AfioExt for AFIO {
         AFIO::reset(rcc);
 
         Parts {
-            evcr: EVCR { _0: () },
-            mapr: MAPR {
-                _0: (),
-                jtag_enabled: true,
-            },
-            exticr1: EXTICR1 { _0: () },
-            exticr2: EXTICR2 { _0: () },
-            exticr3: EXTICR3 { _0: () },
-            exticr4: EXTICR4 { _0: () },
-            mapr2: MAPR2 { _0: () },
+            evcr: EVCR,
+            mapr: MAPR { jtag_enabled: true },
+            exticr1: EXTICR1,
+            exticr2: EXTICR2,
+            exticr3: EXTICR3,
+            exticr4: EXTICR4,
+            mapr2: MAPR2,
         }
     }
 }
@@ -51,9 +48,8 @@ pub struct Parts {
     pub mapr2: MAPR2,
 }
 
-pub struct EVCR {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct EVCR;
 
 impl EVCR {
     pub fn evcr(&mut self) -> &afio::EVCR {
@@ -71,8 +67,8 @@ impl EVCR {
 /// let mut afio = dp.AFIO.constrain();
 /// function_using_mapr(&mut afio.mapr);
 /// ```
+#[non_exhaustive]
 pub struct MAPR {
-    _0: (),
     jtag_enabled: bool,
 }
 
@@ -111,9 +107,8 @@ impl MAPR {
     }
 }
 
-pub struct EXTICR1 {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct EXTICR1;
 
 impl EXTICR1 {
     pub fn exticr1(&mut self) -> &afio::EXTICR1 {
@@ -121,9 +116,8 @@ impl EXTICR1 {
     }
 }
 
-pub struct EXTICR2 {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct EXTICR2;
 
 impl EXTICR2 {
     pub fn exticr2(&mut self) -> &afio::EXTICR2 {
@@ -131,9 +125,8 @@ impl EXTICR2 {
     }
 }
 
-pub struct EXTICR3 {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct EXTICR3;
 
 impl EXTICR3 {
     pub fn exticr3(&mut self) -> &afio::EXTICR3 {
@@ -141,9 +134,8 @@ impl EXTICR3 {
     }
 }
 
-pub struct EXTICR4 {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct EXTICR4;
 
 impl EXTICR4 {
     pub fn exticr4(&mut self) -> &afio::EXTICR4 {
@@ -151,9 +143,8 @@ impl EXTICR4 {
     }
 }
 
-pub struct MAPR2 {
-    _0: (),
-}
+#[non_exhaustive]
+pub struct MAPR2;
 
 impl MAPR2 {
     pub fn mapr2(&mut self) -> &afio::MAPR2 {
