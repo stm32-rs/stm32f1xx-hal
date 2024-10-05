@@ -61,15 +61,12 @@ usb-device = "0.2.8"
 usbd-serial = "0.1.1"
 
 [features]
-device-selected = []
 doc = []
-# deprecated feature
-rt = []
-stm32f100 = ["stm32f1/stm32f100", "device-selected"]
-stm32f101 = ["stm32f1/stm32f101", "device-selected"]
-stm32f103 = ["stm32f1/stm32f103", "device-selected", "has-can", "stm32-usbd"]
-stm32f105 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
-stm32f107 = ["stm32f1/stm32f107", "device-selected", "connectivity"]
+stm32f100 = ["stm32f1/stm32f100"]
+stm32f101 = ["stm32f1/stm32f101"]
+stm32f103 = ["stm32f1/stm32f103", "has-can", "stm32-usbd"]
+stm32f105 = ["stm32f1/stm32f107", "connectivity"]
+stm32f107 = ["stm32f1/stm32f107", "connectivity"]
 
 # Devices with 64 or 128 Kb ROM
 medium = []

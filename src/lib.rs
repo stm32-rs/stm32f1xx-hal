@@ -113,9 +113,7 @@ compile_error!(
     "Multiple targets specified. Only a single `--features <target-name>` can be specified."
 );
 
-#[cfg(feature = "device-selected")]
 pub use embedded_hal as hal;
-#[cfg(feature = "device-selected")]
 pub use embedded_hal_02 as hal_02;
 
 #[cfg(feature = "stm32f100")]
@@ -130,52 +128,32 @@ pub use stm32f1::stm32f103 as pac;
 #[cfg(any(feature = "stm32f105", feature = "stm32f107"))]
 pub use stm32f1::stm32f107 as pac;
 
-#[cfg(feature = "device-selected")]
 pub mod adc;
-#[cfg(feature = "device-selected")]
 pub mod afio;
-#[cfg(feature = "device-selected")]
 pub mod backup_domain;
-#[cfg(feature = "device-selected")]
 pub mod bb;
-#[cfg(all(feature = "device-selected", feature = "has-can"))]
+#[cfg(feature = "has-can")]
 pub mod can;
-#[cfg(feature = "device-selected")]
 pub mod crc;
-#[cfg(all(feature = "device-selected", feature = "has-dac"))]
+#[cfg(feature = "has-dac")]
 pub mod dac;
-#[cfg(feature = "device-selected")]
 pub mod dma;
-#[cfg(feature = "device-selected")]
 pub mod flash;
-#[cfg(feature = "device-selected")]
 pub mod gpio;
-#[cfg(feature = "device-selected")]
 pub mod i2c;
-#[cfg(feature = "device-selected")]
 pub mod prelude;
-#[cfg(feature = "device-selected")]
 pub mod qei;
-#[cfg(feature = "device-selected")]
 pub mod rcc;
-#[cfg(feature = "device-selected")]
 pub mod rtc;
-#[cfg(feature = "device-selected")]
 pub mod serial;
-#[cfg(feature = "device-selected")]
 pub mod spi;
-#[cfg(feature = "device-selected")]
 pub mod time;
-#[cfg(feature = "device-selected")]
 pub mod timer;
-#[cfg(all(feature = "device-selected", feature = "stm32-usbd"))]
+#[cfg(feature = "stm32-usbd")]
 pub mod usb;
-#[cfg(feature = "device-selected")]
 pub mod watchdog;
 
-#[cfg(feature = "device-selected")]
 mod sealed {
     pub trait Sealed {}
 }
-#[cfg(feature = "device-selected")]
 use sealed::Sealed;
