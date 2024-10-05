@@ -25,10 +25,10 @@ fn main() -> ! {
     hprintln!("adc freq: {}", clocks.adcclk());
 
     // Setup ADC
-    let mut adc1 = adc::Adc::adc1(p.ADC1, clocks);
+    let mut adc1 = adc::Adc::adc1(p.ADC1, &clocks);
 
     #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
-    let mut adc2 = adc::Adc::adc2(p.ADC2, clocks);
+    let mut adc2 = adc::Adc::adc2(p.ADC2, &clocks);
 
     // Setup GPIOB
     let mut gpiob = p.GPIOB.split();

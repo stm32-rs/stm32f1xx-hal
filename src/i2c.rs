@@ -141,7 +141,7 @@ impl<PINS> I2c<I2C1, PINS> {
         pins: PINS,
         mapr: &mut MAPR,
         mode: M,
-        clocks: Clocks,
+        clocks: &Clocks,
     ) -> Self
     where
         PINS: Pins<I2C1>,
@@ -153,7 +153,7 @@ impl<PINS> I2c<I2C1, PINS> {
 
 impl<PINS> I2c<I2C2, PINS> {
     /// Creates a generic I2C2 object on pins PB10 and PB11 using the embedded-hal `BlockingI2c` trait.
-    pub fn i2c2<M: Into<Mode>>(i2c: I2C2, pins: PINS, mode: M, clocks: Clocks) -> Self
+    pub fn i2c2<M: Into<Mode>>(i2c: I2C2, pins: PINS, mode: M, clocks: &Clocks) -> Self
     where
         PINS: Pins<I2C2>,
     {
@@ -166,13 +166,13 @@ where
     I2C: Instance,
 {
     /// Configures the I2C peripheral to work in master mode
-    fn configure<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: Clocks) -> Self {
+    fn configure<M: Into<Mode>>(i2c: I2C, pins: PINS, mode: M, clocks: &Clocks) -> Self {
         let mode = mode.into();
         let rcc = unsafe { &(*RCC::ptr()) };
         I2C::enable(rcc);
         I2C::reset(rcc);
 
-        let pclk1 = I2C::clock(&clocks);
+        let pclk1 = I2C::clock(clocks);
 
         assert!(mode.get_frequency() <= kHz(400));
 

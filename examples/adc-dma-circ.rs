@@ -28,7 +28,7 @@ fn main() -> ! {
     let dma_ch1 = p.DMA1.split().1;
 
     // Setup ADC
-    let adc1 = adc::Adc::adc1(p.ADC1, clocks);
+    let adc1 = adc::Adc::adc1(p.ADC1, &clocks);
 
     // Setup GPIOA
     let mut gpioa = p.GPIOA.split();

@@ -67,7 +67,7 @@ fn main() -> ! {
         &mut afio.mapr,
         MODE,
         10.kHz(),
-        clocks,
+        &clocks,
     );
 
     // SPI2
