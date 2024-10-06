@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use embedded_hal_02::adc::{Channel, OneShot};
 use fugit::HertzU32 as Hertz;
 
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 use crate::dma::dma2;
 use crate::dma::{dma1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
 use crate::gpio::{self, Analog};
@@ -153,7 +153,7 @@ adc_pins!(pac::ADC2,
     gpio::PC5<Analog> => 15,
 );
 
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 adc_pins!(pac::ADC3,
     gpio::PA0<Analog> => 0,
     gpio::PA1<Analog> => 1,
@@ -548,7 +548,7 @@ adc_hal! {
     pac::ADC2: (adc2),
 }
 
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 adc_hal! {
     pac::ADC3: (adc3),
 }
@@ -810,7 +810,7 @@ adcdma! {
     )
 }
 
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl",),))]
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
 adcdma! {
     pac::ADC3: (
         AdcDma3,

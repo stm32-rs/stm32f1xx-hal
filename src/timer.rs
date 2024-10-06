@@ -751,19 +751,19 @@ hal!(
     pac::TIM3: [Timer3, u16, dbg_tim3_stop, c: (CH4), m: tim2,],
 );
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
 hal!(
     pac::TIM1: [Timer1, u16, dbg_tim1_stop, c: (CH4, _aoe), m: tim1,],
 );
 
-#[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity",))]
+#[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity"))]
 hal! {
     pac::TIM6: [Timer6, u16, dbg_tim6_stop, m: tim6,],
 }
 
 #[cfg(any(
-    all(feature = "high", any(feature = "stm32f101", feature = "stm32f103",),),
-    any(feature = "stm32f100", feature = "connectivity",)
+    all(feature = "high", any(feature = "stm32f101", feature = "stm32f103")),
+    any(feature = "stm32f100", feature = "connectivity")
 ))]
 hal! {
     pac::TIM7: [Timer7, u16, dbg_tim7_stop, m: tim6,],
@@ -786,7 +786,7 @@ hal! {
     pac::TIM5: [Timer5, u16, dbg_tim5_stop, c: (CH4), m: tim2,],
 }
 
-#[cfg(all(feature = "stm32f103", feature = "high",))]
+#[cfg(all(feature = "stm32f103", feature = "high"))]
 hal! {
     pac::TIM8: [Timer8, u16, dbg_tim8_stop, c: (CH4, _aoe), m: tim1,],
 }

@@ -165,14 +165,14 @@ bus! {
     TIM5 => (APB1, 3),
 }
 
-#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high",)))]
+#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high")))]
 bus! {
     TIM12 => (APB1, 6),
     TIM13 => (APB1, 7),
     TIM14 => (APB1, 8),
 }
 
-#[cfg(all(feature = "stm32f103", feature = "high",))]
+#[cfg(all(feature = "stm32f103", feature = "high"))]
 bus! {
     TIM8 => (APB2, 13),
 }
