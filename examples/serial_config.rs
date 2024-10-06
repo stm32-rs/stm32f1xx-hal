@@ -1,6 +1,4 @@
-//! Serial interface loopback test
-//!
-//! You have to short the TX and RX pins to make this program work
+//! Serial Config test
 
 #![deny(unsafe_code)]
 #![allow(clippy::empty_loop)]
@@ -40,27 +38,22 @@ fn main() -> ! {
 
     // USART1
     // let tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
-    // let rx = gpioa.pa10;
 
     // USART1
     // let tx = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
-    // let rx = gpiob.pb7;
 
     // USART2
     // let tx = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
-    // let rx = gpioa.pa3;
 
     // USART3
     // Configure pb10 as a push_pull output, this will be the tx pin
     let tx = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
-    // Take ownership over pb11
-    let rx = gpiob.pb11;
 
-    // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
+    // Set up the usart device. Take ownership over the USART register and tx pin. The rest of
     // the registers are used to enable and configure the device.
-    let serial = Serial::new(
+    let mut tx = Serial::tx(
         p.USART3,
-        (tx, rx, &mut afio.mapr),
+        (tx, &mut afio.mapr),
         serial::Config::default()
             .baudrate(9600.bps())
             .stopbits(serial::StopBits::STOP2)
@@ -68,9 +61,6 @@ fn main() -> ! {
             .parity_odd(),
         &clocks,
     );
-
-    // Split the serial struct into a receiving and a transmitting part
-    let (mut tx, _rx) = serial.split();
 
     let sent = b'U';
     block!(tx.write_u8(sent)).unwrap();
