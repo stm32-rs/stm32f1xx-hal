@@ -44,110 +44,112 @@ pub trait MonoTimerExt: Sized {
 }
 
 macro_rules! mono {
-    ($($TIM:ty,)+) => {
-        $(
-            impl MonoTimerExt for $TIM {
-                fn monotonic<const FREQ: u32>(self, clocks: &Clocks) -> MonoTimer<Self, FREQ> {
-                    FTimer::new(self, clocks).monotonic()
+    ($TIM:ty) => {
+        impl MonoTimerExt for $TIM {
+            fn monotonic<const FREQ: u32>(self, clocks: &Clocks) -> MonoTimer<Self, FREQ> {
+                FTimer::new(self, clocks).monotonic()
+            }
+        }
+
+        impl<const FREQ: u32> FTimer<$TIM, FREQ> {
+            pub fn monotonic(self) -> MonoTimer<$TIM, FREQ> {
+                MonoTimer::<$TIM, FREQ>::_new(self)
+            }
+        }
+
+        impl<const FREQ: u32> MonoTimer<$TIM, FREQ> {
+            fn _new(timer: FTimer<$TIM, FREQ>) -> Self {
+                // Set auto-reload value.
+                timer.tim.arr().write(|w| w.arr().set(u16::MAX));
+                // Generate interrupt on overflow.
+                timer.tim.egr().write(|w| w.ug().set_bit());
+
+                // Start timer.
+                // Clear interrupt flag.
+                timer.tim.sr().modify(|_, w| w.uif().clear_bit());
+                timer.tim.cr1().modify(|_, w| {
+                    // Enable counter.
+                    w.cen().set_bit();
+                    // Overflow should trigger update event.
+                    w.udis().clear_bit();
+                    // Only overflow triggers interrupt.
+                    w.urs().set_bit()
+                });
+
+                Self { timer, ovf: 0 }
+            }
+        }
+
+        impl<const FREQ: u32> Monotonic for MonoTimer<$TIM, FREQ> {
+            type Instant = fugit::TimerInstantU32<FREQ>;
+            type Duration = fugit::TimerDurationU32<FREQ>;
+
+            unsafe fn reset(&mut self) {
+                self.tim.dier().modify(|_, w| w.cc1ie().set_bit());
+            }
+
+            #[inline(always)]
+            fn now(&mut self) -> Self::Instant {
+                let cnt = self.tim.cnt().read().cnt().bits() as u32;
+
+                // If the overflow bit is set, we add this to the timer value. It means the `on_interrupt`
+                // has not yet happened, and we need to compensate here.
+                let ovf = if self.tim.sr().read().uif().bit_is_set() {
+                    0x10000
+                } else {
+                    0
+                };
+
+                Self::Instant::from_ticks(cnt.wrapping_add(ovf).wrapping_add(self.ovf))
+            }
+
+            fn set_compare(&mut self, instant: Self::Instant) {
+                let now = self.now();
+                let cnt = self.tim.cnt().read().cnt().bits();
+
+                // Since the timer may or may not overflow based on the requested compare val, we check
+                // how many ticks are left.
+                let val = match instant.checked_duration_since(now) {
+                    None => cnt.wrapping_add(0xffff), // In the past, RTIC will handle this
+                    Some(x) if x.ticks() <= 0xffff => instant.duration_since_epoch().ticks() as u16, // Will not overflow
+                    Some(_) => cnt.wrapping_add(0xffff), // Will overflow, run for as long as possible
+                };
+
+                self.tim.ccr1().write(|w| w.ccr().set(val));
+            }
+
+            fn clear_compare_flag(&mut self) {
+                self.tim.sr().modify(|_, w| w.cc1if().clear_bit());
+            }
+
+            fn on_interrupt(&mut self) {
+                // If there was an overflow, increment the overflow counter.
+                if self.tim.sr().read().uif().bit_is_set() {
+                    self.tim.sr().modify(|_, w| w.uif().clear_bit());
+
+                    self.ovf += 0x10000;
                 }
             }
 
-            impl<const FREQ: u32> FTimer<$TIM, FREQ> {
-                pub fn monotonic(self) -> MonoTimer<$TIM, FREQ> {
-                    MonoTimer::<$TIM, FREQ>::_new(self)
-                }
+            #[inline(always)]
+            fn zero() -> Self::Instant {
+                Self::Instant::from_ticks(0)
             }
-
-            impl<const FREQ: u32> MonoTimer<$TIM, FREQ> {
-                fn _new(timer: FTimer<$TIM, FREQ>) -> Self {
-                    timer.tim.arr().write(|w| w.arr().set(u16::MAX)); // Set auto-reload value.
-                    timer.tim.egr().write(|w| w.ug().set_bit()); // Generate interrupt on overflow.
-
-                    // Start timer.
-                    timer.tim.sr().modify(|_, w| w.uif().clear_bit()); // Clear interrupt flag.
-                    timer.tim.cr1().modify(|_, w| {
-                        w.cen()
-                            .set_bit() // Enable counter.
-                            .udis()
-                            .clear_bit() // Overflow should trigger update event.
-                            .urs()
-                            .set_bit() // Only overflow triggers interrupt.
-                    });
-
-                    Self { timer, ovf: 0 }
-                }
-            }
-
-            impl<const FREQ: u32> Monotonic for MonoTimer<$TIM, FREQ> {
-                type Instant = fugit::TimerInstantU32<FREQ>;
-                type Duration = fugit::TimerDurationU32<FREQ>;
-
-                unsafe fn reset(&mut self) {
-                    self.tim.dier().modify(|_, w| w.cc1ie().set_bit());
-                }
-
-                #[inline(always)]
-                fn now(&mut self) -> Self::Instant {
-                    let cnt = self.tim.cnt().read().cnt().bits() as u32;
-
-                    // If the overflow bit is set, we add this to the timer value. It means the `on_interrupt`
-                    // has not yet happened, and we need to compensate here.
-                    let ovf = if self.tim.sr().read().uif().bit_is_set() {
-                        0x10000
-                    } else {
-                        0
-                    };
-
-                    Self::Instant::from_ticks(cnt.wrapping_add(ovf).wrapping_add(self.ovf))
-                }
-
-                fn set_compare(&mut self, instant: Self::Instant) {
-                    let now = self.now();
-                    let cnt = self.tim.cnt().read().cnt().bits();
-
-                    // Since the timer may or may not overflow based on the requested compare val, we check
-                    // how many ticks are left.
-                    let val = match instant.checked_duration_since(now) {
-                        None => cnt.wrapping_add(0xffff), // In the past, RTIC will handle this
-                        Some(x) if x.ticks() <= 0xffff => instant.duration_since_epoch().ticks() as u16, // Will not overflow
-                        Some(_) => cnt.wrapping_add(0xffff), // Will overflow, run for as long as possible
-                    };
-
-                    self.tim.ccr1().write(|w| w.ccr().set(val));
-                }
-
-                fn clear_compare_flag(&mut self) {
-                    self.tim.sr().modify(|_, w| w.cc1if().clear_bit());
-                }
-
-                fn on_interrupt(&mut self) {
-                    // If there was an overflow, increment the overflow counter.
-                    if self.tim.sr().read().uif().bit_is_set() {
-                        self.tim.sr().modify(|_, w| w.uif().clear_bit());
-
-                        self.ovf += 0x10000;
-                    }
-                }
-
-                #[inline(always)]
-                fn zero() -> Self::Instant {
-                    Self::Instant::from_ticks(0)
-                }
-            }
-        )+
-    }
+        }
+    };
 }
 
-mono!(crate::pac::TIM2, crate::pac::TIM3,);
+mono!(crate::pac::TIM2);
+mono!(crate::pac::TIM3);
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
-mono!(crate::pac::TIM1,);
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
+mono!(crate::pac::TIM1);
 
 #[cfg(feature = "medium")]
-mono!(crate::pac::TIM4,);
+mono!(crate::pac::TIM4);
 
 #[cfg(any(feature = "high", feature = "connectivity"))]
-mono!(crate::pac::TIM5,);
+mono!(crate::pac::TIM5);
 
-#[cfg(all(feature = "stm32f103", feature = "high",))]
-mono!(crate::pac::TIM8,);
+#[cfg(all(feature = "stm32f103", feature = "high"))]
+mono!(crate::pac::TIM8);

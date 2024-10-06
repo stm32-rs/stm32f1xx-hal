@@ -6,11 +6,7 @@
 */
 use core::marker::PhantomData;
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
-use crate::pac::TIM1;
-#[cfg(feature = "medium")]
-use crate::pac::TIM4;
-use crate::pac::{TIM2, TIM3};
+use crate::pac;
 use embedded_hal_02 as hal;
 pub use hal::Direction;
 
@@ -70,16 +66,16 @@ pub struct Qei<TIM, REMAP, PINS> {
     _remap: PhantomData<REMAP>,
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
-impl Timer<TIM1> {
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
+impl Timer<pac::TIM1> {
     pub fn qei<REMAP, PINS>(
         self,
         pins: PINS,
         mapr: &mut MAPR,
         options: QeiOptions,
-    ) -> Qei<TIM1, REMAP, PINS>
+    ) -> Qei<pac::TIM1, REMAP, PINS>
     where
-        REMAP: Remap<Periph = TIM1>,
+        REMAP: Remap<Periph = pac::TIM1>,
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim1_remap().bits(REMAP::REMAP) });
@@ -89,15 +85,15 @@ impl Timer<TIM1> {
     }
 }
 
-impl Timer<TIM2> {
+impl Timer<pac::TIM2> {
     pub fn qei<REMAP, PINS>(
         self,
         pins: PINS,
         mapr: &mut MAPR,
         options: QeiOptions,
-    ) -> Qei<TIM2, REMAP, PINS>
+    ) -> Qei<pac::TIM2, REMAP, PINS>
     where
-        REMAP: Remap<Periph = TIM2>,
+        REMAP: Remap<Periph = pac::TIM2>,
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(REMAP::REMAP) });
@@ -107,15 +103,15 @@ impl Timer<TIM2> {
     }
 }
 
-impl Timer<TIM3> {
+impl Timer<pac::TIM3> {
     pub fn qei<REMAP, PINS>(
         self,
         pins: PINS,
         mapr: &mut MAPR,
         options: QeiOptions,
-    ) -> Qei<TIM3, REMAP, PINS>
+    ) -> Qei<pac::TIM3, REMAP, PINS>
     where
-        REMAP: Remap<Periph = TIM3>,
+        REMAP: Remap<Periph = pac::TIM3>,
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| unsafe { w.tim3_remap().bits(REMAP::REMAP) });
@@ -126,15 +122,15 @@ impl Timer<TIM3> {
 }
 
 #[cfg(feature = "medium")]
-impl Timer<TIM4> {
+impl Timer<pac::TIM4> {
     pub fn qei<REMAP, PINS>(
         self,
         pins: PINS,
         mapr: &mut MAPR,
         options: QeiOptions,
-    ) -> Qei<TIM4, REMAP, PINS>
+    ) -> Qei<pac::TIM4, REMAP, PINS>
     where
-        REMAP: Remap<Periph = TIM4>,
+        REMAP: Remap<Periph = pac::TIM4>,
         PINS: Pins<REMAP>,
     {
         mapr.modify_mapr(|_, w| w.tim4_remap().bit(REMAP::REMAP == 1));
@@ -145,68 +141,61 @@ impl Timer<TIM4> {
 }
 
 macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident),)+) => {
-        $(
-            impl<REMAP, PINS> Qei<$TIMX, REMAP, PINS> {
-                fn $timX(tim: $TIMX, pins: PINS, options: QeiOptions) -> Self {
-                    // Configure TxC1 and TxC2 as captures
-                    tim.ccmr1_input().write(|w| w.cc1s().ti1().cc2s().ti2());
+    ($TIMX:ty: $timX:ident, $timXen:ident, $timXrst:ident) => {
+        impl<REMAP, PINS> Qei<$TIMX, REMAP, PINS> {
+            fn $timX(tim: $TIMX, pins: PINS, options: QeiOptions) -> Self {
+                // Configure TxC1 and TxC2 as captures
+                tim.ccmr1_input().write(|w| w.cc1s().ti1().cc2s().ti2());
 
-                    // enable and configure to capture on rising edge
-                    tim.ccer().write(|w| {
-                        w.cc1e()
-                            .set_bit()
-                            .cc1p()
-                            .clear_bit()
-                            .cc2e()
-                            .set_bit()
-                            .cc2p()
-                            .clear_bit()
-                    });
+                // enable and configure to capture on rising edge
+                tim.ccer().write(|w| {
+                    w.cc1e().set_bit();
+                    w.cc1p().clear_bit();
+                    w.cc2e().set_bit();
+                    w.cc2p().clear_bit()
+                });
 
-                    // configure as quadrature encoder
-                    tim.smcr().write(|w| w.sms().set(options.slave_mode as u8));
+                // configure as quadrature encoder
+                tim.smcr().write(|w| w.sms().set(options.slave_mode as u8));
 
-                    tim.arr().write(|w| w.arr().set(options.auto_reload_value));
-                    tim.cr1().write(|w| w.cen().set_bit());
+                tim.arr().write(|w| w.arr().set(options.auto_reload_value));
+                tim.cr1().write(|w| w.cen().set_bit());
 
-                    Qei { tim, pins, _remap: PhantomData }
-                }
-
-                pub fn release(self) -> ($TIMX, PINS) {
-                    (self.tim, self.pins)
+                Qei {
+                    tim,
+                    pins,
+                    _remap: PhantomData,
                 }
             }
 
-            impl<REMAP, PINS> hal::Qei for Qei<$TIMX, REMAP, PINS> {
-                type Count = u16;
+            pub fn release(self) -> ($TIMX, PINS) {
+                (self.tim, self.pins)
+            }
+        }
 
-                fn count(&self) -> u16 {
-                    self.tim.cnt().read().cnt().bits()
-                }
+        impl<REMAP, PINS> hal::Qei for Qei<$TIMX, REMAP, PINS> {
+            type Count = u16;
 
-                fn direction(&self) -> Direction {
-                    if self.tim.cr1().read().dir().bit_is_clear() {
-                        Direction::Upcounting
-                    } else {
-                        Direction::Downcounting
-                    }
-                }
+            fn count(&self) -> u16 {
+                self.tim.cnt().read().cnt().bits()
             }
 
-        )+
-    }
+            fn direction(&self) -> Direction {
+                if self.tim.cr1().read().dir().bit_is_clear() {
+                    Direction::Upcounting
+                } else {
+                    Direction::Downcounting
+                }
+            }
+        }
+    };
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
-hal! {
-    TIM1: (_tim1, tim1en, tim1rst),
-}
-hal! {
-    TIM2: (_tim2, tim2en, tim2rst),
-    TIM3: (_tim3, tim3en, tim3rst),
-}
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
+hal!(pac::TIM1: _tim1, tim1en, tim1rst);
+
+hal!(pac::TIM2: _tim2, tim2en, tim2rst);
+hal!(pac::TIM3: _tim3, tim3en, tim3rst);
+
 #[cfg(feature = "medium")]
-hal! {
-    TIM4: (_tim4, tim4en, tim4rst),
-}
+hal!(pac::TIM4: _tim4, tim4en, tim4rst);

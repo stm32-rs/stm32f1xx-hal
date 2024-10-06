@@ -36,7 +36,7 @@ macro_rules! remap {
     }
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity",))]
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
 remap!(
     Tim1NoRemap: (pac::TIM1, 0b00, PA8, PA9, PA10, PA11, {|_, w| unsafe { w.tim1_remap().bits(Self::REMAP)}}),
     //Tim1PartialRemap: (pac::TIM1, 0b01, PA8, PA9, PA10, PA11),
