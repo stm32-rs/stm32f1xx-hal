@@ -55,7 +55,7 @@
 pub use super::pins::Pins;
 
 use super::{compute_arr_presc, Channel, FTimer, Instance, Ocm, Timer, WithPwm};
-pub use super::{pins::sealed::Remap, CPin, Ch, C1, C2, C3, C4};
+pub use super::{C1, C2, C3, C4};
 use crate::rcc::Clocks;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
