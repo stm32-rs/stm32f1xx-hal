@@ -85,15 +85,29 @@ impl From<Hertz> for Mode {
     }
 }
 
+pub struct Pins<SCL, SDA> {
+    pub scl: SCL,
+    pub sda: SDA,
+}
+
+impl<SCL, SDA> From<(SCL, SDA)> for Pins<SCL, SDA> {
+    fn from(value: (SCL, SDA)) -> Self {
+        Self {
+            scl: value.0,
+            sda: value.1,
+        }
+    }
+}
+
 pub mod i2c1 {
     use crate::afio::MAPR;
 
     use super::*;
 
     remap! {
-        Pins: [
-            No, PB6, PB7 => MAPR { |_, w| w.i2c1_remap().bit(false) };
-            Remap, PB8, PB9 => MAPR { |_, w| w.i2c1_remap().bit(true) };
+        [
+            PB6, PB7 => MAPR { |_, w| w.i2c1_remap().bit(false) };
+            PB8, PB9 => MAPR { |_, w| w.i2c1_remap().bit(true) };
         ]
     }
 }
@@ -101,37 +115,42 @@ pub mod i2c2 {
     use super::*;
 
     remap! {
-        Pins: [
-            No, PB10, PB11;
+        [
+            PB10, PB11;
         ]
     }
 }
 
 macro_rules! remap {
-    ($name:ident: [
-        $($rname:ident, $SCL:ident, $SDA:ident $( => $MAPR:ident { $remapex:expr })?;)+
+    ([
+        $($SCL:ident, $SDA:ident $( => $MAPR:ident { $remapex:expr })?;)+
     ]) => {
-        pub enum $name {
+        pub enum Scl {
             $(
-                $rname { scl: gpio::$SCL<Alternate<OpenDrain>>, sda: gpio::$SDA<Alternate<OpenDrain>> },
+                $SCL(gpio::$SCL<Alternate<OpenDrain>>),
+            )+
+        }
+        pub enum Sda {
+            $(
+                $SDA(gpio::$SDA<Alternate<OpenDrain>>),
             )+
         }
 
         $(
-            impl From<(gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)> for $name {
+            impl From<(gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)> for Pins<Scl, Sda> {
                 fn from(p: (gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)) -> Self {
                     $(p.2.modify_mapr($remapex);)?
-                    Self::$rname { scl: p.0, sda: p.1 }
+                    Self { scl: Scl::$SCL(p.0), sda: Sda::$SDA(p.1) }
                 }
             }
 
-            impl From<(gpio::$SCL, gpio::$SDA $(, &mut $MAPR)?)> for $name {
+            impl From<(gpio::$SCL, gpio::$SDA $(, &mut $MAPR)?)> for Pins<Scl, Sda> {
                 fn from(p: (gpio::$SCL, gpio::$SDA $(, &mut $MAPR)?)) -> Self {
                     let mut cr = Cr;
                     let scl = p.0.into_mode(&mut cr);
                     let sda = p.1.into_mode(&mut cr);
                     $(p.2.modify_mapr($remapex);)?
-                    Self::$rname { scl, sda }
+                    Self { scl: Scl::$SCL(scl), sda: Sda::$SDA(sda) }
                 }
             }
         )+
@@ -140,12 +159,17 @@ macro_rules! remap {
 use remap;
 
 pub trait I2cExt: Sized + Instance {
-    fn i2c(self, pins: impl Into<Self::Pins>, mode: impl Into<Mode>, clocks: &Clocks) -> I2c<Self>;
+    fn i2c(
+        self,
+        pins: impl Into<Pins<Self::Scl, Self::Sda>>,
+        mode: impl Into<Mode>,
+        clocks: &Clocks,
+    ) -> I2c<Self>;
 
     #[allow(clippy::too_many_arguments)]
     fn blocking_i2c(
         self,
-        pins: impl Into<Self::Pins>,
+        pins: impl Into<Pins<Self::Scl, Self::Sda>>,
         mode: impl Into<Mode>,
         clocks: &Clocks,
         start_timeout_us: u32,
@@ -164,7 +188,12 @@ pub trait I2cExt: Sized + Instance {
 }
 
 impl<I2C: Instance> I2cExt for I2C {
-    fn i2c(self, pins: impl Into<Self::Pins>, mode: impl Into<Mode>, clocks: &Clocks) -> I2c<Self> {
+    fn i2c(
+        self,
+        pins: impl Into<Pins<Self::Scl, Self::Sda>>,
+        mode: impl Into<Mode>,
+        clocks: &Clocks,
+    ) -> I2c<Self> {
         I2c::new(self, pins, mode, clocks)
     }
 }
@@ -172,7 +201,7 @@ impl<I2C: Instance> I2cExt for I2C {
 /// I2C peripheral operating in master mode
 pub struct I2c<I2C: Instance> {
     i2c: I2C,
-    pins: I2C::Pins,
+    pins: (I2C::Scl, I2C::Sda),
     mode: Mode,
     pclk1: Hertz,
 }
@@ -180,21 +209,24 @@ pub struct I2c<I2C: Instance> {
 pub trait Instance:
     crate::Sealed + Deref<Target = crate::pac::i2c1::RegisterBlock> + Enable + Reset + BusClock
 {
-    type Pins;
+    type Scl;
+    type Sda;
 }
 
 impl Instance for I2C1 {
-    type Pins = i2c1::Pins;
+    type Scl = i2c1::Scl;
+    type Sda = i2c1::Sda;
 }
 impl Instance for I2C2 {
-    type Pins = i2c2::Pins;
+    type Scl = i2c2::Scl;
+    type Sda = i2c2::Sda;
 }
 
 impl<I2C: Instance> I2c<I2C> {
     /// Creates a generic I2C object
     pub fn new(
         i2c: I2C,
-        pins: impl Into<I2C::Pins>,
+        pins: impl Into<Pins<I2C::Scl, I2C::Sda>>,
         mode: impl Into<Mode>,
         clocks: &Clocks,
     ) -> Self {
@@ -206,10 +238,11 @@ impl<I2C: Instance> I2c<I2C> {
         let pclk1 = I2C::clock(clocks);
 
         assert!(mode.get_frequency() <= kHz(400));
+        let pins = pins.into();
 
         let mut i2c = I2c {
             i2c,
-            pins: pins.into(),
+            pins: (pins.scl, pins.sda),
             mode,
             pclk1,
         };
@@ -284,7 +317,7 @@ impl<I2C: Instance> I2c<I2C> {
     }
 
     /// Releases the I2C peripheral and associated pins
-    pub fn release(self) -> (I2C, I2C::Pins) {
+    pub fn release(self) -> (I2C, (I2C::Scl, I2C::Sda)) {
         (self.i2c, self.pins)
     }
 }

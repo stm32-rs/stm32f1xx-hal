@@ -68,7 +68,7 @@ use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use crate::afio::MAPR;
 use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
-use crate::gpio::{self, Alternate, Cr, Floating, Input, PinMode, PullUp, PushPull};
+use crate::gpio::{self, Alternate, Cr, Floating, Input, NoPin, PinMode, PullUp, PushPull};
 use crate::pac::{RCC, USART1, USART2, USART3};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
@@ -80,16 +80,28 @@ pub trait InMode {}
 impl InMode for Floating {}
 impl InMode for PullUp {}
 
+pub struct Pins<TX, RX> {
+    pub tx: TX,
+    pub rx: RX,
+}
+
+impl<TX, RX> From<(TX, RX)> for Pins<TX, RX> {
+    fn from(value: (TX, RX)) -> Self {
+        Self {
+            tx: value.0,
+            rx: value.1,
+        }
+    }
+}
+
 // USART REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
 // Section 9.3.8
 pub mod usart1 {
     use super::*;
 
     remap! {
-        Pins: [
-            All, Tx, Rx, PA9, PA10 => { |_, w| w.usart1_remap().bit(false) };
-            Remap, RemapTx, RemapRx, PB6, PB7  => { |_, w| w.usart1_remap().bit(true) };
-        ]
+        PA9, PA10 => { |_, w| w.usart1_remap().bit(false) };
+        PB6, PB7  => { |_, w| w.usart1_remap().bit(true) };
     }
 }
 
@@ -97,10 +109,8 @@ pub mod usart2 {
     use super::*;
 
     remap! {
-        Pins: [
-            All, Tx, Rx, PA2, PA3 => { |_, w| w.usart2_remap().bit(false) };
-            Remap, RemapTx, RemapRx, PD5, PD6 => { |_, w| w.usart2_remap().bit(true) };
-        ]
+        PA2, PA3 => { |_, w| w.usart2_remap().bit(false) };
+        PD5, PD6 => { |_, w| w.usart2_remap().bit(true) };
     }
 }
 
@@ -108,35 +118,36 @@ pub mod usart3 {
     use super::*;
 
     remap! {
-        Pins: [
-            RxTx, Tx, Rx, PB10, PB11 => { |_, w| unsafe { w.usart3_remap().bits(0b00)} };
-            Remap1, Remap1Tx, Remap1Rx, PC10, PC11 => { |_, w| unsafe { w.usart3_remap().bits(0b01)} };
-            Remap2, Remap2Tx, Remap2Rx, PD8, PD9 => { |_, w| unsafe { w.usart3_remap().bits(0b11)} };
-        ]
+        PB10, PB11 => { |_, w| unsafe { w.usart3_remap().bits(0b00)} };
+        PC10, PC11 => { |_, w| unsafe { w.usart3_remap().bits(0b01)} };
+        PD8, PD9 => { |_, w| unsafe { w.usart3_remap().bits(0b11)} };
     }
 }
 
 macro_rules! remap {
-    ($name:ident: [
-        $($rname:ident, $txonly:ident, $rxonly:ident, $TX:ident, $RX:ident => { $remapex:expr };)+
-    ]) => {
-        pub enum $name<Otype, PULL> {
+    ($($TX:ident, $RX:ident => { $remapex:expr };)+) => {
+        pub enum Tx<Otype> {
             $(
-                $rname { tx: gpio::$TX<Alternate<Otype>>, rx: gpio::$RX<Input<PULL>> },
-                $txonly { tx: gpio::$TX<Alternate<Otype>> },
-                $rxonly { rx: gpio::$RX<Input<PULL>> },
+                $TX(gpio::$TX<Alternate<Otype>>),
             )+
+            None(NoPin<Otype>),
+        }
+        pub enum Rx<PULL> {
+            $(
+                $RX(gpio::$RX<Input<PULL>>),
+            )+
+            None(NoPin<PULL>),
         }
 
         $(
-            impl<Otype, PULL: InMode> From<(gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut MAPR)> for $name<Otype, PULL> {
+            impl<Otype, PULL: InMode> From<(gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut MAPR)> for Pins<Tx<Otype>, Rx<PULL>> {
                 fn from(p: (gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut MAPR)) -> Self {
                     p.2.modify_mapr($remapex);
-                    Self::$rname { tx: p.0, rx: p.1 }
+                    Self { tx: Tx::$TX(p.0), rx: Rx::$RX(p.1) }
                 }
             }
 
-            impl<Otype, PULL> From<(gpio::$TX, gpio::$RX, &mut MAPR)> for $name<Otype, PULL>
+            impl<Otype, PULL> From<(gpio::$TX, gpio::$RX, &mut MAPR)> for Pins<Tx<Otype>, Rx<PULL>>
             where
                 Alternate<Otype>: PinMode,
                 Input<PULL>: PinMode,
@@ -147,30 +158,35 @@ macro_rules! remap {
                     let tx = p.0.into_mode(&mut cr);
                     let rx = p.1.into_mode(&mut cr);
                     p.2.modify_mapr($remapex);
-                    Self::$rname { tx, rx }
+                    Self { tx: Tx::$TX(tx), rx: Rx::$RX(rx) }
                 }
             }
 
-            impl<Otype> From<(gpio::$TX, &mut MAPR)> for $name<Otype, Floating>
+            impl<Otype> From<(gpio::$TX<Alternate<Otype>>, &mut MAPR)> for Pins<Tx<Otype>, Rx<Floating>> {
+                fn from(p: (gpio::$TX<Alternate<Otype>>, &mut MAPR)) -> Self {
+                    p.1.modify_mapr($remapex);
+                    Self { tx: Tx::$TX(p.0), rx: Rx::None(NoPin::new()) }
+                }
+            }
+
+            impl<Otype> From<(gpio::$TX, &mut MAPR)> for Pins<Tx<Otype>, Rx<Floating>>
             where
                 Alternate<Otype>: PinMode,
             {
                 fn from(p: (gpio::$TX, &mut MAPR)) -> Self {
                     let tx = p.0.into_mode(&mut Cr);
                     p.1.modify_mapr($remapex);
-                    Self::$txonly { tx }
+                    Self { tx: Tx::$TX(tx), rx: Rx::None(NoPin::new()) }
                 }
             }
 
-            impl<PULL> From<(gpio::$RX, &mut MAPR)> for $name<PushPull, PULL>
+            impl<PULL> From<(gpio::$RX<Input<PULL>>, &mut MAPR)> for Pins<Tx<PushPull>, Rx<PULL>>
             where
-                Input<PULL>: PinMode,
                 PULL: InMode,
             {
-                fn from(p: (gpio::$RX, &mut MAPR)) -> Self {
-                    let rx = p.0.into_mode(&mut Cr);
+                fn from(p: (gpio::$RX<Input<PULL>>, &mut MAPR)) -> Self {
                     p.1.modify_mapr($remapex);
-                    Self::$rxonly { rx }
+                    Self { tx: Tx::None(NoPin::new()), rx: Rx::$RX(p.0) }
                 }
             }
         )+
@@ -181,16 +197,32 @@ use remap;
 pub trait SerialExt: Sized + Instance {
     fn serial(
         self,
-        pins: impl Into<Self::Pins<PushPull, Floating>>,
+        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx<Floating>>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Serial<Self, PushPull, Floating>;
+    fn tx(
+        self,
+        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx<Floating>>>,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> Tx<Self> {
+        self.serial(pins.into(), config, clocks).split().0
+    }
+    fn rx(
+        self,
+        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx<Floating>>>,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> Rx<Self> {
+        self.serial(pins.into(), config, clocks).split().1
+    }
 }
 
 impl<USART: Instance> SerialExt for USART {
     fn serial(
         self,
-        pins: impl Into<Self::Pins<PushPull, Floating>>,
+        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx<Floating>>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Serial<Self> {
@@ -203,7 +235,8 @@ use crate::pac::usart1 as uart_base;
 pub trait Instance:
     crate::Sealed + Deref<Target = uart_base::RegisterBlock> + Enable + Reset + BusClock
 {
-    type Pins<Otype, PULL>;
+    type Tx<Otype>;
+    type Rx<PULL>;
 
     #[doc(hidden)]
     fn ptr() -> *const uart_base::RegisterBlock;
@@ -213,7 +246,8 @@ macro_rules! inst {
     ($($USARTX:ident, $usart:ident;)+) => {
         $(
             impl Instance for $USARTX {
-                type Pins<Otype, PULL> = $usart::Pins<Otype, PULL>;
+                type Tx<Otype> = $usart::Tx<Otype>;
+                type Rx<PULL> = $usart::Rx<PULL>;
 
                 fn ptr() -> *const uart_base::RegisterBlock {
                     <$USARTX>::ptr()
@@ -347,7 +381,8 @@ impl From<Bps> for Config {
 pub struct Serial<USART: Instance, Otype = PushPull, PULL = Floating> {
     pub tx: Tx<USART>,
     pub rx: Rx<USART>,
-    pub token: ReleaseToken<USART, USART::Pins<Otype, PULL>>,
+    #[allow(clippy::type_complexity)]
+    pub token: ReleaseToken<USART, (USART::Tx<Otype>, USART::Rx<PULL>)>,
 }
 
 /// Serial transmitter
@@ -364,6 +399,28 @@ pub struct Rx<USART> {
 pub struct ReleaseToken<USART, PINS> {
     usart: USART,
     pins: PINS,
+}
+
+impl<USART: Instance, Otype> Serial<USART, Otype, Floating> {
+    pub fn tx(
+        usart: USART,
+        pins: impl Into<Pins<USART::Tx<Otype>, USART::Rx<Floating>>>,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> Tx<USART> {
+        Self::new(usart, pins.into(), config, clocks).split().0
+    }
+}
+
+impl<USART: Instance, PULL> Serial<USART, PushPull, PULL> {
+    pub fn rx(
+        usart: USART,
+        pins: impl Into<Pins<USART::Tx<PushPull>, USART::Rx<PULL>>>,
+        config: impl Into<Config>,
+        clocks: &Clocks,
+    ) -> Rx<USART> {
+        Self::new(usart, pins.into(), config, clocks).split().1
+    }
 }
 
 impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
@@ -384,7 +441,7 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
     /// corresponding pins. `APBX` is used to reset the USART.)
     pub fn new(
         usart: USART,
-        pins: impl Into<USART::Pins<Otype, PULL>>,
+        pins: impl Into<Pins<USART::Tx<Otype>, USART::Rx<PULL>>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Self {
@@ -414,7 +471,10 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
             rx: Rx {
                 _usart: PhantomData,
             },
-            token: ReleaseToken { usart, pins },
+            token: ReleaseToken {
+                usart,
+                pins: (pins.tx, pins.rx),
+            },
         }
     }
 
@@ -448,7 +508,8 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
     /// // Release `Serial`
     /// let (usart, (tx_pin, rx_pin)) = serial.release();
     /// ```
-    pub fn release(self) -> (USART, USART::Pins<Otype, PULL>) {
+    #[allow(clippy::type_complexity)]
+    pub fn release(self) -> (USART, (USART::Tx<Otype>, USART::Rx<PULL>)) {
         (self.token.usart, self.token.pins)
     }
 

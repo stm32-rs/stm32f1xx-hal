@@ -38,7 +38,7 @@ fn main() -> ! {
 
     let mut afio = dp.AFIO.constrain();
     let gpioa = dp.GPIOA.split();
-    let mut gpiob = dp.GPIOB.split();
+    let gpiob = dp.GPIOB.split();
 
     // SPI1
     // Convert pins during SPI initialization
@@ -53,7 +53,7 @@ fn main() -> ! {
     // SPI2
     // Convert pins before SPI initialization
     let sck = gpiob.pb13;
-    let miso = gpiob.pb14.into_alternate_push_pull(&mut gpiob.crh);
+    let miso = gpiob.pb14;
     let mosi = gpiob.pb15;
 
     let spi2 = dp.SPI2.spi_slave((sck, miso, mosi), MODE);

@@ -46,7 +46,7 @@ use crate::dma::dma1;
 #[cfg(feature = "connectivity")]
 use crate::dma::dma2;
 use crate::dma::{Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma, R, W};
-use crate::gpio::{self, Alternate, Cr, Floating, Input, PinMode, PullUp, PushPull};
+use crate::gpio::{self, Alternate, Cr, Floating, Input, NoPin, PinMode, PullUp, PushPull};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::Hertz;
 
@@ -108,14 +108,23 @@ pub trait InMode {}
 impl InMode for Floating {}
 impl InMode for PullUp {}
 
+pub struct MasterPins<SCK, MISO, MOSI> {
+    pub sck: SCK,
+    pub mi: MISO,
+    pub mo: MOSI,
+}
+pub struct SlavePins<SCK, MISO, MOSI> {
+    pub sck: SCK,
+    pub so: MISO,
+    pub si: MOSI,
+}
+
 pub mod spi1 {
     use super::*;
 
     remap! {
-        MasterPins, SlavePins: [
-            All, Nomosi, Nomiso, PA5, PA6, PA7 => MAPR { |_, w| w.spi1_remap().bit(false) };
-            Remap, RemapNomosi, RemapNomiso, PB3, PB4, PB5  => MAPR { |_, w| w.spi1_remap().bit(true) };
-        ]
+        PA5, PA6, PA7 => MAPR { |_, w| w.spi1_remap().bit(false) };
+        PB3, PB4, PB5  => MAPR { |_, w| w.spi1_remap().bit(true) };
     }
 }
 
@@ -123,9 +132,7 @@ pub mod spi2 {
     use super::*;
 
     remap! {
-        MasterPins, SlavePins: [
-            All, Nomosi, Nomiso, PB13, PB14, PB15;
-        ]
+        PB13, PB14, PB15;
     }
 }
 #[cfg(any(feature = "high", feature = "connectivity"))]
@@ -133,56 +140,71 @@ pub mod spi3 {
     use super::*;
 
     remap! {
-        MasterPins, SlavePins: [
-            #[cfg(not(feature = "connectivity"))]
-            All, Nomosi, Nomiso, PB3, PB4, PB5;
-            #[cfg(feature = "connectivity")]
-            All, Nomosi, Nomiso, PB3, PB4, PB5 => MAPR { |_, w| w.spi3_remap().bit(false) };
-            #[cfg(feature = "connectivity")]
-            Remap, RemapNomosi, RemapNomiso, PC10, PC11, PC12  => MAPR { |_, w| w.spi3_remap().bit(true) };
-        ]
+        #[cfg(not(feature = "connectivity"))]
+        PB3, PB4, PB5;
+        #[cfg(feature = "connectivity")]
+        PB3, PB4, PB5 => MAPR { |_, w| w.spi3_remap().bit(false) };
+        #[cfg(feature = "connectivity")]
+        PC10, PC11, PC12  => MAPR { |_, w| w.spi3_remap().bit(true) };
     }
 }
 
 macro_rules! remap {
-    ($master:ident, $slave:ident: [
-        $($(#[$attr:meta])* $rname:ident, $nomosi:ident, $nomiso:ident, $SCK:ident, $MISO:ident, $MOSI:ident $( => $MAPR:ident { $remapex:expr })?;)+
-    ]) => {
-        pub enum $master<PULL> {
+    (
+        $($(#[$attr:meta])* $SCK:ident, $MISO:ident, $MOSI:ident $( => $MAPR:ident { $remapex:expr })?;)+
+    ) => {
+        pub enum Sck {
             $(
                 $(#[$attr])*
-                $rname { sck: gpio::$SCK<Alternate>, miso: gpio::$MISO<Input<PULL>>, mosi: gpio::$MOSI<Alternate> },
-                $(#[$attr])*
-                $nomosi { sck: gpio::$SCK<Alternate>, miso: gpio::$MISO<Input<PULL>> },
-                $(#[$attr])*
-                $nomiso { sck: gpio::$SCK<Alternate>, mosi: gpio::$MOSI<Alternate> },
+                $SCK(gpio::$SCK<Alternate>),
             )+
+            None(NoPin<PushPull>),
         }
 
-        pub enum $slave<Otype, PULL> {
+        pub enum Mi<PULL> {
             $(
                 $(#[$attr])*
-                $rname { sck: gpio::$SCK, miso: gpio::$MISO<Alternate<Otype>>, mosi: gpio::$MOSI<Input<PULL>> },
-                $(#[$attr])*
-                $nomosi { sck: gpio::$SCK, miso: gpio::$MISO<Alternate<Otype>> },
-                $(#[$attr])*
-                $nomiso { sck: gpio::$SCK, mosi: gpio::$MOSI<Input<PULL>> },
+                $MISO(gpio::$MISO<Input<PULL>>),
             )+
+            None(NoPin<Floating>),
+        }
+
+        pub enum So<Otype> {
+            $(
+                $(#[$attr])*
+                $MISO(gpio::$MISO<Alternate<Otype>>),
+            )+
+            None(NoPin<PushPull>),
+        }
+
+        pub enum Mo {
+            $(
+                $(#[$attr])*
+                $MOSI(gpio::$MOSI<Alternate>),
+            )+
+            None(NoPin<PushPull>),
+        }
+
+        pub enum Si<PULL> {
+            $(
+                $(#[$attr])*
+                $MOSI(gpio::$MOSI<Input<PULL>>),
+            )+
+            None(NoPin<Floating>),
         }
 
         $(
             // For master mode
-
             $(#[$attr])*
-            impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)> for $master<PULL> {
+            impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo> {
                 fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)) -> Self {
                     $(p.3.modify_mapr($remapex);)?
-                    Self::$rname { sck: p.0, miso: p.1, mosi: p.2 }
+                    Self { sck: Sck::$SCK(p.0), mi: Mi::$MISO(p.1), mo: Mo::$MOSI(p.2) }
                 }
             }
 
             $(#[$attr])*
-            impl<PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for $master<PULL>
+            impl<PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo>
             where
                 Input<PULL>: PinMode,
                 PULL: InMode,
@@ -193,20 +215,20 @@ macro_rules! remap {
                     let miso = p.1.into_mode(&mut cr);
                     let mosi = p.2.into_mode(&mut cr);
                     $(p.3.modify_mapr($remapex);)?
-                    Self::$rname { sck, miso, mosi }
+                    Self { sck: Sck::$SCK(sck), mi: Mi::$MISO(miso), mo: Mo::$MOSI(mosi) }
                 }
             }
 
             $(#[$attr])*
-            impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)> for $master<PULL> {
+            impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo> {
                 fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
                     $(p.2.modify_mapr($remapex);)?
-                    Self::$nomosi { sck: p.0, miso: p.1 }
+                    Self { sck: Sck::$SCK(p.0), mi: Mi::$MISO(p.1), mo: Mo::None(NoPin::new()) }
                 }
             }
 
             $(#[$attr])*
-            impl<PULL> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for $master<PULL>
+            impl<PULL> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi<PULL>, Mo>
             where
                 Input<PULL>: PinMode,
                 PULL: InMode,
@@ -216,33 +238,33 @@ macro_rules! remap {
                     let sck = p.0.into_mode(&mut cr);
                     let miso = p.1.into_mode(&mut cr);
                     $(p.2.modify_mapr($remapex);)?
-                    Self::$nomosi { sck, miso }
+                    Self { sck: Sck::$SCK(sck), mi: Mi::$MISO(miso), mo: Mo::None(NoPin::new()) }
                 }
             }
 
             $(#[$attr])*
-            impl From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for $master<Floating> {
+            impl From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi<Floating>, Mo> {
                 fn from(p: (gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
                     let mosi = p.1.into_mode(&mut cr);
                     $(p.2.modify_mapr($remapex);)?
-                    Self::$nomiso { sck, mosi }
+                    Self { sck: Sck::$SCK(sck), mi: Mi::None(NoPin::new()), mo: Mo::$MOSI(mosi) }
                 }
             }
 
             // For slave mode
 
             $(#[$attr])*
-            impl<Otype, PULL: InMode> From<(gpio::$SCK, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)> for $slave<Otype, PULL> {
-                fn from(p: (gpio::$SCK, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
+            impl<Otype, PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<PULL>> {
+                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
                     $(p.3.modify_mapr($remapex);)?
-                    Self::$rname { sck: p.0, miso: p.1, mosi: p.2 }
+                    Self { sck: Sck::$SCK(p.0), so: So::$MISO(p.1), si: Si::$MOSI(p.2) }
                 }
             }
 
             $(#[$attr])*
-            impl<Otype, PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for $slave<Otype, PULL>
+            impl<Otype, PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<PULL>>
             where
                 Alternate<Otype>: PinMode,
                 Input<PULL>: PinMode,
@@ -254,12 +276,12 @@ macro_rules! remap {
                     let miso = p.1.into_mode(&mut cr);
                     let mosi = p.2.into_mode(&mut cr);
                     $(p.3.modify_mapr($remapex);)?
-                    Self::$rname { sck, miso, mosi }
+                    Self { sck: Sck::$SCK(sck), so: So::$MISO(miso), si: Si::$MOSI(mosi) }
                 }
             }
 
             $(#[$attr])*
-            impl<Otype> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for $slave<Otype, Floating>
+            impl<Otype> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<Floating>>
             where
                 Alternate<Otype>: PinMode,
             {
@@ -268,12 +290,12 @@ macro_rules! remap {
                     let sck = p.0.into_mode(&mut cr);
                     let miso = p.1.into_mode(&mut cr);
                     $(p.2.modify_mapr($remapex);)?
-                    Self::$nomosi { sck, miso }
+                    Self { sck: Sck::$SCK(sck), so: So::$MISO(miso), si: Si::None(NoPin::new()) }
                 }
             }
 
             $(#[$attr])*
-            impl<PULL> From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for $slave<PushPull, PULL>
+            impl<PULL> From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<PushPull>, Si<PULL>>
             where
                 Input<PULL>: PinMode,
                 PULL: InMode,
@@ -283,7 +305,7 @@ macro_rules! remap {
                     let sck = p.0.into_mode(&mut cr);
                     let mosi = p.1.into_mode(&mut cr);
                     $(p.2.modify_mapr($remapex);)?
-                    Self::$nomiso { sck, mosi }
+                    Self { sck: Sck::$SCK(sck), so: So::None(NoPin::new()), si: Si::$MOSI(mosi) }
                 }
             }
         )+
@@ -294,14 +316,14 @@ use remap;
 pub trait SpiExt: Sized + Instance {
     fn spi(
         self,
-        pins: impl Into<Self::MasterPins<Floating>>,
+        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
     ) -> Spi<Self, u8, Floating>;
     fn spi_u16(
         self,
-        pins: impl Into<Self::MasterPins<Floating>>,
+        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
@@ -310,12 +332,12 @@ pub trait SpiExt: Sized + Instance {
     }
     fn spi_slave(
         self,
-        pins: impl Into<Self::SlavePins<PushPull, Floating>>,
+        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
         mode: Mode,
     ) -> SpiSlave<Self, u8, PushPull, Floating>;
     fn spi_slave_u16(
         self,
-        pins: impl Into<Self::SlavePins<PushPull, Floating>>,
+        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
         mode: Mode,
     ) -> SpiSlave<Self, u16, PushPull, Floating> {
         Self::spi_slave(self, pins, mode).frame_size_16bit()
@@ -325,7 +347,7 @@ pub trait SpiExt: Sized + Instance {
 impl<SPI: Instance> SpiExt for SPI {
     fn spi(
         self,
-        pins: impl Into<Self::MasterPins<Floating>>,
+        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
@@ -334,7 +356,7 @@ impl<SPI: Instance> SpiExt for SPI {
     }
     fn spi_slave(
         self,
-        pins: impl Into<Self::SlavePins<PushPull, Floating>>,
+        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
         mode: Mode,
     ) -> SpiSlave<Self, u8, PushPull, Floating> {
         SpiSlave::new(self, pins, mode)
@@ -358,13 +380,13 @@ impl<SPI, W> SpiInner<SPI, W> {
 /// Spi in Master mode
 pub struct Spi<SPI: Instance, W, PULL = Floating> {
     inner: SpiInner<SPI, W>,
-    pins: SPI::MasterPins<PULL>,
+    pins: (SPI::Sck, SPI::Mi<PULL>, SPI::Mo),
 }
 
 /// Spi in Slave mode
 pub struct SpiSlave<SPI: Instance, W, Otype = PushPull, PULL = Floating> {
     inner: SpiInner<SPI, W>,
-    pins: SPI::SlavePins<Otype, PULL>,
+    pins: (SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>),
 }
 
 impl<SPI: Instance, W, PULL> Deref for Spi<SPI, W, PULL> {
@@ -405,22 +427,34 @@ pub enum SpiBitFormat {
 pub trait Instance:
     crate::Sealed + Deref<Target = crate::pac::spi1::RegisterBlock> + Enable + Reset + BusClock
 {
-    type MasterPins<PULL>;
-    type SlavePins<Otype, PULL>;
+    type Sck;
+    type Mi<PULL>;
+    type So<Otype>;
+    type Mo;
+    type Si<PULL>;
 }
 
 impl Instance for pac::SPI1 {
-    type MasterPins<PULL> = spi1::MasterPins<PULL>;
-    type SlavePins<Otype, PULL> = spi1::SlavePins<Otype, PULL>;
+    type Sck = spi1::Sck;
+    type Mi<PULL> = spi1::Mi<PULL>;
+    type So<Otype> = spi1::So<Otype>;
+    type Mo = spi1::Mo;
+    type Si<PULL> = spi1::Si<PULL>;
 }
 impl Instance for pac::SPI2 {
-    type MasterPins<PULL> = spi2::MasterPins<PULL>;
-    type SlavePins<Otype, PULL> = spi2::SlavePins<Otype, PULL>;
+    type Sck = spi2::Sck;
+    type Mi<PULL> = spi2::Mi<PULL>;
+    type So<Otype> = spi2::So<Otype>;
+    type Mo = spi2::Mo;
+    type Si<PULL> = spi2::Si<PULL>;
 }
 #[cfg(any(feature = "high", feature = "connectivity"))]
 impl Instance for pac::SPI3 {
-    type MasterPins<PULL> = spi3::MasterPins<PULL>;
-    type SlavePins<Otype, PULL> = spi3::SlavePins<Otype, PULL>;
+    type Sck = spi3::Sck;
+    type Mi<PULL> = spi3::Mi<PULL>;
+    type So<Otype> = spi3::So<Otype>;
+    type Mo = spi3::Mo;
+    type Si<PULL> = spi3::Si<PULL>;
 }
 
 impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
@@ -433,7 +467,7 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
     */
     pub fn new(
         spi: SPI,
-        pins: impl Into<SPI::MasterPins<PULL>>,
+        pins: impl Into<MasterPins<SPI::Sck, SPI::Mi<PULL>, SPI::Mo>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
@@ -487,11 +521,12 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
 
         Spi {
             inner: SpiInner::new(spi),
-            pins,
+            pins: (pins.sck, pins.mi, pins.mo),
         }
     }
 
-    pub fn release(self) -> (SPI, SPI::MasterPins<PULL>) {
+    #[allow(clippy::type_complexity)]
+    pub fn release(self) -> (SPI, (SPI::Sck, SPI::Mi<PULL>, SPI::Mo)) {
         (self.inner.spi, self.pins)
     }
 }
@@ -504,7 +539,11 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
 
       You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
     */
-    pub fn new(spi: SPI, pins: impl Into<SPI::SlavePins<Otype, PULL>>, mode: Mode) -> Self {
+    pub fn new(
+        spi: SPI,
+        pins: impl Into<SlavePins<SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>>>,
+        mode: Mode,
+    ) -> Self {
         // enable or reset SPI
         let rcc = unsafe { &(*RCC::ptr()) };
         SPI::enable(rcc);
@@ -540,11 +579,12 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
 
         SpiSlave {
             inner: SpiInner::new(spi),
-            pins,
+            pins: (pins.sck, pins.so, pins.si),
         }
     }
 
-    pub fn release(self) -> (SPI, SPI::SlavePins<Otype, PULL>) {
+    #[allow(clippy::type_complexity)]
+    pub fn release(self) -> (SPI, (SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>)) {
         (self.inner.spi, self.pins)
     }
 }
