@@ -9,7 +9,7 @@ use embedded_hal_02 as hal;
 pub use hal::Direction;
 
 use crate::rcc::Clocks;
-use crate::timer::{InputPins, Timer};
+use crate::timer::{InPins, InputPins, Timer};
 
 /// SMS (Slave Mode Selection) register
 #[derive(Copy, Clone, Debug)]
@@ -58,13 +58,13 @@ impl Default for QeiOptions {
 
 pub struct Qei<TIM: InputPins> {
     tim: TIM,
-    pins: TIM::Channels12,
+    pins: (TIM::InCh1, TIM::InCh2),
 }
 
 pub trait QeiExt: Sized + InputPins {
     fn qei(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         options: QeiOptions,
         clocks: &Clocks,
     ) -> Qei<Self>;
@@ -74,7 +74,7 @@ pub trait QeiExt: Sized + InputPins {
 impl QeiExt for pac::TIM1 {
     fn qei(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         options: QeiOptions,
         clocks: &Clocks,
     ) -> Qei<Self> {
@@ -86,7 +86,7 @@ impl QeiExt for pac::TIM1 {
 impl Timer<pac::TIM1> {
     pub fn qei(
         self,
-        pins: impl Into<<pac::TIM1 as InputPins>::Channels12>,
+        pins: impl Into<InPins<<pac::TIM1 as InputPins>::InCh1, <pac::TIM1 as InputPins>::InCh2>>,
         options: QeiOptions,
     ) -> Qei<pac::TIM1> {
         let Self { tim, clk: _ } = self;
@@ -97,7 +97,7 @@ impl Timer<pac::TIM1> {
 impl QeiExt for pac::TIM2 {
     fn qei(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         options: QeiOptions,
         clocks: &Clocks,
     ) -> Qei<Self> {
@@ -108,7 +108,7 @@ impl QeiExt for pac::TIM2 {
 impl Timer<pac::TIM2> {
     pub fn qei(
         self,
-        pins: impl Into<<pac::TIM2 as InputPins>::Channels12>,
+        pins: impl Into<InPins<<pac::TIM2 as InputPins>::InCh1, <pac::TIM2 as InputPins>::InCh2>>,
         options: QeiOptions,
     ) -> Qei<pac::TIM2> {
         let Self { tim, clk: _ } = self;
@@ -119,7 +119,7 @@ impl Timer<pac::TIM2> {
 impl QeiExt for pac::TIM3 {
     fn qei(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         options: QeiOptions,
         clocks: &Clocks,
     ) -> Qei<Self> {
@@ -130,7 +130,7 @@ impl QeiExt for pac::TIM3 {
 impl Timer<pac::TIM3> {
     pub fn qei(
         self,
-        pins: impl Into<<pac::TIM3 as InputPins>::Channels12>,
+        pins: impl Into<InPins<<pac::TIM3 as InputPins>::InCh1, <pac::TIM3 as InputPins>::InCh2>>,
         options: QeiOptions,
     ) -> Qei<pac::TIM3> {
         let Self { tim, clk: _ } = self;
@@ -142,7 +142,7 @@ impl Timer<pac::TIM3> {
 impl QeiExt for pac::TIM4 {
     fn qei(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         options: QeiOptions,
         clocks: &Clocks,
     ) -> Qei<Self> {
@@ -154,7 +154,7 @@ impl QeiExt for pac::TIM4 {
 impl Timer<pac::TIM4> {
     pub fn qei(
         self,
-        pins: impl Into<<pac::TIM4 as InputPins>::Channels12>,
+        pins: impl Into<InPins<<pac::TIM4 as InputPins>::InCh1, <pac::TIM4 as InputPins>::InCh2>>,
         options: QeiOptions,
     ) -> Qei<pac::TIM4> {
         let Self { tim, clk: _ } = self;
@@ -167,7 +167,7 @@ macro_rules! hal {
         impl Qei<$TIMX> {
             fn $timX(
                 tim: $TIMX,
-                pins: impl Into<<$TIMX as InputPins>::Channels12>,
+                pins: impl Into<InPins<<$TIMX as InputPins>::InCh1, <$TIMX as InputPins>::InCh2>>,
                 options: QeiOptions,
             ) -> Self {
                 let pins = pins.into();
@@ -189,10 +189,18 @@ macro_rules! hal {
                 tim.arr().write(|w| w.arr().set(options.auto_reload_value));
                 tim.cr1().write(|w| w.cen().set_bit());
 
-                Qei { tim, pins }
+                Qei {
+                    tim,
+                    pins: (pins.c1, pins.c2),
+                }
             }
 
-            pub fn release(self) -> ($TIMX, <$TIMX as InputPins>::Channels12) {
+            pub fn release(
+                self,
+            ) -> (
+                $TIMX,
+                (<$TIMX as InputPins>::InCh1, <$TIMX as InputPins>::InCh2),
+            ) {
                 (self.tim, self.pins)
             }
         }

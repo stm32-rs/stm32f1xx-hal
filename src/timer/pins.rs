@@ -7,6 +7,20 @@ pub const C2: u8 = 1;
 pub const C3: u8 = 2;
 pub const C4: u8 = 3;
 
+pub struct InPins<CH1, CH2> {
+    pub c1: CH1,
+    pub c2: CH2,
+}
+
+impl<CH1, CH2> From<(CH1, CH2)> for InPins<CH1, CH2> {
+    fn from(value: (CH1, CH2)) -> Self {
+        Self {
+            c1: value.0,
+            c2: value.1,
+        }
+    }
+}
+
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
 pub mod tim1 {
     use super::*;
@@ -34,6 +48,17 @@ pub mod tim1 {
             No, PA10, PA11 => MAPR { |_, w| unsafe { w.tim1_remap().bits(0)} };
             Full, PE13, PE14 => MAPR { |_, w| unsafe { w.tim1_remap().bits(0b11)} };
         ]
+    }
+
+    out_enums! {
+        Ch1: PA8, PE9;
+        Ch2: PA9, PE11;
+        Ch3: PA10, PE13;
+        Ch4: PA11, PE14;
+    }
+    in_enums! {
+        InCh1: PA8, PE9;
+        InCh2: PA9, PE11;
     }
 }
 
@@ -65,6 +90,17 @@ pub mod tim2 {
             No, PA2, PA3 => MAPR { |_, w| unsafe { w.tim2_remap().bits(0)} };
             Partial2, PB10, PB11 => MAPR { |_, w| unsafe { w.tim2_remap().bits(0b10)} };
         ]
+    }
+
+    out_enums! {
+        Ch1: PA0, PA15;
+        Ch2: PA1, PB3;
+        Ch3: PA2, PB10;
+        Ch4: PA3, PB11;
+    }
+    in_enums! {
+        InCh1: PA0, PA15;
+        InCh2: PA1, PB3;
     }
 }
 
@@ -98,6 +134,17 @@ pub mod tim3 {
             Full, PC8, PC9 => MAPR { |_, w| unsafe { w.tim3_remap().bits(0b11)} };
         ]
     }
+
+    out_enums! {
+        Ch1: PA6, PB4, PC6;
+        Ch2: PA7, PB5, PC7;
+        Ch3: PB0, PC8;
+        Ch4: PB1, PC9;
+    }
+    in_enums! {
+        InCh1: PA6, PB4, PC6;
+        InCh2: PA7, PB5, PC7;
+    }
 }
 
 #[cfg(feature = "medium")]
@@ -128,7 +175,43 @@ pub mod tim4 {
             Full, PD14, PD15 => MAPR { |_, w| w.tim4_remap().bit(true) };
         ]
     }
+
+    out_enums! {
+        Ch1: PB6, PD12;
+        Ch2: PB7, PD13;
+        Ch3: PB8, PD14;
+        Ch4: PB9, PD15;
+    }
+    in_enums! {
+        InCh1: PB6, PD12;
+        InCh2: PB7, PD13;
+    }
 }
+
+macro_rules! out_enums {
+    ($($Ch: ident: $($P:ident),+;)+) => {
+        $(
+            pub enum $Ch {
+                $(
+                    $P(gpio::$P<Alternate>),
+                )+
+            }
+        )+
+    };
+}
+use out_enums;
+macro_rules! in_enums {
+    ($($Ch: ident: $($P:ident),+;)+) => {
+        $(
+            pub enum $Ch {
+                $(
+                    $P(gpio::$P),
+                )+
+            }
+        )+
+    };
+}
+use in_enums;
 
 macro_rules! remap4 {
     ($TIM:ty: [
@@ -412,23 +495,16 @@ macro_rules! remap_input {
     ($TIM:ty, $name:ident: [
         $($rname:ident, $P0:ident, $P1:ident $( => $MAPR:ident { $remapex:expr })?;)+
     ]) => {
-        pub enum $name {
-            $(
-                $rname(gpio::$P0, gpio::$P1),
-            )+
-        }
-
         impl InputPins for $TIM {
-            type Channels12 = $name;
+            type InCh1 = InCh1;
+            type InCh2 = InCh2;
         }
 
         $(
-            impl From<(gpio::$P0, gpio::$P1 $(, &mut $MAPR)?)> for $name {
+            impl From<(gpio::$P0, gpio::$P1 $(, &mut $MAPR)?)> for InPins<InCh1, InCh2> {
                 fn from(p: (gpio::$P0, gpio::$P1 $(, &mut $MAPR)?)) -> Self {
-                    let p0 = p.0.into_mode(&mut Cr);
-                    let p1 = p.1.into_mode(&mut Cr);
                     $(p.2.modify_mapr($remapex);)?
-                    Self::$rname(p0, p1)
+                    Self { c1: InCh1::$P0(p.0), c2: InCh2::$P1(p.1) }
                 }
             }
         )+
@@ -437,5 +513,6 @@ macro_rules! remap_input {
 use remap_input;
 
 pub trait InputPins {
-    type Channels12;
+    type InCh1;
+    type InCh2;
 }

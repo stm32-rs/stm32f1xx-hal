@@ -8,7 +8,7 @@ use crate::pac::{self, DBGMCU as DBG};
 
 use crate::rcc::{BusTimerClock, Clocks};
 use crate::time::Hertz;
-use crate::timer::{InputPins, Timer};
+use crate::timer::{InPins, InputPins, Timer};
 
 /// PWM Input
 pub struct PwmInput<TIM> {
@@ -61,7 +61,7 @@ pub enum Configuration {
 pub trait PwmInputExt: Sized + InputPins {
     fn pwm_input(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
         clocks: &Clocks,
@@ -72,7 +72,7 @@ pub trait PwmInputExt: Sized + InputPins {
 impl PwmInputExt for pac::TIM1 {
     fn pwm_input(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
         clocks: &Clocks,
@@ -85,7 +85,7 @@ impl PwmInputExt for pac::TIM1 {
 impl Timer<pac::TIM1> {
     pub fn pwm_input(
         mut self,
-        pins: impl Into<<pac::TIM1 as InputPins>::Channels12>,
+        pins: impl Into<InPins<<pac::TIM1 as InputPins>::InCh1, <pac::TIM1 as InputPins>::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
     ) -> PwmInput<pac::TIM1> {
@@ -98,7 +98,7 @@ impl Timer<pac::TIM1> {
 impl PwmInputExt for pac::TIM2 {
     fn pwm_input(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
         clocks: &Clocks,
@@ -110,7 +110,7 @@ impl PwmInputExt for pac::TIM2 {
 impl Timer<pac::TIM2> {
     pub fn pwm_input(
         mut self,
-        pins: impl Into<<pac::TIM2 as InputPins>::Channels12>,
+        pins: impl Into<InPins<<pac::TIM2 as InputPins>::InCh1, <pac::TIM2 as InputPins>::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
     ) -> PwmInput<pac::TIM2> {
@@ -123,7 +123,7 @@ impl Timer<pac::TIM2> {
 impl PwmInputExt for pac::TIM3 {
     fn pwm_input(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
         clocks: &Clocks,
@@ -135,7 +135,7 @@ impl PwmInputExt for pac::TIM3 {
 impl Timer<pac::TIM3> {
     pub fn pwm_input(
         mut self,
-        pins: impl Into<<pac::TIM3 as InputPins>::Channels12>,
+        pins: impl Into<InPins<<pac::TIM3 as InputPins>::InCh1, <pac::TIM3 as InputPins>::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
     ) -> PwmInput<pac::TIM3> {
@@ -149,7 +149,7 @@ impl Timer<pac::TIM3> {
 impl PwmInputExt for pac::TIM4 {
     fn pwm_input(
         self,
-        pins: impl Into<<Self as InputPins>::Channels12>,
+        pins: impl Into<InPins<Self::InCh1, Self::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
         clocks: &Clocks,
@@ -162,7 +162,7 @@ impl PwmInputExt for pac::TIM4 {
 impl Timer<pac::TIM4> {
     pub fn pwm_input(
         mut self,
-        pins: impl Into<<pac::TIM4 as InputPins>::Channels12>,
+        pins: impl Into<InPins<<pac::TIM4 as InputPins>::InCh1, <pac::TIM4 as InputPins>::InCh2>>,
         dbg: &mut DBG,
         mode: Configuration,
     ) -> PwmInput<pac::TIM4> {
@@ -185,7 +185,7 @@ macro_rules! hal {
     ($TIMX:ty: $timX:ident) => {
         fn $timX(
             tim: $TIMX,
-            pins: impl Into<<$TIMX as InputPins>::Channels12>,
+            pins: impl Into<InPins<<$TIMX as InputPins>::InCh1, <$TIMX as InputPins>::InCh2>>,
             clk: Hertz,
             mode: Configuration,
         ) -> PwmInput<$TIMX> {
