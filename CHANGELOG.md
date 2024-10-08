@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use gpio field enums internally [#506]
 - Unmacro `dma.rs` [#505]
 - Rework USART remap, 
+- Updated `usb-device` and `usbd-serial` to latest versions
 
 ### Added
 
