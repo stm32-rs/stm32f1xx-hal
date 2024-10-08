@@ -50,7 +50,7 @@ version = "1.0"
 version = "0.6.1"
 
 [dependencies.stm32-usbd]
-version = "0.6.0"
+version = "0.7.0"
 optional = true
 
 [dev-dependencies]
@@ -62,8 +62,8 @@ cortex-m-semihosting = "0.5.0"
 heapless = "0.8.0"
 mfrc522 = { version = "0.7.0", features = ["eh02"] }
 mpu9250 = "0.25.0"
-usb-device = "0.2.8"
-usbd-serial = "0.1.1"
+usb-device = "0.3.2"
+usbd-serial = "0.2.2"
 
 [features]
 doc = []
@@ -101,15 +101,15 @@ lto = true
 
 [[example]]
 name = "usb_serial"
-required-features = ["stm32-usbd"]
+required-features = ["stm32f103", "stm32-usbd"]
 
 [[example]]
 name = "usb_serial_interrupt"
-required-features = ["stm32-usbd"]
+required-features = ["stm32f103", "stm32-usbd"]
 
 [[example]]
 name = "usb_serial_rtic"
-required-features = ["stm32-usbd"]
+required-features = ["stm32f103", "stm32-usbd"]
 
 [[example]]
 name = "blinky_timer_irq"

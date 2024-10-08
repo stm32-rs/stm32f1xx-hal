@@ -61,10 +61,12 @@ fn main() -> ! {
         USB_SERIAL = Some(SerialPort::new(USB_BUS.as_ref().unwrap()));
 
         let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
-            .serial_number("TEST")
             .device_class(USB_CLASS_CDC)
+            .strings(&[StringDescriptors::default()
+                .manufacturer("Fake Company")
+                .product("Serial port")
+                .serial_number("TEST")])
+            .unwrap()
             .build();
 
         USB_DEVICE = Some(usb_dev);
