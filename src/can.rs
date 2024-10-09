@@ -19,7 +19,7 @@
 //! | TX       | PB6     | PB13  |
 //! | RX       | PB5     | PB12  |
 
-use crate::afio::MAPR;
+use crate::afio::Remap;
 use crate::gpio::{self, Alternate, Cr, Floating, Input, NoPin, PinMode, PullUp, PushPull};
 use crate::pac::{self, RCC};
 
@@ -45,14 +45,10 @@ pub mod can1 {
     use super::*;
 
     remap! {
-        #[cfg(not(feature = "connectivity"))]
-        PA12, PA11  => { |_, w| unsafe { w.can_remap().bits(0) } };
-        #[cfg(feature = "connectivity")]
-        PA12, PA11  => { |_, w| unsafe { w.can1_remap().bits(0) } };
-        #[cfg(not(feature = "connectivity"))]
-        PB9, PB8  => { |_, w| unsafe { w.can_remap().bits(10) } };
-        #[cfg(feature = "connectivity")]
-        PB9, PB8  => { |_, w| unsafe { w.can1_remap().bits(10) } };
+        pac::CAN1: [
+            PA12, PA11 => 0;
+            PB9, PB8 => 2;
+        ]
     }
 }
 
@@ -61,70 +57,66 @@ pub mod can2 {
     use super::*;
 
     remap! {
-        PB6, PB5  => { |_, w| w.can2_remap().bit(false) };
-        PB13, PB12  => { |_, w| w.can2_remap().bit(true) };
+        pac::CAN2: [
+            PB6, PB5 => 0;
+            PB13, PB12 => 1;
+        ]
     }
 }
 
 macro_rules! remap {
-    ($($(#[$attr:meta])* $TX:ident, $RX:ident => { $remapex:expr };)+) => {
+    ($PER:ty: [$($TX:ident, $RX:ident => $remap:literal;)+]) => {
         pub enum Tx {
             $(
-                $(#[$attr])*
                 $TX(gpio::$TX<Alternate>),
             )+
             None(NoPin<PushPull>),
         }
         pub enum Rx<PULL> {
             $(
-                $(#[$attr])*
                 $RX(gpio::$RX<Input<PULL>>),
             )+
             None(NoPin<PULL>),
         }
 
         $(
-            $(#[$attr])*
-            impl<PULL: InMode> From<(gpio::$TX<Alternate>, gpio::$RX<Input<PULL>>, &mut MAPR)> for Pins<Tx, Rx<PULL>> {
-                fn from(p: (gpio::$TX<Alternate>, gpio::$RX<Input<PULL>>, &mut MAPR)) -> Self {
-                    p.2.modify_mapr($remapex);
+            impl<PULL: InMode> From<(gpio::$TX<Alternate>, gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx<PULL>> {
+                fn from(p: (gpio::$TX<Alternate>, gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)) -> Self {
+                    <$PER>::remap(p.2, $remap);
                     Self { tx: Tx::$TX(p.0), rx: Rx::$RX(p.1) }
                 }
             }
 
-            $(#[$attr])*
-            impl<PULL> From<(gpio::$TX, gpio::$RX, &mut MAPR)> for Pins<Tx, Rx<PULL>>
+            impl<PULL> From<(gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx<PULL>>
             where
                 Input<PULL>: PinMode,
                 PULL: InMode,
             {
-                fn from(p: (gpio::$TX, gpio::$RX, &mut MAPR)) -> Self {
+                fn from(p: (gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)) -> Self {
                     let mut cr = Cr;
                     let tx = p.0.into_mode(&mut cr);
                     let rx = p.1.into_mode(&mut cr);
-                    p.2.modify_mapr($remapex);
+                    <$PER>::remap(p.2, $remap);
                     Self { tx: Tx::$TX(tx), rx: Rx::$RX(rx) }
                 }
             }
 
-            $(#[$attr])*
-            impl From<(gpio::$TX, &mut MAPR)> for Pins<Tx, Rx<Floating>> {
-                fn from(p: (gpio::$TX, &mut MAPR)) -> Self {
+            impl From<(gpio::$TX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx<Floating>> {
+                fn from(p: (gpio::$TX, &mut <$PER as Remap>::Mapr)) -> Self {
                     let tx = p.0.into_mode(&mut Cr);
-                    p.1.modify_mapr($remapex);
+                    <$PER>::remap(p.1, $remap);
                     Self { tx: Tx::$TX(tx), rx: Rx::None(NoPin::new()) }
                 }
             }
 
-            $(#[$attr])*
-            impl<PULL> From<(gpio::$RX, &mut MAPR)> for Pins<Tx, Rx<PULL>>
+            impl<PULL> From<(gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx<PULL>>
             where
                 Input<PULL>: PinMode,
                 PULL: InMode,
             {
-                fn from(p: (gpio::$RX, &mut MAPR)) -> Self {
+                fn from(p: (gpio::$RX, &mut <$PER as Remap>::Mapr)) -> Self {
                     let rx = p.0.into_mode(&mut Cr);
-                    p.1.modify_mapr($remapex);
+                    <$PER>::remap(p.1, $remap);
                     Self { tx: Tx::None(NoPin::new()), rx: Rx::$RX(rx) }
                 }
             }

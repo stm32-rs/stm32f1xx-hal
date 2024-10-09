@@ -66,10 +66,10 @@ use core::ops::Deref;
 use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
 
-use crate::afio::MAPR;
+use crate::afio::Remap;
 use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
 use crate::gpio::{self, Alternate, Cr, Floating, Input, NoPin, PinMode, PullUp, PushPull};
-use crate::pac::{RCC, USART1, USART2, USART3};
+use crate::pac::{self, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
@@ -100,8 +100,10 @@ pub mod usart1 {
     use super::*;
 
     remap! {
-        PA9, PA10 => { |_, w| w.usart1_remap().bit(false) };
-        PB6, PB7  => { |_, w| w.usart1_remap().bit(true) };
+        pac::USART1: [
+            PA9, PA10 => 0;
+            PB6, PB7  => 1;
+        ]
     }
 }
 
@@ -109,8 +111,10 @@ pub mod usart2 {
     use super::*;
 
     remap! {
-        PA2, PA3 => { |_, w| w.usart2_remap().bit(false) };
-        PD5, PD6 => { |_, w| w.usart2_remap().bit(true) };
+        pac::USART2: [
+            PA2, PA3 => 0;
+            PD5, PD6 => 1;
+        ]
     }
 }
 
@@ -118,14 +122,16 @@ pub mod usart3 {
     use super::*;
 
     remap! {
-        PB10, PB11 => { |_, w| unsafe { w.usart3_remap().bits(0b00)} };
-        PC10, PC11 => { |_, w| unsafe { w.usart3_remap().bits(0b01)} };
-        PD8, PD9 => { |_, w| unsafe { w.usart3_remap().bits(0b11)} };
+        pac::USART3: [
+            PB10, PB11 => 0;
+            PC10, PC11 => 1;
+            PD8, PD9 => 3;
+        ]
     }
 }
 
 macro_rules! remap {
-    ($($TX:ident, $RX:ident => { $remapex:expr };)+) => {
+    ($PER:ty: [$($TX:ident, $RX:ident => $remap:literal;)+]) => {
         pub enum Tx<Otype> {
             $(
                 $TX(gpio::$TX<Alternate<Otype>>),
@@ -140,52 +146,52 @@ macro_rules! remap {
         }
 
         $(
-            impl<Otype, PULL: InMode> From<(gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut MAPR)> for Pins<Tx<Otype>, Rx<PULL>> {
-                fn from(p: (gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut MAPR)) -> Self {
-                    p.2.modify_mapr($remapex);
+            impl<Otype, PULL: InMode> From<(gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx<PULL>> {
+                fn from(p: (gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)) -> Self {
+                    <$PER>::remap(p.2, $remap);
                     Self { tx: Tx::$TX(p.0), rx: Rx::$RX(p.1) }
                 }
             }
 
-            impl<Otype, PULL> From<(gpio::$TX, gpio::$RX, &mut MAPR)> for Pins<Tx<Otype>, Rx<PULL>>
+            impl<Otype, PULL> From<(gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx<PULL>>
             where
                 Alternate<Otype>: PinMode,
                 Input<PULL>: PinMode,
                 PULL: InMode,
             {
-                fn from(p: (gpio::$TX, gpio::$RX, &mut MAPR)) -> Self {
+                fn from(p: (gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)) -> Self {
                     let mut cr = Cr;
                     let tx = p.0.into_mode(&mut cr);
                     let rx = p.1.into_mode(&mut cr);
-                    p.2.modify_mapr($remapex);
+                    <$PER>::remap(p.2, $remap);
                     Self { tx: Tx::$TX(tx), rx: Rx::$RX(rx) }
                 }
             }
 
-            impl<Otype> From<(gpio::$TX<Alternate<Otype>>, &mut MAPR)> for Pins<Tx<Otype>, Rx<Floating>> {
-                fn from(p: (gpio::$TX<Alternate<Otype>>, &mut MAPR)) -> Self {
-                    p.1.modify_mapr($remapex);
+            impl<Otype> From<(gpio::$TX<Alternate<Otype>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx<Floating>> {
+                fn from(p: (gpio::$TX<Alternate<Otype>>, &mut <$PER as Remap>::Mapr)) -> Self {
+                    <$PER>::remap(p.1, $remap);
                     Self { tx: Tx::$TX(p.0), rx: Rx::None(NoPin::new()) }
                 }
             }
 
-            impl<Otype> From<(gpio::$TX, &mut MAPR)> for Pins<Tx<Otype>, Rx<Floating>>
+            impl<Otype> From<(gpio::$TX, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx<Floating>>
             where
                 Alternate<Otype>: PinMode,
             {
-                fn from(p: (gpio::$TX, &mut MAPR)) -> Self {
+                fn from(p: (gpio::$TX, &mut <$PER as Remap>::Mapr)) -> Self {
                     let tx = p.0.into_mode(&mut Cr);
-                    p.1.modify_mapr($remapex);
+                    <$PER>::remap(p.1, $remap);
                     Self { tx: Tx::$TX(tx), rx: Rx::None(NoPin::new()) }
                 }
             }
 
-            impl<PULL> From<(gpio::$RX<Input<PULL>>, &mut MAPR)> for Pins<Tx<PushPull>, Rx<PULL>>
+            impl<PULL> From<(gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx<PushPull>, Rx<PULL>>
             where
                 PULL: InMode,
             {
-                fn from(p: (gpio::$RX<Input<PULL>>, &mut MAPR)) -> Self {
-                    p.1.modify_mapr($remapex);
+                fn from(p: (gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)) -> Self {
+                    <$PER>::remap(p.1, $remap);
                     Self { tx: Tx::None(NoPin::new()), rx: Rx::$RX(p.0) }
                 }
             }
@@ -243,7 +249,7 @@ pub trait Instance:
 }
 
 macro_rules! inst {
-    ($($USARTX:ident, $usart:ident;)+) => {
+    ($($USARTX:ty, $usart:ident;)+) => {
         $(
             impl Instance for $USARTX {
                 type Tx<Otype> = $usart::Tx<Otype>;
@@ -258,9 +264,9 @@ macro_rules! inst {
 }
 
 inst! {
-    USART1, usart1;
-    USART2, usart2;
-    USART3, usart3;
+    pac::USART1, usart1;
+    pac::USART2, usart2;
+    pac::USART3, usart3;
 }
 
 /// Serial error
@@ -799,18 +805,18 @@ impl<USART: Instance, PINS> core::fmt::Write for Serial<USART, PINS> {
     }
 }
 
-pub type Rx1 = Rx<USART1>;
-pub type Tx1 = Tx<USART1>;
-pub type Rx2 = Rx<USART2>;
-pub type Tx2 = Tx<USART2>;
-pub type Rx3 = Rx<USART3>;
-pub type Tx3 = Tx<USART3>;
+pub type Rx1 = Rx<pac::USART1>;
+pub type Tx1 = Tx<pac::USART1>;
+pub type Rx2 = Rx<pac::USART2>;
+pub type Tx2 = Tx<pac::USART2>;
+pub type Rx3 = Rx<pac::USART3>;
+pub type Tx3 = Tx<pac::USART3>;
 
 use crate::dma::{Receive, TransferPayload, Transmit};
 
 macro_rules! serialdma {
     (
-        $USARTX:ident,
+        $USARTX:ty,
         $rxdma:ident,
         $txdma:ident,
         rx: $dmarxch:ty,
@@ -850,7 +856,7 @@ macro_rules! serialdma {
         impl Rx<$USARTX> {
             pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
                 unsafe {
-                    (*$USARTX::ptr()).cr3().modify(|_, w| w.dmar().set_bit());
+                    (*<$USARTX>::ptr()).cr3().modify(|_, w| w.dmar().set_bit());
                 }
                 RxDma {
                     payload: self,
@@ -862,7 +868,7 @@ macro_rules! serialdma {
         impl Tx<$USARTX> {
             pub fn with_dma(self, channel: $dmatxch) -> $txdma {
                 unsafe {
-                    (*$USARTX::ptr()).cr3().modify(|_, w| w.dmat().set_bit());
+                    (*<$USARTX>::ptr()).cr3().modify(|_, w| w.dmat().set_bit());
                 }
                 TxDma {
                     payload: self,
@@ -875,7 +881,9 @@ macro_rules! serialdma {
             pub fn release(mut self) -> (Rx<$USARTX>, $dmarxch) {
                 self.stop();
                 unsafe {
-                    (*$USARTX::ptr()).cr3().modify(|_, w| w.dmar().clear_bit());
+                    (*<$USARTX>::ptr())
+                        .cr3()
+                        .modify(|_, w| w.dmar().clear_bit());
                 }
                 let RxDma { payload, channel } = self;
                 (payload, channel)
@@ -886,7 +894,9 @@ macro_rules! serialdma {
             pub fn release(mut self) -> (Tx<$USARTX>, $dmatxch) {
                 self.stop();
                 unsafe {
-                    (*$USARTX::ptr()).cr3().modify(|_, w| w.dmat().clear_bit());
+                    (*<$USARTX>::ptr())
+                        .cr3()
+                        .modify(|_, w| w.dmat().clear_bit());
                 }
                 let TxDma { payload, channel } = self;
                 (payload, channel)
@@ -903,7 +913,7 @@ macro_rules! serialdma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
                 self.channel.set_peripheral_address(
-                    unsafe { (*$USARTX::ptr()).dr().as_ptr() as u32 },
+                    unsafe { (*<$USARTX>::ptr()).dr().as_ptr() as u32 },
                     false,
                 );
                 self.channel.set_memory_address(ptr as u32, true);
@@ -935,7 +945,7 @@ macro_rules! serialdma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
                 self.channel.set_peripheral_address(
-                    unsafe { (*$USARTX::ptr()).dr().as_ptr() as u32 },
+                    unsafe { (*<$USARTX>::ptr()).dr().as_ptr() as u32 },
                     false,
                 );
                 self.channel.set_memory_address(ptr as u32, true);
@@ -966,7 +976,7 @@ macro_rules! serialdma {
                 let (ptr, len) = unsafe { buffer.read_buffer() };
 
                 self.channel.set_peripheral_address(
-                    unsafe { (*$USARTX::ptr()).dr().as_ptr() as u32 },
+                    unsafe { (*<$USARTX>::ptr()).dr().as_ptr() as u32 },
                     false,
                 );
 
@@ -992,21 +1002,21 @@ macro_rules! serialdma {
 }
 
 serialdma! {
-    USART1,
+    pac::USART1,
     RxDma1,
     TxDma1,
     rx: dma1::C5,
     tx: dma1::C4
 }
 serialdma! {
-    USART2,
+    pac::USART2,
     RxDma2,
     TxDma2,
     rx: dma1::C6,
     tx: dma1::C7
 }
 serialdma! {
-    USART3,
+    pac::USART3,
     RxDma3,
     TxDma3,
     rx: dma1::C3,
