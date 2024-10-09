@@ -4,8 +4,9 @@
 // parts of this code is based on
 // https://www.st.com/content/ccc/resource/technical/document/application_note/5d/ae/a3/6f/08/69/4e/9b/CD00209826.pdf/files/CD00209826.pdf/jcr:content/translations/en.CD00209826.pdf
 
+use crate::afio::{Remap, MAPR};
 use crate::gpio::{self, Alternate, Cr, OpenDrain};
-use crate::pac::{DWT, I2C1, I2C2, RCC};
+use crate::pac::{self, DWT, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{kHz, Hertz};
 use core::ops::Deref;
@@ -100,14 +101,12 @@ impl<SCL, SDA> From<(SCL, SDA)> for Pins<SCL, SDA> {
 }
 
 pub mod i2c1 {
-    use crate::afio::MAPR;
-
     use super::*;
 
     remap! {
-        [
-            PB6, PB7 => MAPR { |_, w| w.i2c1_remap().bit(false) };
-            PB8, PB9 => MAPR { |_, w| w.i2c1_remap().bit(true) };
+        pac::I2C1: [
+            PB6, PB7 => MAPR: 0;
+            PB8, PB9 => MAPR: 1;
         ]
     }
 }
@@ -115,15 +114,15 @@ pub mod i2c2 {
     use super::*;
 
     remap! {
-        [
+        pac::I2C2: [
             PB10, PB11;
         ]
     }
 }
 
 macro_rules! remap {
-    ([
-        $($SCL:ident, $SDA:ident $( => $MAPR:ident { $remapex:expr })?;)+
+    ($PER:ty: [
+        $($SCL:ident, $SDA:ident $( => $MAPR:ident: $remap:literal)?;)+
     ]) => {
         pub enum Scl {
             $(
@@ -139,7 +138,7 @@ macro_rules! remap {
         $(
             impl From<(gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)> for Pins<Scl, Sda> {
                 fn from(p: (gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)) -> Self {
-                    $(p.2.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.2, $remap);)?
                     Self { scl: Scl::$SCL(p.0), sda: Sda::$SDA(p.1) }
                 }
             }
@@ -149,7 +148,7 @@ macro_rules! remap {
                     let mut cr = Cr;
                     let scl = p.0.into_mode(&mut cr);
                     let sda = p.1.into_mode(&mut cr);
-                    $(p.2.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.2, $remap);)?
                     Self { scl: Scl::$SCL(scl), sda: Sda::$SDA(sda) }
                 }
             }
@@ -213,11 +212,11 @@ pub trait Instance:
     type Sda;
 }
 
-impl Instance for I2C1 {
+impl Instance for pac::I2C1 {
     type Scl = i2c1::Scl;
     type Sda = i2c1::Sda;
 }
-impl Instance for I2C2 {
+impl Instance for pac::I2C2 {
     type Scl = i2c2::Scl;
     type Sda = i2c2::Sda;
 }

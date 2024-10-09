@@ -41,7 +41,7 @@ use core::ptr;
 
 use crate::pac::{self, RCC};
 
-use crate::afio::MAPR;
+use crate::afio::{Remap, MAPR};
 use crate::dma::dma1;
 #[cfg(feature = "connectivity")]
 use crate::dma::dma2;
@@ -123,8 +123,10 @@ pub mod spi1 {
     use super::*;
 
     remap! {
-        PA5, PA6, PA7 => MAPR { |_, w| w.spi1_remap().bit(false) };
-        PB3, PB4, PB5  => MAPR { |_, w| w.spi1_remap().bit(true) };
+        pac::SPI1: [
+            PA5, PA6, PA7 => MAPR: 0;
+            PB3, PB4, PB5  => MAPR: 1;
+        ]
     }
 }
 
@@ -132,30 +134,36 @@ pub mod spi2 {
     use super::*;
 
     remap! {
-        PB13, PB14, PB15;
+        pac::SPI2: [
+            PB13, PB14, PB15;
+        ]
     }
 }
 #[cfg(any(feature = "high", feature = "connectivity"))]
 pub mod spi3 {
     use super::*;
 
+    #[cfg(not(feature = "connectivity"))]
     remap! {
-        #[cfg(not(feature = "connectivity"))]
-        PB3, PB4, PB5;
-        #[cfg(feature = "connectivity")]
-        PB3, PB4, PB5 => MAPR { |_, w| w.spi3_remap().bit(false) };
-        #[cfg(feature = "connectivity")]
-        PC10, PC11, PC12  => MAPR { |_, w| w.spi3_remap().bit(true) };
+        pac::SPI3: [
+            PB3, PB4, PB5;
+        ]
+    }
+    #[cfg(feature = "connectivity")]
+    remap! {
+        pac::SPI3: [
+            PB3, PB4, PB5 => MAPR: 0;
+            PC10, PC11, PC12  => MAPR: 1;
+        ]
     }
 }
 
 macro_rules! remap {
-    (
-        $($(#[$attr:meta])* $SCK:ident, $MISO:ident, $MOSI:ident $( => $MAPR:ident { $remapex:expr })?;)+
-    ) => {
+    ($PER:ty: [
+        $($SCK:ident, $MISO:ident, $MOSI:ident $( => $MAPR:ident: $remap:literal)?;)+
+    ]) => {
         pub enum Sck {
             $(
-                $(#[$attr])*
                 $SCK(gpio::$SCK<Alternate>),
             )+
             None(NoPin<PushPull>),
@@ -163,7 +171,6 @@ macro_rules! remap {
 
         pub enum Mi<PULL> {
             $(
-                $(#[$attr])*
                 $MISO(gpio::$MISO<Input<PULL>>),
             )+
             None(NoPin<Floating>),
@@ -171,7 +178,6 @@ macro_rules! remap {
 
         pub enum So<Otype> {
             $(
-                $(#[$attr])*
                 $MISO(gpio::$MISO<Alternate<Otype>>),
             )+
             None(NoPin<PushPull>),
@@ -179,7 +185,6 @@ macro_rules! remap {
 
         pub enum Mo {
             $(
-                $(#[$attr])*
                 $MOSI(gpio::$MOSI<Alternate>),
             )+
             None(NoPin<PushPull>),
@@ -187,7 +192,6 @@ macro_rules! remap {
 
         pub enum Si<PULL> {
             $(
-                $(#[$attr])*
                 $MOSI(gpio::$MOSI<Input<PULL>>),
             )+
             None(NoPin<Floating>),
@@ -195,15 +199,13 @@ macro_rules! remap {
 
         $(
             // For master mode
-            $(#[$attr])*
             impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo> {
                 fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)) -> Self {
-                    $(p.3.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.3, $remap);)?
                     Self { sck: Sck::$SCK(p.0), mi: Mi::$MISO(p.1), mo: Mo::$MOSI(p.2) }
                 }
             }
 
-            $(#[$attr])*
             impl<PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo>
             where
                 Input<PULL>: PinMode,
@@ -214,20 +216,18 @@ macro_rules! remap {
                     let sck = p.0.into_mode(&mut cr);
                     let miso = p.1.into_mode(&mut cr);
                     let mosi = p.2.into_mode(&mut cr);
-                    $(p.3.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.3, $remap);)?
                     Self { sck: Sck::$SCK(sck), mi: Mi::$MISO(miso), mo: Mo::$MOSI(mosi) }
                 }
             }
 
-            $(#[$attr])*
             impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo> {
                 fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
-                    $(p.2.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.2, $remap);)?
                     Self { sck: Sck::$SCK(p.0), mi: Mi::$MISO(p.1), mo: Mo::None(NoPin::new()) }
                 }
             }
 
-            $(#[$attr])*
             impl<PULL> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi<PULL>, Mo>
             where
                 Input<PULL>: PinMode,
@@ -237,33 +237,30 @@ macro_rules! remap {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
                     let miso = p.1.into_mode(&mut cr);
-                    $(p.2.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.2, $remap);)?
                     Self { sck: Sck::$SCK(sck), mi: Mi::$MISO(miso), mo: Mo::None(NoPin::new()) }
                 }
             }
 
-            $(#[$attr])*
             impl From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi<Floating>, Mo> {
                 fn from(p: (gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
                     let mosi = p.1.into_mode(&mut cr);
-                    $(p.2.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.2, $remap);)?
                     Self { sck: Sck::$SCK(sck), mi: Mi::None(NoPin::new()), mo: Mo::$MOSI(mosi) }
                 }
             }
 
             // For slave mode
 
-            $(#[$attr])*
             impl<Otype, PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<PULL>> {
                 fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
-                    $(p.3.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.3, $remap);)?
                     Self { sck: Sck::$SCK(p.0), so: So::$MISO(p.1), si: Si::$MOSI(p.2) }
                 }
             }
 
-            $(#[$attr])*
             impl<Otype, PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<PULL>>
             where
                 Alternate<Otype>: PinMode,
@@ -275,12 +272,11 @@ macro_rules! remap {
                     let sck = p.0.into_mode(&mut cr);
                     let miso = p.1.into_mode(&mut cr);
                     let mosi = p.2.into_mode(&mut cr);
-                    $(p.3.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.3, $remap);)?
                     Self { sck: Sck::$SCK(sck), so: So::$MISO(miso), si: Si::$MOSI(mosi) }
                 }
             }
 
-            $(#[$attr])*
             impl<Otype> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<Floating>>
             where
                 Alternate<Otype>: PinMode,
@@ -289,12 +285,11 @@ macro_rules! remap {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
                     let miso = p.1.into_mode(&mut cr);
-                    $(p.2.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.2, $remap);)?
                     Self { sck: Sck::$SCK(sck), so: So::$MISO(miso), si: Si::None(NoPin::new()) }
                 }
             }
 
-            $(#[$attr])*
             impl<PULL> From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<PushPull>, Si<PULL>>
             where
                 Input<PULL>: PinMode,
@@ -304,7 +299,7 @@ macro_rules! remap {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
                     let mosi = p.1.into_mode(&mut cr);
-                    $(p.2.modify_mapr($remapex);)?
+                    $(<$PER>::remap(p.2, $remap);)?
                     Self { sck: Sck::$SCK(sck), so: So::None(NoPin::new()), si: Si::$MOSI(mosi) }
                 }
             }

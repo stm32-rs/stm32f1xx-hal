@@ -1,11 +1,12 @@
 //! # Alternate Function I/Os
-use crate::pac::{afio, AFIO, RCC};
+use crate::pac::{self, afio, AFIO, RCC};
 
 use crate::rcc::{Enable, Reset};
 
 use crate::gpio::{
     Debugger, Floating, Input, PA15, {PB3, PB4},
 };
+use crate::sealed::Sealed;
 
 pub trait AfioExt {
     fn constrain(self) -> Parts;
@@ -150,4 +151,88 @@ impl MAPR2 {
     pub fn mapr2(&mut self) -> &afio::MAPR2 {
         unsafe { (*AFIO::ptr()).mapr2() }
     }
+
+    pub fn modify_mapr<F>(&mut self, mod_fn: F)
+    where
+        F: for<'w> FnOnce(&afio::mapr2::R, &'w mut afio::mapr2::W) -> &'w mut afio::mapr2::W,
+    {
+        self.mapr2().modify(|r, w| mod_fn(r, w));
+    }
+}
+
+pub trait Remap: Sealed {
+    type Mapr;
+    fn remap(mapr: &mut Self::Mapr, to: u8);
+}
+
+macro_rules! remap {
+    ($(
+        $PER:ty: $MAPR:ident, $w:ident: $field:ident;
+    )+) => {
+        $(
+            remap!($PER: $MAPR, $w: $field);
+        )+
+    };
+    ($PER:ty: $MAPR:ident, bool: $field:ident) => {
+        impl Remap for $PER {
+            type Mapr = $MAPR;
+            fn remap(mapr: &mut Self::Mapr, to: u8) {
+                mapr.modify_mapr(|_, w| w.$field().bit(to != 0));
+            }
+        }
+    };
+    ($PER:ty: $MAPR:ident, u8: $field:ident) => {
+        impl Remap for $PER {
+            type Mapr = $MAPR;
+            fn remap(mapr: &mut Self::Mapr, to: u8) {
+                mapr.modify_mapr(|_, w| unsafe { w.$field().bits(to) });
+            }
+        }
+    };
+}
+use remap;
+
+remap! {
+    pac::SPI1: MAPR, bool: spi1_remap;
+    pac::I2C1: MAPR, bool: i2c1_remap;
+    pac::USART1: MAPR, bool: usart1_remap;
+    pac::USART2: MAPR, bool: usart2_remap;
+    pac::USART3: MAPR, u8: usart3_remap;
+    pac::TIM2: MAPR, u8: tim2_remap;
+    pac::TIM3: MAPR, u8: tim3_remap;
+}
+
+#[cfg(feature = "medium")]
+remap! {
+    pac::TIM4: MAPR, bool: tim4_remap;
+}
+
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
+remap! {
+    pac::TIM1: MAPR, u8: tim1_remap;
+}
+
+#[cfg(feature = "stm32f103")]
+remap! {
+    pac::CAN1: MAPR, u8: can_remap;
+}
+
+#[cfg(feature = "connectivity")]
+remap! {
+    pac::CAN1: MAPR, u8: can1_remap;
+    //pac::ETHERNET_MAC: MAPR, bool: eth_remap;
+    pac::CAN2: MAPR, bool: can2_remap;
+    pac::SPI3: MAPR, bool: spi3_remap;
+}
+
+#[cfg(feature = "xl")]
+remap! {
+    pac::TIM9: MAPR2, bool: tim9_remap;
+    pac::TIM10: MAPR2, bool: tim10_remap;
+    pac::TIM11: MAPR2, bool: tim11_remap;
+}
+#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high")))]
+remap! {
+    pac::TIM13: MAPR2, bool: tim13_remap;
+    pac::TIM14: MAPR2, bool: tim14_remap;
 }

@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Check "device selected" in `build.rs` [#502]
 - Use gpio field enums internally [#506]
 - Unmacro `dma.rs` [#505]
-- Rework USART remap, 
+- Rework pin remaps, fix CAN1 remap [#511]
 
 ### Added
 
@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#505]: https://github.com/stm32-rs/stm32f1xx-hal/pull/505
 [#506]: https://github.com/stm32-rs/stm32f1xx-hal/pull/506
 [#509]: https://github.com/stm32-rs/stm32f1xx-hal/pull/509
+[#511]: https://github.com/stm32-rs/stm32f1xx-hal/pull/511
 
 ## [v0.10.0] - 2022-12-12
 
