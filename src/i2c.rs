@@ -105,8 +105,8 @@ pub mod i2c1 {
 
     remap! {
         pac::I2C1: [
-            PB6, PB7 => MAPR: 0;
-            PB8, PB9 => MAPR: 1;
+            Scl: PB6, Sda: PB7 => MAPR: 0;
+            Scl: PB8, Sda: PB9 => MAPR: 1;
         ]
     }
 }
@@ -115,14 +115,14 @@ pub mod i2c2 {
 
     remap! {
         pac::I2C2: [
-            PB10, PB11;
+            Scl: PB10, Sda: PB11;
         ]
     }
 }
 
 macro_rules! remap {
     ($PER:ty: [
-        $($SCL:ident, $SDA:ident $( => $MAPR:ident: $remap:literal)?;)+
+        $(Scl: $SCL:ident, Sda: $SDA:ident $( => $MAPR:ident: $remap:literal)?;)+
     ]) => {
         pub enum Scl {
             $(
