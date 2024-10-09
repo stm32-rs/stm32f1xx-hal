@@ -101,8 +101,8 @@ pub mod usart1 {
 
     remap! {
         pac::USART1: [
-            PA9, PA10 => 0;
-            PB6, PB7  => 1;
+            Tx: PA9, Rx: PA10 => 0;
+            Tx: PB6, Rx: PB7  => 1;
         ]
     }
 }
@@ -112,8 +112,8 @@ pub mod usart2 {
 
     remap! {
         pac::USART2: [
-            PA2, PA3 => 0;
-            PD5, PD6 => 1;
+            Tx: PA2, Rx: PA3 => 0;
+            Tx: PD5, Rx: PD6 => 1;
         ]
     }
 }
@@ -123,15 +123,15 @@ pub mod usart3 {
 
     remap! {
         pac::USART3: [
-            PB10, PB11 => 0;
-            PC10, PC11 => 1;
-            PD8, PD9 => 3;
+            Tx: PB10, Rx: PB11 => 0;
+            Tx: PC10, Rx: PC11 => 1;
+            Tx: PD8,  Rx: PD9  => 3;
         ]
     }
 }
 
 macro_rules! remap {
-    ($PER:ty: [$($TX:ident, $RX:ident => $remap:literal;)+]) => {
+    ($PER:ty: [$(Tx: $TX:ident, Rx: $RX:ident => $remap:literal;)+]) => {
         pub enum Tx<Otype> {
             $(
                 $TX(gpio::$TX<Alternate<Otype>>),
