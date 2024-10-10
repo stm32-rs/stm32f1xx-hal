@@ -63,16 +63,16 @@ cfg_select! {
         pub mod monotonic;
         pub use monotonic::*;
     }
-    feature = "rtic2" => {
-        cfg_if! {any(
+    all(feature = "rtic2",
+        any(
             feature = "rtic-tim2",
             feature = "rtic-tim3",
             feature = "rtic-tim4",
             feature = "rtic-tim5"
-        ) => {
-            pub mod monotonics;
-            pub use monotonics::*;
-        }}
+        )
+    ) => {
+        pub mod monotonics;
+        pub use monotonics::*;
     }
     _ => {}
 }

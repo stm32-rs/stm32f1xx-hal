@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `embedded_io::Read` trait implemented for `serial`
 - `dac` example
 
+### Breaking changes
+
+- Remove `PULL` generic from `Input` mode [#512]
+  Remove `as_push_pull_output`, `as_opendrain_output` [#512]
+
+[#512]: https://github.com/stm32-rs/stm32f1xx-hal/pull/512
+
 ## [v0.11.0] - 2025-09-09
 
 ### Breaking changes
@@ -41,6 +48,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `spi::FrameSize` and `embedded-hal` 1.0 implementations
 - Backport `I2c` implementation from `f4xx-hal`
 - move `Qei` mod inside `pwm_input` mod [#516]
+- Take `&Clocks` instead of `Clocks` [#498]
 
 ### Changed
 
