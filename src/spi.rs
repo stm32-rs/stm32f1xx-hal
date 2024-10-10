@@ -124,8 +124,8 @@ pub mod spi1 {
 
     remap! {
         pac::SPI1: [
-            PA5, PA6, PA7 => MAPR: 0;
-            PB3, PB4, PB5  => MAPR: 1;
+            Sck: PA5, Miso: PA6, Mosi: PA7 => MAPR: 0;
+            Sck: PB3, Miso: PB4, Mosi: PB5 => MAPR: 1;
         ]
     }
 }
@@ -135,7 +135,7 @@ pub mod spi2 {
 
     remap! {
         pac::SPI2: [
-            PB13, PB14, PB15;
+            Sck: PB13, Miso: PB14, Mosi: PB15;
         ]
     }
 }
@@ -146,21 +146,21 @@ pub mod spi3 {
     #[cfg(not(feature = "connectivity"))]
     remap! {
         pac::SPI3: [
-            PB3, PB4, PB5;
+            Sck: PB3, Miso: PB4, Mosi: PB5;
         ]
     }
     #[cfg(feature = "connectivity")]
     remap! {
         pac::SPI3: [
-            PB3, PB4, PB5 => MAPR: 0;
-            PC10, PC11, PC12  => MAPR: 1;
+            Sck: PB3,  Miso: PB4,  Mosi: PB5  => MAPR: 0;
+            Sck: PC10, Miso: PC11, Mosi: PC12 => MAPR: 1;
         ]
     }
 }
 
 macro_rules! remap {
     ($PER:ty: [
-        $($SCK:ident, $MISO:ident, $MOSI:ident $( => $MAPR:ident: $remap:literal)?;)+
+        $(Sck: $SCK:ident, Miso: $MISO:ident, Mosi: $MOSI:ident $( => $MAPR:ident: $remap:literal)?;)+
     ]) => {
         pub enum Sck {
             $(

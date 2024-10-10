@@ -46,8 +46,8 @@ pub mod can1 {
 
     remap! {
         pac::CAN1: [
-            PA12, PA11 => 0;
-            PB9, PB8 => 2;
+            Tx: PA12, Rx: PA11 => 0;
+            Tx: PB9,  Rx: PB8  => 2;
         ]
     }
 }
@@ -58,14 +58,14 @@ pub mod can2 {
 
     remap! {
         pac::CAN2: [
-            PB6, PB5 => 0;
-            PB13, PB12 => 1;
+            Tx: PB6,  Rx: PB5  => 0;
+            Tx: PB13, Rx: PB12 => 1;
         ]
     }
 }
 
 macro_rules! remap {
-    ($PER:ty: [$($TX:ident, $RX:ident => $remap:literal;)+]) => {
+    ($PER:ty: [$(Tx: $TX:ident, Rx: $RX:ident => $remap:literal;)+]) => {
         pub enum Tx {
             $(
                 $TX(gpio::$TX<Alternate>),

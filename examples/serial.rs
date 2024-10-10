@@ -14,7 +14,7 @@ use cortex_m::asm;
 use nb::block;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{pac, prelude::*, serial::Config};
+use stm32f1xx_hal::{pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -34,33 +34,31 @@ fn main() -> ! {
     let mut afio = p.AFIO.constrain();
 
     // Prepare the GPIOB peripheral
-    let mut gpiob = p.GPIOB.split();
+    let gpiob = p.GPIOB.split();
 
     // USART1
-    // let tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
+    // let tx = gpioa.pa9;
     // let rx = gpioa.pa10;
 
     // USART1
-    // let tx = gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl);
+    // let tx = gpiob.pb6;
     // let rx = gpiob.pb7;
 
     // USART2
-    // let tx = gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl);
+    // let tx = gpioa.pa2;
     // let rx = gpioa.pa3;
 
     // USART3
     // Configure pb10 as a push_pull output, this will be the tx pin
-    let tx = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
+    let tx = gpiob.pb10;
     // Take ownership over pb11
     let rx = gpiob.pb11;
 
     // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let mut serial = p.USART3.serial(
-        (tx, rx, &mut afio.mapr),
-        Config::default().baudrate(9600.bps()),
-        &clocks,
-    );
+    let mut serial = p
+        .USART3
+        .serial((tx, rx, &mut afio.mapr), 9600.bps(), &clocks);
 
     // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';

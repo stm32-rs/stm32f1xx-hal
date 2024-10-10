@@ -7,11 +7,7 @@
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{
-    pac,
-    prelude::*,
-    timer::{pwm_input::*, Timer},
-};
+use stm32f1xx_hal::{pac, prelude::*, timer::pwm_input::*};
 
 #[entry]
 fn main() -> ! {
@@ -31,11 +27,11 @@ fn main() -> ! {
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
     let pb5 = gpiob.pb5;
 
-    let pwm_input = Timer::new(p.TIM3, &clocks).pwm_input(
-        (pb4, pb5),
-        &mut afio.mapr,
+    let pwm_input = p.TIM3.pwm_input(
+        (pb4, pb5, &mut afio.mapr),
         &mut dbg,
         Configuration::Frequency(10.kHz()),
+        &clocks,
     );
 
     loop {
