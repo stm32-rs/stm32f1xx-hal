@@ -20,12 +20,8 @@
 //! | RX       | PB5     | PB12  |
 
 use crate::afio::Remap;
-use crate::gpio::{self, Alternate, Cr, Floating, Input, NoPin, PinMode, PullUp, PushPull};
+use crate::gpio::{self, Alternate, Cr, Input, NoPin, PushPull};
 use crate::pac::{self, RCC};
-
-pub trait InMode {}
-impl InMode for Floating {}
-impl InMode for PullUp {}
 
 pub struct Pins<TX, RX> {
     pub tx: TX,
@@ -72,36 +68,32 @@ macro_rules! remap {
             )+
             None(NoPin<PushPull>),
         }
-        pub enum Rx<PULL> {
+        pub enum Rx {
             $(
-                $RX(gpio::$RX<Input<PULL>>),
+                $RX(gpio::$RX<Input>),
             )+
-            None(NoPin<PULL>),
+            None(NoPin<PushPull>),
         }
 
         $(
-            impl<PULL: InMode> From<(gpio::$TX<Alternate>, gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx<PULL>> {
-                fn from(p: (gpio::$TX<Alternate>, gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)) -> Self {
+            impl From<(gpio::$TX<Alternate>, gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx> {
+                fn from(p: (gpio::$TX<Alternate>, gpio::$RX, &mut <$PER as Remap>::Mapr)) -> Self {
                     <$PER>::remap(p.2, $remap);
                     Self { tx: Tx::$TX(p.0), rx: Rx::$RX(p.1) }
                 }
             }
 
-            impl<PULL> From<(gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx<PULL>>
-            where
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
+            impl From<(gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx> {
                 fn from(p: (gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)) -> Self {
                     let mut cr = Cr;
                     let tx = p.0.into_mode(&mut cr);
-                    let rx = p.1.into_mode(&mut cr);
+                    let rx = p.1;
                     <$PER>::remap(p.2, $remap);
                     Self { tx: Tx::$TX(tx), rx: Rx::$RX(rx) }
                 }
             }
 
-            impl From<(gpio::$TX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx<Floating>> {
+            impl From<(gpio::$TX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx> {
                 fn from(p: (gpio::$TX, &mut <$PER as Remap>::Mapr)) -> Self {
                     let tx = p.0.into_mode(&mut Cr);
                     <$PER>::remap(p.1, $remap);
@@ -109,13 +101,9 @@ macro_rules! remap {
                 }
             }
 
-            impl<PULL> From<(gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx<PULL>>
-            where
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
+            impl From<(gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx, Rx> {
                 fn from(p: (gpio::$RX, &mut <$PER as Remap>::Mapr)) -> Self {
-                    let rx = p.0.into_mode(&mut Cr);
+                    let rx = p.0;
                     <$PER>::remap(p.1, $remap);
                     Self { tx: Tx::None(NoPin::new()), rx: Rx::$RX(rx) }
                 }
@@ -129,20 +117,17 @@ pub trait CanExt: Sized + Instance {
     fn can(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-        pins: impl Into<Pins<Self::Tx, Self::Rx<Floating>>>,
-    ) -> Can<Self, Floating>;
-    fn can_loopback(
-        self,
-        #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-    ) -> Can<Self, Floating>;
+        pins: impl Into<Pins<Self::Tx, Self::Rx>>,
+    ) -> Can<Self>;
+    fn can_loopback(self, #[cfg(not(feature = "connectivity"))] usb: pac::USB) -> Can<Self>;
 }
 
 impl<CAN: Instance> CanExt for CAN {
     fn can(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-        pins: impl Into<Pins<Self::Tx, Self::Rx<Floating>>>,
-    ) -> Can<Self, Floating> {
+        pins: impl Into<Pins<Self::Tx, Self::Rx>>,
+    ) -> Can<Self> {
         Can::new(
             self,
             #[cfg(not(feature = "connectivity"))]
@@ -150,10 +135,7 @@ impl<CAN: Instance> CanExt for CAN {
             pins,
         )
     }
-    fn can_loopback(
-        self,
-        #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-    ) -> Can<Self, Floating> {
+    fn can_loopback(self, #[cfg(not(feature = "connectivity"))] usb: pac::USB) -> Can<Self> {
         Can::new_loopback(
             self,
             #[cfg(not(feature = "connectivity"))]
@@ -164,26 +146,26 @@ impl<CAN: Instance> CanExt for CAN {
 
 pub trait Instance: crate::rcc::Enable {
     type Tx;
-    type Rx<PULL>;
+    type Rx;
 }
 impl Instance for pac::CAN1 {
     type Tx = can1::Tx;
-    type Rx<PULL> = can1::Rx<PULL>;
+    type Rx = can1::Rx;
 }
 #[cfg(feature = "connectivity")]
 impl Instance for pac::CAN2 {
     type Tx = can2::Tx;
-    type Rx<PULL> = can2::Rx<PULL>;
+    type Rx = can2::Rx;
 }
 
 /// Interface to the CAN peripheral.
 #[allow(unused)]
-pub struct Can<CAN: Instance, PULL = Floating> {
+pub struct Can<CAN: Instance> {
     can: CAN,
-    pins: Option<Pins<CAN::Tx, CAN::Rx<PULL>>>,
+    pins: Option<Pins<CAN::Tx, CAN::Rx>>,
 }
 
-impl<CAN: Instance, PULL> Can<CAN, PULL> {
+impl<CAN: Instance> Can<CAN> {
     /// Creates a CAN interface.
     ///
     /// CAN shares SRAM with the USB peripheral. Take ownership of USB to
@@ -191,8 +173,8 @@ impl<CAN: Instance, PULL> Can<CAN, PULL> {
     pub fn new(
         can: CAN,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
-        pins: impl Into<Pins<CAN::Tx, CAN::Rx<PULL>>>,
-    ) -> Can<CAN, PULL> {
+        pins: impl Into<Pins<CAN::Tx, CAN::Rx>>,
+    ) -> Can<CAN> {
         let rcc = unsafe { &(*RCC::ptr()) };
         CAN::enable(rcc);
 
@@ -204,7 +186,7 @@ impl<CAN: Instance, PULL> Can<CAN, PULL> {
     pub fn new_loopback(
         can: CAN,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
-    ) -> Can<CAN, PULL> {
+    ) -> Can<CAN> {
         let rcc = unsafe { &(*RCC::ptr()) };
         CAN::enable(rcc);
 
@@ -212,18 +194,18 @@ impl<CAN: Instance, PULL> Can<CAN, PULL> {
     }
 }
 
-unsafe impl<PULL> bxcan::Instance for Can<pac::CAN1, PULL> {
+unsafe impl bxcan::Instance for Can<pac::CAN1> {
     const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN1::ptr() as *mut _;
 }
 
 #[cfg(feature = "connectivity")]
-unsafe impl<PULL> bxcan::Instance for Can<pac::CAN2, PULL> {
+unsafe impl bxcan::Instance for Can<pac::CAN2> {
     const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN2::ptr() as *mut _;
 }
 
-unsafe impl<PULL> bxcan::FilterOwner for Can<pac::CAN1, PULL> {
+unsafe impl bxcan::FilterOwner for Can<pac::CAN1> {
     const NUM_FILTER_BANKS: u8 = 28;
 }
 
 #[cfg(feature = "connectivity")]
-unsafe impl<PULL> bxcan::MasterInstance for Can<pac::CAN1, PULL> {}
+unsafe impl bxcan::MasterInstance for Can<pac::CAN1> {}
