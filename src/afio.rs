@@ -3,7 +3,7 @@ use crate::pac::{self, afio, AFIO, RCC};
 
 use crate::rcc::{Enable, Reset};
 
-use crate::gpio::{self, Alternate, Cr, Debugger, Floating, Input, OpenDrain, PushPull};
+use crate::gpio::{self, Alternate, Cr, Debugger, Input, OpenDrain, PushPull};
 use crate::sealed::Sealed;
 
 pub trait AfioExt {
@@ -279,7 +279,7 @@ pub trait CanCommon {
     /// Receive
     ///
     /// Input floating / Input pull-up
-    type Rx<PULL>;
+    type Rx;
 }
 
 #[cfg(feature = "has-can")]
@@ -294,7 +294,7 @@ pub mod can1 {
         ],
     }
     pin! {
-        <Rx, Input> default:Floating for [
+        <Rx, Input> for [
             PA11: [0],
             PB8:  [2],
             PD0:  [3],
@@ -307,7 +307,7 @@ pub mod can1 {
     use pac::CAN1;
     impl CanCommon for CAN1 {
         type Tx = Tx;
-        type Rx<PULL> = Rx<PULL>;
+        type Rx = Rx;
     }
 }
 
@@ -322,7 +322,7 @@ pub mod can2 {
         ],
     }
     pin! {
-        <Rx, Input> default:Floating for [
+        <Rx, Input> for [
             PB12: [0],
             PB5:  [1],
         ],
@@ -330,7 +330,7 @@ pub mod can2 {
 
     impl CanCommon for pac::CAN2 {
         type Tx = Tx;
-        type Rx<PULL> = Rx<PULL>;
+        type Rx = Rx;
     }
 }
 
@@ -406,7 +406,7 @@ pub trait SpiCommon {
     /// Master In
     ///
     /// Input floating / Input pull-up
-    type Mi<PULL>;
+    type Mi;
     /// Slave Out
     ///
     /// Alternate function push-pull / open drain
@@ -418,7 +418,7 @@ pub trait SpiCommon {
     /// Slave In
     ///
     /// Input floating / Input pull-up
-    type Si<PULL>;
+    type Si;
     /// HW Slave Select (output)
     ///
     /// Alternate function push-pull
@@ -426,30 +426,30 @@ pub trait SpiCommon {
     /// HW Slave Select (input)
     ///
     /// Input floating/ Input pull-up / Input pull-down
-    type Ss<PULL>;
+    type Ss;
 }
 
 pub mod spi1 {
     use super::*;
 
     pin! {
-        <Si, Input> default:Floating && <Mo, Alternate<PushPull>> for [
+        <Si, Input> && <Mo, Alternate<PushPull>> for [
             PA7: [0],
             PB5: [1],
         ],
-        <Ss, Input> default:Floating && <Nss, Alternate<PushPull>>  for [
+        <Ss, Input> && <Nss, Alternate<PushPull>>  for [
             PA4: [0],
             PA15: [1],
         ],
     }
     pin! {
-        <SSck, Input<Floating>> && <MSck, Alternate<PushPull>> for [
+        <SSck, Input> && <MSck, Alternate<PushPull>> for [
             PA5: [0],
             PB3: [1],
         ],
     }
     pin! {
-        <Mi, Input> default:Floating && <So, Alternate> default:PushPull for [
+        <Mi, Input> && <So, Alternate> default:PushPull for [
             PA6: [0],
             PB4: [1],
         ],
@@ -458,12 +458,12 @@ pub mod spi1 {
     impl SpiCommon for pac::SPI1 {
         type MSck = MSck;
         type SSck = SSck;
-        type Mi<PULL> = Mi<PULL>;
+        type Mi = Mi;
         type So<Otype> = So<Otype>;
         type Mo = Mo;
-        type Si<PULL> = Si<PULL>;
+        type Si = Si;
         type Nss = Nss;
-        type Ss<PULL> = Ss<PULL>;
+        type Ss = Ss;
     }
 }
 
@@ -471,20 +471,20 @@ pub mod spi2 {
     use super::*;
 
     pin! {
-        <Si, Input> default:Floating && <Mo, Alternate<PushPull>> for [
+        <Si, Input> && <Mo, Alternate<PushPull>> for [
             PB15: [0],
         ],
-        <Ss, Input> default:Floating && <Nss, Alternate<PushPull>> for [
+        <Ss, Input> && <Nss, Alternate<PushPull>> for [
             PB12: [0],
         ],
     }
     pin! {
-        <SSck, Input<Floating>> && <MSck, Alternate<PushPull>> for [
+        <SSck, Input> && <MSck, Alternate<PushPull>> for [
             PB13: [0],
         ],
     }
     pin! {
-        <Mi, Input> default:Floating && <So, Alternate> default:PushPull for [
+        <Mi, Input> && <So, Alternate> default:PushPull for [
             PB14: [0],
         ],
     }
@@ -492,12 +492,12 @@ pub mod spi2 {
     impl SpiCommon for pac::SPI2 {
         type MSck = MSck;
         type SSck = SSck;
-        type Mi<PULL> = Mi<PULL>;
+        type Mi = Mi;
         type So<Otype> = So<Otype>;
         type Mo = Mo;
-        type Si<PULL> = Si<PULL>;
+        type Si = Si;
         type Nss = Nss;
-        type Ss<PULL> = Ss<PULL>;
+        type Ss = Ss;
     }
 }
 #[cfg(any(feature = "high", feature = "connectivity"))]
@@ -506,47 +506,47 @@ pub mod spi3 {
 
     #[cfg(not(feature = "connectivity"))]
     pin! {
-        <Si, Input> default:Floating && <Mo, Alternate<PushPull>> for [
+        <Si, Input> && <Mo, Alternate<PushPull>> for [
             PB5: [0],
         ],
-        <Ss, Input> default:Floating && <Nss, Alternate<PushPull>> for [
+        <Ss, Input> && <Nss, Alternate<PushPull>> for [
             PA15: [0],
         ],
     }
     #[cfg(not(feature = "connectivity"))]
     pin! {
-        <SSck, Input<Floating>> && <MSck, Alternate<PushPull>> for [
+        <SSck, Input> && <MSck, Alternate<PushPull>> for [
             PB3: [0],
         ],
     }
     #[cfg(not(feature = "connectivity"))]
     pin! {
-        <Mi, Input> default:Floating && <So, Alternate> default:PushPull for [
+        <Mi, Input> && <So, Alternate> default:PushPull for [
             PB4: [0],
         ],
     }
 
     #[cfg(feature = "connectivity")]
     pin! {
-        <Si, Input> default:Floating && <Mo, Alternate<PushPull>> for [
+        <Si, Input> && <Mo, Alternate<PushPull>> for [
             PB5: [0],
             PC12: [1],
         ],
-        <Ss, Input> default:Floating && <Nss, Alternate<PushPull>> for [
+        <Ss, Input> && <Nss, Alternate<PushPull>> for [
             PA15: [0],
             PA4: [1],
         ],
     }
     #[cfg(feature = "connectivity")]
     pin! {
-        <SSck, Input<Floating>> && <MSck, Alternate<PushPull>> for [
+        <SSck, Input> && <MSck, Alternate<PushPull>> for [
             PB3: [0],
             PC10: [1],
         ],
     }
     #[cfg(feature = "connectivity")]
     pin! {
-        <Mi, Input> default:Floating && <So, Alternate> default:PushPull for [
+        <Mi, Input> && <So, Alternate> default:PushPull for [
             PB4: [0],
             PC11: [1],
         ],
@@ -555,12 +555,12 @@ pub mod spi3 {
     impl SpiCommon for pac::SPI3 {
         type MSck = MSck;
         type SSck = SSck;
-        type Mi<PULL> = Mi<PULL>;
+        type Mi = Mi;
         type So<Otype> = So<Otype>;
         type Mo = Mo;
-        type Si<PULL> = Si<PULL>;
+        type Si = Si;
         type Nss = Nss;
-        type Ss<PULL> = Ss<PULL>;
+        type Ss = Ss;
     }
 }
 
@@ -569,7 +569,7 @@ pub trait SerialAsync {
     /// Receive
     ///
     /// Input floating / Input pull-up
-    type Rx<PULL>;
+    type Rx;
     /// Transmit
     ///
     /// Alternate function push-pull / open drain
@@ -586,7 +586,7 @@ pub trait SerialFlowControl {
     /// "Clear To Send" blocks the data transmission at the end of the current transfer when high
     ///
     /// Input floating/ Input pull-up
-    type Cts<PULL>;
+    type Cts;
     /// "Request to send" indicates that the USART is ready to receive a data (when low)
     ///
     /// Alternate function push-pull
@@ -603,11 +603,11 @@ pub mod usart1 {
         ],
     }
     pin! {
-        <Rx, Input> default:Floating for [
+        <Rx, Input> for [
             PA10: [0],
             PB7:  [1],
         ],
-        <Cts, Input> default:Floating for [
+        <Cts, Input> for [
             PA11: [0, 1],
         ],
     }
@@ -622,7 +622,7 @@ pub mod usart1 {
     }
 
     impl SerialAsync for pac::USART1 {
-        type Rx<PULL> = Rx<PULL>;
+        type Rx = Rx;
         type Tx<Otype> = Tx<Otype>;
     }
 
@@ -631,7 +631,7 @@ pub mod usart1 {
     }
 
     impl SerialFlowControl for pac::USART1 {
-        type Cts<PULL> = Cts<PULL>;
+        type Cts = Cts;
         type Rts = Rts;
     }
 }
@@ -646,11 +646,11 @@ pub mod usart2 {
         ],
     }
     pin! {
-        <Rx, Input> default:Floating for [
+        <Rx, Input> for [
             PA3: [0],
             PD6:  [1],
         ],
-        <Cts, Input> default:Floating for [
+        <Cts, Input> for [
             PA0: [0],
             PD3: [1],
         ],
@@ -668,7 +668,7 @@ pub mod usart2 {
     }
 
     impl SerialAsync for pac::USART2 {
-        type Rx<PULL> = Rx<PULL>;
+        type Rx = Rx;
         type Tx<Otype> = Tx<Otype>;
     }
 
@@ -677,7 +677,7 @@ pub mod usart2 {
     }
 
     impl SerialFlowControl for pac::USART2 {
-        type Cts<PULL> = Cts<PULL>;
+        type Cts = Cts;
         type Rts = Rts;
     }
 }
@@ -693,12 +693,12 @@ pub mod usart3 {
         ],
     }
     pin! {
-        <Rx, Input> default:Floating for [
+        <Rx, Input> for [
             PB11: [0],
             PC11: [1],
             PD9:  [3],
         ],
-        <Cts, Input> default:Floating for [
+        <Cts, Input> for [
             PB13: [0, 1],
             PD11: [3],
         ],
@@ -717,7 +717,7 @@ pub mod usart3 {
     }
 
     impl SerialAsync for pac::USART3 {
-        type Rx<PULL> = Rx<PULL>;
+        type Rx = Rx;
         type Tx<Otype> = Tx<Otype>;
     }
 
@@ -726,7 +726,7 @@ pub mod usart3 {
     }
 
     impl SerialFlowControl for pac::USART3 {
-        type Cts<PULL> = Cts<PULL>;
+        type Cts = Cts;
         type Rts = Rts;
     }
 }
@@ -741,13 +741,13 @@ pub mod uart4 {
         ],
     }
     pin! {
-        <Rx, Input> default:Floating for [
+        <Rx, Input> for [
             PC11: [0],
         ],
     }
 
     impl SerialAsync for pac::UART4 {
-        type Rx<PULL> = Rx<PULL>;
+        type Rx = Rx;
         type Tx<Otype> = Tx<Otype>;
     }
 }
@@ -762,13 +762,13 @@ pub mod uart5 {
         ],
     }
     pin! {
-        <Rx, Input> default:Floating for [
+        <Rx, Input> for [
             PD2: [0],
         ],
     }
 
     impl SerialAsync for pac::UART5 {
-        type Rx<PULL> = Rx<PULL>;
+        type Rx = Rx;
         type Tx<Otype> = Tx<Otype>;
     }
 }
@@ -810,30 +810,30 @@ pub mod tim1 {
     use super::*;
 
     pin! {
-        <Etr, Input<Floating>> for [
+        <Etr, Input> for [
             PA12: [0, 1],
             PE7:  [3],
         ],
-        <Bkin, Input<Floating>> for [
+        <Bkin, Input> for [
             PB12: [0],
             PA6:  [1],
             PE15: [3],
         ],
     }
     pin! {
-        <Ch1In, Input<Floating>> && <Ch1Out, Alternate<PushPull>> for [
+        <Ch1In, Input> && <Ch1Out, Alternate<PushPull>> for [
             PA8:  [0, 1],
             PE9:  [3],
         ],
-        <Ch2In, Input<Floating>> && <Ch2Out, Alternate<PushPull>> for [
+        <Ch2In, Input> && <Ch2Out, Alternate<PushPull>> for [
             PA9:  [0, 1],
             PE11: [3],
         ],
-        <Ch3In, Input<Floating>> && <Ch3Out, Alternate<PushPull>> for [
+        <Ch3In, Input> && <Ch3Out, Alternate<PushPull>> for [
             PA10: [0, 1],
             PE13: [3],
         ],
-        <Ch4In, Input<Floating>> && <Ch4Out, Alternate<PushPull>> for [
+        <Ch4In, Input> && <Ch4Out, Alternate<PushPull>> for [
             PA11: [0, 1],
             PE14: [3],
         ],
@@ -895,25 +895,25 @@ pub mod tim2 {
     use super::*;
 
     pin! {
-        <Etr, Input<Floating>> for [
+        <Etr, Input> for [
             PA0:  [0, 2],
             PA15: [1, 3],
         ],
     }
     pin! {
-        <Ch1In, Input<Floating>> && <Ch1Out, Alternate<PushPull>> for [
+        <Ch1In, Input> && <Ch1Out, Alternate<PushPull>> for [
             PA0:  [0, 2],
             PA15: [1, 3],
         ],
-        <Ch2In, Input<Floating>> && <Ch2Out, Alternate<PushPull>> for [
+        <Ch2In, Input> && <Ch2Out, Alternate<PushPull>> for [
             PA1:  [0, 2],
             PB3:  [1, 3],
         ],
-        <Ch3In, Input<Floating>> && <Ch3Out, Alternate<PushPull>> for [
+        <Ch3In, Input> && <Ch3Out, Alternate<PushPull>> for [
             PA2:  [0, 1],
             PB10: [2, 3],
         ],
-        <Ch4In, Input<Floating>> && <Ch4Out, Alternate<PushPull>> for [
+        <Ch4In, Input> && <Ch4Out, Alternate<PushPull>> for [
             PA3:  [0, 1],
             PB11: [2, 3],
         ],
@@ -945,26 +945,26 @@ pub mod tim3 {
     use super::*;
 
     pin! {
-        <Etr, Input<Floating>> for [
+        <Etr, Input> for [
             PD2:  [0, 2, 3],
         ],
     }
     pin! {
-        <Ch1In, Input<Floating>> && <Ch1Out, Alternate<PushPull>> for [
+        <Ch1In, Input> && <Ch1Out, Alternate<PushPull>> for [
             PA6:  [0],
             PB4:  [2],
             PC6:  [3],
         ],
-        <Ch2In, Input<Floating>> && <Ch2Out, Alternate<PushPull>> for [
+        <Ch2In, Input> && <Ch2Out, Alternate<PushPull>> for [
             PA7:  [0],
             PB5:  [2],
             PC7:  [3],
         ],
-        <Ch3In, Input<Floating>> && <Ch3Out, Alternate<PushPull>> for [
+        <Ch3In, Input> && <Ch3Out, Alternate<PushPull>> for [
             PB0:  [0, 2],
             PC8:  [3],
         ],
-        <Ch4In, Input<Floating>> && <Ch4Out, Alternate<PushPull>> for [
+        <Ch4In, Input> && <Ch4Out, Alternate<PushPull>> for [
             PB1:  [0, 2],
             PC9:  [3],
         ],
@@ -996,24 +996,24 @@ pub mod tim4 {
     use super::*;
 
     pin! {
-        <Etr, Input<Floating>> for [
+        <Etr, Input> for [
             PE0:  [0, 1],
         ],
     }
     pin! {
-        <Ch1In, Input<Floating>> && <Ch1Out, Alternate<PushPull>> for [
+        <Ch1In, Input> && <Ch1Out, Alternate<PushPull>> for [
             PB6:  [0],
             PD12: [1],
         ],
-        <Ch2In, Input<Floating>> && <Ch2Out, Alternate<PushPull>> for [
+        <Ch2In, Input> && <Ch2Out, Alternate<PushPull>> for [
             PB7:  [0],
             PD13: [1],
         ],
-        <Ch3In, Input<Floating>> && <Ch3Out, Alternate<PushPull>> for [
+        <Ch3In, Input> && <Ch3Out, Alternate<PushPull>> for [
             PB8:  [0],
             PD14: [1],
         ],
-        <Ch4In, Input<Floating>> && <Ch4Out, Alternate<PushPull>> for [
+        <Ch4In, Input> && <Ch4Out, Alternate<PushPull>> for [
             PB9:  [0],
             PD15: [1],
         ],
@@ -1133,11 +1133,11 @@ macro_rules! pin_default_mode {
 use pin_default_mode;
 
 macro_rules! pin {
-    ( $($(#[$docs:meta])* <$name:ident, Input<$MODE:ident>> && <$name2:ident, Alternate<$MODE2:ident>> for [$(
+    ( $($(#[$docs:meta])* <$name:ident, Input> && <$name2:ident, Alternate<$MODE2:ident>> for [$(
         $PX:ident: [$($remap:literal),+],
     )*],)*) => {
         pin! {
-            $($(#[$docs])* <$name, Input<$MODE>> for [$(
+            $($(#[$docs])* <$name, Input> for [$(
                 $PX: [$($remap),+],
             )*],)*
         }
@@ -1148,26 +1148,11 @@ macro_rules! pin {
         }
     };
 
-    ( $($(#[$docs:meta])* <$name:ident, Input> default:$DefaultMode:ident && <$name2:ident, Alternate<$MODE2:ident>> for [$(
+    ( $($(#[$docs:meta])* <$name:ident, Input> && <$name2:ident, Alternate> default:$DefaultMode2:ident for [$(
         $PX:ident: [$($remap:literal),+],
     )*],)*) => {
         pin! {
-            $($(#[$docs])* <$name, Input> default:$DefaultMode for [$(
-                $PX: [$($remap),+],
-            )*],)*
-        }
-        pin! {
-            $($(#[$docs])* <$name2, Alternate<$MODE2>> for [$(
-                $PX: [$($remap),+],
-            )*],)*
-        }
-    };
-
-    ( $($(#[$docs:meta])* <$name:ident, Input> default:$DefaultMode:ident && <$name2:ident, Alternate> default:$DefaultMode2:ident for [$(
-        $PX:ident: [$($remap:literal),+],
-    )*],)*) => {
-        pin! {
-            $($(#[$docs])* <$name, Input> default:$DefaultMode for [$(
+            $($(#[$docs])* <$name, Input> for [$(
                 $PX: [$($remap),+],
             )*],)*
         }
@@ -1178,11 +1163,11 @@ macro_rules! pin {
         }
     };
 
-    ( $($(#[$docs:meta])* <$name:ident, Input<$MODE:ident>> for [$(
+    ( $($(#[$docs:meta])* <$name:ident, Input> for [$(
         $PX:ident: [$($remap:literal),+],
     )*],)*) => {
         pin_mode! {
-            $($(#[$docs])* <$name, Input<$MODE>> for [$(
+            $($(#[$docs])* <$name, Input> for [$(
                 $PX: [$($remap),+],
             )*],)*
         }
@@ -1207,15 +1192,6 @@ macro_rules! pin {
                 )+
             )*
         )*
-    };
-    ( $($(#[$docs:meta])* <$name:ident, Input> default:$DefaultMode:ident for [$(
-        $PX:ident: [$($remap:literal),+],
-    )*],)*) => {
-        pin_default_mode! {
-            $($(#[$docs])* <$name, Input> default:$DefaultMode for [$(
-                $PX: [$($remap),+],
-            )*],)*
-        }
     };
     ( $($(#[$docs:meta])* <$name:ident, Alternate> default:$DefaultMode:ident for [$(
         $PX:ident: [$($remap:literal),+],

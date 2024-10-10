@@ -57,7 +57,7 @@ macro_rules! impl_pxx {
             }
         }
 
-        impl<MODE> ErasedPin<Input<MODE>> {
+        impl ErasedPin<Input> {
             pub fn is_high(&self) -> bool {
                 match self {
                     $(Self::$pin(pin) => pin.is_high()),*

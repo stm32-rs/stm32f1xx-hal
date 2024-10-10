@@ -30,7 +30,7 @@ impl From<Mode> for super::Mode {
     }
 }
 
-impl<SPI, W, PULL> spi::FullDuplex<W> for Spi<SPI, W, PULL>
+impl<SPI, W> spi::FullDuplex<W> for Spi<SPI, W>
 where
     SPI: Instance,
     W: FrameSize,
@@ -46,14 +46,14 @@ where
     }
 }
 
-impl<SPI, W, PULL> blocking::transfer::Default<W> for Spi<SPI, W, PULL>
+impl<SPI, W> blocking::transfer::Default<W> for Spi<SPI, W>
 where
     SPI: Instance,
     W: FrameSize,
 {
 }
 
-impl<SPI: Instance, PULL> blocking::Write<u8> for Spi<SPI, u8, PULL> {
+impl<SPI: Instance> blocking::Write<u8> for Spi<SPI, u8> {
     type Error = Error;
 
     fn write(&mut self, words: &[u8]) -> Result<(), Error> {
@@ -61,7 +61,7 @@ impl<SPI: Instance, PULL> blocking::Write<u8> for Spi<SPI, u8, PULL> {
     }
 }
 
-impl<SPI: Instance, PULL> blocking::Write<u16> for Spi<SPI, u16, PULL> {
+impl<SPI: Instance> blocking::Write<u16> for Spi<SPI, u16> {
     type Error = Error;
 
     fn write(&mut self, words: &[u16]) -> Result<(), Error> {

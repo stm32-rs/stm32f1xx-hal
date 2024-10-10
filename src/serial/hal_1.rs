@@ -25,7 +25,7 @@ mod nb {
         type Error = Error;
     }
 
-    impl<USART: Instance, Otype, PULL> ErrorType for Serial<USART, Otype, PULL> {
+    impl<USART: Instance, Otype> ErrorType for Serial<USART, Otype> {
         type Error = Error;
     }
 
@@ -62,7 +62,7 @@ mod nb {
         }
     }
 
-    impl<USART: Instance, Otype, PULL> serial::Write<u8> for Serial<USART, Otype, PULL> {
+    impl<USART: Instance, Otype> serial::Write<u8> for Serial<USART, Otype> {
         fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
             self.tx.write_u8(word).unwrap();
             Ok(())
@@ -74,7 +74,7 @@ mod nb {
         }
     }
 
-    impl<USART: Instance, Otype, PULL> serial::Write<u16> for Serial<USART, Otype, PULL> {
+    impl<USART: Instance, Otype> serial::Write<u16> for Serial<USART, Otype> {
         fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
             self.tx.write_u16(word).unwrap();
             Ok(())
@@ -86,13 +86,13 @@ mod nb {
         }
     }
 
-    impl<USART: Instance, Otype, PULL> serial::Read<u8> for Serial<USART, Otype, PULL> {
+    impl<USART: Instance, Otype> serial::Read<u8> for Serial<USART, Otype> {
         fn read(&mut self) -> nb::Result<u8, Error> {
             self.rx.read()
         }
     }
 
-    impl<USART: Instance, Otype, PULL> serial::Read<u16> for Serial<USART, Otype, PULL> {
+    impl<USART: Instance, Otype> serial::Read<u16> for Serial<USART, Otype> {
         fn read(&mut self) -> nb::Result<u16, Error> {
             self.rx.read_u16()
         }
@@ -110,7 +110,7 @@ mod io {
         }
     }
 
-    impl<USART: Instance, Otype, PULL> embedded_io::ErrorType for Serial<USART, Otype, PULL> {
+    impl<USART: Instance, Otype> embedded_io::ErrorType for Serial<USART, Otype> {
         type Error = Error;
     }
 
@@ -160,7 +160,7 @@ mod io {
         }
     }
 
-    impl<USART: Instance, Otype, PULL> Read for Serial<USART, Otype, PULL>
+    impl<USART: Instance, Otype> Read for Serial<USART, Otype>
     where
         Rx<USART>: Read<Error = Error>,
     {
@@ -176,7 +176,7 @@ mod io {
         }
     }
 
-    impl<USART: Instance, Otype, PULL> Write for Serial<USART, Otype, PULL>
+    impl<USART: Instance, Otype> Write for Serial<USART, Otype>
     where
         Tx<USART>: Write<Error = Error>,
     {

@@ -72,7 +72,7 @@ use core::ops::{Deref, DerefMut};
 use crate::pac::{self, RCC};
 
 use crate::afio::{self, RInto, Rmp};
-use crate::gpio::{Floating, PushPull, UpMode};
+use crate::gpio::PushPull;
 use crate::rcc::{BusClock, Rcc};
 use crate::time::Hertz;
 
@@ -163,83 +163,83 @@ use core::marker::PhantomData;
 #[allow(non_upper_case_globals)]
 pub trait SpiExt: Sized + Instance {
     const NoSck: Option<Self::MSck> = None;
-    const NoMiso: Option<Self::Mi<Floating>> = None;
+    const NoMiso: Option<Self::Mi> = None;
     const NoMosi: Option<Self::Mo> = None;
     const NoSSck: Option<Self::SSck> = None;
     const NoSo: Option<Self::So<PushPull>> = None;
-    const NoSi: Option<Self::Si<Floating>> = None;
-    fn spi<PULL: UpMode>(
+    const NoSi: Option<Self::Si> = None;
+    fn spi(
         self,
         pins: (
             Option<impl RInto<Self::MSck, 0>>,
-            Option<impl RInto<Self::Mi<PULL>, 0>>,
+            Option<impl RInto<Self::Mi, 0>>,
             Option<impl RInto<Self::Mo, 0>>,
         ),
         mode: Mode,
         freq: Hertz,
         rcc: &mut Rcc,
-    ) -> Spi<Self, u8, PULL>;
-    fn spi_u16<PULL: UpMode>(
+    ) -> Spi<Self, u8>;
+    fn spi_u16(
         self,
         pins: (
             Option<impl RInto<Self::MSck, 0>>,
-            Option<impl RInto<Self::Mi<PULL>, 0>>,
+            Option<impl RInto<Self::Mi, 0>>,
             Option<impl RInto<Self::Mo, 0>>,
         ),
         mode: Mode,
         freq: Hertz,
         rcc: &mut Rcc,
-    ) -> Spi<Self, u16, PULL> {
+    ) -> Spi<Self, u16> {
         Self::spi(self, pins, mode, freq, rcc).frame_size_16bit()
     }
-    fn spi_slave<Otype, PULL: UpMode>(
+    fn spi_slave<Otype>(
         self,
         pins: (
             Option<impl RInto<Self::SSck, 0>>,
             Option<impl RInto<Self::So<Otype>, 0>>,
-            Option<impl RInto<Self::Si<PULL>, 0>>,
+            Option<impl RInto<Self::Si, 0>>,
         ),
         mode: Mode,
         rcc: &mut RCC,
-    ) -> SpiSlave<Self, u8, Otype, PULL>;
-    fn spi_slave_u16<Otype, PULL: UpMode>(
+    ) -> SpiSlave<Self, u8, Otype>;
+    fn spi_slave_u16<Otype>(
         self,
         pins: (
             Option<impl RInto<Self::SSck, 0>>,
             Option<impl RInto<Self::So<Otype>, 0>>,
-            Option<impl RInto<Self::Si<PULL>, 0>>,
+            Option<impl RInto<Self::Si, 0>>,
         ),
         mode: Mode,
         rcc: &mut RCC,
-    ) -> SpiSlave<Self, u16, Otype, PULL> {
+    ) -> SpiSlave<Self, u16, Otype> {
         Self::spi_slave(self, pins, mode, rcc).frame_size_16bit()
     }
 }
 
 impl<SPI: Instance> SpiExt for SPI {
-    fn spi<PULL: UpMode>(
+    fn spi(
         self,
         pins: (
             Option<impl RInto<Self::MSck, 0>>,
-            Option<impl RInto<Self::Mi<PULL>, 0>>,
+            Option<impl RInto<Self::Mi, 0>>,
             Option<impl RInto<Self::Mo, 0>>,
         ),
         mode: Mode,
         freq: Hertz,
         rcc: &mut Rcc,
-    ) -> Spi<Self, u8, PULL> {
+    ) -> Spi<Self, u8> {
         Spi::new(self, pins, mode, freq, rcc)
     }
-    fn spi_slave<Otype, PULL: UpMode>(
+    fn spi_slave<Otype>(
         self,
         pins: (
             Option<impl RInto<Self::SSck, 0>>,
             Option<impl RInto<Self::So<Otype>, 0>>,
-            Option<impl RInto<Self::Si<PULL>, 0>>,
+            Option<impl RInto<Self::Si, 0>>,
         ),
         mode: Mode,
         rcc: &mut RCC,
-    ) -> SpiSlave<Self, u8, Otype, PULL> {
+    ) -> SpiSlave<Self, u8, Otype> {
         SpiSlave::new(self, pins, mode, rcc)
     }
 }
@@ -259,44 +259,40 @@ impl<SPI, W> SpiInner<SPI, W> {
 }
 
 /// Spi in Master mode
-pub struct Spi<SPI: Instance, W, PULL = Floating> {
+pub struct Spi<SPI: Instance, W> {
     inner: SpiInner<SPI, W>,
     #[allow(clippy::type_complexity)]
-    pins: (Option<SPI::MSck>, Option<SPI::Mi<PULL>>, Option<SPI::Mo>),
+    pins: (Option<SPI::MSck>, Option<SPI::Mi>, Option<SPI::Mo>),
 }
 
 /// Spi in Slave mode
-pub struct SpiSlave<SPI: Instance, W, Otype = PushPull, PULL = Floating> {
+pub struct SpiSlave<SPI: Instance, W, Otype = PushPull> {
     inner: SpiInner<SPI, W>,
     #[allow(clippy::type_complexity)]
-    pins: (
-        Option<SPI::SSck>,
-        Option<SPI::So<Otype>>,
-        Option<SPI::Si<PULL>>,
-    ),
+    pins: (Option<SPI::SSck>, Option<SPI::So<Otype>>, Option<SPI::Si>),
 }
 
-impl<SPI: Instance, W, PULL> Deref for Spi<SPI, W, PULL> {
+impl<SPI: Instance, W> Deref for Spi<SPI, W> {
     type Target = SpiInner<SPI, W>;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<SPI: Instance, W, PULL> DerefMut for Spi<SPI, W, PULL> {
+impl<SPI: Instance, W> DerefMut for Spi<SPI, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl<SPI: Instance, W, Otype, PULL> Deref for SpiSlave<SPI, W, Otype, PULL> {
+impl<SPI: Instance, W, Otype> Deref for SpiSlave<SPI, W, Otype> {
     type Target = SpiInner<SPI, W>;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<SPI: Instance, W, Otype, PULL> DerefMut for SpiSlave<SPI, W, Otype, PULL> {
+impl<SPI: Instance, W, Otype> DerefMut for SpiSlave<SPI, W, Otype> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -322,17 +318,17 @@ impl Instance for pac::SPI2 {}
 impl Instance for pac::SPI3 {}
 
 impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
-    pub fn spi<PULL: UpMode>(
+    pub fn spi(
         self,
         pins: (
             Option<impl RInto<SPI::MSck, R>>,
-            Option<impl RInto<SPI::Mi<PULL>, R>>,
+            Option<impl RInto<SPI::Mi, R>>,
             Option<impl RInto<SPI::Mo, R>>,
         ),
         mode: Mode,
         freq: Hertz,
         rcc: &mut Rcc,
-    ) -> Spi<SPI, u8, PULL> {
+    ) -> Spi<SPI, u8> {
         let spi = self.0;
         // enable or reset SPI
         SPI::enable(rcc);
@@ -389,29 +385,29 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
             pins,
         }
     }
-    pub fn spi_u16<PULL: UpMode>(
+    pub fn spi_u16(
         self,
         pins: (
             Option<impl RInto<SPI::MSck, R>>,
-            Option<impl RInto<SPI::Mi<PULL>, R>>,
+            Option<impl RInto<SPI::Mi, R>>,
             Option<impl RInto<SPI::Mo, R>>,
         ),
         mode: Mode,
         freq: Hertz,
         rcc: &mut Rcc,
-    ) -> Spi<SPI, u16, PULL> {
+    ) -> Spi<SPI, u16> {
         self.spi(pins, mode, freq, rcc).frame_size_16bit()
     }
-    pub fn spi_slave<Otype, PULL: UpMode>(
+    pub fn spi_slave<Otype>(
         self,
         pins: (
             Option<impl RInto<SPI::SSck, R>>,
             Option<impl RInto<SPI::So<Otype>, R>>,
-            Option<impl RInto<SPI::Si<PULL>, R>>,
+            Option<impl RInto<SPI::Si, R>>,
         ),
         mode: Mode,
         rcc: &mut RCC,
-    ) -> SpiSlave<SPI, u8, Otype, PULL> {
+    ) -> SpiSlave<SPI, u8, Otype> {
         let spi = self.0;
         // enable or reset SPI
         SPI::enable(rcc);
@@ -454,21 +450,21 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
             pins,
         }
     }
-    pub fn spi_slave_u16<Otype, PULL: UpMode>(
+    pub fn spi_slave_u16<Otype>(
         self,
         pins: (
             Option<impl RInto<SPI::SSck, R>>,
             Option<impl RInto<SPI::So<Otype>, R>>,
-            Option<impl RInto<SPI::Si<PULL>, R>>,
+            Option<impl RInto<SPI::Si, R>>,
         ),
         mode: Mode,
         rcc: &mut RCC,
-    ) -> SpiSlave<SPI, u16, Otype, PULL> {
+    ) -> SpiSlave<SPI, u16, Otype> {
         self.spi_slave(pins, mode, rcc).frame_size_16bit()
     }
 }
 
-impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
+impl<SPI: Instance> Spi<SPI, u8> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
@@ -480,7 +476,7 @@ impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
         spi: impl Into<Rmp<SPI, R>>,
         pins: (
             Option<impl RInto<SPI::MSck, R>>,
-            Option<impl RInto<SPI::Mi<PULL>, R>>,
+            Option<impl RInto<SPI::Mi, R>>,
             Option<impl RInto<SPI::Mo, R>>,
         ),
         mode: Mode,
@@ -491,23 +487,18 @@ impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
     }
 }
 
-impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
+impl<SPI: Instance> Spi<SPI, u8> {
     #[allow(clippy::type_complexity)]
-    pub fn release(
-        self,
-    ) -> (
-        SPI,
-        (Option<SPI::MSck>, Option<SPI::Mi<PULL>>, Option<SPI::Mo>),
-    ) {
+    pub fn release(self) -> (SPI, (Option<SPI::MSck>, Option<SPI::Mi>, Option<SPI::Mo>)) {
         (self.inner.spi, self.pins)
     }
 }
 
-impl<SPI: Instance, Otype, PULL: UpMode> SpiSlave<SPI, u8, Otype, PULL> {
+impl<SPI: Instance, Otype> SpiSlave<SPI, u8, Otype> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
-      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Input<Floating>, Alternate<...>, Input<...>)`.
+      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Input, Alternate<...>, Input<...>)`.
 
       You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
     */
@@ -516,7 +507,7 @@ impl<SPI: Instance, Otype, PULL: UpMode> SpiSlave<SPI, u8, Otype, PULL> {
         pins: (
             Option<impl RInto<SPI::SSck, R>>,
             Option<impl RInto<SPI::So<Otype>, R>>,
-            Option<impl RInto<SPI::Si<PULL>, R>>,
+            Option<impl RInto<SPI::Si, R>>,
         ),
         mode: Mode,
         rcc: &mut RCC,
@@ -525,17 +516,13 @@ impl<SPI: Instance, Otype, PULL: UpMode> SpiSlave<SPI, u8, Otype, PULL> {
     }
 }
 
-impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
+impl<SPI: Instance, Otype> SpiSlave<SPI, u8, Otype> {
     #[allow(clippy::type_complexity)]
     pub fn release(
         self,
     ) -> (
         SPI,
-        (
-            Option<SPI::SSck>,
-            Option<SPI::So<Otype>>,
-            Option<SPI::Si<PULL>>,
-        ),
+        (Option<SPI::SSck>, Option<SPI::So<Otype>>, Option<SPI::Si>),
     ) {
         (self.inner.spi, self.pins)
     }
@@ -626,9 +613,9 @@ impl<SPI: Instance, W> SpiInner<SPI, W> {
     }
 }
 
-impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
+impl<SPI: Instance> Spi<SPI, u8> {
     /// Converts from 8bit dataframe to 16bit.
-    pub fn frame_size_16bit(self) -> Spi<SPI, u16, PULL> {
+    pub fn frame_size_16bit(self) -> Spi<SPI, u16> {
         self.spi.cr1().modify(|_, w| w.spe().clear_bit());
         self.spi.cr1().modify(|_, w| w.dff().set_bit());
         self.spi.cr1().modify(|_, w| w.spe().set_bit());
@@ -639,9 +626,9 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
     }
 }
 
-impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
+impl<SPI: Instance, Otype> SpiSlave<SPI, u8, Otype> {
     /// Converts from 8bit dataframe to 16bit.
-    pub fn frame_size_16bit(self) -> SpiSlave<SPI, u16, Otype, PULL> {
+    pub fn frame_size_16bit(self) -> SpiSlave<SPI, u16, Otype> {
         self.spi.cr1().modify(|_, w| w.spe().clear_bit());
         self.spi.cr1().modify(|_, w| w.dff().set_bit());
         self.spi.cr1().modify(|_, w| w.spe().set_bit());
@@ -652,9 +639,9 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
     }
 }
 
-impl<SPI: Instance, PULL> Spi<SPI, u16, PULL> {
+impl<SPI: Instance> Spi<SPI, u16> {
     /// Converts from 16bit dataframe to 8bit.
-    pub fn frame_size_8bit(self) -> Spi<SPI, u16, PULL> {
+    pub fn frame_size_8bit(self) -> Spi<SPI, u16> {
         self.spi.cr1().modify(|_, w| w.spe().clear_bit());
         self.spi.cr1().modify(|_, w| w.dff().clear_bit());
         self.spi.cr1().modify(|_, w| w.spe().set_bit());
@@ -665,9 +652,9 @@ impl<SPI: Instance, PULL> Spi<SPI, u16, PULL> {
     }
 }
 
-impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u16, Otype, PULL> {
+impl<SPI: Instance, Otype> SpiSlave<SPI, u16, Otype> {
     /// Converts from 16bit dataframe to 8bit.
-    pub fn frame_size_8bit(self) -> SpiSlave<SPI, u8, Otype, PULL> {
+    pub fn frame_size_8bit(self) -> SpiSlave<SPI, u8, Otype> {
         self.spi.cr1().modify(|_, w| w.spe().clear_bit());
         self.spi.cr1().modify(|_, w| w.dff().clear_bit());
         self.spi.cr1().modify(|_, w| w.spe().set_bit());

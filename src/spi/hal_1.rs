@@ -38,7 +38,7 @@ impl embedded_hal::spi::Error for Error {
     }
 }
 
-impl<SPI: Instance, W, PULL> ErrorType for Spi<SPI, W, PULL> {
+impl<SPI: Instance, W> ErrorType for Spi<SPI, W> {
     type Error = Error;
 }
 
@@ -46,7 +46,7 @@ mod nb {
     use super::{Error, FrameSize, Instance, Spi};
     use embedded_hal_nb::spi::FullDuplex;
 
-    impl<SPI, W, PULL> FullDuplex<W> for Spi<SPI, W, PULL>
+    impl<SPI, W> FullDuplex<W> for Spi<SPI, W>
     where
         SPI: Instance,
         W: FrameSize,
@@ -66,7 +66,7 @@ mod blocking {
     use core::ops::DerefMut;
     use embedded_hal::spi::SpiBus;
 
-    impl<SPI: Instance, W, PULL> SpiBus<W> for Spi<SPI, W, PULL>
+    impl<SPI: Instance, W> SpiBus<W> for Spi<SPI, W>
     where
         SPI: Instance,
         W: FrameSize + 'static,

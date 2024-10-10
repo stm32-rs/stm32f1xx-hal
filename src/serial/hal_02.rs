@@ -41,7 +41,7 @@ impl<USART: Instance> serial::Read<u16> for Rx<USART> {
     }
 }
 
-impl<USART: Instance, Otype, PULL> serial::Write<u8> for Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> serial::Write<u8> for Serial<USART, Otype> {
     type Error = Error;
 
     fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
@@ -53,7 +53,7 @@ impl<USART: Instance, Otype, PULL> serial::Write<u8> for Serial<USART, Otype, PU
     }
 }
 
-impl<USART: Instance, Otype, PULL> serial::Write<u16> for Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> serial::Write<u16> for Serial<USART, Otype> {
     type Error = Error;
 
     fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
@@ -65,7 +65,7 @@ impl<USART: Instance, Otype, PULL> serial::Write<u16> for Serial<USART, Otype, P
     }
 }
 
-impl<USART: Instance, Otype, PULL> serial::Read<u8> for Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> serial::Read<u8> for Serial<USART, Otype> {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
@@ -73,7 +73,7 @@ impl<USART: Instance, Otype, PULL> serial::Read<u8> for Serial<USART, Otype, PUL
     }
 }
 
-impl<USART: Instance, Otype, PULL> serial::Read<u16> for Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> serial::Read<u16> for Serial<USART, Otype> {
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u16, Error> {
@@ -107,7 +107,7 @@ impl<USART: Instance> blocking::Write<u16> for Tx<USART> {
     }
 }
 
-impl<USART: Instance, Otype, PULL> blocking::Write<u8> for Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> blocking::Write<u8> for Serial<USART, Otype> {
     type Error = Error;
 
     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
@@ -119,7 +119,7 @@ impl<USART: Instance, Otype, PULL> blocking::Write<u8> for Serial<USART, Otype, 
     }
 }
 
-impl<USART: Instance, Otype, PULL> blocking::Write<u16> for Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> blocking::Write<u16> for Serial<USART, Otype> {
     type Error = Error;
 
     fn bwrite_all(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
