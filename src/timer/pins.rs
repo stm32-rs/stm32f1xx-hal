@@ -365,78 +365,108 @@ macro_rules! remap34 {
 }
 use remap34;
 
+
+macro_rules! remap_combo_x {
+    ($TIM:ty, $Pins:ident: [
+        $($(($P:ident, $CH:ident, $c:ident, $C:ident),)+ $( => $MAPR:ident: $mapr:ident, $remap:literal)?;)+
+    ]) => {
+        impl From<($(gpio::$P<Alternate>)+, $(, &mut $MAPR)?)> for Pins4<$($CH),+> {
+            fn from(p: ($(gpio::$P<Alternate>)+, $(, &mut $MAPR)?)) -> Self {
+                let ($($c),+ $(,$mapr)?) = p;
+                $(<$TIM>::remap($($mapr)?, $remap);)?
+                Self { $($c: $CH::$P($c)),+ }
+            }
+        }
+
+        impl From<($(gpio::$P<Alternate>)+, $(, &mut $MAPR)?)> for Pins4<$($CH),+> {
+            fn from(p: ($(gpio::$P<Alternate>)+, $(, &mut $MAPR)?)) -> Self {
+                let ($($c),+ $(,$mapr)?) = p;
+                $(
+                    #[allow(confusable_idents)]
+                    let $с = $c.into_mode(&mut Cr);
+                )+
+                $(<$TIM>::remap($($mapr)?, $remap);)?
+                Self { $($c: $CH::$P($c)),+ }
+            }
+        }
+    }
+}
+
 macro_rules! remap_combo {
     ($TIM:ty; $C1:ident, $C2:ident, $C3:ident, $C4:ident: [
-        $($P0:ident, $P1:ident, $P2:ident, $P3:ident $( => $MAPR:ident: $remap:literal)?;)+
+        $($P1:ident, $P2:ident, $P3:ident, $P4:ident $( => $MAPR:ident: $remap:literal)?;)+
     ]) => {
         $(
-            impl From<(gpio::$P0<Alternate>, gpio::$P1<Alternate>, gpio::$P2<Alternate>, gpio::$P3<Alternate> $(, &mut $MAPR)?)> for Pins4<Ch1, Ch2, Ch3, Ch4> {
-                fn from(p: (gpio::$P0<Alternate>, gpio::$P1<Alternate>, gpio::$P2<Alternate>, gpio::$P3<Alternate> $(, &mut $MAPR)?)) -> Self {
-                    $(<$TIM>::remap(p.4, $remap);)?
-                    Self { c1: Ch1::$P0(p.0), c2: Ch2::$P1(p.1), c3: Ch3::$P2(p.2), c4: Ch4::$P3(p.3) }
+            remap_combo_x!()
+            /*impl From<(gpio::$P1<Alternate>, gpio::$P2<Alternate>, gpio::$P3<Alternate>, gpio::$P4<Alternate> $(, &mut $MAPR)?)> for Pins4<Ch1, Ch2, Ch3, Ch4> {
+                fn from(p: (gpio::$P1<Alternate>, gpio::$P2<Alternate>, gpio::$P3<Alternate>, gpio::$P4<Alternate> $(, &mut $MAPR)?)) -> Self {
+                    let (c1, c2, c3, c4, mapr) = p;
+                    $(<$TIM>::remap(mapr, $remap);)?
+                    Self { c1: Ch1::$P1(c1), c2: Ch2::$P2(c2), c3: Ch3::$P3(c3), c4: Ch4::$P4(c4) }
                 }
             }
 
-            impl From<(gpio::$P0, gpio::$P1, gpio::$P2, gpio::$P3 $(, &mut $MAPR)?)> for Pins4<Ch1, Ch2, Ch3, Ch4> {
-                fn from(p: (gpio::$P0, gpio::$P1, gpio::$P2, gpio::$P3 $(, &mut $MAPR)?)) -> Self {
-                    let p0 = p.0.into_mode(&mut Cr);
-                    let p1 = p.1.into_mode(&mut Cr);
-                    let p2 = p.2.into_mode(&mut Cr);
-                    let p3 = p.3.into_mode(&mut Cr);
-                    $(<$TIM>::remap(p.4, $remap);)?
-                    Self { c1: Ch1::$P0(p0), c2: Ch2::$P1(p1), c3: Ch3::$P2(p2), c4: Ch4::$P3(p3) }
+            impl From<(gpio::$P1, gpio::$P2, gpio::$P3, gpio::$P4 $(, &mut $MAPR)?)> for Pins4<Ch1, Ch2, Ch3, Ch4> {
+                fn from(p: (gpio::$P1, gpio::$P2, gpio::$P3, gpio::$P4 $(, &mut $MAPR)?)) -> Self {
+                    let (c1, c2, c3, c4, mapr) = p;
+                    let с1 = c1.into_mode(&mut Cr);
+                    let с2 = c2.into_mode(&mut Cr);
+                    let с3 = c3.into_mode(&mut Cr);
+                    let с4 = c4.into_mode(&mut Cr);
+                    $(<$TIM>::remap(mapr, $remap);)?
+                    Self { c1: Ch1::$P1(с1), c2: Ch2::$P2(с2), c3: Ch3::$P3(с3), c4: Ch4::$P4(с4) }
                 }
-            }
+            }*/
         )+
     };
 
     ($TIM:ty; ($C1:ident, $Ch1:ident), ($C2:ident, $Ch2:ident), ($C3:ident, $Ch3:ident): [
-        $($P0:ident, $P1:ident, $P2:ident $( => $MAPR:ident: $remap:literal)?;)+
+        $($P1:ident, $P2:ident, $P3:ident $( => $MAPR:ident: $remap:literal)?;)+
     ]) => {
         $(
-            impl From<(gpio::$P0<Alternate>, gpio::$P1<Alternate>, gpio::$P2<Alternate> $(, &mut $MAPR)?)> for Pins3<$Ch1, $Ch2, $Ch3> {
-                fn from(p: (gpio::$P0<Alternate>, gpio::$P1<Alternate>, gpio::$P2<Alternate> $(, &mut $MAPR)?)) -> Self {
+            impl From<(gpio::$P1<Alternate>, gpio::$P2<Alternate>, gpio::$P3<Alternate> $(, &mut $MAPR)?)> for Pins3<$Ch1, $Ch2, $Ch3> {
+                fn from(p: (gpio::$P1<Alternate>, gpio::$P2<Alternate>, gpio::$P3<Alternate> $(, &mut $MAPR)?)) -> Self {
                     $(<$TIM>::remap(p.3, $remap);)?
-                    Self { c1: $Ch1::$P0(p.0), c2: $Ch2::$P1(p.1), c3: $Ch3::$P2(p.2) }
+                    Self { c1: $Ch1::$P1(p.0), c2: $Ch2::$P2(p.1), c3: $Ch3::$P3(p.2) }
                 }
             }
 
-            impl From<(gpio::$P0, gpio::$P1, gpio::$P2 $(, &mut $MAPR)?)> for Pins3<$Ch1, $Ch2, $Ch3> {
-                fn from(p: (gpio::$P0, gpio::$P1, gpio::$P2 $(, &mut $MAPR)?)) -> Self {
-                    let p0 = p.0.into_mode(&mut Cr);
-                    let p1 = p.1.into_mode(&mut Cr);
-                    let p2 = p.2.into_mode(&mut Cr);
+            impl From<(gpio::$P1, gpio::$P2, gpio::$P3 $(, &mut $MAPR)?)> for Pins3<$Ch1, $Ch2, $Ch3> {
+                fn from(p: (gpio::$P1, gpio::$P2, gpio::$P3 $(, &mut $MAPR)?)) -> Self {
+                    let p1 = p.0.into_mode(&mut Cr);
+                    let p2 = p.1.into_mode(&mut Cr);
+                    let p3 = p.2.into_mode(&mut Cr);
                     $(<$TIM>::remap(p.3, $remap);)?
-                    Self { c1: $Ch1::$P0(p0), c2: $Ch2::$P1(p1), c3: $Ch3::$P2(p2) }
+                    Self { c1: $Ch1::$P1(p1), c2: $Ch2::$P2(p2), c3: $Ch3::$P3(p3) }
                 }
             }
         )+
     };
 
     ($TIM:ty; ($C1:ident, $Ch1:ident), ($C2:ident, $Ch2:ident): [
-        $($P0:ident, $P1:ident $( => $MAPR:ident: $remap:literal)?;)+
+        $($P1:ident, $P2:ident $( => $MAPR:ident: $remap:literal)?;)+
     ]) => {
         $(
-            impl From<(gpio::$P0<Alternate>, gpio::$P1<Alternate> $(, &mut $MAPR)?)> for Pins2<$Ch1, $Ch2> {
-                fn from(p: (gpio::$P0<Alternate>, gpio::$P1<Alternate> $(, &mut $MAPR)?)) -> Self {
+            impl From<(gpio::$P1<Alternate>, gpio::$P2<Alternate> $(, &mut $MAPR)?)> for Pins2<$Ch1, $Ch2> {
+                fn from(p: (gpio::$P1<Alternate>, gpio::$P2<Alternate> $(, &mut $MAPR)?)) -> Self {
                     $(<$TIM>::remap(p.2, $remap);)?
-                    Self { c1: $Ch1::$P0(p.0), c2: $Ch2::$P1(p.1) }
+                    Self { c1: $Ch1::$P1(p.0), c2: $Ch2::$P2(p.1) }
                 }
             }
 
-            impl From<(gpio::$P0, gpio::$P1 $(, &mut $MAPR)?)> for Pins2<$Ch1, $Ch2> {
-                fn from(p: (gpio::$P0, gpio::$P1 $(, &mut $MAPR)?)) -> Self {
-                    let p0 = p.0.into_mode(&mut Cr);
-                    let p1 = p.1.into_mode(&mut Cr);
+            impl From<(gpio::$P1, gpio::$P2 $(, &mut $MAPR)?)> for Pins2<$Ch1, $Ch2> {
+                fn from(p: (gpio::$P1, gpio::$P2 $(, &mut $MAPR)?)) -> Self {
+                    let p1 = p.0.into_mode(&mut Cr);
+                    let p2 = p.1.into_mode(&mut Cr);
                     $(<$TIM>::remap(p.2, $remap);)?
-                    Self { c1: $Ch1::$P0(p0), c2: $Ch2::$P1(p1) }
+                    Self { c1: $Ch1::$P1(p1), c2: $Ch2::$P2(p2) }
                 }
             }
         )+
     };
 
     ($TIM:ty; ($C:ident, $Ch:ident): [
-        $($P0:ident $( => $MAPR:ident: $remap:literal)?;)+
+        $($P1:ident $( => $MAPR:ident: $remap:literal)?;)+
     ]) => {
         impl Pins<$TIM> for $Ch {
             const $C: bool = true;
@@ -447,18 +477,18 @@ macro_rules! remap_combo {
         }
 
         $(
-            impl From<(gpio::$P0<Alternate> $(, &mut $MAPR)?)> for $Ch {
-                fn from(p: (gpio::$P0<Alternate> $(, &mut $MAPR)?)) -> Self {
+            impl From<(gpio::$P1<Alternate> $(, &mut $MAPR)?)> for $Ch {
+                fn from(p: (gpio::$P1<Alternate> $(, &mut $MAPR)?)) -> Self {
                     $(<$TIM>::remap(p.1, $remap);)?
-                    $Ch::$P0(p.0)
+                    $Ch::$P1(p.0)
                 }
             }
 
-            impl From<(gpio::$P0 $(, &mut $MAPR)?)> for $Ch {
-                fn from(p: (gpio::$P0 $(, &mut $MAPR)?)) -> Self {
-                    let p0 = p.0.into_mode(&mut Cr);
+            impl From<(gpio::$P1 $(, &mut $MAPR)?)> for $Ch {
+                fn from(p: (gpio::$P1 $(, &mut $MAPR)?)) -> Self {
+                    let p1 = p.0.into_mode(&mut Cr);
                     $(<$TIM>::remap(p.1, $remap);)?
-                    $Ch::$P0(p0)
+                    $Ch::$P1(p1)
                 }
             }
         )+
@@ -492,7 +522,7 @@ pub trait Pins<TIM> {
 
 macro_rules! remap_input {
     ($TIM:ty: [
-        $(C1: $P0:ident, C2: $P1:ident $( => $MAPR:ident: $remap:literal)?;)+
+        $(C1: $P1:ident, C2: $P2:ident $( => $MAPR:ident: $remap:literal)?;)+
     ]) => {
         impl InputPins for $TIM {
             type InCh1 = InCh1;
@@ -500,10 +530,10 @@ macro_rules! remap_input {
         }
 
         $(
-            impl From<(gpio::$P0, gpio::$P1 $(, &mut $MAPR)?)> for InPins<InCh1, InCh2> {
-                fn from(p: (gpio::$P0, gpio::$P1 $(, &mut $MAPR)?)) -> Self {
+            impl From<(gpio::$P1, gpio::$P2 $(, &mut $MAPR)?)> for InPins<InCh1, InCh2> {
+                fn from(p: (gpio::$P1, gpio::$P2 $(, &mut $MAPR)?)) -> Self {
                     $(<$TIM>::remap(p.2, $remap);)?
-                    Self { c1: InCh1::$P0(p.0), c2: InCh2::$P1(p.1) }
+                    Self { c1: InCh1::$P1(p.0), c2: InCh2::$P2(p.1) }
                 }
             }
         )+
