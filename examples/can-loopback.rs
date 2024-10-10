@@ -12,7 +12,7 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use nb::block;
-use stm32f1xx_hal::{can::Can, gpio::Floating, pac, prelude::*};
+use stm32f1xx_hal::{can::Can, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -25,7 +25,7 @@ fn main() -> ! {
     // resonator must be used.
     rcc.cfgr.use_hse(8.MHz()).freeze(&mut flash.acr);
 
-    let can = Can::<_, Floating>::new_loopback(
+    let can = Can::new_loopback(
         dp.CAN1,
         #[cfg(not(feature = "connectivity"))]
         dp.USB,

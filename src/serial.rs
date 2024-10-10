@@ -68,17 +68,13 @@ use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use crate::afio::Remap;
 use crate::dma::{dma1, CircBuffer, RxDma, Transfer, TxDma, R, W};
-use crate::gpio::{self, Alternate, Cr, Floating, Input, NoPin, PinMode, PullUp, PushPull};
+use crate::gpio::{self, Alternate, Cr, Input, NoPin, PinMode, PushPull};
 use crate::pac::{self, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
 mod hal_02;
 mod hal_1;
-
-pub trait InMode {}
-impl InMode for Floating {}
-impl InMode for PullUp {}
 
 pub struct Pins<TX, RX> {
     pub tx: TX,
@@ -138,44 +134,42 @@ macro_rules! remap {
             )+
             None(NoPin<Otype>),
         }
-        pub enum Rx<PULL> {
+        pub enum Rx {
             $(
-                $RX(gpio::$RX<Input<PULL>>),
+                $RX(gpio::$RX<Input>),
             )+
-            None(NoPin<PULL>),
+            None(NoPin<PushPull>),
         }
 
         $(
-            impl<Otype, PULL: InMode> From<(gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx<PULL>> {
-                fn from(p: (gpio::$TX<Alternate<Otype>>, gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)) -> Self {
+            impl<Otype> From<(gpio::$TX<Alternate<Otype>>, gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx> {
+                fn from(p: (gpio::$TX<Alternate<Otype>>, gpio::$RX, &mut <$PER as Remap>::Mapr)) -> Self {
                     <$PER>::remap(p.2, $remap);
                     Self { tx: Tx::$TX(p.0), rx: Rx::$RX(p.1) }
                 }
             }
 
-            impl<Otype, PULL> From<(gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx<PULL>>
+            impl<Otype> From<(gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx>
             where
                 Alternate<Otype>: PinMode,
-                Input<PULL>: PinMode,
-                PULL: InMode,
             {
                 fn from(p: (gpio::$TX, gpio::$RX, &mut <$PER as Remap>::Mapr)) -> Self {
                     let mut cr = Cr;
                     let tx = p.0.into_mode(&mut cr);
-                    let rx = p.1.into_mode(&mut cr);
+                    let rx = p.1;
                     <$PER>::remap(p.2, $remap);
                     Self { tx: Tx::$TX(tx), rx: Rx::$RX(rx) }
                 }
             }
 
-            impl<Otype> From<(gpio::$TX<Alternate<Otype>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx<Floating>> {
+            impl<Otype> From<(gpio::$TX<Alternate<Otype>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx> {
                 fn from(p: (gpio::$TX<Alternate<Otype>>, &mut <$PER as Remap>::Mapr)) -> Self {
                     <$PER>::remap(p.1, $remap);
                     Self { tx: Tx::$TX(p.0), rx: Rx::None(NoPin::new()) }
                 }
             }
 
-            impl<Otype> From<(gpio::$TX, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx<Floating>>
+            impl<Otype> From<(gpio::$TX, &mut <$PER as Remap>::Mapr)> for Pins<Tx<Otype>, Rx>
             where
                 Alternate<Otype>: PinMode,
             {
@@ -186,11 +180,8 @@ macro_rules! remap {
                 }
             }
 
-            impl<PULL> From<(gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)> for Pins<Tx<PushPull>, Rx<PULL>>
-            where
-                PULL: InMode,
-            {
-                fn from(p: (gpio::$RX<Input<PULL>>, &mut <$PER as Remap>::Mapr)) -> Self {
+            impl From<(gpio::$RX, &mut <$PER as Remap>::Mapr)> for Pins<Tx<PushPull>, Rx> {
+                fn from(p: (gpio::$RX<Input>, &mut <$PER as Remap>::Mapr)) -> Self {
                     <$PER>::remap(p.1, $remap);
                     Self { tx: Tx::None(NoPin::new()), rx: Rx::$RX(p.0) }
                 }
@@ -203,13 +194,13 @@ use remap;
 pub trait SerialExt: Sized + Instance {
     fn serial(
         self,
-        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx<Floating>>>,
+        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx>>,
         config: impl Into<Config>,
         clocks: &Clocks,
-    ) -> Serial<Self, PushPull, Floating>;
+    ) -> Serial<Self, PushPull>;
     fn tx(
         self,
-        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx<Floating>>>,
+        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Tx<Self> {
@@ -217,7 +208,7 @@ pub trait SerialExt: Sized + Instance {
     }
     fn rx(
         self,
-        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx<Floating>>>,
+        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Rx<Self> {
@@ -228,7 +219,7 @@ pub trait SerialExt: Sized + Instance {
 impl<USART: Instance> SerialExt for USART {
     fn serial(
         self,
-        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx<Floating>>>,
+        pins: impl Into<Pins<Self::Tx<PushPull>, Self::Rx>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Serial<Self> {
@@ -242,7 +233,7 @@ pub trait Instance:
     crate::Sealed + Deref<Target = uart_base::RegisterBlock> + Enable + Reset + BusClock
 {
     type Tx<Otype>;
-    type Rx<PULL>;
+    type Rx;
 
     #[doc(hidden)]
     fn ptr() -> *const uart_base::RegisterBlock;
@@ -253,7 +244,7 @@ macro_rules! inst {
         $(
             impl Instance for $USARTX {
                 type Tx<Otype> = $usart::Tx<Otype>;
-                type Rx<PULL> = $usart::Rx<PULL>;
+                type Rx = $usart::Rx;
 
                 fn ptr() -> *const uart_base::RegisterBlock {
                     <$USARTX>::ptr()
@@ -384,11 +375,11 @@ impl From<Bps> for Config {
 }
 
 /// Serial abstraction
-pub struct Serial<USART: Instance, Otype = PushPull, PULL = Floating> {
+pub struct Serial<USART: Instance, Otype = PushPull> {
     pub tx: Tx<USART>,
     pub rx: Rx<USART>,
     #[allow(clippy::type_complexity)]
-    pub token: ReleaseToken<USART, (USART::Tx<Otype>, USART::Rx<PULL>)>,
+    pub token: ReleaseToken<USART, (USART::Tx<Otype>, USART::Rx)>,
 }
 
 /// Serial transmitter
@@ -407,10 +398,10 @@ pub struct ReleaseToken<USART, PINS> {
     pins: PINS,
 }
 
-impl<USART: Instance, Otype> Serial<USART, Otype, Floating> {
+impl<USART: Instance, Otype> Serial<USART, Otype> {
     pub fn tx(
         usart: USART,
-        pins: impl Into<Pins<USART::Tx<Otype>, USART::Rx<Floating>>>,
+        pins: impl Into<Pins<USART::Tx<Otype>, USART::Rx>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Tx<USART> {
@@ -418,10 +409,10 @@ impl<USART: Instance, Otype> Serial<USART, Otype, Floating> {
     }
 }
 
-impl<USART: Instance, PULL> Serial<USART, PushPull, PULL> {
+impl<USART: Instance> Serial<USART, PushPull> {
     pub fn rx(
         usart: USART,
-        pins: impl Into<Pins<USART::Tx<PushPull>, USART::Rx<PULL>>>,
+        pins: impl Into<Pins<USART::Tx<PushPull>, USART::Rx>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Rx<USART> {
@@ -429,7 +420,7 @@ impl<USART: Instance, PULL> Serial<USART, PushPull, PULL> {
     }
 }
 
-impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> Serial<USART, Otype> {
     /// Configures the serial interface and creates the interface
     /// struct.
     ///
@@ -447,7 +438,7 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
     /// corresponding pins. `APBX` is used to reset the USART.)
     pub fn new(
         usart: USART,
-        pins: impl Into<Pins<USART::Tx<Otype>, USART::Rx<PULL>>>,
+        pins: impl Into<Pins<USART::Tx<Otype>, USART::Rx>>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Self {
@@ -515,7 +506,7 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
     /// let (usart, (tx_pin, rx_pin)) = serial.release();
     /// ```
     #[allow(clippy::type_complexity)]
-    pub fn release(self) -> (USART, (USART::Tx<Otype>, USART::Rx<PULL>)) {
+    pub fn release(self) -> (USART, (USART::Tx<Otype>, USART::Rx)) {
         (self.token.usart, self.token.pins)
     }
 
@@ -755,7 +746,7 @@ pub enum Event {
     Idle,
 }
 
-impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> Serial<USART, Otype> {
     /// Starts listening to the USART by enabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt

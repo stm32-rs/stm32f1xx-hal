@@ -156,25 +156,28 @@ pub trait Active {}
 
 /// Input mode (type state)
 #[derive(Default)]
-pub struct Input<PULL = Floating>(PhantomData<PULL>);
+pub struct Input;
 
-impl<PULL> Active for Input<PULL> {}
+/// Pull setting for an input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum Pull {
+    /// Floating
+    None = 0,
+    /// Pulled up
+    Up = 1,
+    /// Pulled down
+    Down = 2,
+}
+
+#[derive(Default)]
+struct PulledInput;
+
+impl Active for Input {}
 
 /// Used by the debugger (type state)
 #[derive(Default)]
 pub struct Debugger;
-
-/// Floating input (type state)
-#[derive(Default)]
-pub struct Floating;
-
-/// Pulled down input (type state)
-#[derive(Default)]
-pub struct PullDown;
-
-/// Pulled up input (type state)
-#[derive(Default)]
-pub struct PullUp;
 
 /// Output mode (type state)
 #[derive(Default)]
@@ -222,7 +225,6 @@ mod sealed {
     pub trait PinMode: Default {
         const CNF: super::Cnf;
         const MODE: super::Mode;
-        const PULL: Option<bool> = None;
     }
 }
 
@@ -231,7 +233,7 @@ use crate::pac::gpioa::crl::{CNF0 as Cnf, MODE0 as Mode};
 use sealed::Interruptable;
 pub(crate) use sealed::PinMode;
 
-impl<MODE> Interruptable for Input<MODE> {}
+impl Interruptable for Input {}
 impl Interruptable for Dynamic {}
 
 /// External Interrupt Pin
@@ -375,7 +377,7 @@ macro_rules! gpio {
         pub mod $gpiox {
             use crate::pac::{$GPIOX, RCC};
             use crate::rcc::{Enable, Reset};
-            use super::{Active, Floating, GpioExt, Input, PartiallyErasedPin, ErasedPin, Pin, Cr};
+            use super::{Active, GpioExt, Input, PartiallyErasedPin, ErasedPin, Pin, Cr};
             #[allow(unused)]
             use super::Debugger;
 
@@ -392,7 +394,7 @@ macro_rules! gpio {
             }
 
             $(
-                pub type $PXi<MODE = Input<Floating>> = Pin<$port_id, $pin_number, MODE>;
+                pub type $PXi<MODE = Input> = Pin<$port_id, $pin_number, MODE>;
             )+
 
             impl GpioExt for $GPIOX {
@@ -455,7 +457,7 @@ macro_rules! gpio {
 /// - `P` is port name: `A` for GPIOA, `B` for GPIOB, etc.
 /// - `N` is pin number: from `0` to `15`.
 /// - `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
-pub struct Pin<const P: char, const N: u8, MODE = Input<Floating>> {
+pub struct Pin<const P: char, const N: u8, MODE = Input> {
     mode: MODE,
 }
 
@@ -505,7 +507,7 @@ impl<const P: char, const N: u8> Pin<P, N, Debugger> {
     /// must enforce that the pin is really in this
     /// state in the hardware.
     #[allow(dead_code)]
-    pub(crate) unsafe fn activate(self) -> Pin<P, N, Input<Floating>> {
+    pub(crate) unsafe fn activate(self) -> Pin<P, N, Input> {
         Pin::new()
     }
 }
@@ -616,7 +618,7 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, Output<MODE>> {
     }
 }
 
-impl<const P: char, const N: u8, MODE> Pin<P, N, Input<MODE>> {
+impl<const P: char, const N: u8> Pin<P, N, Input> {
     #[inline]
     pub fn is_high(&self) -> bool {
         !self._is_low()
@@ -625,6 +627,25 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, Input<MODE>> {
     #[inline]
     pub fn is_low(&self) -> bool {
         self._is_low()
+    }
+}
+
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
+    fn _set_pull_up(&mut self) {
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.bsrr().write(|w| w.bs(N).set_bit());
+    }
+    fn _pull_up(mut self) -> Self {
+        self._set_pull_up();
+        self
+    }
+    fn _set_pull_down(&mut self) {
+        let gpio = unsafe { &(*gpiox::<P>()) };
+        gpio.bsrr().write(|w| w.br(N).set_bit());
+    }
+    fn _pull_down(mut self) -> Self {
+        self._set_pull_down();
+        self
     }
 }
 
@@ -671,20 +692,22 @@ where
 
     /// Configures the pin to operate as a floating input pin
     #[inline]
-    pub fn into_floating_input(self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<Floating>> {
+    pub fn into_floating_input(self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input> {
         self.into_mode(cr)
     }
 
     /// Configures the pin to operate as a pulled down input pin
     #[inline]
-    pub fn into_pull_down_input(self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<PullDown>> {
-        self.into_mode(cr)
+    pub fn into_pull_down_input(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input> {
+        self.mode::<PulledInput>(cr);
+        Pin::new()._pull_down()
     }
 
     /// Configures the pin to operate as a pulled up input pin
     #[inline]
-    pub fn into_pull_up_input(self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input<PullUp>> {
-        self.into_mode(cr)
+    pub fn into_pull_up_input(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input> {
+        self.mode::<PulledInput>(cr);
+        Pin::new()._pull_up()
     }
 
     /// Configures the pin to operate as an open-drain output pin.
@@ -746,11 +769,11 @@ where
     /// as a floating input
     #[inline]
     pub fn into_dynamic(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Dynamic> {
-        self.mode::<Input<Floating>>(cr);
+        self.mode::<Input>(cr);
         Pin::new()
     }
 }
-
+/*
 // These macros are defined here instead of at the top level in order
 // to be able to refer to macro variables from the outer layers.
 macro_rules! impl_temp_output {
@@ -764,11 +787,12 @@ macro_rules! impl_temp_output {
             &mut self,
             cr: &mut <Self as HL>::Cr,
             mut f: impl FnMut(&mut Pin<P, N, $mode>),
-        ) {
+        )
+        where Pin::<P, N, $mode>: HL {
             self.mode::<$mode>(cr);
             let mut temp = Pin::<P, N, $mode>::new();
             f(&mut temp);
-            self.mode::<$mode>(cr);
+            temp.mode::<MODE>(cr);
             Self::new();
         }
 
@@ -788,24 +812,24 @@ macro_rules! impl_temp_output {
             self.mode::<$mode>(cr);
             let mut temp = Pin::<P, N, $mode>::new();
             f(&mut temp);
-            self.mode::<$mode>(cr);
+            temp.mode::<MODE>(cr);
             Self::new();
         }
     };
 }
 macro_rules! impl_temp_input {
-    ($fn_name:ident, $mode:ty) => {
+    ($fn_name:ident, $mode:ty $(, $pull:ident)?) => {
         /// Temporarily change the mode of the pin.
         #[inline]
         pub fn $fn_name(
             &mut self,
             cr: &mut <Self as HL>::Cr,
-            mut f: impl FnMut(&mut Pin<P, N, $mode>),
+            mut f: impl FnMut(&mut Pin<P, N, Input>),
         ) {
             self.mode::<$mode>(cr);
-            let mut temp = Pin::<P, N, $mode>::new();
+            let mut temp = Pin::<P, N, Input>::new() $(.$pull())?;
             f(&mut temp);
-            self.mode::<$mode>(cr);
+            self.mode::<MODE>(cr);
             Self::new();
         }
     };
@@ -826,11 +850,11 @@ where
         as_open_drain_output_with_state,
         Output<OpenDrain>
     );
-    impl_temp_input!(as_floating_input, Input<Floating>);
-    impl_temp_input!(as_pull_up_input, Input<PullUp>);
-    impl_temp_input!(as_pull_down_input, Input<PullDown>);
+    impl_temp_input!(as_floating_input, Input);
+    impl_temp_input!(as_pull_up_input, PulledInput, _pull_up);
+    impl_temp_input!(as_pull_down_input, PulledInput, _pull_down);
 }
-
+ */
 impl<const P: char, const N: u8, MODE> Pin<P, N, MODE>
 where
     Self: HL,
@@ -879,21 +903,23 @@ where
     #[inline]
     pub fn make_pull_up_input(&mut self, cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
-        self.mode::<Input<PullUp>>(cr);
+        self.mode::<PulledInput>(cr);
+        self._set_pull_up();
         self.mode = Dynamic::InputPullUp;
     }
 
     #[inline]
     pub fn make_pull_down_input(&mut self, cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
-        self.mode::<Input<PullDown>>(cr);
+        self.mode::<PulledInput>(cr);
+        self._set_pull_down();
         self.mode = Dynamic::InputPullDown;
     }
 
     #[inline]
     pub fn make_floating_input(&mut self, cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
-        self.mode::<Input<Floating>>(cr);
+        self.mode::<Input>(cr);
         self.mode = Dynamic::InputFloating;
     }
 
@@ -917,21 +943,14 @@ impl PinMode for Analog {
     const CNF: Cnf = Cnf::PushPull;
 }
 
-impl PinMode for Input<Floating> {
+impl PinMode for Input {
     const MODE: Mode = Mode::Input;
     const CNF: Cnf = Cnf::OpenDrain;
 }
 
-impl PinMode for Input<PullDown> {
+impl PinMode for PulledInput {
     const MODE: Mode = Mode::Input;
     const CNF: Cnf = Cnf::AltPushPull;
-    const PULL: Option<bool> = Some(false);
-}
-
-impl PinMode for Input<PullUp> {
-    const MODE: Mode = Mode::Input;
-    const CNF: Cnf = Cnf::AltPushPull;
-    const PULL: Option<bool> = Some(true);
 }
 
 impl PinMode for Output<PushPull> {
@@ -960,17 +979,6 @@ where
 {
     fn mode<MODE: PinMode>(&mut self, _cr: &mut <Self as HL>::Cr) {
         let gpio = unsafe { &(*gpiox::<P>()) };
-
-        // Input<PullUp> or Input<PullDown> mode
-        if let Some(pull) = MODE::PULL {
-            gpio.bsrr().write(|w| {
-                if pull {
-                    w.bs(N).set_bit()
-                } else {
-                    w.br(N).set_bit()
-                }
-            })
-        }
 
         match N {
             0..=7 => {
@@ -1007,17 +1015,27 @@ impl Analog {
     }
 }
 
-impl<PULL> Input<PULL> {
+impl Input {
     pub fn new<const P: char, const N: u8, MODE>(
-        pin: Pin<P, N, MODE>,
+        mut pin: Pin<P, N, MODE>,
         cr: &mut <Pin<P, N, MODE> as HL>::Cr,
-        _pull: PULL,
+        pull: Pull,
     ) -> Pin<P, N, Self>
     where
         Pin<P, N, MODE>: HL,
         Self: PinMode,
     {
-        pin.into_mode(cr)
+        match pull {
+            Pull::None => pin.into_mode(cr),
+            Pull::Up => {
+                pin.mode::<PulledInput>(cr);
+                Pin::new()._pull_up()
+            }
+            Pull::Down => {
+                pin.mode::<PulledInput>(cr);
+                Pin::new()._pull_down()
+            }
+        }
     }
 }
 
