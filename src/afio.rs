@@ -4,7 +4,7 @@ use crate::pac::{self, afio, AFIO, RCC};
 use crate::rcc::{Enable, Reset};
 
 use crate::gpio::{
-    Debugger, Floating, Input, PA15, {PB3, PB4},
+    Debugger, Input, PA15, {PB3, PB4},
 };
 use crate::sealed::Sealed;
 
@@ -94,11 +94,7 @@ impl MAPR {
         pa15: PA15<Debugger>,
         pb3: PB3<Debugger>,
         pb4: PB4<Debugger>,
-    ) -> (
-        PA15<Input<Floating>>,
-        PB3<Input<Floating>>,
-        PB4<Input<Floating>>,
-    ) {
+    ) -> (PA15<Input>, PB3<Input>, PB4<Input>) {
         self.jtag_enabled = false;
         // Avoid duplicating swj_cfg write code
         self.modify_mapr(|_, w| w);

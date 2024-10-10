@@ -16,11 +16,11 @@ pub trait Pins<REMAP> {}
 
 use super::pins::{sealed::Remap, CPin};
 
-impl<TIM, REMAP, P1, P2, MODE1, MODE2> Pins<REMAP> for (P1, P2)
+impl<TIM, REMAP, P1, P2> Pins<REMAP> for (P1, P2)
 where
     REMAP: Remap<Periph = TIM>,
-    P1: CPin<REMAP, 0> + gpio::PinExt<Mode = Input<MODE1>>,
-    P2: CPin<REMAP, 1> + gpio::PinExt<Mode = Input<MODE2>>,
+    P1: CPin<REMAP, 0> + gpio::PinExt<Mode = Input>,
+    P2: CPin<REMAP, 1> + gpio::PinExt<Mode = Input>,
 {
 }
 
