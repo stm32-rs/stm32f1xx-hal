@@ -698,15 +698,15 @@ where
 
     /// Configures the pin to operate as a pulled down input pin
     #[inline]
-    pub fn into_pull_down_input(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input> {
-        self.mode::<PulledInput>(cr);
+    pub fn into_pull_down_input(mut self, _cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input> {
+        self.mode::<PulledInput>();
         Pin::new()._pull_down()
     }
 
     /// Configures the pin to operate as a pulled up input pin
     #[inline]
-    pub fn into_pull_up_input(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input> {
-        self.mode::<PulledInput>(cr);
+    pub fn into_pull_up_input(mut self, _cr: &mut <Self as HL>::Cr) -> Pin<P, N, Input> {
+        self.mode::<PulledInput>();
         Pin::new()._pull_up()
     }
 
@@ -768,12 +768,12 @@ where
     /// and output without changing the type. It starts out
     /// as a floating input
     #[inline]
-    pub fn into_dynamic(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, Dynamic> {
-        self.mode::<Input>(cr);
+    pub fn into_dynamic(mut self, _cr: &mut <Self as HL>::Cr) -> Pin<P, N, Dynamic> {
+        self.mode::<Input>();
         Pin::new()
     }
 }
-/*
+
 // These macros are defined here instead of at the top level in order
 // to be able to refer to macro variables from the outer layers.
 macro_rules! impl_temp_output {
@@ -785,15 +785,15 @@ macro_rules! impl_temp_output {
         #[inline]
         pub fn $fn_name(
             &mut self,
-            cr: &mut <Self as HL>::Cr,
+            _cr: &mut <Self as HL>::Cr,
             mut f: impl FnMut(&mut Pin<P, N, $mode>),
-        )
-        where Pin::<P, N, $mode>: HL {
-            self.mode::<$mode>(cr);
+        ) where
+            Pin<P, N, $mode>: HL,
+        {
+            self.mode::<$mode>();
             let mut temp = Pin::<P, N, $mode>::new();
             f(&mut temp);
-            temp.mode::<MODE>(cr);
-            Self::new();
+            temp.mode::<MODE>();
         }
 
         /// Temporarily change the mode of the pin.
@@ -804,16 +804,17 @@ macro_rules! impl_temp_output {
         #[inline]
         pub fn $stateful_fn_name(
             &mut self,
-            cr: &mut <Self as HL>::Cr,
+            _cr: &mut <Self as HL>::Cr,
             state: PinState,
             mut f: impl FnMut(&mut Pin<P, N, $mode>),
-        ) {
+        ) where
+            Pin<P, N, $mode>: HL,
+        {
             self._set_state(state);
-            self.mode::<$mode>(cr);
+            self.mode::<$mode>();
             let mut temp = Pin::<P, N, $mode>::new();
             f(&mut temp);
-            temp.mode::<MODE>(cr);
-            Self::new();
+            temp.mode::<MODE>();
         }
     };
 }
@@ -823,14 +824,15 @@ macro_rules! impl_temp_input {
         #[inline]
         pub fn $fn_name(
             &mut self,
-            cr: &mut <Self as HL>::Cr,
+            _cr: &mut <Self as HL>::Cr,
             mut f: impl FnMut(&mut Pin<P, N, Input>),
-        ) {
-            self.mode::<$mode>(cr);
+        )
+            where Pin::<P, N, Input>: HL
+        {
+            self.mode::<$mode>();
             let mut temp = Pin::<P, N, Input>::new() $(.$pull())?;
             f(&mut temp);
-            self.mode::<MODE>(cr);
-            Self::new();
+            temp.mode::<MODE>();
         }
     };
 }
@@ -854,7 +856,7 @@ where
     impl_temp_input!(as_pull_up_input, PulledInput, _pull_up);
     impl_temp_input!(as_pull_down_input, PulledInput, _pull_down);
 }
- */
+
 impl<const P: char, const N: u8, MODE> Pin<P, N, MODE>
 where
     Self: HL,
@@ -901,39 +903,39 @@ where
     Self: HL,
 {
     #[inline]
-    pub fn make_pull_up_input(&mut self, cr: &mut <Self as HL>::Cr) {
+    pub fn make_pull_up_input(&mut self, _cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
-        self.mode::<PulledInput>(cr);
+        self.mode::<PulledInput>();
         self._set_pull_up();
         self.mode = Dynamic::InputPullUp;
     }
 
     #[inline]
-    pub fn make_pull_down_input(&mut self, cr: &mut <Self as HL>::Cr) {
+    pub fn make_pull_down_input(&mut self, _cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
-        self.mode::<PulledInput>(cr);
+        self.mode::<PulledInput>();
         self._set_pull_down();
         self.mode = Dynamic::InputPullDown;
     }
 
     #[inline]
-    pub fn make_floating_input(&mut self, cr: &mut <Self as HL>::Cr) {
+    pub fn make_floating_input(&mut self, _cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
-        self.mode::<Input>(cr);
+        self.mode::<Input>();
         self.mode = Dynamic::InputFloating;
     }
 
     #[inline]
-    pub fn make_push_pull_output(&mut self, cr: &mut <Self as HL>::Cr) {
+    pub fn make_push_pull_output(&mut self, _cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
-        self.mode::<Output<PushPull>>(cr);
+        self.mode::<Output<PushPull>>();
         self.mode = Dynamic::OutputPushPull;
     }
 
     #[inline]
-    pub fn make_open_drain_output(&mut self, cr: &mut <Self as HL>::Cr) {
+    pub fn make_open_drain_output(&mut self, _cr: &mut <Self as HL>::Cr) {
         // NOTE(unsafe), we have a mutable reference to the current pin
-        self.mode::<Output<OpenDrain>>(cr);
+        self.mode::<Output<OpenDrain>>();
         self.mode = Dynamic::OutputOpenDrain;
     }
 }
@@ -977,7 +979,7 @@ impl<const P: char, const N: u8, M> Pin<P, N, M>
 where
     Self: HL,
 {
-    fn mode<MODE: PinMode>(&mut self, _cr: &mut <Self as HL>::Cr) {
+    fn mode<MODE: PinMode>(&mut self) {
         let gpio = unsafe { &(*gpiox::<P>()) };
 
         match N {
@@ -996,8 +998,11 @@ where
     }
 
     #[inline]
-    pub(crate) fn into_mode<MODE: PinMode>(mut self, cr: &mut <Self as HL>::Cr) -> Pin<P, N, MODE> {
-        self.mode::<MODE>(cr);
+    pub(crate) fn into_mode<MODE: PinMode>(
+        mut self,
+        _cr: &mut <Self as HL>::Cr,
+    ) -> Pin<P, N, MODE> {
+        self.mode::<MODE>();
         Pin::new()
     }
 }
@@ -1028,11 +1033,11 @@ impl Input {
         match pull {
             Pull::None => pin.into_mode(cr),
             Pull::Up => {
-                pin.mode::<PulledInput>(cr);
+                pin.mode::<PulledInput>();
                 Pin::new()._pull_up()
             }
             Pull::Down => {
-                pin.mode::<PulledInput>(cr);
+                pin.mode::<PulledInput>();
                 Pin::new()._pull_down()
             }
         }

@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]
 - Temporary replace `stm32f1` with `stm32f1-staging` [#503]
-- Remove `PULL` generic from `Input` mode,
-  temporary disable `as_(mode)` [#512]
+- Remove `PULL` generic from `Input` mode [#512]
+  Fix `as_(mode)` in #421 [#512]
 
 ### Changed
 
