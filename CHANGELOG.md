@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]
 - Temporary replace `stm32f1` with `stm32f1-staging` [#503]
+- Remove `PULL` generic from `Input` mode [#512]
+  Fix `as_(mode)` in #421 [#512]
 
 ### Changed
 
@@ -62,6 +64,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#509]: https://github.com/stm32-rs/stm32f1xx-hal/pull/509
 [#510]: https://github.com/stm32-rs/stm32f1xx-hal/pull/510
 [#511]: https://github.com/stm32-rs/stm32f1xx-hal/pull/511
+[#512]: https://github.com/stm32-rs/stm32f1xx-hal/pull/512
 
 ## [v0.10.0] - 2022-12-12
 

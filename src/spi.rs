@@ -46,7 +46,7 @@ use crate::dma::dma1;
 #[cfg(feature = "connectivity")]
 use crate::dma::dma2;
 use crate::dma::{Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma, R, W};
-use crate::gpio::{self, Alternate, Cr, Floating, Input, NoPin, PinMode, PullUp, PushPull};
+use crate::gpio::{self, Alternate, Cr, Input, NoPin, PinMode, PushPull};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::Hertz;
 
@@ -103,10 +103,6 @@ pub enum Error {
 }
 
 use core::marker::PhantomData;
-
-pub trait InMode {}
-impl InMode for Floating {}
-impl InMode for PullUp {}
 
 pub struct MasterPins<SCK, MISO, MOSI> {
     pub sck: SCK,
@@ -169,11 +165,11 @@ macro_rules! remap {
             None(NoPin<PushPull>),
         }
 
-        pub enum Mi<PULL> {
+        pub enum Mi {
             $(
-                $MISO(gpio::$MISO<Input<PULL>>),
+                $MISO(gpio::$MISO<Input>),
             )+
-            None(NoPin<Floating>),
+            None(NoPin<PushPull>),
         }
 
         pub enum So<Otype> {
@@ -190,59 +186,51 @@ macro_rules! remap {
             None(NoPin<PushPull>),
         }
 
-        pub enum Si<PULL> {
+        pub enum Si {
             $(
-                $MOSI(gpio::$MOSI<Input<PULL>>),
+                $MOSI(gpio::$MOSI<Input>),
             )+
-            None(NoPin<Floating>),
+            None(NoPin<PushPull>),
         }
 
         $(
             // For master mode
-            impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo> {
-                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)) -> Self {
+            impl From<(gpio::$SCK<Alternate>, gpio::$MISO, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi, Mo> {
+                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)) -> Self {
                     $(<$PER>::remap(p.3, $remap);)?
                     Self { sck: Sck::$SCK(p.0), mi: Mi::$MISO(p.1), mo: Mo::$MOSI(p.2) }
                 }
             }
 
-            impl<PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo>
-            where
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
+            impl From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for MasterPins<Sck, Mi, Mo> {
                 fn from(p: (gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
-                    let miso = p.1.into_mode(&mut cr);
+                    let miso = p.1;
                     let mosi = p.2.into_mode(&mut cr);
                     $(<$PER>::remap(p.3, $remap);)?
                     Self { sck: Sck::$SCK(sck), mi: Mi::$MISO(miso), mo: Mo::$MOSI(mosi) }
                 }
             }
 
-            impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo> {
-                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
+            impl From<(gpio::$SCK<Alternate>, gpio::$MISO $(, &mut $MAPR)?)> for MasterPins<Sck, Mi, Mo> {
+                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO $(, &mut $MAPR)?)) -> Self {
                     $(<$PER>::remap(p.2, $remap);)?
                     Self { sck: Sck::$SCK(p.0), mi: Mi::$MISO(p.1), mo: Mo::None(NoPin::new()) }
                 }
             }
 
-            impl<PULL> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi<PULL>, Mo>
-            where
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
+            impl From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi, Mo> {
                 fn from(p: (gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)) -> Self {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
-                    let miso = p.1.into_mode(&mut cr);
+                    let miso = p.1;
                     $(<$PER>::remap(p.2, $remap);)?
                     Self { sck: Sck::$SCK(sck), mi: Mi::$MISO(miso), mo: Mo::None(NoPin::new()) }
                 }
             }
 
-            impl From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi<Floating>, Mo> {
+            impl From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi, Mo> {
                 fn from(p: (gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
@@ -254,30 +242,28 @@ macro_rules! remap {
 
             // For slave mode
 
-            impl<Otype, PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<PULL>> {
-                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
+            impl<Otype> From<(gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si> {
+                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
                     $(<$PER>::remap(p.3, $remap);)?
                     Self { sck: Sck::$SCK(p.0), so: So::$MISO(p.1), si: Si::$MOSI(p.2) }
                 }
             }
 
-            impl<Otype, PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<PULL>>
+            impl<Otype> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si>
             where
                 Alternate<Otype>: PinMode,
-                Input<PULL>: PinMode,
-                PULL: InMode,
             {
                 fn from(p: (gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
                     let miso = p.1.into_mode(&mut cr);
-                    let mosi = p.2.into_mode(&mut cr);
+                    let mosi = p.2;
                     $(<$PER>::remap(p.3, $remap);)?
                     Self { sck: Sck::$SCK(sck), so: So::$MISO(miso), si: Si::$MOSI(mosi) }
                 }
             }
 
-            impl<Otype> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<Floating>>
+            impl<Otype> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si>
             where
                 Alternate<Otype>: PinMode,
             {
@@ -290,15 +276,11 @@ macro_rules! remap {
                 }
             }
 
-            impl<PULL> From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<PushPull>, Si<PULL>>
-            where
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
+            impl From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<PushPull>, Si> {
                 fn from(p: (gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
                     let mut cr = Cr;
                     let sck = p.0.into_mode(&mut cr);
-                    let mosi = p.1.into_mode(&mut cr);
+                    let mosi = p.1;
                     $(<$PER>::remap(p.2, $remap);)?
                     Self { sck: Sck::$SCK(sck), so: So::None(NoPin::new()), si: Si::$MOSI(mosi) }
                 }
@@ -311,14 +293,14 @@ use remap;
 pub trait SpiExt: Sized + Instance {
     fn spi(
         self,
-        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
+        pins: impl Into<MasterPins<Self::Sck, Self::Mi, Self::Mo>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
-    ) -> Spi<Self, u8, Floating>;
+    ) -> Spi<Self, u8>;
     fn spi_u16(
         self,
-        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
+        pins: impl Into<MasterPins<Self::Sck, Self::Mi, Self::Mo>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
@@ -327,14 +309,14 @@ pub trait SpiExt: Sized + Instance {
     }
     fn spi_slave(
         self,
-        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
+        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si>>,
         mode: Mode,
-    ) -> SpiSlave<Self, u8, PushPull, Floating>;
+    ) -> SpiSlave<Self, u8, PushPull>;
     fn spi_slave_u16(
         self,
-        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
+        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si>>,
         mode: Mode,
-    ) -> SpiSlave<Self, u16, PushPull, Floating> {
+    ) -> SpiSlave<Self, u16, PushPull> {
         Self::spi_slave(self, pins, mode).frame_size_16bit()
     }
 }
@@ -342,18 +324,18 @@ pub trait SpiExt: Sized + Instance {
 impl<SPI: Instance> SpiExt for SPI {
     fn spi(
         self,
-        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
+        pins: impl Into<MasterPins<Self::Sck, Self::Mi, Self::Mo>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
-    ) -> Spi<Self, u8, Floating> {
+    ) -> Spi<Self, u8> {
         Spi::new(self, pins, mode, freq, clocks)
     }
     fn spi_slave(
         self,
-        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
+        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si>>,
         mode: Mode,
-    ) -> SpiSlave<Self, u8, PushPull, Floating> {
+    ) -> SpiSlave<Self, u8, PushPull> {
         SpiSlave::new(self, pins, mode)
     }
 }
@@ -373,38 +355,38 @@ impl<SPI, W> SpiInner<SPI, W> {
 }
 
 /// Spi in Master mode
-pub struct Spi<SPI: Instance, W, PULL = Floating> {
+pub struct Spi<SPI: Instance, W> {
     inner: SpiInner<SPI, W>,
-    pins: (SPI::Sck, SPI::Mi<PULL>, SPI::Mo),
+    pins: (SPI::Sck, SPI::Mi, SPI::Mo),
 }
 
 /// Spi in Slave mode
-pub struct SpiSlave<SPI: Instance, W, Otype = PushPull, PULL = Floating> {
+pub struct SpiSlave<SPI: Instance, W, Otype = PushPull> {
     inner: SpiInner<SPI, W>,
-    pins: (SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>),
+    pins: (SPI::Sck, SPI::So<Otype>, SPI::Si),
 }
 
-impl<SPI: Instance, W, PULL> Deref for Spi<SPI, W, PULL> {
+impl<SPI: Instance, W> Deref for Spi<SPI, W> {
     type Target = SpiInner<SPI, W>;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<SPI: Instance, W, PULL> DerefMut for Spi<SPI, W, PULL> {
+impl<SPI: Instance, W> DerefMut for Spi<SPI, W> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl<SPI: Instance, W, Otype, PULL> Deref for SpiSlave<SPI, W, Otype, PULL> {
+impl<SPI: Instance, W, Otype> Deref for SpiSlave<SPI, W, Otype> {
     type Target = SpiInner<SPI, W>;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<SPI: Instance, W, Otype, PULL> DerefMut for SpiSlave<SPI, W, Otype, PULL> {
+impl<SPI: Instance, W, Otype> DerefMut for SpiSlave<SPI, W, Otype> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -423,36 +405,36 @@ pub trait Instance:
     crate::Sealed + Deref<Target = crate::pac::spi1::RegisterBlock> + Enable + Reset + BusClock
 {
     type Sck;
-    type Mi<PULL>;
+    type Mi;
     type So<Otype>;
     type Mo;
-    type Si<PULL>;
+    type Si;
 }
 
 impl Instance for pac::SPI1 {
     type Sck = spi1::Sck;
-    type Mi<PULL> = spi1::Mi<PULL>;
+    type Mi = spi1::Mi;
     type So<Otype> = spi1::So<Otype>;
     type Mo = spi1::Mo;
-    type Si<PULL> = spi1::Si<PULL>;
+    type Si = spi1::Si;
 }
 impl Instance for pac::SPI2 {
     type Sck = spi2::Sck;
-    type Mi<PULL> = spi2::Mi<PULL>;
+    type Mi = spi2::Mi;
     type So<Otype> = spi2::So<Otype>;
     type Mo = spi2::Mo;
-    type Si<PULL> = spi2::Si<PULL>;
+    type Si = spi2::Si;
 }
 #[cfg(any(feature = "high", feature = "connectivity"))]
 impl Instance for pac::SPI3 {
     type Sck = spi3::Sck;
-    type Mi<PULL> = spi3::Mi<PULL>;
+    type Mi = spi3::Mi;
     type So<Otype> = spi3::So<Otype>;
     type Mo = spi3::Mo;
-    type Si<PULL> = spi3::Si<PULL>;
+    type Si = spi3::Si;
 }
 
-impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
+impl<SPI: Instance> Spi<SPI, u8> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
@@ -462,7 +444,7 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
     */
     pub fn new(
         spi: SPI,
-        pins: impl Into<MasterPins<SPI::Sck, SPI::Mi<PULL>, SPI::Mo>>,
+        pins: impl Into<MasterPins<SPI::Sck, SPI::Mi, SPI::Mo>>,
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
@@ -521,12 +503,12 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn release(self) -> (SPI, (SPI::Sck, SPI::Mi<PULL>, SPI::Mo)) {
+    pub fn release(self) -> (SPI, (SPI::Sck, SPI::Mi, SPI::Mo)) {
         (self.inner.spi, self.pins)
     }
 }
 
-impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
+impl<SPI: Instance, Otype> SpiSlave<SPI, u8, Otype> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
@@ -536,7 +518,7 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
     */
     pub fn new(
         spi: SPI,
-        pins: impl Into<SlavePins<SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>>>,
+        pins: impl Into<SlavePins<SPI::Sck, SPI::So<Otype>, SPI::Si>>,
         mode: Mode,
     ) -> Self {
         // enable or reset SPI
@@ -579,7 +561,7 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
     }
 
     #[allow(clippy::type_complexity)]
-    pub fn release(self) -> (SPI, (SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>)) {
+    pub fn release(self) -> (SPI, (SPI::Sck, SPI::So<Otype>, SPI::Si)) {
         (self.inner.spi, self.pins)
     }
 }
@@ -686,9 +668,9 @@ impl<SPI: Instance, W: Copy> SpiInner<SPI, W> {
     }
 }
 
-impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
+impl<SPI: Instance> Spi<SPI, u8> {
     /// Converts from 8bit dataframe to 16bit.
-    pub fn frame_size_16bit(self) -> Spi<SPI, u16, PULL> {
+    pub fn frame_size_16bit(self) -> Spi<SPI, u16> {
         self.spi.cr1().modify(|_, w| w.spe().clear_bit());
         self.spi.cr1().modify(|_, w| w.dff().set_bit());
         self.spi.cr1().modify(|_, w| w.spe().set_bit());
@@ -699,9 +681,9 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
     }
 }
 
-impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
+impl<SPI: Instance, Otype> SpiSlave<SPI, u8, Otype> {
     /// Converts from 8bit dataframe to 16bit.
-    pub fn frame_size_16bit(self) -> SpiSlave<SPI, u16, Otype, PULL> {
+    pub fn frame_size_16bit(self) -> SpiSlave<SPI, u16, Otype> {
         self.spi.cr1().modify(|_, w| w.spe().clear_bit());
         self.spi.cr1().modify(|_, w| w.dff().set_bit());
         self.spi.cr1().modify(|_, w| w.spe().set_bit());
@@ -712,9 +694,9 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
     }
 }
 
-impl<SPI: Instance, PULL> Spi<SPI, u16, PULL> {
+impl<SPI: Instance> Spi<SPI, u16> {
     /// Converts from 16bit dataframe to 8bit.
-    pub fn frame_size_8bit(self) -> Spi<SPI, u16, PULL> {
+    pub fn frame_size_8bit(self) -> Spi<SPI, u16> {
         self.spi.cr1().modify(|_, w| w.spe().clear_bit());
         self.spi.cr1().modify(|_, w| w.dff().clear_bit());
         self.spi.cr1().modify(|_, w| w.spe().set_bit());
@@ -725,9 +707,9 @@ impl<SPI: Instance, PULL> Spi<SPI, u16, PULL> {
     }
 }
 
-impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u16, Otype, PULL> {
+impl<SPI: Instance, Otype> SpiSlave<SPI, u16, Otype> {
     /// Converts from 16bit dataframe to 8bit.
-    pub fn frame_size_8bit(self) -> SpiSlave<SPI, u8, Otype, PULL> {
+    pub fn frame_size_8bit(self) -> SpiSlave<SPI, u8, Otype> {
         self.spi.cr1().modify(|_, w| w.spe().clear_bit());
         self.spi.cr1().modify(|_, w| w.dff().clear_bit());
         self.spi.cr1().modify(|_, w| w.spe().set_bit());
@@ -783,17 +765,14 @@ where
 
 // DMA
 
-pub type SpiTxDma<SPI, CHANNEL, PULL = Floating> = TxDma<Spi<SPI, u8, PULL>, CHANNEL>;
-pub type SpiRxDma<SPI, CHANNEL, PULL = Floating> = RxDma<Spi<SPI, u8, PULL>, CHANNEL>;
-pub type SpiRxTxDma<SPI, RXCHANNEL, TXCHANNEL, PULL = Floating> =
-    RxTxDma<Spi<SPI, u8, PULL>, RXCHANNEL, TXCHANNEL>;
+pub type SpiTxDma<SPI, CHANNEL> = TxDma<Spi<SPI, u8>, CHANNEL>;
+pub type SpiRxDma<SPI, CHANNEL> = RxDma<Spi<SPI, u8>, CHANNEL>;
+pub type SpiRxTxDma<SPI, RXCHANNEL, TXCHANNEL> = RxTxDma<Spi<SPI, u8>, RXCHANNEL, TXCHANNEL>;
 
-pub type SpiSlaveTxDma<SPI, CHANNEL, Otype, PULL = Floating> =
-    TxDma<SpiSlave<SPI, u8, Otype, PULL>, CHANNEL>;
-pub type SpiSlaveRxDma<SPI, CHANNEL, Otype, PULL = Floating> =
-    RxDma<SpiSlave<SPI, u8, Otype, PULL>, CHANNEL>;
-pub type SpiSlaveRxTxDma<SPI, RXCHANNEL, TXCHANNEL, Otype, PULL = Floating> =
-    RxTxDma<SpiSlave<SPI, u8, Otype, PULL>, RXCHANNEL, TXCHANNEL>;
+pub type SpiSlaveTxDma<SPI, CHANNEL, Otype> = TxDma<SpiSlave<SPI, u8, Otype>, CHANNEL>;
+pub type SpiSlaveRxDma<SPI, CHANNEL, Otype> = RxDma<SpiSlave<SPI, u8, Otype>, CHANNEL>;
+pub type SpiSlaveRxTxDma<SPI, RXCHANNEL, TXCHANNEL, Otype> =
+    RxTxDma<SpiSlave<SPI, u8, Otype>, RXCHANNEL, TXCHANNEL>;
 
 macro_rules! spi_dma {
     (
@@ -807,39 +786,39 @@ macro_rules! spi_dma {
         $slavetxdma:ident,
         $slaverxtxdma:ident
     ) => {
-        pub type $rxdma<PULL = Floating> = SpiRxDma<$SPIi, $RCi, PULL>;
-        pub type $txdma<PULL = Floating> = SpiTxDma<$SPIi, $TCi, PULL>;
-        pub type $rxtxdma<PULL = Floating> = SpiRxTxDma<$SPIi, $RCi, $TCi, PULL>;
+        pub type $rxdma = SpiRxDma<$SPIi, $RCi>;
+        pub type $txdma = SpiTxDma<$SPIi, $TCi>;
+        pub type $rxtxdma = SpiRxTxDma<$SPIi, $RCi, $TCi>;
 
-        impl<PULL> Transmit for SpiTxDma<$SPIi, $TCi, PULL> {
+        impl Transmit for SpiTxDma<$SPIi, $TCi> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<PULL> Receive for SpiRxDma<$SPIi, $RCi, PULL> {
+        impl Receive for SpiRxDma<$SPIi, $RCi> {
             type RxChannel = $RCi;
             type TransmittedWord = u8;
         }
 
-        impl<PULL> Transmit for SpiRxTxDma<$SPIi, $RCi, $TCi, PULL> {
+        impl Transmit for SpiRxTxDma<$SPIi, $RCi, $TCi> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<PULL> Receive for SpiRxTxDma<$SPIi, $RCi, $TCi, PULL> {
+        impl Receive for SpiRxTxDma<$SPIi, $RCi, $TCi> {
             type RxChannel = $RCi;
             type TransmittedWord = u8;
         }
 
-        impl<PULL> Spi<$SPIi, u8, PULL> {
-            pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, $TCi, PULL> {
+        impl Spi<$SPIi, u8> {
+            pub fn with_tx_dma(self, channel: $TCi) -> SpiTxDma<$SPIi, $TCi> {
                 self.spi.cr2().modify(|_, w| w.txdmaen().set_bit());
                 SpiTxDma {
                     payload: self,
                     channel,
                 }
             }
-            pub fn with_rx_dma(self, channel: $RCi) -> SpiRxDma<$SPIi, $RCi, PULL> {
+            pub fn with_rx_dma(self, channel: $RCi) -> SpiRxDma<$SPIi, $RCi> {
                 self.spi.cr2().modify(|_, w| w.rxdmaen().set_bit());
                 SpiRxDma {
                     payload: self,
@@ -850,7 +829,7 @@ macro_rules! spi_dma {
                 self,
                 rxchannel: $RCi,
                 txchannel: $TCi,
-            ) -> SpiRxTxDma<$SPIi, $RCi, $TCi, PULL> {
+            ) -> SpiRxTxDma<$SPIi, $RCi, $TCi> {
                 self.spi
                     .cr2()
                     .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
@@ -862,24 +841,24 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<PULL> SpiTxDma<$SPIi, $TCi, PULL> {
-            pub fn release(self) -> (Spi<$SPIi, u8, PULL>, $TCi) {
+        impl SpiTxDma<$SPIi, $TCi> {
+            pub fn release(self) -> (Spi<$SPIi, u8>, $TCi) {
                 let SpiTxDma { payload, channel } = self;
                 payload.spi.cr2().modify(|_, w| w.txdmaen().clear_bit());
                 (payload, channel)
             }
         }
 
-        impl<PULL> SpiRxDma<$SPIi, $RCi, PULL> {
-            pub fn release(self) -> (Spi<$SPIi, u8, PULL>, $RCi) {
+        impl SpiRxDma<$SPIi, $RCi> {
+            pub fn release(self) -> (Spi<$SPIi, u8>, $RCi) {
                 let SpiRxDma { payload, channel } = self;
                 payload.spi.cr2().modify(|_, w| w.rxdmaen().clear_bit());
                 (payload, channel)
             }
         }
 
-        impl<PULL> SpiRxTxDma<$SPIi, $RCi, $TCi, PULL> {
-            pub fn release(self) -> (Spi<$SPIi, u8, PULL>, $RCi, $TCi) {
+        impl SpiRxTxDma<$SPIi, $RCi, $TCi> {
+            pub fn release(self) -> (Spi<$SPIi, u8>, $RCi, $TCi) {
                 let SpiRxTxDma {
                     payload,
                     rxchannel,
@@ -893,7 +872,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<PULL> TransferPayload for SpiTxDma<$SPIi, $TCi, PULL> {
+        impl TransferPayload for SpiTxDma<$SPIi, $TCi> {
             fn start(&mut self) {
                 self.channel.start();
             }
@@ -902,7 +881,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<PULL> TransferPayload for SpiRxDma<$SPIi, $RCi, PULL> {
+        impl TransferPayload for SpiRxDma<$SPIi, $RCi> {
             fn start(&mut self) {
                 self.channel.start();
             }
@@ -911,7 +890,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<PULL> TransferPayload for SpiRxTxDma<$SPIi, $RCi, $TCi, PULL> {
+        impl TransferPayload for SpiRxTxDma<$SPIi, $RCi, $TCi> {
             fn start(&mut self) {
                 self.rxchannel.start();
                 self.txchannel.start();
@@ -922,7 +901,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<B, PULL> crate::dma::ReadDma<B, u8> for SpiRxDma<$SPIi, $RCi, PULL>
+        impl<B> crate::dma::ReadDma<B, u8> for SpiRxDma<$SPIi, $RCi>
         where
             B: WriteBuffer<Word = u8>,
         {
@@ -958,7 +937,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<B, PULL> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, $TCi, PULL>
+        impl<B> crate::dma::WriteDma<B, u8> for SpiTxDma<$SPIi, $TCi>
         where
             B: ReadBuffer<Word = u8>,
         {
@@ -994,8 +973,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<RXB, TXB, PULL> crate::dma::ReadWriteDma<RXB, TXB, u8>
-            for SpiRxTxDma<$SPIi, $RCi, $TCi, PULL>
+        impl<RXB, TXB> crate::dma::ReadWriteDma<RXB, TXB, u8> for SpiRxTxDma<$SPIi, $RCi, $TCi>
         where
             RXB: WriteBuffer<Word = u8>,
             TXB: ReadBuffer<Word = u8>,
@@ -1063,42 +1041,39 @@ macro_rules! spi_dma {
             }
         }
 
-        pub type $slaverxdma<Otype = PushPull, PULL = Floating> =
-            SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL>;
-        pub type $slavetxdma<Otype = PushPull, PULL = Floating> =
-            SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL>;
-        pub type $slaverxtxdma<Otype = PushPull, PULL = Floating> =
-            SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL>;
+        pub type $slaverxdma<Otype = PushPull> = SpiSlaveRxDma<$SPIi, $RCi, Otype>;
+        pub type $slavetxdma<Otype = PushPull> = SpiSlaveTxDma<$SPIi, $TCi, Otype>;
+        pub type $slaverxtxdma<Otype = PushPull> = SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype>;
 
-        impl<Otype, PULL> Transmit for SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL> {
+        impl<Otype> Transmit for SpiSlaveTxDma<$SPIi, $TCi, Otype> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<Otype, PULL> Receive for SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL> {
+        impl<Otype> Receive for SpiSlaveRxDma<$SPIi, $RCi, Otype> {
             type RxChannel = $RCi;
             type TransmittedWord = u8;
         }
 
-        impl<Otype, PULL> Transmit for SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL> {
+        impl<Otype> Transmit for SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<Otype, PULL> Receive for SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL> {
+        impl<Otype> Receive for SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype> {
             type RxChannel = $RCi;
             type TransmittedWord = u8;
         }
 
-        impl<Otype, PULL> SpiSlave<$SPIi, u8, Otype, PULL> {
-            pub fn with_tx_dma(self, channel: $TCi) -> SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL> {
+        impl<Otype> SpiSlave<$SPIi, u8, Otype> {
+            pub fn with_tx_dma(self, channel: $TCi) -> SpiSlaveTxDma<$SPIi, $TCi, Otype> {
                 self.spi.cr2().modify(|_, w| w.txdmaen().set_bit());
                 SpiSlaveTxDma {
                     payload: self,
                     channel,
                 }
             }
-            pub fn with_rx_dma(self, channel: $RCi) -> SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL> {
+            pub fn with_rx_dma(self, channel: $RCi) -> SpiSlaveRxDma<$SPIi, $RCi, Otype> {
                 self.spi.cr2().modify(|_, w| w.rxdmaen().set_bit());
                 SpiSlaveRxDma {
                     payload: self,
@@ -1109,7 +1084,7 @@ macro_rules! spi_dma {
                 self,
                 rxchannel: $RCi,
                 txchannel: $TCi,
-            ) -> SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL> {
+            ) -> SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype> {
                 self.spi
                     .cr2()
                     .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
@@ -1121,24 +1096,24 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<Otype, PULL> SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL> {
-            pub fn release(self) -> (SpiSlave<$SPIi, u8, Otype, PULL>, $TCi) {
+        impl<Otype> SpiSlaveTxDma<$SPIi, $TCi, Otype> {
+            pub fn release(self) -> (SpiSlave<$SPIi, u8, Otype>, $TCi) {
                 let SpiSlaveTxDma { payload, channel } = self;
                 payload.spi.cr2().modify(|_, w| w.txdmaen().clear_bit());
                 (payload, channel)
             }
         }
 
-        impl<Otype, PULL> SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL> {
-            pub fn release(self) -> (SpiSlave<$SPIi, u8, Otype, PULL>, $RCi) {
+        impl<Otype> SpiSlaveRxDma<$SPIi, $RCi, Otype> {
+            pub fn release(self) -> (SpiSlave<$SPIi, u8, Otype>, $RCi) {
                 let SpiSlaveRxDma { payload, channel } = self;
                 payload.spi.cr2().modify(|_, w| w.rxdmaen().clear_bit());
                 (payload, channel)
             }
         }
 
-        impl<Otype, PULL> SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL> {
-            pub fn release(self) -> (SpiSlave<$SPIi, u8, Otype, PULL>, $RCi, $TCi) {
+        impl<Otype> SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype> {
+            pub fn release(self) -> (SpiSlave<$SPIi, u8, Otype>, $RCi, $TCi) {
                 let SpiSlaveRxTxDma {
                     payload,
                     rxchannel,
@@ -1152,7 +1127,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<Otype, PULL> TransferPayload for SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL> {
+        impl<Otype> TransferPayload for SpiSlaveTxDma<$SPIi, $TCi, Otype> {
             fn start(&mut self) {
                 self.channel.start();
             }
@@ -1161,7 +1136,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<Otype, PULL> TransferPayload for SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL> {
+        impl<Otype> TransferPayload for SpiSlaveRxDma<$SPIi, $RCi, Otype> {
             fn start(&mut self) {
                 self.channel.start();
             }
@@ -1170,7 +1145,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<Otype, PULL> TransferPayload for SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL> {
+        impl<Otype> TransferPayload for SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype> {
             fn start(&mut self) {
                 self.rxchannel.start();
                 self.txchannel.start();
@@ -1181,7 +1156,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<B, Otype, PULL> crate::dma::ReadDma<B, u8> for SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL>
+        impl<B, Otype> crate::dma::ReadDma<B, u8> for SpiSlaveRxDma<$SPIi, $RCi, Otype>
         where
             B: WriteBuffer<Word = u8>,
         {
@@ -1217,7 +1192,7 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<B, Otype, PULL> crate::dma::WriteDma<B, u8> for SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL>
+        impl<B, Otype> crate::dma::WriteDma<B, u8> for SpiSlaveTxDma<$SPIi, $TCi, Otype>
         where
             B: ReadBuffer<Word = u8>,
         {
@@ -1253,8 +1228,8 @@ macro_rules! spi_dma {
             }
         }
 
-        impl<RXB, TXB, Otype, PULL> crate::dma::ReadWriteDma<RXB, TXB, u8>
-            for SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL>
+        impl<RXB, TXB, Otype> crate::dma::ReadWriteDma<RXB, TXB, u8>
+            for SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype>
         where
             RXB: WriteBuffer<Word = u8>,
             TXB: ReadBuffer<Word = u8>,

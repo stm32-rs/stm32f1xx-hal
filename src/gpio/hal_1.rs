@@ -16,7 +16,7 @@ fn into_state(state: PinState) -> super::PinState {
 impl<const P: char, const N: u8, MODE> ErrorType for Pin<P, N, Output<MODE>> {
     type Error = Infallible;
 }
-impl<const P: char, const N: u8, MODE> ErrorType for Pin<P, N, Input<MODE>> {
+impl<const P: char, const N: u8> ErrorType for Pin<P, N, Input> {
     type Error = Infallible;
 }
 
@@ -88,7 +88,7 @@ impl<const P: char, const N: u8, MODE> StatefulOutputPin for Pin<P, N, Output<MO
     }
 }
 
-impl<const P: char, const N: u8, MODE> InputPin for Pin<P, N, Input<MODE>> {
+impl<const P: char, const N: u8> InputPin for Pin<P, N, Input> {
     #[inline]
     fn is_high(&mut self) -> Result<bool, Self::Error> {
         Ok((*self).is_high())
@@ -156,7 +156,7 @@ impl<const P: char> InputPin for PartiallyErasedPin<P, Output<OpenDrain>> {
     }
 }
 
-impl<const P: char, MODE> InputPin for PartiallyErasedPin<P, Input<MODE>> {
+impl<const P: char> InputPin for PartiallyErasedPin<P, Input> {
     #[inline(always)]
     fn is_high(&mut self) -> Result<bool, Self::Error> {
         Ok((*self).is_high())
@@ -196,7 +196,7 @@ impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
     }
 }
 
-impl<MODE> InputPin for ErasedPin<Input<MODE>> {
+impl InputPin for ErasedPin<Input> {
     fn is_high(&mut self) -> Result<bool, Infallible> {
         Ok((*self).is_high())
     }
