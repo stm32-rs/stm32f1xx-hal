@@ -5,27 +5,22 @@
 #![no_main]
 #![no_std]
 
-extern crate cortex_m;
-extern crate cortex_m_rt as rt;
-extern crate mpu9250;
-extern crate panic_semihosting;
-extern crate stm32f1xx_hal as hal;
+use panic_halt as _;
 
 use cortex_m::asm;
-use hal::delay::Delay;
-use hal::prelude::*;
-use hal::spi::Spi;
-use hal::stm32f103xx;
+use cortex_m_rt::entry;
 use mpu9250::Mpu9250;
-use rt::{entry, exception, ExceptionFrame};
+use stm32f1xx_hal as hal;
+
+use hal::{pac, prelude::*, spi::Spi};
 
 #[entry]
 fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32f103xx::Peripherals::take().unwrap();
+    let dp = pac::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
-    let mut rcc = dp.RCC.constrain();
+    let rcc = dp.RCC.constrain();
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
@@ -46,36 +41,25 @@ fn main() -> ! {
     // let miso = gpiob.pb14;
     // let mosi = gpiob.pb15.into_alternate_push_pull(&mut gpiob.crh);
 
-    let spi = Spi::spi1(
+    let spi = Spi::new(
         dp.SPI1,
-        (sck, miso, mosi),
-        &mut afio.mapr,
-        mpu9250::MODE,
+        (sck, miso, mosi, &mut afio.mapr),
+        mpu9250::MODE.into(),
         1.MHz(),
-        clocks,
+        &clocks,
     );
 
-    let mut delay = Delay::new(cp.SYST, &clocks);
+    let mut delay = cp.SYST.delay(&clocks);
 
-    let mut mpu9250 = Mpu9250::marg(spi, nss, &mut delay).unwrap();
+    let mut mpu9250 = Mpu9250::marg_default(spi, nss, &mut delay).unwrap();
 
     // sanity checks
     assert_eq!(mpu9250.who_am_i().unwrap(), 0x71);
     assert_eq!(mpu9250.ak8963_who_am_i().unwrap(), 0x48);
 
-    let _a = mpu9250.all().unwrap();
+    let _a = mpu9250.all::<[f32; 3]>().unwrap();
 
     asm::bkpt();
 
     loop {}
-}
-
-#[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
-}
-
-#[exception]
-fn DefaultHandler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }
