@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Update `bxcan`, `heapless`, `mfrc522`, reenable `mpu9250` example [#513]
 - PWM timer auto reload value is now preloaded/buffered [#453]
 - Move from bors/manual merge to GH merge queue [#467]
 - Replace UB code by a legitimate pointer access [#480]
