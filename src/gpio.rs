@@ -648,6 +648,40 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
         self
     }
 }
+impl<const P: char, const N: u8> Pin<P, N, Input> {
+    /// Set the internal pull-up and pull-down resistor
+    pub fn set_internal_resistor(&mut self, pull: Pull) {
+        match pull {
+            Pull::None => {
+                let gpio = unsafe { &(*gpiox::<P>()) };
+                match N {
+                    0..=7 => {
+                        gpio.crl().modify(|_, w| w.cnf(N).variant(Cnf::OpenDrain));
+                    }
+                    8..=15 => {
+                        gpio.crh()
+                            .modify(|_, w| unsafe { w.cnf(N - 16).bits(Cnf::OpenDrain as u8) });
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Pull::Up => {
+                self.mode::<PulledInput>();
+                self._set_pull_up()
+            }
+            Pull::Down => {
+                self.mode::<PulledInput>();
+                self._set_pull_down()
+            }
+        }
+    }
+
+    /// Set the internal pull-up and pull-down resistor
+    pub fn internal_resistor(mut self, pull: Pull) -> Self {
+        self.set_internal_resistor(pull);
+        self
+    }
+}
 
 impl<const P: char, const N: u8> Pin<P, N, Output<OpenDrain>> {
     #[inline]
@@ -787,9 +821,7 @@ macro_rules! impl_temp_output {
             &mut self,
             _cr: &mut <Self as HL>::Cr,
             mut f: impl FnMut(&mut Pin<P, N, $mode>),
-        ) where
-            Pin<P, N, $mode>: HL,
-        {
+        ) {
             self.mode::<$mode>();
             let mut temp = Pin::<P, N, $mode>::new();
             f(&mut temp);
@@ -807,9 +839,7 @@ macro_rules! impl_temp_output {
             _cr: &mut <Self as HL>::Cr,
             state: PinState,
             mut f: impl FnMut(&mut Pin<P, N, $mode>),
-        ) where
-            Pin<P, N, $mode>: HL,
-        {
+        ) {
             self._set_state(state);
             self.mode::<$mode>();
             let mut temp = Pin::<P, N, $mode>::new();
@@ -826,9 +856,7 @@ macro_rules! impl_temp_input {
             &mut self,
             _cr: &mut <Self as HL>::Cr,
             mut f: impl FnMut(&mut Pin<P, N, Input>),
-        )
-            where Pin::<P, N, Input>: HL
-        {
+        ) {
             self.mode::<$mode>();
             let mut temp = Pin::<P, N, Input>::new() $(.$pull())?;
             f(&mut temp);
@@ -975,10 +1003,7 @@ impl PinMode for Alternate<OpenDrain> {
     const CNF: Cnf = Cnf::AltOpenDrain;
 }
 
-impl<const P: char, const N: u8, M> Pin<P, N, M>
-where
-    Self: HL,
-{
+impl<const P: char, const N: u8, M> Pin<P, N, M> {
     fn mode<MODE: PinMode>(&mut self) {
         let gpio = unsafe { &(*gpiox::<P>()) };
 
@@ -996,7 +1021,12 @@ where
             _ => unreachable!(),
         }
     }
+}
 
+impl<const P: char, const N: u8, M> Pin<P, N, M>
+where
+    Self: HL,
+{
     #[inline]
     pub(crate) fn into_mode<MODE: PinMode>(
         mut self,
