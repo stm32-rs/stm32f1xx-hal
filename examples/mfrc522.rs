@@ -7,7 +7,7 @@ use panic_itm as _;
 use cortex_m::iprintln;
 
 use cortex_m_rt::entry;
-use mfrc522::Mfrc522;
+use mfrc522::{comm::eh02::spi::SpiInterface, Mfrc522};
 use stm32f1xx_hal::{
     pac,
     prelude::*,
@@ -44,7 +44,8 @@ fn main() -> ! {
     );
 
     let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
-    let mut mfrc522 = Mfrc522::new(spi).with_nss(nss).init().unwrap();
+    let itf = SpiInterface::new(spi).with_nss(nss);
+    let mut mfrc522 = Mfrc522::new(itf).init().unwrap();
 
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
     led.set_high();
