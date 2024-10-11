@@ -150,6 +150,7 @@ pub mod spi;
 pub mod time;
 pub mod timer;
 #[cfg(feature = "stm32-usbd")]
+#[cfg(feature = "stm32f103")]
 pub mod usb;
 pub mod watchdog;
 
