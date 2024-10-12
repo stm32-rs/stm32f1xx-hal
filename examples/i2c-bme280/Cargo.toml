@@ -16,8 +16,7 @@ cortex-m = "0.7.6"
 
 [dependencies.stm32f1xx-hal]
 path = "../.."
-version = "0.9.0"
-features = ["stm32f103", "rt", "stm32-usbd"]
+features = ["stm32f103", "stm32-usbd"]
 
 [profile.dev]
 incremental = false

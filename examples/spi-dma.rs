@@ -28,13 +28,9 @@ fn main() -> ! {
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     // Acquire the GPIOB peripheral
-    let mut gpiob = dp.GPIOB.split();
+    let gpiob = dp.GPIOB.split();
 
-    let pins = (
-        gpiob.pb13.into_alternate_push_pull(&mut gpiob.crh),
-        gpiob.pb14.into_floating_input(&mut gpiob.crh),
-        gpiob.pb15.into_alternate_push_pull(&mut gpiob.crh),
-    );
+    let pins = (Some(gpiob.pb13), Some(gpiob.pb14), Some(gpiob.pb15));
 
     let spi_mode = Mode {
         polarity: Polarity::IdleLow,

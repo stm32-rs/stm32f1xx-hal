@@ -59,23 +59,24 @@ fn main() -> ! {
     // Acquire the GPIOB peripheral
     let mut gpiob = dp.GPIOB.split();
 
-    let scl = gpiob.pb6.into_alternate_open_drain(&mut gpiob.crl);
-    let sda = gpiob.pb7.into_alternate_open_drain(&mut gpiob.crl);
+    let scl = gpiob.pb6;
+    let sda = gpiob.pb7;
 
-    let i2c = BlockingI2c::i2c1(
-        dp.I2C1,
-        (scl, sda),
-        &mut afio.mapr,
-        Mode::Fast {
-            frequency: 400.kHz(),
-            duty_cycle: DutyCycle::Ratio16to9,
-        },
-        clocks,
-        1000,
-        10,
-        1000,
-        1000,
-    );
+    let i2c = dp
+        .I2C1
+        //.remap(&mut afio.mapr) // add this if want to use PB8, PB9 instead
+        .blocking_i2c(
+            (scl, sda),
+            Mode::Fast {
+                frequency: 400.kHz(),
+                duty_cycle: DutyCycle::Ratio16to9,
+            },
+            &clocks,
+            1000,
+            10,
+            1000,
+            1000,
+        );
 
     // The Adafruit boards have address 0x77 without closing the jumper on the back, the BME280 lib connects to 0x77 with `new_secondary`, use
     // `new_primary` for 0x76 if you close the jumper/solder bridge.

@@ -2,16 +2,37 @@
   # Serial Peripheral Interface
   To construct the SPI instances, use the `Spi::spiX` functions.
 
-  The pin parameter is a tuple containing `(sck, miso, mosi)` which should be configured as `(Alternate<...>, Input<...>, Alternate<...>)`.
+  The pin parameter is a tuple containing `(Some(sck), Some(miso), Some(mosi))` which should be configured as `(Alternate<...>, Input<...>, Alternate<...>)`.
   As some STM32F1xx chips have 5V tolerant SPI pins, it is also possible to configure Sck and Mosi outputs as `Alternate<PushPull>`. Then
   a simple Pull-Up to 5V can be used to use SPI on a 5V bus without a level shifter.
 
-  You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
+  You can also use `None::<PA6>` if you don't want to use the pins
 
-  - `SPI1` can use `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)`.
-  - `SPI2` can use `(PB13, PB14, PB15)`
-  - `SPI3` can use `(PB3, PB4, PB5)` or only in connectivity line devices `(PC10, PC11, PC12)`
+  ## Alternate function remapping
 
+  ## SPI1
+
+  | Function \ Remap        | 0 (default) | 1    |
+  |-------------------------|-------------|------|
+  | SCK (A-PP : I-F)        | PA5         | PB3  |
+  | MISO (I-F/PU : A-PP/OD) | PA6         | PB4  |
+  | MOSI (A-PP : I-F/PU)    | PA7         | PB5  |
+
+  ## SPI2
+
+  | Function                |      |
+  |-------------------------|------|
+  | SCK (A-PP : I-F)        | PB13 |
+  | MISO (I-F/PU : A-PP/OD) | PB14 |
+  | MOSI (A-PP : I-F/PU)    | PB15 |
+
+  ## SPI3
+
+  | Function \ Remap        | 0 (default) | 1 (conn. devices) |
+  |-------------------------|-------------|-------------------|
+  | SCK (A-PP : I-F)        | PB3         | PC10              |
+  | MISO (I-F/PU : A-PP/OD) | PB4         | PC11              |
+  | MOSI (A-PP : I-F/PU)    | PB5         | PC12              |
 
   ## Initialisation example
 
@@ -20,16 +41,24 @@
     let mut gpiob = dp.GPIOB.split();
 
     let pins = (
-        gpiob.pb13.into_alternate_push_pull(&mut gpiob.crh),
-        gpiob.pb14.into_floating_input(&mut gpiob.crh),
-        gpiob.pb15.into_alternate_push_pull(&mut gpiob.crh),
+        Some(gpiob.pb13.into_alternate_push_pull(&mut gpiob.crh)),
+        Some(gpiob.pb14.into_floating_input(&mut gpiob.crh)),
+        Some(gpiob.pb15.into_alternate_push_pull(&mut gpiob.crh)),
+    );
+
+    // or just
+
+    let pins = (
+        Some(gpiob.pb13),
+        Some(gpiob.pb14),
+        Some(gpiob.pb15),
     );
 
     let spi_mode = Mode {
         polarity: Polarity::IdleLow,
         phase: Phase::CaptureOnFirstTransition,
     };
-    let spi = Spi::spi2(dp.SPI2, pins, spi_mode, 100.khz(), clocks);
+    let spi = dp.SPI2.spi(pins, spi_mode, 100.khz(), &clocks);
   ```
 */
 
@@ -41,12 +70,12 @@ use core::ptr;
 
 use crate::pac::{self, RCC};
 
-use crate::afio::{Remap, MAPR};
+use crate::afio::{self, RInto, Rmp};
 use crate::dma::dma1;
 #[cfg(feature = "connectivity")]
 use crate::dma::dma2;
-use crate::dma::{Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma, R, W};
-use crate::gpio::{self, Alternate, Cr, Floating, Input, NoPin, PinMode, PullUp, PushPull};
+use crate::dma::{self, Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma};
+use crate::gpio::{Floating, PushPull, UpMode};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::Hertz;
 
@@ -104,256 +133,76 @@ pub enum Error {
 
 use core::marker::PhantomData;
 
-pub trait InMode {}
-impl InMode for Floating {}
-impl InMode for PullUp {}
-
-pub struct MasterPins<SCK, MISO, MOSI> {
-    pub sck: SCK,
-    pub mi: MISO,
-    pub mo: MOSI,
-}
-pub struct SlavePins<SCK, MISO, MOSI> {
-    pub sck: SCK,
-    pub so: MISO,
-    pub si: MOSI,
-}
-
-pub mod spi1 {
-    use super::*;
-
-    remap! {
-        pac::SPI1: [
-            PA5, PA6, PA7 => MAPR: 0;
-            PB3, PB4, PB5  => MAPR: 1;
-        ]
-    }
-}
-
-pub mod spi2 {
-    use super::*;
-
-    remap! {
-        pac::SPI2: [
-            PB13, PB14, PB15;
-        ]
-    }
-}
-#[cfg(any(feature = "high", feature = "connectivity"))]
-pub mod spi3 {
-    use super::*;
-
-    #[cfg(not(feature = "connectivity"))]
-    remap! {
-        pac::SPI3: [
-            PB3, PB4, PB5;
-        ]
-    }
-    #[cfg(feature = "connectivity")]
-    remap! {
-        pac::SPI3: [
-            PB3, PB4, PB5 => MAPR: 0;
-            PC10, PC11, PC12  => MAPR: 1;
-        ]
-    }
-}
-
-macro_rules! remap {
-    ($PER:ty: [
-        $($SCK:ident, $MISO:ident, $MOSI:ident $( => $MAPR:ident: $remap:literal)?;)+
-    ]) => {
-        pub enum Sck {
-            $(
-                $SCK(gpio::$SCK<Alternate>),
-            )+
-            None(NoPin<PushPull>),
-        }
-
-        pub enum Mi<PULL> {
-            $(
-                $MISO(gpio::$MISO<Input<PULL>>),
-            )+
-            None(NoPin<Floating>),
-        }
-
-        pub enum So<Otype> {
-            $(
-                $MISO(gpio::$MISO<Alternate<Otype>>),
-            )+
-            None(NoPin<PushPull>),
-        }
-
-        pub enum Mo {
-            $(
-                $MOSI(gpio::$MOSI<Alternate>),
-            )+
-            None(NoPin<PushPull>),
-        }
-
-        pub enum Si<PULL> {
-            $(
-                $MOSI(gpio::$MOSI<Input<PULL>>),
-            )+
-            None(NoPin<Floating>),
-        }
-
-        $(
-            // For master mode
-            impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo> {
-                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>>, gpio::$MOSI<Alternate> $(, &mut $MAPR)?)) -> Self {
-                    $(<$PER>::remap(p.3, $remap);)?
-                    Self { sck: Sck::$SCK(p.0), mi: Mi::$MISO(p.1), mo: Mo::$MOSI(p.2) }
-                }
-            }
-
-            impl<PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo>
-            where
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
-                fn from(p: (gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
-                    let mut cr = Cr;
-                    let sck = p.0.into_mode(&mut cr);
-                    let miso = p.1.into_mode(&mut cr);
-                    let mosi = p.2.into_mode(&mut cr);
-                    $(<$PER>::remap(p.3, $remap);)?
-                    Self { sck: Sck::$SCK(sck), mi: Mi::$MISO(miso), mo: Mo::$MOSI(mosi) }
-                }
-            }
-
-            impl<PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)> for MasterPins<Sck, Mi<PULL>, Mo> {
-                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
-                    $(<$PER>::remap(p.2, $remap);)?
-                    Self { sck: Sck::$SCK(p.0), mi: Mi::$MISO(p.1), mo: Mo::None(NoPin::new()) }
-                }
-            }
-
-            impl<PULL> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi<PULL>, Mo>
-            where
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
-                fn from(p: (gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)) -> Self {
-                    let mut cr = Cr;
-                    let sck = p.0.into_mode(&mut cr);
-                    let miso = p.1.into_mode(&mut cr);
-                    $(<$PER>::remap(p.2, $remap);)?
-                    Self { sck: Sck::$SCK(sck), mi: Mi::$MISO(miso), mo: Mo::None(NoPin::new()) }
-                }
-            }
-
-            impl From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for super::MasterPins<Sck, Mi<Floating>, Mo> {
-                fn from(p: (gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
-                    let mut cr = Cr;
-                    let sck = p.0.into_mode(&mut cr);
-                    let mosi = p.1.into_mode(&mut cr);
-                    $(<$PER>::remap(p.2, $remap);)?
-                    Self { sck: Sck::$SCK(sck), mi: Mi::None(NoPin::new()), mo: Mo::$MOSI(mosi) }
-                }
-            }
-
-            // For slave mode
-
-            impl<Otype, PULL: InMode> From<(gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<PULL>> {
-                fn from(p: (gpio::$SCK<Alternate>, gpio::$MISO<Alternate<Otype>>, gpio::$MOSI<Input<PULL>> $(, &mut $MAPR)?)) -> Self {
-                    $(<$PER>::remap(p.3, $remap);)?
-                    Self { sck: Sck::$SCK(p.0), so: So::$MISO(p.1), si: Si::$MOSI(p.2) }
-                }
-            }
-
-            impl<Otype, PULL> From<(gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<PULL>>
-            where
-                Alternate<Otype>: PinMode,
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
-                fn from(p: (gpio::$SCK, gpio::$MISO, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
-                    let mut cr = Cr;
-                    let sck = p.0.into_mode(&mut cr);
-                    let miso = p.1.into_mode(&mut cr);
-                    let mosi = p.2.into_mode(&mut cr);
-                    $(<$PER>::remap(p.3, $remap);)?
-                    Self { sck: Sck::$SCK(sck), so: So::$MISO(miso), si: Si::$MOSI(mosi) }
-                }
-            }
-
-            impl<Otype> From<(gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)> for SlavePins<Sck, So<Otype>, Si<Floating>>
-            where
-                Alternate<Otype>: PinMode,
-            {
-                fn from(p: (gpio::$SCK, gpio::$MISO $(, &mut $MAPR)?)) -> Self {
-                    let mut cr = Cr;
-                    let sck = p.0.into_mode(&mut cr);
-                    let miso = p.1.into_mode(&mut cr);
-                    $(<$PER>::remap(p.2, $remap);)?
-                    Self { sck: Sck::$SCK(sck), so: So::$MISO(miso), si: Si::None(NoPin::new()) }
-                }
-            }
-
-            impl<PULL> From<(gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)> for SlavePins<Sck, So<PushPull>, Si<PULL>>
-            where
-                Input<PULL>: PinMode,
-                PULL: InMode,
-            {
-                fn from(p: (gpio::$SCK, gpio::$MOSI $(, &mut $MAPR)?)) -> Self {
-                    let mut cr = Cr;
-                    let sck = p.0.into_mode(&mut cr);
-                    let mosi = p.1.into_mode(&mut cr);
-                    $(<$PER>::remap(p.2, $remap);)?
-                    Self { sck: Sck::$SCK(sck), so: So::None(NoPin::new()), si: Si::$MOSI(mosi) }
-                }
-            }
-        )+
-    }
-}
-use remap;
-
 pub trait SpiExt: Sized + Instance {
-    fn spi(
+    fn spi<PULL: UpMode>(
         self,
-        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
+        pins: (
+            Option<impl RInto<Self::MSck, 0>>,
+            Option<impl RInto<Self::Mi<PULL>, 0>>,
+            Option<impl RInto<Self::Mo, 0>>,
+        ),
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
-    ) -> Spi<Self, u8, Floating>;
-    fn spi_u16(
+    ) -> Spi<Self, u8, PULL>;
+    fn spi_u16<PULL: UpMode>(
         self,
-        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
+        pins: (
+            Option<impl RInto<Self::MSck, 0>>,
+            Option<impl RInto<Self::Mi<PULL>, 0>>,
+            Option<impl RInto<Self::Mo, 0>>,
+        ),
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
-    ) -> Spi<Self, u16> {
+    ) -> Spi<Self, u16, PULL> {
         Self::spi(self, pins, mode, freq, clocks).frame_size_16bit()
     }
-    fn spi_slave(
+    fn spi_slave<Otype, PULL: UpMode>(
         self,
-        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
+        pins: (
+            Option<impl RInto<Self::SSck, 0>>,
+            Option<impl RInto<Self::So<Otype>, 0>>,
+            Option<impl RInto<Self::Si<PULL>, 0>>,
+        ),
         mode: Mode,
-    ) -> SpiSlave<Self, u8, PushPull, Floating>;
-    fn spi_slave_u16(
+    ) -> SpiSlave<Self, u8, Otype, PULL>;
+    fn spi_slave_u16<Otype, PULL: UpMode>(
         self,
-        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
+        pins: (
+            Option<impl RInto<Self::SSck, 0>>,
+            Option<impl RInto<Self::So<Otype>, 0>>,
+            Option<impl RInto<Self::Si<PULL>, 0>>,
+        ),
         mode: Mode,
-    ) -> SpiSlave<Self, u16, PushPull, Floating> {
+    ) -> SpiSlave<Self, u16, Otype, PULL> {
         Self::spi_slave(self, pins, mode).frame_size_16bit()
     }
 }
 
 impl<SPI: Instance> SpiExt for SPI {
-    fn spi(
+    fn spi<PULL: UpMode>(
         self,
-        pins: impl Into<MasterPins<Self::Sck, Self::Mi<Floating>, Self::Mo>>,
+        pins: (
+            Option<impl RInto<Self::MSck, 0>>,
+            Option<impl RInto<Self::Mi<PULL>, 0>>,
+            Option<impl RInto<Self::Mo, 0>>,
+        ),
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
-    ) -> Spi<Self, u8, Floating> {
+    ) -> Spi<Self, u8, PULL> {
         Spi::new(self, pins, mode, freq, clocks)
     }
-    fn spi_slave(
+    fn spi_slave<Otype, PULL: UpMode>(
         self,
-        pins: impl Into<SlavePins<Self::Sck, Self::So<PushPull>, Self::Si<Floating>>>,
+        pins: (
+            Option<impl RInto<Self::SSck, 0>>,
+            Option<impl RInto<Self::So<Otype>, 0>>,
+            Option<impl RInto<Self::Si<PULL>, 0>>,
+        ),
         mode: Mode,
-    ) -> SpiSlave<Self, u8, PushPull, Floating> {
+    ) -> SpiSlave<Self, u8, Otype, PULL> {
         SpiSlave::new(self, pins, mode)
     }
 }
@@ -375,13 +224,19 @@ impl<SPI, W> SpiInner<SPI, W> {
 /// Spi in Master mode
 pub struct Spi<SPI: Instance, W, PULL = Floating> {
     inner: SpiInner<SPI, W>,
-    pins: (SPI::Sck, SPI::Mi<PULL>, SPI::Mo),
+    #[allow(clippy::type_complexity)]
+    pins: (Option<SPI::MSck>, Option<SPI::Mi<PULL>>, Option<SPI::Mo>),
 }
 
 /// Spi in Slave mode
 pub struct SpiSlave<SPI: Instance, W, Otype = PushPull, PULL = Floating> {
     inner: SpiInner<SPI, W>,
-    pins: (SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>),
+    #[allow(clippy::type_complexity)]
+    pins: (
+        Option<SPI::SSck>,
+        Option<SPI::So<Otype>>,
+        Option<SPI::Si<PULL>>,
+    ),
 }
 
 impl<SPI: Instance, W, PULL> Deref for Spi<SPI, W, PULL> {
@@ -420,39 +275,72 @@ pub enum SpiBitFormat {
 }
 
 pub trait Instance:
-    crate::Sealed + Deref<Target = crate::pac::spi1::RegisterBlock> + Enable + Reset + BusClock
+    crate::Sealed
+    + Deref<Target = crate::pac::spi1::RegisterBlock>
+    + Enable
+    + Reset
+    + BusClock
+    + afio::SpiCommon
 {
-    type Sck;
-    type Mi<PULL>;
-    type So<Otype>;
-    type Mo;
-    type Si<PULL>;
 }
 
-impl Instance for pac::SPI1 {
-    type Sck = spi1::Sck;
-    type Mi<PULL> = spi1::Mi<PULL>;
-    type So<Otype> = spi1::So<Otype>;
-    type Mo = spi1::Mo;
-    type Si<PULL> = spi1::Si<PULL>;
-}
-impl Instance for pac::SPI2 {
-    type Sck = spi2::Sck;
-    type Mi<PULL> = spi2::Mi<PULL>;
-    type So<Otype> = spi2::So<Otype>;
-    type Mo = spi2::Mo;
-    type Si<PULL> = spi2::Si<PULL>;
-}
+impl Instance for pac::SPI1 {}
+impl Instance for pac::SPI2 {}
 #[cfg(any(feature = "high", feature = "connectivity"))]
-impl Instance for pac::SPI3 {
-    type Sck = spi3::Sck;
-    type Mi<PULL> = spi3::Mi<PULL>;
-    type So<Otype> = spi3::So<Otype>;
-    type Mo = spi3::Mo;
-    type Si<PULL> = spi3::Si<PULL>;
+impl Instance for pac::SPI3 {}
+
+impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
+    pub fn spi<PULL: UpMode>(
+        self,
+        pins: (
+            Option<impl RInto<SPI::MSck, R>>,
+            Option<impl RInto<SPI::Mi<PULL>, R>>,
+            Option<impl RInto<SPI::Mo, R>>,
+        ),
+        mode: Mode,
+        freq: Hertz,
+        clocks: &Clocks,
+    ) -> Spi<SPI, u8, PULL> {
+        Spi::_new(self.0, pins, mode, freq, clocks)
+    }
+    pub fn spi_u16<PULL: UpMode>(
+        self,
+        pins: (
+            Option<impl RInto<SPI::MSck, R>>,
+            Option<impl RInto<SPI::Mi<PULL>, R>>,
+            Option<impl RInto<SPI::Mo, R>>,
+        ),
+        mode: Mode,
+        freq: Hertz,
+        clocks: &Clocks,
+    ) -> Spi<SPI, u16, PULL> {
+        self.spi(pins, mode, freq, clocks).frame_size_16bit()
+    }
+    pub fn spi_slave<Otype, PULL: UpMode>(
+        self,
+        pins: (
+            Option<impl RInto<SPI::SSck, R>>,
+            Option<impl RInto<SPI::So<Otype>, R>>,
+            Option<impl RInto<SPI::Si<PULL>, R>>,
+        ),
+        mode: Mode,
+    ) -> SpiSlave<SPI, u8, Otype, PULL> {
+        SpiSlave::_new(self.0, pins, mode)
+    }
+    pub fn spi_slave_u16<Otype, PULL: UpMode>(
+        self,
+        pins: (
+            Option<impl RInto<SPI::SSck, R>>,
+            Option<impl RInto<SPI::So<Otype>, R>>,
+            Option<impl RInto<SPI::Si<PULL>, R>>,
+        ),
+        mode: Mode,
+    ) -> SpiSlave<SPI, u16, Otype, PULL> {
+        self.spi_slave(pins, mode).frame_size_16bit()
+    }
 }
 
-impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
+impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
@@ -462,7 +350,25 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
     */
     pub fn new(
         spi: SPI,
-        pins: impl Into<MasterPins<SPI::Sck, SPI::Mi<PULL>, SPI::Mo>>,
+        pins: (
+            Option<impl RInto<SPI::MSck, 0>>,
+            Option<impl RInto<SPI::Mi<PULL>, 0>>,
+            Option<impl RInto<SPI::Mo, 0>>,
+        ),
+        mode: Mode,
+        freq: Hertz,
+        clocks: &Clocks,
+    ) -> Self {
+        Self::_new(spi, pins, mode, freq, clocks)
+    }
+
+    fn _new<const R: u8>(
+        spi: SPI,
+        pins: (
+            Option<impl RInto<SPI::MSck, R>>,
+            Option<impl RInto<SPI::Mi<PULL>, R>>,
+            Option<impl RInto<SPI::Mo, R>>,
+        ),
         mode: Mode,
         freq: Hertz,
         clocks: &Clocks,
@@ -487,7 +393,11 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
             _ => 0b111,
         };
 
-        let pins = pins.into();
+        let pins = (
+            pins.0.map(RInto::rinto),
+            pins.1.map(RInto::rinto),
+            pins.2.map(RInto::rinto),
+        );
 
         spi.cr1().write(|w| {
             // clock phase from config
@@ -516,17 +426,24 @@ impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
 
         Spi {
             inner: SpiInner::new(spi),
-            pins: (pins.sck, pins.mi, pins.mo),
+            pins,
         }
     }
+}
 
+impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
     #[allow(clippy::type_complexity)]
-    pub fn release(self) -> (SPI, (SPI::Sck, SPI::Mi<PULL>, SPI::Mo)) {
+    pub fn release(
+        self,
+    ) -> (
+        SPI,
+        (Option<SPI::MSck>, Option<SPI::Mi<PULL>>, Option<SPI::Mo>),
+    ) {
         (self.inner.spi, self.pins)
     }
 }
 
-impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
+impl<SPI: Instance, Otype, PULL: UpMode> SpiSlave<SPI, u8, Otype, PULL> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
@@ -536,7 +453,22 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
     */
     pub fn new(
         spi: SPI,
-        pins: impl Into<SlavePins<SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>>>,
+        pins: (
+            Option<impl RInto<SPI::SSck, 0>>,
+            Option<impl RInto<SPI::So<Otype>, 0>>,
+            Option<impl RInto<SPI::Si<PULL>, 0>>,
+        ),
+        mode: Mode,
+    ) -> Self {
+        Self::_new(spi, pins, mode)
+    }
+    fn _new<const R: u8>(
+        spi: SPI,
+        pins: (
+            Option<impl RInto<SPI::SSck, R>>,
+            Option<impl RInto<SPI::So<Otype>, R>>,
+            Option<impl RInto<SPI::Si<PULL>, R>>,
+        ),
         mode: Mode,
     ) -> Self {
         // enable or reset SPI
@@ -547,7 +479,11 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
         // disable SS output
         spi.cr2().write(|w| w.ssoe().clear_bit());
 
-        let pins = pins.into();
+        let pins = (
+            pins.0.map(RInto::rinto),
+            pins.1.map(RInto::rinto),
+            pins.2.map(RInto::rinto),
+        );
 
         spi.cr1().write(|w| {
             // clock phase from config
@@ -574,12 +510,23 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
 
         SpiSlave {
             inner: SpiInner::new(spi),
-            pins: (pins.sck, pins.so, pins.si),
+            pins,
         }
     }
+}
 
+impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
     #[allow(clippy::type_complexity)]
-    pub fn release(self) -> (SPI, (SPI::Sck, SPI::So<Otype>, SPI::Si<PULL>)) {
+    pub fn release(
+        self,
+    ) -> (
+        SPI,
+        (
+            Option<SPI::SSck>,
+            Option<SPI::So<Otype>>,
+            Option<SPI::Si<PULL>>,
+        ),
+    ) {
         (self.inner.spi, self.pins)
     }
 }
@@ -926,7 +873,7 @@ macro_rules! spi_dma {
         where
             B: WriteBuffer<Word = u8>,
         {
-            fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
+            fn read(mut self, mut buffer: B) -> Transfer<dma::W, B, Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
@@ -962,7 +909,7 @@ macro_rules! spi_dma {
         where
             B: ReadBuffer<Word = u8>,
         {
-            fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
+            fn write(mut self, buffer: B) -> Transfer<dma::R, B, Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.read_buffer() };
@@ -1004,7 +951,7 @@ macro_rules! spi_dma {
                 mut self,
                 mut rxbuffer: RXB,
                 txbuffer: TXB,
-            ) -> Transfer<W, (RXB, TXB), Self> {
+            ) -> Transfer<dma::W, (RXB, TXB), Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (rxptr, rxlen) = unsafe { rxbuffer.write_buffer() };
@@ -1185,7 +1132,7 @@ macro_rules! spi_dma {
         where
             B: WriteBuffer<Word = u8>,
         {
-            fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
+            fn read(mut self, mut buffer: B) -> Transfer<dma::W, B, Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.write_buffer() };
@@ -1221,7 +1168,7 @@ macro_rules! spi_dma {
         where
             B: ReadBuffer<Word = u8>,
         {
-            fn write(mut self, buffer: B) -> Transfer<R, B, Self> {
+            fn write(mut self, buffer: B) -> Transfer<dma::R, B, Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.read_buffer() };
@@ -1263,7 +1210,7 @@ macro_rules! spi_dma {
                 mut self,
                 mut rxbuffer: RXB,
                 txbuffer: TXB,
-            ) -> Transfer<W, (RXB, TXB), Self> {
+            ) -> Transfer<dma::W, (RXB, TXB), Self> {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (rxptr, rxlen) = unsafe { rxbuffer.write_buffer() };

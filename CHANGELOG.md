@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Breaking changes
 
 - Relax pin type generics for `Serial`, `I2c`, `Spi`, `Can`. [#462]
-  Use enums of pin tuples and `Enum::from<(tuple)>` for pin remap before passing to peripheral.
+  ~~Use enums of pin tuples and `Enum::from<(tuple)>` for pin remap before passing to peripheral.~~
+  Use pin enums and `impl RInto<(enum), R>` for peripheral constructors.
+  Add `RInto` trait and `Rmp` peripheral wrapper, add `remap` for peripherals.
   Remove `RemapStruct`s. [#462] [#506] [#509]
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]

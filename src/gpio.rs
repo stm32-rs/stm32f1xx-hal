@@ -143,16 +143,13 @@ pub trait GpioExt {
     unsafe fn split_without_reset(self) -> Self::Parts;
 }
 
-#[derive(Debug, Default)]
-pub struct NoPin<MODE>(PhantomData<MODE>);
-impl<MODE> NoPin<MODE> {
-    pub fn new() -> Self {
-        Self(PhantomData)
-    }
-}
-
 /// Marker trait for active states.
 pub trait Active {}
+
+/// Marker trait for Floating or PullUp inputs
+pub trait UpMode {}
+impl UpMode for Floating {}
+impl UpMode for PullUp {}
 
 /// Input mode (type state)
 #[derive(Default)]

@@ -1,5 +1,8 @@
 pub use crate::adc::ChannelTimeSequence as _stm32_hal_adc_ChannelTimeSequence;
 pub use crate::afio::AfioExt as _stm32_hal_afio_AfioExt;
+pub use crate::afio::RFrom as _;
+pub use crate::afio::RInto as _;
+pub use crate::afio::Remap as _;
 #[cfg(feature = "has-can")]
 pub use crate::can::CanExt as _;
 pub use crate::crc::CrcExt as _stm32_hal_crc_CrcExt;

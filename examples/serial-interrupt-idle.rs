@@ -9,11 +9,9 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use stm32f1xx_hal::{
-    pac,
-    pac::interrupt,
-    pac::USART1,
+    pac::{self, interrupt, USART1},
     prelude::*,
-    serial::{Rx, Serial, Tx},
+    serial::{Rx, Tx},
 };
 
 static mut RX: Option<Rx<USART1>> = None;
@@ -44,8 +42,11 @@ fn main() -> ! {
 
     // Set up the usart device. Takes ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let (mut tx, mut rx) =
-        Serial::new(p.USART1, (tx, rx, &mut afio.mapr), 115_200.bps(), &clocks).split();
+    let (mut tx, mut rx) = p
+        .USART1
+        .remap(&mut afio.mapr)
+        .serial((tx, rx), 115_200.bps(), &clocks)
+        .split();
     tx.listen();
     rx.listen();
     rx.listen_idle();

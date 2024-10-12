@@ -36,7 +36,6 @@ fn main() -> ! {
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut afio = dp.AFIO.constrain();
     let gpioa = dp.GPIOA.split();
     let gpiob = dp.GPIOB.split();
 
@@ -48,7 +47,7 @@ fn main() -> ! {
 
     let spi1 = dp
         .SPI1
-        .spi((sck, miso, mosi, &mut afio.mapr), MODE, 10.kHz(), &clocks);
+        .spi((Some(sck), Some(miso), Some(mosi)), MODE, 10.kHz(), &clocks);
 
     // SPI2
     // Convert pins before SPI initialization
@@ -56,7 +55,7 @@ fn main() -> ! {
     let miso = gpiob.pb14;
     let mosi = gpiob.pb15;
 
-    let spi2 = dp.SPI2.spi_slave((sck, miso, mosi), MODE);
+    let spi2 = dp.SPI2.spi_slave((Some(sck), Some(miso), Some(mosi)), MODE);
 
     // Set up the DMA device
     let dma = dp.DMA1.split();

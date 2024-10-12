@@ -31,7 +31,7 @@ fn main() -> ! {
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     // Prepare the alternate function I/O registers
-    let mut afio = p.AFIO.constrain();
+    //let mut afio = p.AFIO.constrain();
 
     // Prepare the GPIOB peripheral
     let mut gpiob = p.GPIOB.split();
@@ -56,11 +56,9 @@ fn main() -> ! {
 
     // Set up the usart device. Take ownership over the USART register and tx/rx pins. The rest of
     // the registers are used to enable and configure the device.
-    let mut serial = p.USART3.serial(
-        (tx, rx, &mut afio.mapr),
-        Config::default().baudrate(9600.bps()),
-        &clocks,
-    );
+    let mut serial = p
+        .USART3
+        .serial((tx, rx), Config::default().baudrate(9600.bps()), &clocks);
 
     // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';
