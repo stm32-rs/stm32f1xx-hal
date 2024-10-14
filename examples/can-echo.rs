@@ -24,8 +24,6 @@ fn main() -> ! {
     // Other boards might have a crystal with another frequency or none at all.
     rcc.cfgr.use_hse(8.MHz()).freeze(&mut flash.acr);
 
-    let mut afio = dp.AFIO.constrain();
-
     let mut can1 = {
         let gpioa = dp.GPIOA.split();
         let rx = gpioa.pa11;
@@ -34,7 +32,7 @@ fn main() -> ! {
         let can = dp.CAN1.can(
             #[cfg(not(feature = "connectivity"))]
             dp.USB,
-            (tx, rx, &mut afio.mapr),
+            (tx, rx),
         );
 
         // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
@@ -51,7 +49,7 @@ fn main() -> ! {
     #[cfg(feature = "connectivity")]
     let _can2 = {
         let gpiob = dp.GPIOB.split();
-        let can = dp.CAN2.can((gpiob.pb6, gpiob.pb5, &mut afio.mapr));
+        let can = dp.CAN2.can((gpiob.pb6, gpiob.pb5));
 
         // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/

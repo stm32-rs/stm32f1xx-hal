@@ -35,7 +35,7 @@ fn main() -> ! {
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
     // Prepare the alternate function I/O registers
-    let mut afio = p.AFIO.constrain();
+    //let mut afio = p.AFIO.constrain();
 
     // Prepare the GPIOB peripheral
     let mut gpiob = p.GPIOB.split();
@@ -62,7 +62,7 @@ fn main() -> ! {
     // the registers are used to enable and configure the device.
     let mut serial = Serial::new(
         p.USART3,
-        (tx, rx, &mut afio.mapr),
+        (tx, rx),
         Config::default().baudrate(9600.bps()),
         &clocks,
     );

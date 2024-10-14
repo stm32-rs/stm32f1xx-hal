@@ -25,7 +25,7 @@ fn main() -> ! {
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut afio = p.AFIO.constrain();
+    //let mut afio = p.AFIO.constrain();
     let channels = p.DMA1.split();
 
     let mut gpioa = p.GPIOA.split();
@@ -47,12 +47,7 @@ fn main() -> ! {
     // let tx = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
     // let rx = gpiob.pb11;
 
-    let serial = Serial::new(
-        p.USART1,
-        (tx, rx, &mut afio.mapr),
-        Config::default(),
-        &clocks,
-    );
+    let serial = Serial::new(p.USART1, (tx, rx), Config::default(), &clocks);
 
     let rx = serial.rx.with_dma(channels.5);
     let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();

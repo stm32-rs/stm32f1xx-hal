@@ -55,7 +55,7 @@ mod app {
     use super::{enqueue_frame, PriorityFrame};
     use bxcan::{filter::Mask32, ExtendedId, Fifo, Frame, Interrupts, Rx0, StandardId, Tx};
     use heapless::binary_heap::{BinaryHeap, Max};
-    use stm32f1xx_hal::{can::Can, gpio::Floating, pac::CAN1, prelude::*};
+    use stm32f1xx_hal::{can::Can, pac::CAN1, prelude::*};
 
     #[local]
     struct Local {
@@ -86,17 +86,12 @@ mod app {
         let gpioa = cx.device.GPIOA.split();
         let can_rx_pin = gpioa.pa11;
         let can_tx_pin = gpioa.pa12;
-        let mut afio = cx.device.AFIO.constrain();
 
         #[cfg(not(feature = "connectivity"))]
-        let can = Can::<_, Floating>::new(
-            cx.device.CAN1,
-            cx.device.USB,
-            (can_tx_pin, can_rx_pin, &mut afio.mapr),
-        );
+        let can = Can::new(cx.device.CAN1, cx.device.USB, (can_tx_pin, can_rx_pin));
 
         #[cfg(feature = "connectivity")]
-        let can = Can::<_, Floating>::new(cx.device.CAN1, (can_tx_pin, can_rx_pin, &mut afio.mapr));
+        let can = Can::new(cx.device.CAN1, (can_tx_pin, can_rx_pin));
 
         // APB1 (PCLK1): 16MHz, Bit rate: 1000kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/

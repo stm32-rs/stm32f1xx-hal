@@ -1,11 +1,26 @@
 //! Inter-Integrated Circuit (I2C) bus
+//!
+//! ## Alternate function remapping
+//!
+//! ### I2C1
+//!
+//! | Function \ Remap | 0 (default) | 1   |
+//! |------------------|-------------|-----|
+//! | SCL (A-OD)       | PB6         | PB8 |
+//! | SDA (A-OD)       | PB7         | PB9 |
+//!
+//! ### I2C2
+//!
+//! | Function   |      |
+//! |------------|------|
+//! | SCL (A-OD) | PB10 |
+//! | SDA (A-OD) | PB11 |
 
 // This document describes a correct i2c implementation and is what
 // parts of this code is based on
 // https://www.st.com/content/ccc/resource/technical/document/application_note/5d/ae/a3/6f/08/69/4e/9b/CD00209826.pdf/files/CD00209826.pdf/jcr:content/translations/en.CD00209826.pdf
 
-use crate::afio::{Remap, MAPR};
-use crate::gpio::{self, Alternate, Cr, OpenDrain};
+use crate::afio::{self, RInto, Rmp};
 use crate::pac::{self, DWT, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{kHz, Hertz};
@@ -86,81 +101,10 @@ impl From<Hertz> for Mode {
     }
 }
 
-pub struct Pins<SCL, SDA> {
-    pub scl: SCL,
-    pub sda: SDA,
-}
-
-impl<SCL, SDA> From<(SCL, SDA)> for Pins<SCL, SDA> {
-    fn from(value: (SCL, SDA)) -> Self {
-        Self {
-            scl: value.0,
-            sda: value.1,
-        }
-    }
-}
-
-pub mod i2c1 {
-    use super::*;
-
-    remap! {
-        pac::I2C1: [
-            PB6, PB7 => MAPR: 0;
-            PB8, PB9 => MAPR: 1;
-        ]
-    }
-}
-pub mod i2c2 {
-    use super::*;
-
-    remap! {
-        pac::I2C2: [
-            PB10, PB11;
-        ]
-    }
-}
-
-macro_rules! remap {
-    ($PER:ty: [
-        $($SCL:ident, $SDA:ident $( => $MAPR:ident: $remap:literal)?;)+
-    ]) => {
-        pub enum Scl {
-            $(
-                $SCL(gpio::$SCL<Alternate<OpenDrain>>),
-            )+
-        }
-        pub enum Sda {
-            $(
-                $SDA(gpio::$SDA<Alternate<OpenDrain>>),
-            )+
-        }
-
-        $(
-            impl From<(gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)> for Pins<Scl, Sda> {
-                fn from(p: (gpio::$SCL<Alternate<OpenDrain>>, gpio::$SDA<Alternate<OpenDrain>> $(, &mut $MAPR)?)) -> Self {
-                    $(<$PER>::remap(p.2, $remap);)?
-                    Self { scl: Scl::$SCL(p.0), sda: Sda::$SDA(p.1) }
-                }
-            }
-
-            impl From<(gpio::$SCL, gpio::$SDA $(, &mut $MAPR)?)> for Pins<Scl, Sda> {
-                fn from(p: (gpio::$SCL, gpio::$SDA $(, &mut $MAPR)?)) -> Self {
-                    let mut cr = Cr;
-                    let scl = p.0.into_mode(&mut cr);
-                    let sda = p.1.into_mode(&mut cr);
-                    $(<$PER>::remap(p.2, $remap);)?
-                    Self { scl: Scl::$SCL(scl), sda: Sda::$SDA(sda) }
-                }
-            }
-        )+
-    }
-}
-use remap;
-
 pub trait I2cExt: Sized + Instance {
     fn i2c(
         self,
-        pins: impl Into<Pins<Self::Scl, Self::Sda>>,
+        pins: (impl RInto<Self::Scl, 0>, impl RInto<Self::Sda, 0>),
         mode: impl Into<Mode>,
         clocks: &Clocks,
     ) -> I2c<Self>;
@@ -168,7 +112,7 @@ pub trait I2cExt: Sized + Instance {
     #[allow(clippy::too_many_arguments)]
     fn blocking_i2c(
         self,
-        pins: impl Into<Pins<Self::Scl, Self::Sda>>,
+        pins: (impl RInto<Self::Scl, 0>, impl RInto<Self::Sda, 0>),
         mode: impl Into<Mode>,
         clocks: &Clocks,
         start_timeout_us: u32,
@@ -189,7 +133,7 @@ pub trait I2cExt: Sized + Instance {
 impl<I2C: Instance> I2cExt for I2C {
     fn i2c(
         self,
-        pins: impl Into<Pins<Self::Scl, Self::Sda>>,
+        pins: (impl RInto<Self::Scl, 0>, impl RInto<Self::Sda, 0>),
         mode: impl Into<Mode>,
         clocks: &Clocks,
     ) -> I2c<Self> {
@@ -206,26 +150,23 @@ pub struct I2c<I2C: Instance> {
 }
 
 pub trait Instance:
-    crate::Sealed + Deref<Target = crate::pac::i2c1::RegisterBlock> + Enable + Reset + BusClock
+    crate::Sealed
+    + Deref<Target = crate::pac::i2c1::RegisterBlock>
+    + Enable
+    + Reset
+    + BusClock
+    + afio::I2cCommon
 {
-    type Scl;
-    type Sda;
 }
 
-impl Instance for pac::I2C1 {
-    type Scl = i2c1::Scl;
-    type Sda = i2c1::Sda;
-}
-impl Instance for pac::I2C2 {
-    type Scl = i2c2::Scl;
-    type Sda = i2c2::Sda;
-}
+impl Instance for pac::I2C1 {}
+impl Instance for pac::I2C2 {}
 
 impl<I2C: Instance> I2c<I2C> {
     /// Creates a generic I2C object
     pub fn new(
         i2c: I2C,
-        pins: impl Into<Pins<I2C::Scl, I2C::Sda>>,
+        pins: (impl RInto<I2C::Scl, 0>, impl RInto<I2C::Sda, 0>),
         mode: impl Into<Mode>,
         clocks: &Clocks,
     ) -> Self {
@@ -237,16 +178,63 @@ impl<I2C: Instance> I2c<I2C> {
         let pclk1 = I2C::clock(clocks);
 
         assert!(mode.get_frequency() <= kHz(400));
-        let pins = pins.into();
 
         let mut i2c = I2c {
             i2c,
-            pins: (pins.scl, pins.sda),
+            pins: (pins.0.rinto(), pins.1.rinto()),
             mode,
             pclk1,
         };
         i2c.init();
         i2c
+    }
+}
+
+impl<I2C: Instance, const R: u8> Rmp<I2C, R> {
+    /// Creates a generic I2C object
+    pub fn i2c(
+        self,
+        pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
+        mode: impl Into<Mode>,
+        clocks: &Clocks,
+    ) -> I2c<I2C> {
+        let mode = mode.into();
+        let rcc = unsafe { &(*RCC::ptr()) };
+        I2C::enable(rcc);
+        I2C::reset(rcc);
+
+        let pclk1 = I2C::clock(clocks);
+
+        assert!(mode.get_frequency() <= kHz(400));
+
+        let mut i2c = I2c {
+            i2c: self.0,
+            pins: (pins.0.rinto(), pins.1.rinto()),
+            mode,
+            pclk1,
+        };
+        i2c.init();
+        i2c
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn blocking_i2c(
+        self,
+        pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
+        mode: impl Into<Mode>,
+        clocks: &Clocks,
+        start_timeout_us: u32,
+        start_retries: u8,
+        addr_timeout_us: u32,
+        data_timeout_us: u32,
+    ) -> BlockingI2c<I2C> {
+        self.i2c(pins, mode, clocks).blocking(
+            start_timeout_us,
+            start_retries,
+            addr_timeout_us,
+            data_timeout_us,
+            clocks,
+        )
     }
 }
 

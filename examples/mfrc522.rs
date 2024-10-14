@@ -25,19 +25,18 @@ fn main() -> ! {
 
     let _stim = &mut cp.ITM.stim[0];
     let rcc = dp.RCC.constrain();
-    let mut afio = dp.AFIO.constrain();
     let mut flash = dp.FLASH.constrain();
     let mut gpioa = dp.GPIOA.split();
     let mut gpioc = dp.GPIOC.split();
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let sck = gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl);
+    let sck = gpioa.pa5;
     let miso = gpioa.pa6;
-    let mosi = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
+    let mosi = gpioa.pa7;
     let spi = Spi::new(
         dp.SPI1,
-        (sck, miso, mosi, &mut afio.mapr),
+        (Some(sck), Some(miso), Some(mosi)),
         MODE,
         1.MHz(),
         &clocks,

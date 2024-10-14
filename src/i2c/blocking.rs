@@ -22,7 +22,7 @@ impl<I2C: Instance> BlockingI2c<I2C> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         i2c: I2C,
-        pins: impl Into<Pins<I2C::Scl, I2C::Sda>>,
+        pins: (impl RInto<I2C::Scl, 0>, impl RInto<I2C::Sda, 0>),
         mode: impl Into<Mode>,
         clocks: &Clocks,
         start_timeout_us: u32,

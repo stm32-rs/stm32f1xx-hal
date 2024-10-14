@@ -26,22 +26,19 @@ fn setup() -> (Spi<SPI1, u8>, PA4<Output>) {
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut afio = dp.AFIO.constrain();
+    //let mut afio = dp.AFIO.constrain();
     let mut gpioa = dp.GPIOA.split();
 
     // SPI1
-    let sck = gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl);
+    let sck = gpioa.pa5;
     let miso = gpioa.pa6;
-    let mosi = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
+    let mosi = gpioa.pa7;
     let cs = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
 
-    let spi = Spi::new(
-        dp.SPI1,
-        (sck, miso, mosi, &mut afio.mapr),
-        MODE,
-        1.MHz(),
-        &clocks,
-    );
+    let spi = dp
+        .SPI1
+        //.remap(&mut afio.mapr) // if you want to use PB3, PB4, PB5
+        .spi((Some(sck), Some(miso), Some(mosi)), MODE, 1.MHz(), &clocks);
 
     (spi, cs)
 }

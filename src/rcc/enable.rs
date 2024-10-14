@@ -77,7 +77,7 @@ bus! {
 bus! {
     DAC => (APB1, 29),
 }
-#[cfg(all(feature = "stm32f103", feature = "high"))]
+#[cfg(any(all(feature = "stm32f103", feature = "high"), feature = "connectivity"))]
 bus! {
     ADC3 => (APB2, 15),
     UART4 => (APB1, 19),

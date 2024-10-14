@@ -24,26 +24,24 @@ fn main() -> ! {
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
 
-    let mut afio = dp.AFIO.constrain();
-
     let mut gpioa = dp.GPIOA.split();
     // let mut gpiob = dp.GPIOB.split();
 
     let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
 
     // SPI1
-    let sck = gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl);
+    let sck = gpioa.pa5;
     let miso = gpioa.pa6;
-    let mosi = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
+    let mosi = gpioa.pa7;
 
     // SPI2
-    // let sck = gpiob.pb13.into_alternate_push_pull(&mut gpiob.crh);
+    // let sck = gpiob.pb13;
     // let miso = gpiob.pb14;
-    // let mosi = gpiob.pb15.into_alternate_push_pull(&mut gpiob.crh);
+    // let mosi = gpiob.pb15;
 
     let spi = Spi::new(
         dp.SPI1,
-        (sck, miso, mosi, &mut afio.mapr),
+        (Some(sck), Some(miso), Some(mosi)),
         mpu9250::MODE.into(),
         1.MHz(),
         &clocks,

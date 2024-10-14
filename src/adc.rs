@@ -234,14 +234,14 @@ macro_rules! adc_hal {
 
                 /// Set ADC sampling time
                 ///
-                /// Options can be found in [SampleTime](crate::adc::SampleTime).
+                /// Options can be found in [SampleTime].
                 pub fn set_sample_time(&mut self, t_samp: SampleTime) {
                     self.sample_time = t_samp;
                 }
 
                 /// Set the Adc result alignment
                 ///
-                /// Options can be found in [Align](crate::adc::Align).
+                /// Options can be found in [Align].
                 pub fn set_align(&mut self, align: Align) {
                     self.align = align;
                 }
