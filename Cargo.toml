@@ -18,8 +18,9 @@ features = ["stm32f103", "rtic", "high"]
 default-target = "x86_64-unknown-linux-gnu"
 
 [dependencies]
-cortex-m = "0.7.6"
-cortex-m-rt = "0.7.1"
+defmt = { version = "0.3.8", optional = true }
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7.3"
 nb = "1.1"
 embedded-dma = "0.2.0"
 bxcan = "0.8.0"
@@ -73,7 +74,7 @@ stm32f103 = ["stm32f1/stm32f103", "has-can", "stm32-usbd"]
 stm32f105 = ["stm32f1/stm32f107", "connectivity"]
 stm32f107 = ["stm32f1/stm32f107", "connectivity"]
 
-defmt = ["stm32f1/defmt"]
+defmt = ["dep:defmt", "stm32f1/defmt"]
 
 # Devices with 64 or 128 Kb ROM
 medium = []
