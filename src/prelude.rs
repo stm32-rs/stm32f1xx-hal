@@ -20,6 +20,8 @@ pub use crate::rcc::RccExt as _stm32_hal_rcc_RccExt;
 pub use crate::serial::SerialExt as _;
 pub use crate::spi::SpiExt as _;
 pub use crate::time::U32Ext as _stm32_hal_time_U32Ext;
+pub use crate::timer::pwm_input::PwmInputExt as _;
+pub use crate::timer::pwm_input::QeiExt as _;
 #[cfg(feature = "rtic")]
 pub use crate::timer::MonoTimerExt as _stm32f4xx_hal_timer_MonoTimerExt;
 pub use crate::timer::PwmExt as _stm32f4xx_hal_timer_PwmExt;

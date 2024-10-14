@@ -1,34 +1,32 @@
 //! This module allows Timer peripherals to be configured as pwm input.
 //! In this mode, the timer sample a squared signal to find it's frequency and duty cycle.
-
-use core::marker::PhantomData;
-use core::mem;
+//!
+//! Also this module provides Quadrature Encoder Interface
 
 use crate::pac::{self, DBGMCU as DBG};
 
-use crate::afio::MAPR;
-use crate::gpio::{self, Input};
+use crate::afio::{RInto, Rmp, TimC};
 use crate::rcc::{BusTimerClock, Clocks};
 use crate::time::Hertz;
-use crate::timer::Timer;
+use crate::timer::{General, Timer};
 
-pub trait Pins<REMAP> {}
+use embedded_hal_02 as hal;
+pub use hal::Direction;
 
-use super::pins::{sealed::Remap, CPin};
+pub trait Instance: General + TimC<0> + TimC<1> {}
 
-impl<TIM, REMAP, P1, P2, MODE1, MODE2> Pins<REMAP> for (P1, P2)
-where
-    REMAP: Remap<Periph = TIM>,
-    P1: CPin<REMAP, 0> + gpio::PinExt<Mode = Input<MODE1>>,
-    P2: CPin<REMAP, 1> + gpio::PinExt<Mode = Input<MODE2>>,
-{
-}
+#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
+impl Instance for pac::TIM1 {}
+impl Instance for pac::TIM2 {}
+impl Instance for pac::TIM3 {}
+#[cfg(feature = "medium")]
+impl Instance for pac::TIM4 {}
 
 /// PWM Input
-pub struct PwmInput<TIM, REMAP, PINS> {
-    _timer: PhantomData<TIM>,
-    _remap: PhantomData<REMAP>,
-    _pins: PhantomData<PINS>,
+#[allow(unused)]
+pub struct PwmInput<TIM: Instance> {
+    timer: TIM,
+    pins: (<TIM as TimC<0>>::In, <TIM as TimC<1>>::In),
 }
 
 /// How the data is read from the timer
@@ -74,82 +72,80 @@ pub enum Configuration {
     RawValues { arr: u16, presc: u16 },
 }
 
-#[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
-impl Timer<pac::TIM1> {
-    pub fn pwm_input<REMAP, PINS>(
-        mut self,
-        pins: PINS,
-        mapr: &mut MAPR,
-        dbg: &mut DBG,
-        mode: Configuration,
-    ) -> PwmInput<pac::TIM1, REMAP, PINS>
-    where
-        REMAP: Remap<Periph = pac::TIM1>,
-        PINS: Pins<REMAP>,
-    {
-        REMAP::remap(mapr);
-        self.stop_in_debug(dbg, false);
-        let Self { tim, clk } = self;
-        tim1(tim, pins, clk, mode)
+/// SMS (Slave Mode Selection) register
+#[derive(Copy, Clone, Debug)]
+pub enum SlaveMode {
+    /// Counter counts up/down on TI2FP1 edge depending on TI1FP2 level.
+    EncoderMode1 = 0b001,
+    /// Encoder mode 2 - Counter counts up/down on TI1FP2 edge depending on TI2FP1 level.
+    EncoderMode2 = 0b010,
+    /// Encoder mode 3 - Counter counts up/down on both TI1FP1 and TI2FP2 edges depending on the
+    /// level of the other input.
+    EncoderMode3 = 0b011,
+    /// Reset Mode - Rising edge of the selected trigger input (TRGI) reinitializes the counter and
+    /// generates an update of the registers.
+    ResetMode = 0b100,
+    /// Trigger Mode - The counter starts at a rising edge of the trigger TRGI (but it is not
+    /// reset). Only the start of the counter is controlled.
+    TriggerMode = 0b110,
+    /// External Clock Mode 1 - Rising edges of the selected trigger (TRGI) clock the counter.
+    ExternalClockMode1 = 0b111,
+}
+
+/// Quadrature Encoder Interface (QEI) options
+///
+/// The `Default` implementation provides a configuration for a 4-count pulse which counts from
+/// 0-65535. The counter wraps back to 0 on overflow.
+#[derive(Copy, Clone, Debug)]
+pub struct QeiOptions {
+    /// Encoder slave mode
+    pub slave_mode: SlaveMode,
+
+    /// Autoreload value
+    ///
+    /// This value allows the maximum count to be configured, up to 65535. Setting a lower value
+    /// will overflow the counter to 0 sooner.
+    pub auto_reload_value: u16,
+}
+
+impl Default for QeiOptions {
+    fn default() -> Self {
+        Self {
+            slave_mode: SlaveMode::EncoderMode3,
+            auto_reload_value: u16::MAX,
+        }
     }
 }
 
-impl Timer<pac::TIM2> {
-    pub fn pwm_input<REMAP, PINS>(
-        mut self,
-        pins: PINS,
-        mapr: &mut MAPR,
-        dbg: &mut DBG,
-        mode: Configuration,
-    ) -> PwmInput<pac::TIM2, REMAP, PINS>
-    where
-        REMAP: Remap<Periph = pac::TIM2>,
-        PINS: Pins<REMAP>,
-    {
-        REMAP::remap(mapr);
-        self.stop_in_debug(dbg, false);
-        let Self { tim, clk } = self;
-        tim2(tim, pins, clk, mode)
-    }
+/// Quadrature Encoder Interface (QEI)
+pub struct Qei<TIM: Instance> {
+    tim: TIM,
+    pins: (<TIM as TimC<0>>::In, <TIM as TimC<1>>::In),
 }
 
-impl Timer<pac::TIM3> {
-    pub fn pwm_input<REMAP, PINS>(
-        mut self,
-        pins: PINS,
-        mapr: &mut MAPR,
+pub trait PwmInputExt: Sized + Instance {
+    fn pwm_input(
+        self,
+        pins: (
+            impl RInto<<Self as TimC<0>>::In, 0>,
+            impl RInto<<Self as TimC<1>>::In, 0>,
+        ),
         dbg: &mut DBG,
         mode: Configuration,
-    ) -> PwmInput<pac::TIM3, REMAP, PINS>
-    where
-        REMAP: Remap<Periph = pac::TIM3>,
-        PINS: Pins<REMAP>,
-    {
-        REMAP::remap(mapr);
-        self.stop_in_debug(dbg, false);
-        let Self { tim, clk } = self;
-        tim3(tim, pins, clk, mode)
-    }
+        clocks: &Clocks,
+    ) -> PwmInput<Self>;
 }
 
-#[cfg(feature = "medium")]
-impl Timer<pac::TIM4> {
-    pub fn pwm_input<REMAP, PINS>(
-        mut self,
-        pins: PINS,
-        mapr: &mut MAPR,
-        dbg: &mut DBG,
-        mode: Configuration,
-    ) -> PwmInput<pac::TIM4, REMAP, PINS>
-    where
-        REMAP: Remap<Periph = pac::TIM4>,
-        PINS: Pins<REMAP>,
-    {
-        REMAP::remap(mapr);
-        self.stop_in_debug(dbg, false);
-        let Self { tim, clk } = self;
-        tim4(tim, pins, clk, mode)
-    }
+pub trait QeiExt: Sized + Instance {
+    fn qei(
+        self,
+        pins: (
+            impl RInto<<Self as TimC<0>>::In, 0>,
+            impl RInto<<Self as TimC<1>>::In, 0>,
+        ),
+        options: QeiOptions,
+        clocks: &Clocks,
+    ) -> Qei<Self>;
 }
 
 /// Courtesy of @TeXitoi (https://github.com/stm32-rs/stm32f1xx-hal/pull/10#discussion_r259535503)
@@ -162,17 +158,102 @@ fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u16) {
     (core::cmp::max(1, arr as u16), presc as u16)
 }
 macro_rules! hal {
-    ($TIMX:ty: $timX:ident) => {
-        fn $timX<REMAP, PINS>(
-            tim: $TIMX,
-            _pins: PINS,
+    ($TIM:ty: $timX:ident, $qeix:ident) => {
+        impl Timer<$TIM> {
+            pub fn pwm_input(
+                mut self,
+                pins: (
+                    impl RInto<<$TIM as TimC<0>>::In, 0>,
+                    impl RInto<<$TIM as TimC<1>>::In, 0>,
+                ),
+                dbg: &mut DBG,
+                mode: Configuration,
+            ) -> PwmInput<$TIM> {
+                self.stop_in_debug(dbg, false);
+                let Self { tim, clk } = self;
+                $timX(tim, pins, clk, mode)
+            }
+            pub fn qei(
+                self,
+                pins: (
+                    impl RInto<<$TIM as TimC<0>>::In, 0>,
+                    impl RInto<<$TIM as TimC<1>>::In, 0>,
+                ),
+                options: QeiOptions,
+            ) -> Qei<$TIM> {
+                let Self { tim, clk: _ } = self;
+                $qeix(tim, pins, options)
+            }
+        }
+        impl PwmInputExt for $TIM {
+            fn pwm_input(
+                self,
+                pins: (
+                    impl RInto<<Self as TimC<0>>::In, 0>,
+                    impl RInto<<Self as TimC<1>>::In, 0>,
+                ),
+                dbg: &mut DBG,
+                mode: Configuration,
+                clocks: &Clocks,
+            ) -> PwmInput<Self> {
+                Timer::new(self, clocks).pwm_input(pins, dbg, mode)
+            }
+        }
+        impl QeiExt for $TIM {
+            fn qei(
+                self,
+                pins: (
+                    impl RInto<<Self as TimC<0>>::In, 0>,
+                    impl RInto<<Self as TimC<1>>::In, 0>,
+                ),
+                options: QeiOptions,
+                clocks: &Clocks,
+            ) -> Qei<Self> {
+                Timer::new(self, clocks).qei(pins, options)
+            }
+        }
+
+        impl<const R: u8> Rmp<$TIM, R> {
+            pub fn pwm_input(
+                self,
+                pins: (
+                    impl RInto<<$TIM as TimC<0>>::In, R>,
+                    impl RInto<<$TIM as TimC<1>>::In, R>,
+                ),
+                dbg: &mut DBG,
+                mode: Configuration,
+                clocks: &Clocks,
+            ) -> PwmInput<$TIM> {
+                let mut tim = Timer::new(self.0, clocks);
+                tim.stop_in_debug(dbg, false);
+                let Timer { tim, clk } = tim;
+                $timX(tim, pins, clk, mode)
+            }
+            pub fn qei(
+                self,
+                pins: (
+                    impl RInto<<$TIM as TimC<0>>::In, R>,
+                    impl RInto<<$TIM as TimC<1>>::In, R>,
+                ),
+                options: QeiOptions,
+                clocks: &Clocks,
+            ) -> Qei<$TIM> {
+                let Timer { tim, clk: _ } = Timer::new(self.0, clocks);
+                $qeix(tim, pins, options)
+            }
+        }
+
+        fn $timX<const R: u8>(
+            tim: $TIM,
+            pins: (
+                impl RInto<<$TIM as TimC<0>>::In, R>,
+                impl RInto<<$TIM as TimC<1>>::In, R>,
+            ),
             clk: Hertz,
             mode: Configuration,
-        ) -> PwmInput<$TIMX, REMAP, PINS>
-        where
-            REMAP: Remap<Periph = $TIMX>,
-            PINS: Pins<REMAP>,
-        {
+        ) -> PwmInput<$TIM> {
+            let pins = (pins.0.rinto(), pins.1.rinto());
+
             use Configuration::*;
             // Disable capture on both channels during setting
             // (for Channel X bit is CCXE)
@@ -235,22 +316,18 @@ macro_rules! hal {
                 .modify(|_, w| w.cc1e().set_bit().cc2e().set_bit());
 
             tim.cr1().modify(|_, w| w.cen().set_bit());
-            unsafe { mem::MaybeUninit::uninit().assume_init() }
+            PwmInput { timer: tim, pins }
         }
 
-        impl<REMAP, PINS> PwmInput<$TIMX, REMAP, PINS>
-        where
-            REMAP: Remap<Periph = $TIMX>,
-            PINS: Pins<REMAP>,
-        {
+        impl PwmInput<$TIM> {
             /// Return the frequency sampled by the timer
             pub fn read_frequency(&self, mode: ReadMode, clocks: &Clocks) -> Result<Hertz, Error> {
                 if let ReadMode::WaitForNextCapture = mode {
                     self.wait_for_capture();
                 }
 
-                let presc = unsafe { (*<$TIMX>::ptr()).psc().read().bits() as u16 };
-                let ccr1 = unsafe { (*<$TIMX>::ptr()).ccr1().read().bits() as u16 };
+                let presc = unsafe { (*<$TIM>::ptr()).psc().read().bits() as u16 };
+                let ccr1 = unsafe { (*<$TIM>::ptr()).ccr1().read().bits() as u16 };
 
                 // Formulas :
                 //
@@ -269,7 +346,7 @@ macro_rules! hal {
                 if ccr1 == 0 {
                     Err(Error::FrequencyTooLow)
                 } else {
-                    let clk = <$TIMX>::timer_clock(&clocks);
+                    let clk = <$TIM>::timer_clock(&clocks);
                     Ok(clk / ((presc + 1) as u32 * (ccr1 + 1) as u32))
                 }
             }
@@ -282,8 +359,8 @@ macro_rules! hal {
 
                 // Formulas :
                 // Duty_cycle = (CCR2+1)/(CCR1+1)
-                let ccr1 = unsafe { (*<$TIMX>::ptr()).ccr1().read().bits() as u16 };
-                let ccr2 = unsafe { (*<$TIMX>::ptr()).ccr2().read().bits() as u16 };
+                let ccr1 = unsafe { (*<$TIM>::ptr()).ccr1().read().bits() as u16 };
+                let ccr2 = unsafe { (*<$TIM>::ptr()).ccr2().read().bits() as u16 };
                 if ccr1 == 0 {
                     Err(Error::FrequencyTooLow)
                 } else {
@@ -293,22 +370,77 @@ macro_rules! hal {
 
             /// Wait until the timer has captured a period
             fn wait_for_capture(&self) {
-                unsafe { &(*<$TIMX>::ptr()) }.sr().write(|w| {
+                unsafe { &(*<$TIM>::ptr()) }.sr().write(|w| {
                     w.uif().clear_bit();
                     w.cc1if().clear_bit();
                     w.cc1of().clear_bit()
                 });
-                while unsafe { (*<$TIMX>::ptr()).sr().read().cc1if().bit_is_clear() } {}
+                while unsafe { (*<$TIM>::ptr()).sr().read().cc1if().bit_is_clear() } {}
+            }
+
+            pub fn release(self) -> ($TIM, (<$TIM as TimC<0>>::In, <$TIM as TimC<1>>::In)) {
+                (self.timer, self.pins)
+            }
+        }
+
+        fn $qeix<const R: u8>(
+            tim: $TIM,
+            pins: (
+                impl RInto<<$TIM as TimC<0>>::In, R>,
+                impl RInto<<$TIM as TimC<1>>::In, R>,
+            ),
+            options: QeiOptions,
+        ) -> Qei<$TIM> {
+            let pins = (pins.0.rinto(), pins.1.rinto());
+            // Configure TxC1 and TxC2 as captures
+            tim.ccmr1_input().write(|w| w.cc1s().ti1().cc2s().ti2());
+
+            // enable and configure to capture on rising edge
+            tim.ccer().write(|w| {
+                w.cc1e().set_bit();
+                w.cc1p().clear_bit();
+                w.cc2e().set_bit();
+                w.cc2p().clear_bit()
+            });
+
+            // configure as quadrature encoder
+            tim.smcr().write(|w| w.sms().set(options.slave_mode as u8));
+
+            tim.arr().write(|w| w.arr().set(options.auto_reload_value));
+            tim.cr1().write(|w| w.cen().set_bit());
+
+            Qei { tim, pins }
+        }
+
+        impl Qei<$TIM> {
+            pub fn release(self) -> ($TIM, (<$TIM as TimC<0>>::In, <$TIM as TimC<1>>::In)) {
+                (self.tim, self.pins)
+            }
+        }
+
+        impl hal::Qei for Qei<$TIM> {
+            type Count = u16;
+
+            fn count(&self) -> u16 {
+                self.tim.cnt().read().cnt().bits()
+            }
+
+            fn direction(&self) -> Direction {
+                if self.tim.cr1().read().dir().bit_is_clear() {
+                    Direction::Upcounting
+                } else {
+                    Direction::Downcounting
+                }
             }
         }
     };
 }
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
-hal!(pac::TIM1: tim1);
+hal!(pac::TIM1: tim1, qei1);
 
-hal!(pac::TIM2: tim2);
-hal!(pac::TIM3: tim3);
+hal!(pac::TIM2: tim2, qei2);
+hal!(pac::TIM3: tim3, qei3);
 
 #[cfg(feature = "medium")]
-hal!(pac::TIM4: tim4);
+hal!(pac::TIM4: tim4, qei4);

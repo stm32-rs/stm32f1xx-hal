@@ -9,7 +9,11 @@ use panic_semihosting as _;
 use cortex_m_semihosting::hprintln;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{pac, prelude::*, qei::QeiOptions, timer::Timer};
+use stm32f1xx_hal::{
+    pac,
+    prelude::*,
+    timer::{pwm_input::QeiOptions, Timer},
+};
 
 #[entry]
 fn main() -> ! {
@@ -20,8 +24,6 @@ fn main() -> ! {
     let rcc = dp.RCC.constrain();
 
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    let mut afio = dp.AFIO.constrain();
 
     // let gpioa = dp.GPIOA.split();
     let gpiob = dp.GPIOB.split();
@@ -38,7 +40,7 @@ fn main() -> ! {
     let c1 = gpiob.pb6;
     let c2 = gpiob.pb7;
 
-    let qei = Timer::new(dp.TIM4, &clocks).qei((c1, c2), &mut afio.mapr, QeiOptions::default());
+    let qei = Timer::new(dp.TIM4, &clocks).qei((c1, c2), QeiOptions::default());
     let mut delay = cp.SYST.delay(&clocks);
 
     loop {
