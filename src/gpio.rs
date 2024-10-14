@@ -845,7 +845,7 @@ where
             }
             8..=15 => {
                 gpio.crh()
-                    .modify(|_, w| unsafe { w.mode(N - 16).bits(speed as u8) });
+                    .modify(|_, w| unsafe { w.mode(N - 8).bits(speed as u8) });
             }
             _ => unreachable!(),
         }
@@ -979,8 +979,8 @@ where
             }
             8..=15 => {
                 gpio.crh().modify(|_, w| unsafe {
-                    w.mode(N - 16).bits(MODE::MODE as u8);
-                    w.cnf(N - 16).bits(MODE::CNF as u8)
+                    w.mode(N - 8).bits(MODE::MODE as u8);
+                    w.cnf(N - 8).bits(MODE::CNF as u8)
                 });
             }
             _ => unreachable!(),
