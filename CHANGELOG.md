@@ -12,11 +12,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Relax pin type generics for `Serial`, `I2c`, `Spi`, `Can`. [#462]
   ~~Use enums of pin tuples and `Enum::from<(tuple)>` for pin remap before passing to peripheral.~~
   Use pin enums and `impl RInto<(enum), R>` for peripheral constructors.
-  Add `RInto` trait and `Rmp` peripheral wrapper, add `remap` for peripherals.
+  Add `RInto` trait and `Rmp` peripheral wrapper, add `remap` for peripherals. [#514]
   Remove `RemapStruct`s. [#462] [#506] [#509]
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]
 - Temporary replace `stm32f1` with `stm32f1-staging` [#503]
+- `Spi` now takes `Option<PIN>` for `SCK`, `MISO`, `MOSI` [#514]
 
 ### Changed
 
@@ -64,6 +65,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#509]: https://github.com/stm32-rs/stm32f1xx-hal/pull/509
 [#510]: https://github.com/stm32-rs/stm32f1xx-hal/pull/510
 [#511]: https://github.com/stm32-rs/stm32f1xx-hal/pull/511
+[#514]: https://github.com/stm32-rs/stm32f1xx-hal/pull/514
 
 ## [v0.10.0] - 2022-12-12
 
