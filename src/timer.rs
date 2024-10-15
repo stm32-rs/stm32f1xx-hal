@@ -48,6 +48,7 @@
 */
 #![allow(non_upper_case_globals)]
 
+use crate::afio::Rmp;
 use crate::bb;
 use crate::pac::{self, DBGMCU as DBG};
 
@@ -62,10 +63,8 @@ use crate::time::Hertz;
 pub mod monotonic;
 #[cfg(feature = "rtic")]
 pub use monotonic::*;
-pub(crate) mod pins;
-pub mod pwm_input;
-pub use pins::*;
 pub mod delay;
+pub mod pwm_input;
 pub use delay::*;
 pub mod counter;
 pub use counter::*;
@@ -89,6 +88,15 @@ pub enum Channel {
     C3 = 2,
     C4 = 3,
 }
+
+pub use crate::afio::{TimC, TimNC};
+
+/// Channel wrapper
+pub struct Ch<const C: u8, const COMP: bool>;
+pub const C1: u8 = 0;
+pub const C2: u8 = 1;
+pub const C3: u8 = 2;
+pub const C4: u8 = 3;
 
 /// Enum for IO polarity
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -329,12 +337,44 @@ mod sealed {
         type Mms;
         fn master_mode(&mut self, mode: Self::Mms);
     }
+
+    pub trait Split {
+        type Channels;
+        fn split() -> Self::Channels;
+    }
 }
 pub(crate) use sealed::{Advanced, General, MasterTimer, WithPwm, WithPwmCommon};
 
 pub trait Instance:
     crate::Sealed + rcc::Enable + rcc::Reset + rcc::BusTimerClock + General
 {
+}
+
+use sealed::Split;
+macro_rules! split {
+    ($TIM:ty: 1) => {
+        split!($TIM, C1);
+    };
+    ($TIM:ty: 2) => {
+        split!($TIM, C1, C2);
+    };
+    ($TIM:ty: 4) => {
+        split!($TIM, C1, C2, C3, C4);
+    };
+    ($TIM:ty, $($C:ident),+) => {
+        impl Split for $TIM {
+            type Channels = ($(PwmChannelDisabled<$TIM, $C, 0>,)+);
+            fn split() -> Self::Channels {
+                ($(PwmChannelDisabled::<_, $C, 0>::new(),)+)
+            }
+        }
+        impl<const R: u8> Split for Rmp<$TIM, R> {
+            type Channels = ($(PwmChannelDisabled<$TIM, $C, R>,)+);
+            fn split() -> Self::Channels {
+                ($(PwmChannelDisabled::<_, $C, R>::new(),)+)
+            }
+        }
+    };
 }
 
 macro_rules! hal {
@@ -531,6 +571,7 @@ macro_rules! hal {
             )?
 
             with_pwm!($TIM: $cnum $(, $aoe)?);
+            split!($TIM: $cnum);
         )?
 
         $(impl MasterTimer for $TIM {
