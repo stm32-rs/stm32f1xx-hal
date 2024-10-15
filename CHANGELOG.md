@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- move pin connecting to timer channels after `Pwm` initialization [#517]
+
 ### Changed
 
 - `timer.rs` refactoring
+
+[#517]: https://github.com/stm32-rs/stm32f1xx-hal/pull/517
 
 ## [v0.11.0] - 2025-09-09
 
