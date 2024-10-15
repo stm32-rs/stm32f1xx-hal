@@ -11,8 +11,8 @@ use fugit::{ExtU32, HertzU32 as Hertz, TimerDurationU32};
 use void::Void;
 
 use super::{
-    pins::sealed::Remap, pwm::Pins, Channel, Counter, CounterHz, Delay, Error, Instance, Pwm,
-    PwmChannel, PwmHz, SysCounter, SysCounterHz, SysDelay, WithPwm,
+    Counter, CounterHz, Delay, ErasedChannel, Error, Instance, PwmChannel, SysCounter,
+    SysCounterHz, SysDelay, TimC, WithPwm,
 };
 
 impl DelayUs<u32> for SysDelay {
@@ -133,7 +133,9 @@ impl<const FREQ: u32> Cancel for SysCounter<FREQ> {
     }
 }
 
-impl<TIM: Instance + WithPwm, const C: u8> embedded_hal_02::PwmPin for PwmChannel<TIM, C> {
+impl<TIM: Instance + WithPwm + TimC<C>, const C: u8, const COMP: bool> embedded_hal_02::PwmPin
+    for PwmChannel<TIM, C, COMP>
+{
     type Duty = u16;
 
     fn disable(&mut self) {
@@ -153,46 +155,23 @@ impl<TIM: Instance + WithPwm, const C: u8> embedded_hal_02::PwmPin for PwmChanne
     }
 }
 
-impl<TIM, REMAP, P, PINS> embedded_hal_02::Pwm for PwmHz<TIM, REMAP, P, PINS>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    type Channel = Channel;
+impl<TIM: Instance + WithPwm> embedded_hal_02::PwmPin for ErasedChannel<TIM> {
     type Duty = u16;
-    type Time = Hertz;
 
-    fn enable(&mut self, channel: Self::Channel) {
-        self.enable(channel)
+    fn disable(&mut self) {
+        self.disable()
     }
-
-    fn disable(&mut self, channel: Self::Channel) {
-        self.disable(channel)
+    fn enable(&mut self) {
+        self.enable()
     }
-
-    fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
-        self.get_duty(channel)
+    fn get_duty(&self) -> Self::Duty {
+        self.get_duty()
     }
-
-    fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
-        self.set_duty(channel, duty)
-    }
-
-    /// If `0` returned means max_duty is 2^16
     fn get_max_duty(&self) -> Self::Duty {
         self.get_max_duty()
     }
-
-    fn get_period(&self) -> Self::Time {
-        self.get_period()
-    }
-
-    fn set_period<T>(&mut self, period: T)
-    where
-        T: Into<Self::Time>,
-    {
-        self.set_period(period.into())
+    fn set_duty(&mut self, duty: Self::Duty) {
+        self.set_duty(duty)
     }
 }
 
@@ -261,48 +240,5 @@ impl<TIM: Instance, const FREQ: u32> Cancel for Counter<TIM, FREQ> {
 
     fn cancel(&mut self) -> Result<(), Self::Error> {
         self.cancel()
-    }
-}
-
-impl<TIM, REMAP, P, PINS, const FREQ: u32> embedded_hal_02::Pwm for Pwm<TIM, REMAP, P, PINS, FREQ>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    type Channel = Channel;
-    type Duty = u16;
-    type Time = TimerDurationU32<FREQ>;
-
-    fn enable(&mut self, channel: Self::Channel) {
-        self.enable(channel)
-    }
-
-    fn disable(&mut self, channel: Self::Channel) {
-        self.disable(channel)
-    }
-
-    fn get_duty(&self, channel: Self::Channel) -> Self::Duty {
-        self.get_duty(channel)
-    }
-
-    fn set_duty(&mut self, channel: Self::Channel, duty: Self::Duty) {
-        self.set_duty(channel, duty)
-    }
-
-    /// If `0` returned means max_duty is 2^16
-    fn get_max_duty(&self) -> Self::Duty {
-        self.get_max_duty()
-    }
-
-    fn get_period(&self) -> Self::Time {
-        self.get_period()
-    }
-
-    fn set_period<T>(&mut self, period: T)
-    where
-        T: Into<Self::Time>,
-    {
-        self.set_period(period.into())
     }
 }
