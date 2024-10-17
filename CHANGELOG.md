@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Temporary replace `stm32f1` with `stm32f1-staging` [#503]
 - `Spi` now takes `Option<PIN>` for `SCK`, `MISO`, `MOSI` [#514]
 - move `Qei` mod inside `pwm_input` mod [#516]
+- move pin connecting to timer channels after `Pwm` initialization
 
 ### Changed
 
