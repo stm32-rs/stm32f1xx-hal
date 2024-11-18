@@ -64,8 +64,9 @@ item required, but not found: eh_personality`. This unhelpful error message
 is fixed by compiling for the right target.
 
 We also need to tell Rust how to link our executable, and how to lay out the
-result in memory. To accomplish all this, copy [.cargo/config](.cargo/config) and
-[memory.x](memory.x) from the stm32f1xx-hal repo to your project.
+result in memory. To accomplish all this, copy
+[.cargo/config.toml](.cargo/config.toml) and [memory.x](memory.x) from the
+stm32f1xx-hal repo to your project.
 
 ```bash
 cargo build
