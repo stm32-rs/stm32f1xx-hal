@@ -240,6 +240,12 @@ remap! {
 
 pub struct Rmp<T, const R: u8>(pub(crate) T);
 
+impl<T> From<T> for Rmp<T, 0> {
+    fn from(value: T) -> Self {
+        Self(value)
+    }
+}
+
 pub trait RFrom<T, const R: u8> {
     fn rfrom(value: T) -> Self;
 }

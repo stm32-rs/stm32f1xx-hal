@@ -20,9 +20,9 @@ pub struct DwtTimeouts {
 impl<I2C: Instance> BlockingI2c<I2C> {
     /// Creates a blocking I2C1 object on pins PB6 and PB7 or PB8 and PB9 using the embedded-hal `BlockingI2c` trait.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        i2c: I2C,
-        pins: (impl RInto<I2C::Scl, 0>, impl RInto<I2C::Sda, 0>),
+    pub fn new<const R: u8>(
+        i2c: impl Into<Rmp<I2C, R>>,
+        pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
         mode: impl Into<Mode>,
         clocks: &Clocks,
         start_timeout_us: u32,
