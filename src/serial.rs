@@ -147,14 +147,7 @@ impl<USART: Instance> SerialExt for USART {
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Tx<Self> {
-        Serial::_new(
-            self,
-            (Some(tx_pin), None::<USART::Rx<Floating>>),
-            config,
-            clocks,
-        )
-        .split()
-        .0
+        Serial::tx(self, tx_pin, config, clocks)
     }
     fn rx<PULL: UpMode>(
         self,
@@ -162,14 +155,7 @@ impl<USART: Instance> SerialExt for USART {
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Rx<Self> {
-        Serial::_new(
-            self,
-            (None::<USART::Tx<PushPull>>, Some(rx_pin)),
-            config,
-            clocks,
-        )
-        .split()
-        .1
+        Serial::rx(self, rx_pin, config, clocks)
     }
 }
 
@@ -388,38 +374,24 @@ impl<USART: Instance, const R: u8> Rmp<USART, R> {
 }
 
 impl<USART: Instance, Otype> Serial<USART, Otype, Floating> {
-    pub fn tx(
-        usart: USART,
-        tx_pin: impl RInto<USART::Tx<Otype>, 0>,
+    pub fn tx<const R: u8>(
+        usart: impl Into<Rmp<USART, R>>,
+        tx_pin: impl RInto<USART::Tx<Otype>, R>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Tx<USART> {
-        Self::_new(
-            usart,
-            (Some(tx_pin), None::<USART::Rx<Floating>>),
-            config,
-            clocks,
-        )
-        .split()
-        .0
+        usart.into().tx(tx_pin, config, clocks)
     }
 }
 
 impl<USART: Instance, PULL: UpMode> Serial<USART, PushPull, PULL> {
-    pub fn rx(
-        usart: USART,
-        rx_pin: impl RInto<USART::Rx<PULL>, 0>,
+    pub fn rx<const R: u8>(
+        usart: impl Into<Rmp<USART, R>>,
+        rx_pin: impl RInto<USART::Rx<PULL>, R>,
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Rx<USART> {
-        Self::_new(
-            usart,
-            (None::<USART::Tx<PushPull>>, Some(rx_pin)),
-            config,
-            clocks,
-        )
-        .split()
-        .1
+        usart.into().rx(rx_pin, config, clocks)
     }
 }
 
@@ -439,16 +411,16 @@ impl<USART: Instance, Otype, PULL: UpMode> Serial<USART, Otype, PULL> {
     /// `MAPR` and `APBX` are register handles which are passed for
     /// configuration. (`MAPR` is used to map the USART to the
     /// corresponding pins. `APBX` is used to reset the USART.)
-    pub fn new(
-        usart: USART,
+    pub fn new<const R: u8>(
+        usart: impl Into<Rmp<USART, R>>,
         pins: (
-            impl RInto<USART::Tx<Otype>, 0>,
-            impl RInto<USART::Rx<PULL>, 0>,
+            impl RInto<USART::Tx<Otype>, R>,
+            impl RInto<USART::Rx<PULL>, R>,
         ),
         config: impl Into<Config>,
         clocks: &Clocks,
     ) -> Self {
-        Self::_new(usart, (Some(pins.0), Some(pins.1)), config, clocks)
+        usart.into().serial(pins, config, clocks)
     }
 
     fn _new<const R: u8>(

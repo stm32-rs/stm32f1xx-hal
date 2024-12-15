@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Relax pin type generics for `Serial`, `I2c`, `Spi`, `Can`, `Qei`, `PwmInput`. [#462] [#516]
   ~~Use enums of pin tuples and `Enum::from<(tuple)>` for pin remap before passing to peripheral.~~
   Use pin enums and `impl RInto<(enum), R>` for peripheral constructors.
-  Add `RInto` trait and `Rmp` peripheral wrapper, add `remap` for peripherals. [#514]
+  Add `RInto` trait and `Rmp` peripheral wrapper, add `remap` for peripherals. [#514] [#520]
   Remove `RemapStruct`s. [#462] [#506] [#509]
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]
@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Unmacro `dma.rs` [#505]
 - Updated `usb-device` and `usbd-serial` to latest versions [#510]
 - Rework pin remaps, fix CAN1 remap [#511]
-- Rework USART remap, 
+- Rework USART remap,
 
 ### Added
 
@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#511]: https://github.com/stm32-rs/stm32f1xx-hal/pull/511
 [#514]: https://github.com/stm32-rs/stm32f1xx-hal/pull/514
 [#516]: https://github.com/stm32-rs/stm32f1xx-hal/pull/516
+[#520]: https://github.com/stm32-rs/stm32f1xx-hal/pull/520
 
 ## [v0.10.0] - 2022-12-12
 

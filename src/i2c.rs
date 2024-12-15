@@ -164,29 +164,13 @@ impl Instance for pac::I2C2 {}
 
 impl<I2C: Instance> I2c<I2C> {
     /// Creates a generic I2C object
-    pub fn new(
-        i2c: I2C,
-        pins: (impl RInto<I2C::Scl, 0>, impl RInto<I2C::Sda, 0>),
+    pub fn new<const R: u8>(
+        i2c: impl Into<Rmp<I2C, R>>,
+        pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
         mode: impl Into<Mode>,
         clocks: &Clocks,
     ) -> Self {
-        let mode = mode.into();
-        let rcc = unsafe { &(*RCC::ptr()) };
-        I2C::enable(rcc);
-        I2C::reset(rcc);
-
-        let pclk1 = I2C::clock(clocks);
-
-        assert!(mode.get_frequency() <= kHz(400));
-
-        let mut i2c = I2c {
-            i2c,
-            pins: (pins.0.rinto(), pins.1.rinto()),
-            mode,
-            pclk1,
-        };
-        i2c.init();
-        i2c
+        i2c.into().i2c(pins, mode, clocks)
     }
 }
 
