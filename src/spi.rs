@@ -301,78 +301,7 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
         freq: Hertz,
         clocks: &Clocks,
     ) -> Spi<SPI, u8, PULL> {
-        Spi::_new(self.0, pins, mode, freq, clocks)
-    }
-    pub fn spi_u16<PULL: UpMode>(
-        self,
-        pins: (
-            Option<impl RInto<SPI::MSck, R>>,
-            Option<impl RInto<SPI::Mi<PULL>, R>>,
-            Option<impl RInto<SPI::Mo, R>>,
-        ),
-        mode: Mode,
-        freq: Hertz,
-        clocks: &Clocks,
-    ) -> Spi<SPI, u16, PULL> {
-        self.spi(pins, mode, freq, clocks).frame_size_16bit()
-    }
-    pub fn spi_slave<Otype, PULL: UpMode>(
-        self,
-        pins: (
-            Option<impl RInto<SPI::SSck, R>>,
-            Option<impl RInto<SPI::So<Otype>, R>>,
-            Option<impl RInto<SPI::Si<PULL>, R>>,
-        ),
-        mode: Mode,
-    ) -> SpiSlave<SPI, u8, Otype, PULL> {
-        SpiSlave::_new(self.0, pins, mode)
-    }
-    pub fn spi_slave_u16<Otype, PULL: UpMode>(
-        self,
-        pins: (
-            Option<impl RInto<SPI::SSck, R>>,
-            Option<impl RInto<SPI::So<Otype>, R>>,
-            Option<impl RInto<SPI::Si<PULL>, R>>,
-        ),
-        mode: Mode,
-    ) -> SpiSlave<SPI, u16, Otype, PULL> {
-        self.spi_slave(pins, mode).frame_size_16bit()
-    }
-}
-
-impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
-    /**
-      Constructs an SPI instance using SPI1 in 8bit dataframe mode.
-
-      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Alternate<PushPull>, Input<...>, Alternate<PushPull>)`.
-
-      You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
-    */
-    pub fn new(
-        spi: SPI,
-        pins: (
-            Option<impl RInto<SPI::MSck, 0>>,
-            Option<impl RInto<SPI::Mi<PULL>, 0>>,
-            Option<impl RInto<SPI::Mo, 0>>,
-        ),
-        mode: Mode,
-        freq: Hertz,
-        clocks: &Clocks,
-    ) -> Self {
-        Self::_new(spi, pins, mode, freq, clocks)
-    }
-
-    fn _new<const R: u8>(
-        spi: SPI,
-        pins: (
-            Option<impl RInto<SPI::MSck, R>>,
-            Option<impl RInto<SPI::Mi<PULL>, R>>,
-            Option<impl RInto<SPI::Mo, R>>,
-        ),
-        mode: Mode,
-        freq: Hertz,
-        clocks: &Clocks,
-    ) -> Self {
+        let spi = self.0;
         // enable or reset SPI
         let rcc = unsafe { &(*RCC::ptr()) };
         SPI::enable(rcc);
@@ -429,48 +358,29 @@ impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
             pins,
         }
     }
-}
-
-impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
-    #[allow(clippy::type_complexity)]
-    pub fn release(
+    pub fn spi_u16<PULL: UpMode>(
         self,
-    ) -> (
-        SPI,
-        (Option<SPI::MSck>, Option<SPI::Mi<PULL>>, Option<SPI::Mo>),
-    ) {
-        (self.inner.spi, self.pins)
-    }
-}
-
-impl<SPI: Instance, Otype, PULL: UpMode> SpiSlave<SPI, u8, Otype, PULL> {
-    /**
-      Constructs an SPI instance using SPI1 in 8bit dataframe mode.
-
-      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Input<Floating>, Alternate<...>, Input<...>)`.
-
-      You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
-    */
-    pub fn new(
-        spi: SPI,
         pins: (
-            Option<impl RInto<SPI::SSck, 0>>,
-            Option<impl RInto<SPI::So<Otype>, 0>>,
-            Option<impl RInto<SPI::Si<PULL>, 0>>,
+            Option<impl RInto<SPI::MSck, R>>,
+            Option<impl RInto<SPI::Mi<PULL>, R>>,
+            Option<impl RInto<SPI::Mo, R>>,
         ),
         mode: Mode,
-    ) -> Self {
-        Self::_new(spi, pins, mode)
+        freq: Hertz,
+        clocks: &Clocks,
+    ) -> Spi<SPI, u16, PULL> {
+        self.spi(pins, mode, freq, clocks).frame_size_16bit()
     }
-    fn _new<const R: u8>(
-        spi: SPI,
+    pub fn spi_slave<Otype, PULL: UpMode>(
+        self,
         pins: (
             Option<impl RInto<SPI::SSck, R>>,
             Option<impl RInto<SPI::So<Otype>, R>>,
             Option<impl RInto<SPI::Si<PULL>, R>>,
         ),
         mode: Mode,
-    ) -> Self {
+    ) -> SpiSlave<SPI, u8, Otype, PULL> {
+        let spi = self.0;
         // enable or reset SPI
         let rcc = unsafe { &(*RCC::ptr()) };
         SPI::enable(rcc);
@@ -512,6 +422,73 @@ impl<SPI: Instance, Otype, PULL: UpMode> SpiSlave<SPI, u8, Otype, PULL> {
             inner: SpiInner::new(spi),
             pins,
         }
+    }
+    pub fn spi_slave_u16<Otype, PULL: UpMode>(
+        self,
+        pins: (
+            Option<impl RInto<SPI::SSck, R>>,
+            Option<impl RInto<SPI::So<Otype>, R>>,
+            Option<impl RInto<SPI::Si<PULL>, R>>,
+        ),
+        mode: Mode,
+    ) -> SpiSlave<SPI, u16, Otype, PULL> {
+        self.spi_slave(pins, mode).frame_size_16bit()
+    }
+}
+
+impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
+    /**
+      Constructs an SPI instance using SPI1 in 8bit dataframe mode.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Alternate<PushPull>, Input<...>, Alternate<PushPull>)`.
+
+      You can also use `NoSck`, `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
+    pub fn new<const R: u8>(
+        spi: impl Into<Rmp<SPI, R>>,
+        pins: (
+            Option<impl RInto<SPI::MSck, R>>,
+            Option<impl RInto<SPI::Mi<PULL>, R>>,
+            Option<impl RInto<SPI::Mo, R>>,
+        ),
+        mode: Mode,
+        freq: Hertz,
+        clocks: &Clocks,
+    ) -> Self {
+        spi.into().spi(pins, mode, freq, clocks)
+    }
+}
+
+impl<SPI: Instance, PULL> Spi<SPI, u8, PULL> {
+    #[allow(clippy::type_complexity)]
+    pub fn release(
+        self,
+    ) -> (
+        SPI,
+        (Option<SPI::MSck>, Option<SPI::Mi<PULL>>, Option<SPI::Mo>),
+    ) {
+        (self.inner.spi, self.pins)
+    }
+}
+
+impl<SPI: Instance, Otype, PULL: UpMode> SpiSlave<SPI, u8, Otype, PULL> {
+    /**
+      Constructs an SPI instance using SPI1 in 8bit dataframe mode.
+
+      The pin parameter tuple (sck, miso, mosi) should be `(PA5, PA6, PA7)` or `(PB3, PB4, PB5)` configured as `(Input<Floating>, Alternate<...>, Input<...>)`.
+
+      You can also use `NoMiso` or `NoMosi` if you don't want to use the pins
+    */
+    pub fn new<const R: u8>(
+        spi: impl Into<Rmp<SPI, R>>,
+        pins: (
+            Option<impl RInto<SPI::SSck, R>>,
+            Option<impl RInto<SPI::So<Otype>, R>>,
+            Option<impl RInto<SPI::Si<PULL>, R>>,
+        ),
+        mode: Mode,
+    ) -> Self {
+        spi.into().spi_slave(pins, mode)
     }
 }
 

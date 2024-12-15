@@ -1,0 +1,15 @@
+{
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "cargo": {
+          "features": ["defmt", "rtic", "stm32f103", "medium"]
+        },
+        "check": {
+          "allTargets": false,
+          "targets": "thumbv7em-none-eabi"
+        }
+      }
+    }
+  }
+}

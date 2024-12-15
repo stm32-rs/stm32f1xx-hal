@@ -170,23 +170,7 @@ impl<I2C: Instance> I2c<I2C> {
         mode: impl Into<Mode>,
         clocks: &Clocks,
     ) -> Self {
-        let mode = mode.into();
-        let rcc = unsafe { &(*RCC::ptr()) };
-        I2C::enable(rcc);
-        I2C::reset(rcc);
-
-        let pclk1 = I2C::clock(clocks);
-
-        assert!(mode.get_frequency() <= kHz(400));
-
-        let mut i2c = I2c {
-            i2c: i2c.into().0,
-            pins: (pins.0.rinto(), pins.1.rinto()),
-            mode,
-            pclk1,
-        };
-        i2c.init();
-        i2c
+        i2c.into().i2c(pins, mode, clocks)
     }
 }
 

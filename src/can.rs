@@ -72,15 +72,14 @@ pub struct Can<CAN: Instance, PULL = Floating> {
 impl<CAN: Instance, const R: u8> Rmp<CAN, R> {
     pub fn can<PULL: UpMode>(
         self,
-        #[cfg(not(feature = "connectivity"))] usb: pac::USB,
+        #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
         pins: (impl RInto<CAN::Tx, R>, impl RInto<CAN::Rx<PULL>, R>),
     ) -> Can<CAN, PULL> {
-        Can::_new(
-            self.0,
-            #[cfg(not(feature = "connectivity"))]
-            usb,
-            (Some(pins.0), Some(pins.1)),
-        )
+        let rcc = unsafe { &(*RCC::ptr()) };
+        CAN::enable(rcc);
+
+        let pins = (Some(pins.0.rinto()), Some(pins.1.rinto()));
+        Can { can: self.0, pins }
     }
     pub fn can_loopback(
         self,
@@ -99,32 +98,16 @@ impl<CAN: Instance, PULL: UpMode> Can<CAN, PULL> {
     ///
     /// CAN shares SRAM with the USB peripheral. Take ownership of USB to
     /// prevent accidental shared usage.
-    pub fn new(
-        can: CAN,
+    pub fn new<const R: u8>(
+        can: impl Into<Rmp<CAN, R>>,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
-        pins: (impl RInto<CAN::Tx, 0>, impl RInto<CAN::Rx<PULL>, 0>),
+        pins: (impl RInto<CAN::Tx, R>, impl RInto<CAN::Rx<PULL>, R>),
     ) -> Can<CAN, PULL> {
-        Self::_new(
-            can,
+        can.into().can(
             #[cfg(not(feature = "connectivity"))]
             _usb,
-            (Some(pins.0), Some(pins.1)),
+            pins,
         )
-    }
-
-    fn _new<const R: u8>(
-        can: CAN,
-        #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
-        pins: (
-            Option<impl RInto<CAN::Tx, R>>,
-            Option<impl RInto<CAN::Rx<PULL>, R>>,
-        ),
-    ) -> Can<CAN, PULL> {
-        let rcc = unsafe { &(*RCC::ptr()) };
-        CAN::enable(rcc);
-
-        let pins = (pins.0.map(RInto::rinto), pins.1.map(RInto::rinto));
-        Can { can, pins }
     }
 
     /// Creates a CAN interface in loopback mode
