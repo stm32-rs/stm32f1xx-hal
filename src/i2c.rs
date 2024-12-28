@@ -271,6 +271,9 @@ impl<I2C: Instance> I2c<I2C> {
 
     /// Generate START condition
     fn send_start(&mut self) {
+        // Clear all pending error bits
+        // NOTE(unsafe): Writing 0 clears the r/w bits and has no effect on the r bits
+        self.i2c.sr1().write(|w| unsafe { w.bits(0) });
         self.i2c.cr1().modify(|_, w| w.start().set_bit());
     }
 

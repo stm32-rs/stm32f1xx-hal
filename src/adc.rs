@@ -256,7 +256,7 @@ macro_rules! adc_hal {
 
                 #[inline(always)]
                 pub fn set_external_trigger(&mut self, trigger: crate::pac::$adc::cr2::EXTSEL) {
-                    self.rb.cr2().modify(|_, w| w.extsel().variant(trigger))
+                    self.rb.cr2().modify(|_, w| w.extsel().variant(trigger));
                 }
 
                 fn power_up(&mut self) {
@@ -336,7 +336,7 @@ macro_rules! adc_hal {
                         16 => self.rb.smpr1().modify(|_, w| w.smp16().set(sample_time)),
                         17 => self.rb.smpr1().modify(|_, w| w.smp17().set(sample_time)),
                         _ => unreachable!(),
-                    }
+                    };
                 }
 
                 fn set_regular_sequence (&mut self, channels: &[u8]) {

@@ -128,7 +128,7 @@ impl Rtc<RtcClkLse> {
             w.rtcen().set_bit();
             // Set the source of the RTC to LSE
             w.rtcsel().lse()
-        })
+        });
     }
 }
 
@@ -202,7 +202,7 @@ impl Rtc<RtcClkLsi> {
             w.rtcen().set_bit();
             // Set the source of the RTC to LSI
             w.rtcsel().lsi()
-        })
+        });
     }
 }
 
@@ -280,7 +280,7 @@ impl Rtc<RtcClkHseDiv128> {
             w.rtcen().set_bit();
             // Set the source of the RTC to HSE/128
             w.rtcsel().hse()
-        })
+        });
     }
 }
 
@@ -365,22 +365,30 @@ impl<CS> Rtc<CS> {
 
     /// Enables triggering the RTC interrupt every time the RTC counter is increased
     pub fn listen_seconds(&mut self) {
-        self.perform_write(|s| s.regs.crh().modify(|_, w| w.secie().set_bit()))
+        self.perform_write(|s| {
+            s.regs.crh().modify(|_, w| w.secie().set_bit());
+        })
     }
 
     /// Disables the RTC second interrupt
     pub fn unlisten_seconds(&mut self) {
-        self.perform_write(|s| s.regs.crh().modify(|_, w| w.secie().clear_bit()))
+        self.perform_write(|s| {
+            s.regs.crh().modify(|_, w| w.secie().clear_bit());
+        })
     }
 
     /// Clears the RTC second interrupt flag
     pub fn clear_second_flag(&mut self) {
-        self.perform_write(|s| s.regs.crl().modify(|_, w| w.secf().clear_bit()))
+        self.perform_write(|s| {
+            s.regs.crl().modify(|_, w| w.secf().clear_bit());
+        })
     }
 
     /// Clears the RTC alarm interrupt flag
     pub fn clear_alarm_flag(&mut self) {
-        self.perform_write(|s| s.regs.crl().modify(|_, w| w.alrf().clear_bit()))
+        self.perform_write(|s| {
+            s.regs.crl().modify(|_, w| w.alrf().clear_bit());
+        })
     }
 
     /**
