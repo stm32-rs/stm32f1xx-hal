@@ -325,7 +325,7 @@ macro_rules! hal {
                 }
                 #[inline(always)]
                 unsafe fn set_auto_reload_unchecked(&mut self, arr: u32) {
-                    self.arr().write(|w| w.bits(arr))
+                    self.arr().write(|w| w.bits(arr));
                 }
                 #[inline(always)]
                 fn set_auto_reload(&mut self, arr: u32) -> Result<(), Error> {
@@ -445,7 +445,7 @@ macro_rules! with_pwm {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 #[allow(unused_unsafe)]
                 if channel < Self::CH_NUMBER {
-                    tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) })
+                    tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) });
                 }
             }
 
@@ -493,7 +493,7 @@ macro_rules! with_pwm {
                 let tim = unsafe { &*<$TIM>::ptr() };
                 #[allow(unused_unsafe)]
                 if channel < Self::CH_NUMBER {
-                    tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) })
+                    tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) });
                 }
             }
 
@@ -539,7 +539,7 @@ macro_rules! with_pwm {
             #[inline(always)]
             fn set_cc_value(channel: u8, value: u32) {
                 let tim = unsafe { &*<$TIM>::ptr() };
-                tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) })
+                tim.ccr(channel as usize).write(|w| unsafe { w.bits(value) });
             }
 
             #[inline(always)]

@@ -2,7 +2,10 @@
 edition = "2021"
 rust-version = "1.59"
 
-authors = ["Jorge Aparicio <jorge@japaric.io>", "Daniel Egger <daniel@eggers-club.de>"]
+authors = [
+    "Jorge Aparicio <jorge@japaric.io>",
+    "Daniel Egger <daniel@eggers-club.de>",
+]
 categories = ["embedded", "hardware-support", "no-std"]
 description = "HAL for the STM32F1xx family of microcontrollers"
 keywords = ["arm", "cortex-m", "stm32", "hal"]
@@ -33,7 +36,7 @@ vcell = "0.1.3"
 
 [dependencies.stm32f1]
 package = "stm32f1-staging"
-version = "0.16.0"
+version = "0.17.1"
 features = ["atomics"]
 
 [dependencies.embedded-hal-02]

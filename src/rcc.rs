@@ -213,7 +213,7 @@ impl CFGR {
                 } else {
                     0b010
                 })
-            })
+            });
         }
 
         let rcc = unsafe { &*RCC::ptr() };

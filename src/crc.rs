@@ -30,7 +30,7 @@ impl Crc {
     }
 
     pub fn write(&mut self, val: u32) {
-        self.crc.dr().write(|w| w.dr().set(val))
+        self.crc.dr().write(|w| w.dr().set(val));
     }
 
     pub fn reset(&self) {

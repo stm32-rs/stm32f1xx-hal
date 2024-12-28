@@ -165,14 +165,14 @@ impl<DMA: DmaExt, const C: u8> Ch<DMA, C> {
         match event {
             Event::HalfTransfer => self.ch().cr().modify(|_, w| w.htie().set_bit()),
             Event::TransferComplete => self.ch().cr().modify(|_, w| w.tcie().set_bit()),
-        }
+        };
     }
 
     pub fn unlisten(&mut self, event: Event) {
         match event {
             Event::HalfTransfer => self.ch().cr().modify(|_, w| w.htie().clear_bit()),
             Event::TransferComplete => self.ch().cr().modify(|_, w| w.tcie().clear_bit()),
-        }
+        };
     }
 
     pub fn ch(&mut self) -> &pac::dma1::CH {
