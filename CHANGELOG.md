@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Add an option to allow overclocking [#494]
 - `new` on gpio mode [#506]
 - Add `Serial` `rx`/`tx` constructors [#509]
+- Add enable/disable EOC interrupt functions for ADCs [#526]
 
 [#416]: https://github.com/stm32-rs/stm32f1xx-hal/pull/416
 [#453]: https://github.com/stm32-rs/stm32f1xx-hal/pull/453
@@ -69,6 +70,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#514]: https://github.com/stm32-rs/stm32f1xx-hal/pull/514
 [#516]: https://github.com/stm32-rs/stm32f1xx-hal/pull/516
 [#520]: https://github.com/stm32-rs/stm32f1xx-hal/pull/520
+[#526]: https://github.com/stm32-rs/stm32f1xx-hal/pull/526
 
 ## [v0.10.0] - 2022-12-12
 
