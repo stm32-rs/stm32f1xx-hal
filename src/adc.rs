@@ -420,23 +420,23 @@ macro_rules! adc_hal {
                 }
 
                 /// Enable interrupt for EOC (end of convert)
-                pub fn enable_eoc_interrupt() {
-                    self.rb.cr1()..write(|w| w.eocie().set_bit());
+                pub fn enable_eoc_interrupt(&mut self) {
+                    self.rb.cr1().write(|w| w.eocie().set_bit());
                 }
 
                 /// Disable interrupt for EOC (end of convert)
-                pub fn disable_eoc_interrupt() {
-                    self.rb.cr1()..write(|w| w.eocie().clear_bit());
+                pub fn disable_eoc_interrupt(&mut self) {
+                    self.rb.cr1().write(|w| w.eocie().clear_bit());
                 }
 
                 /// Enable interrupt for JEOC (EOC for injected channels)
-                pub fn enable_jeoc_interrupt() {
-                    self.rb.cr1()..write(|w| w.jeocie().set_bit());
+                pub fn enable_jeoc_interrupt(&mut self) {
+                    self.rb.cr1().write(|w| w.jeocie().set_bit());
                 }
 
                 /// Disable interrupt for JEOC (EOC for injected channels)
-                pub fn disable_jeoc_interrupt() {
-                    self.rb.cr1()..write(|w| w.jeocie().clear_bit());
+                pub fn disable_jeoc_interrupt(&mut self) {
+                    self.rb.cr1().write(|w| w.jeocie().clear_bit());
                 }
             }
 
