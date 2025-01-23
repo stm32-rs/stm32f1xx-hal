@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Updated `usb-device` and `usbd-serial` to latest versions [#510]
 - Rework pin remaps, fix CAN1 remap [#511]
 - Rework USART remap,
+- Remove unsafe code from usb_serial_rtic example [#528]
 
 ### Added
 
@@ -71,6 +72,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#516]: https://github.com/stm32-rs/stm32f1xx-hal/pull/516
 [#520]: https://github.com/stm32-rs/stm32f1xx-hal/pull/520
 [#526]: https://github.com/stm32-rs/stm32f1xx-hal/pull/526
+[#528]: https://github.com/stm32-rs/stm32f1xx-hal/pull/528
 
 ## [v0.10.0] - 2022-12-12
 
