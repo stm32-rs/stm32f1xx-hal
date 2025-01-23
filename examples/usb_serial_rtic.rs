@@ -3,6 +3,7 @@
 #![no_main]
 #![no_std]
 #![allow(non_snake_case)]
+#![deny(unsafe_code)]
 
 use panic_semihosting as _;
 
@@ -22,10 +23,8 @@ mod app {
     #[local]
     struct Local {}
 
-    #[init]
+    #[init(local = [usb_bus: Option<usb_device::bus::UsbBusAllocator<UsbBusType>> = None])]
     fn init(cx: init::Context) -> (Shared, Local, init::Monotonics) {
-        static mut USB_BUS: Option<usb_device::bus::UsbBusAllocator<UsbBusType>> = None;
-
         let mut flash = cx.device.FLASH.constrain();
         let rcc = cx.device.RCC.constrain();
 
@@ -57,23 +56,18 @@ mod app {
             pin_dp: usb_dp,
         };
 
-        unsafe {
-            USB_BUS.replace(UsbBus::new(usb));
-        }
+        cx.local.usb_bus.replace(UsbBus::new(usb));
+        let usb_bus = cx.local.usb_bus.as_ref().unwrap();
 
-        let serial = usbd_serial::SerialPort::new(unsafe { USB_BUS.as_ref().unwrap() });
-
-        let usb_dev = UsbDeviceBuilder::new(
-            unsafe { USB_BUS.as_ref().unwrap() },
-            UsbVidPid(0x16c0, 0x27dd),
-        )
-        .device_class(usbd_serial::USB_CLASS_CDC)
-        .strings(&[StringDescriptors::default()
-            .manufacturer("Fake Company")
-            .product("Serial port")
-            .serial_number("TEST")])
-        .unwrap()
-        .build();
+        let serial = usbd_serial::SerialPort::new(usb_bus);
+        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
+            .device_class(usbd_serial::USB_CLASS_CDC)
+            .strings(&[StringDescriptors::default()
+                .manufacturer("Fake Company")
+                .product("Serial port")
+                .serial_number("TEST")])
+            .unwrap()
+            .build();
 
         (Shared { usb_dev, serial }, Local {}, init::Monotonics())
     }
