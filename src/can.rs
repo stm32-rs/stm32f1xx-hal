@@ -58,7 +58,12 @@ impl<CAN: Instance> CanExt for CAN {
 }
 
 pub trait Instance: crate::rcc::Enable + afio::CanCommon {}
-impl Instance for pac::CAN1 {}
+#[cfg(not(feature = "connectivity"))]
+use pac::CAN as CAN1;
+#[cfg(feature = "connectivity")]
+use pac::CAN1;
+
+impl Instance for CAN1 {}
 #[cfg(feature = "connectivity")]
 impl Instance for pac::CAN2 {}
 
@@ -125,8 +130,8 @@ impl<CAN: Instance, PULL: UpMode> Can<CAN, PULL> {
     }
 }
 
-unsafe impl<PULL> bxcan::Instance for Can<pac::CAN1, PULL> {
-    const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN1::ptr() as *mut _;
+unsafe impl<PULL> bxcan::Instance for Can<CAN1, PULL> {
+    const REGISTERS: *mut bxcan::RegisterBlock = CAN1::ptr() as *mut _;
 }
 
 #[cfg(feature = "connectivity")]
@@ -134,9 +139,9 @@ unsafe impl<PULL> bxcan::Instance for Can<pac::CAN2, PULL> {
     const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN2::ptr() as *mut _;
 }
 
-unsafe impl<PULL> bxcan::FilterOwner for Can<pac::CAN1, PULL> {
+unsafe impl<PULL> bxcan::FilterOwner for Can<CAN1, PULL> {
     const NUM_FILTER_BANKS: u8 = 28;
 }
 
 #[cfg(feature = "connectivity")]
-unsafe impl<PULL> bxcan::MasterInstance for Can<pac::CAN1, PULL> {}
+unsafe impl<PULL> bxcan::MasterInstance for Can<CAN1, PULL> {}

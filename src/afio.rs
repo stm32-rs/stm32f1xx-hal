@@ -215,7 +215,7 @@ remap! {
 
 #[cfg(feature = "stm32f103")]
 remap! {
-    pac::CAN1: MAPR, u8: can_remap, { 0 | 2 | 3 };
+    pac::CAN: MAPR, u8: can_remap, { 0 | 2 | 3 };
 }
 
 #[cfg(feature = "connectivity")]
@@ -303,7 +303,11 @@ pub mod can1 {
         ],
     }
 
-    impl CanCommon for pac::CAN1 {
+    #[cfg(not(feature = "connectivity"))]
+    use pac::CAN as CAN1;
+    #[cfg(feature = "connectivity")]
+    use pac::CAN1;
+    impl CanCommon for CAN1 {
         type Tx = Tx;
         type Rx<PULL> = Rx<PULL>;
     }

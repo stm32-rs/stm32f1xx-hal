@@ -55,7 +55,11 @@ mod app {
     use super::{enqueue_frame, PriorityFrame};
     use bxcan::{filter::Mask32, ExtendedId, Fifo, Frame, Interrupts, Rx0, StandardId, Tx};
     use heapless::binary_heap::{BinaryHeap, Max};
-    use stm32f1xx_hal::{can::Can, pac::CAN1, prelude::*};
+    #[cfg(not(feature = "connectivity"))]
+    use stm32f1xx_hal::pac::CAN as CAN1;
+    #[cfg(feature = "connectivity")]
+    use stm32f1xx_hal::pac::CAN1;
+    use stm32f1xx_hal::{can::Can, prelude::*};
 
     #[local]
     struct Local {
@@ -88,7 +92,7 @@ mod app {
         let can_tx_pin = gpioa.pa12;
 
         #[cfg(not(feature = "connectivity"))]
-        let can = Can::new(cx.device.CAN1, cx.device.USB, (can_tx_pin, can_rx_pin));
+        let can = Can::new(cx.device.CAN, cx.device.USB, (can_tx_pin, can_rx_pin));
 
         #[cfg(feature = "connectivity")]
         let can = Can::new(cx.device.CAN1, (can_tx_pin, can_rx_pin));

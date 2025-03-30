@@ -223,7 +223,7 @@ mod sealed {
     }
 }
 
-use crate::pac::gpioa::crl::{CNF0 as Cnf, MODE0 as Mode};
+use crate::pac::gpioa::crl::{CONFIG as Cnf, MODE as Mode};
 
 use sealed::Interruptable;
 pub(crate) use sealed::PinMode;

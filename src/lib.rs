@@ -157,3 +157,18 @@ mod sealed {
     pub trait Sealed {}
 }
 use sealed::Sealed;
+use stm32f1::Periph;
+
+pub trait Ptr {
+    /// RegisterBlock structure
+    type RB;
+    /// Return the pointer to the register block
+    fn ptr() -> *const Self::RB;
+}
+
+impl<RB, const ADDR: usize> Ptr for Periph<RB, ADDR> {
+    type RB = RB;
+    fn ptr() -> *const Self::RB {
+        Self::ptr()
+    }
+}
