@@ -519,7 +519,6 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
       before changing its mode to an output to avoid
       a short spike of an incorrect value
     */
-
     #[inline(always)]
     fn _set_state(&mut self, state: PinState) {
         match state {

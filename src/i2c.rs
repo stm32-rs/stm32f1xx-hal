@@ -282,7 +282,7 @@ impl<I2C: Instance> I2c<I2C> {
     fn send_addr(&self, addr: u8, read: bool) {
         self.i2c
             .dr()
-            .write(|w| w.dr().set(addr << 1 | (u8::from(read))));
+            .write(|w| w.dr().set((addr << 1) | (u8::from(read))));
     }
 
     /// Generate STOP condition
