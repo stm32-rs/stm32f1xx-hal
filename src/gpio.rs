@@ -35,7 +35,7 @@
 //!     - **OpenDrain**: Output which leaves the gate floating, or pulls it to ground in drain
 //!       mode. Can be used as an input in the `open` configuration
 //! - **Debugger**: Some pins start out being used by the debugger. A pin in this mode can only be
-//!   used if the [JTAG peripheral has been turned off](#accessing-pa15-pb3-and-pb14).
+//!   used if the [JTAG peripheral has been turned off](#accessing-pa15-pb3-and-pb4).
 //!
 //! ## Changing modes
 //! The simplest way to change the pin mode is to use the `into_<mode>` functions. These return a
@@ -55,7 +55,7 @@
 //! To make a pin dynamic, use the `into_dynamic` function, and then use the `make_<mode>` functions to
 //! change the mode
 //!
-//! ## Accessing PA15, PB3, and PB14
+//! ## Accessing PA15, PB3, and PB4
 //!
 //! These pins are used by the JTAG peripheral by default. To use them in your program, you need to
 //! disable that peripheral. This is done using the [afio::MAPR::disable_jtag](../afio/struct.MAPR.html#method.disable_jtag) function
