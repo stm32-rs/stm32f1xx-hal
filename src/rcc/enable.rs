@@ -65,7 +65,7 @@ macro_rules! ahb_bus {
 #[cfg(feature = "stm32f103")]
 bus! {
     ADC2 => (APB2, 10),
-    CAN1 => (APB1, 25),
+    CAN => (APB1, 25),
 }
 #[cfg(feature = "connectivity")]
 bus! {

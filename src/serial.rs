@@ -96,14 +96,19 @@ use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use crate::afio::{self, RInto, Rmp};
+#[cfg(any(all(feature = "stm32f103", feature = "high"), feature = "connectivity"))]
+use crate::dma::dma2;
 use crate::dma::{self, dma1, CircBuffer, RxDma, Transfer, TxDma};
 use crate::gpio::{Floating, PushPull, UpMode};
 use crate::pac::{self, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
+pub mod ext;
 mod hal_02;
 mod hal_1;
+
+use ext::{SrR, UartExt};
 
 pub trait SerialExt: Sized + Instance {
     fn serial<Otype, PULL: UpMode>(
@@ -159,28 +164,56 @@ impl<USART: Instance> SerialExt for USART {
     }
 }
 
-use crate::pac::usart1 as uart_base;
+pub trait RBExt: UartExt {
+    fn set_stopbits(&self, bits: StopBits);
+}
+
+impl RBExt for pac::usart1::RegisterBlock {
+    fn set_stopbits(&self, bits: StopBits) {
+        use crate::pac::usart1::cr2::STOP;
+
+        self.cr2().write(|w| {
+            w.stop().variant(match bits {
+                StopBits::STOP0P5 => STOP::Stop0p5,
+                StopBits::STOP1 => STOP::Stop1,
+                StopBits::STOP1P5 => STOP::Stop1p5,
+                StopBits::STOP2 => STOP::Stop2,
+            })
+        });
+    }
+}
+
+#[cfg(any(all(feature = "stm32f103", feature = "high"), feature = "connectivity"))]
+impl RBExt for pac::uart4::RegisterBlock {
+    fn set_stopbits(&self, bits: StopBits) {
+        use crate::pac::uart4::cr2::STOP;
+
+        // StopBits::STOP0P5 and StopBits::STOP1P5 aren't supported when using UART
+        // STOP_A::STOP1 and STOP_A::STOP2 will be used, respectively
+        self.cr2().write(|w| {
+            w.stop().variant(match bits {
+                StopBits::STOP0P5 | StopBits::STOP1 => STOP::Stop1,
+                StopBits::STOP1P5 | StopBits::STOP2 => STOP::Stop2,
+            })
+        });
+    }
+}
 
 pub trait Instance:
     crate::Sealed
-    + Deref<Target = uart_base::RegisterBlock>
+    + crate::Ptr<RB: RBExt>
+    + Deref<Target = Self::RB>
     + Enable
     + Reset
     + BusClock
     + afio::SerialAsync
 {
-    #[doc(hidden)]
-    fn ptr() -> *const uart_base::RegisterBlock;
 }
 
 macro_rules! inst {
     ($($USARTX:ty;)+) => {
         $(
-            impl Instance for $USARTX {
-                fn ptr() -> *const uart_base::RegisterBlock {
-                    <$USARTX>::ptr()
-                }
-            }
+            impl Instance for $USARTX { }
         )+
     };
 }
@@ -189,6 +222,11 @@ inst! {
     pac::USART1;
     pac::USART2;
     pac::USART3;
+}
+#[cfg(any(all(feature = "stm32f103", feature = "high"), feature = "connectivity"))]
+inst! {
+    pac::UART4;
+    pac::UART5;
 }
 
 /// Serial error
@@ -519,7 +557,7 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     // Configure baud rate
     let brr = USART::clock(clocks).raw() / config.baudrate.0;
     assert!(brr >= 16, "impossible baud rate");
-    usart.brr().write(|w| unsafe { w.bits(brr) });
+    usart.brr().write(|w| unsafe { w.bits(brr as u16) });
 
     // Configure word
     usart.cr1().modify(|_r, w| {
@@ -537,13 +575,7 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     });
 
     // Configure stop bits
-    let stop_bits = match config.stopbits {
-        StopBits::STOP1 => 0b00,
-        StopBits::STOP0P5 => 0b01,
-        StopBits::STOP2 => 0b10,
-        StopBits::STOP1P5 => 0b11,
-    };
-    usart.cr2().modify(|_r, w| w.stop().set(stop_bits));
+    usart.set_stopbits(config.stopbits);
 }
 
 /// Reconfigure the USART instance.
@@ -657,7 +689,7 @@ impl<USART: Instance> Rx<USART> {
             Some(Error::Parity)
         } else if sr.fe().bit_is_set() {
             Some(Error::FrameFormat)
-        } else if sr.ne().bit_is_set() {
+        } else if sr.nf().bit_is_set() {
             Some(Error::Noise)
         } else if sr.ore().bit_is_set() {
             Some(Error::Overrun)
@@ -1001,4 +1033,12 @@ serialdma! {
     TxDma3,
     rx: dma1::C3,
     tx: dma1::C2
+}
+#[cfg(any(all(feature = "stm32f103", feature = "high"), feature = "connectivity"))]
+serialdma! {
+    pac::UART4,
+    RxDma4,
+    TxDma4,
+    rx: dma2::C3,
+    tx: dma2::C5
 }

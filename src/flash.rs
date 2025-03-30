@@ -63,7 +63,7 @@ pub struct FlashWriter<'a> {
     flash_sz: FlashSize,
     verify: bool,
 }
-impl<'a> FlashWriter<'a> {
+impl FlashWriter<'_> {
     fn unlock(&mut self) -> Result<()> {
         // Wait for any ongoing operations
         while self.flash.sr.sr().read().bsy().bit_is_set() {}
@@ -245,7 +245,7 @@ impl<'a> FlashWriter<'a> {
 
             // Flash is written 16 bits at a time, so combine two bytes to get a
             // half-word
-            let hword: u16 = (data[idx] as u16) | (data[idx + 1] as u16) << 8;
+            let hword: u16 = (data[idx] as u16) | ((data[idx + 1] as u16) << 8);
 
             // NOTE(unsafe) Write to FLASH area with no side effects
             unsafe { core::ptr::write_volatile(write_address, hword) };

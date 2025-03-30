@@ -187,7 +187,6 @@ impl CFGR {
     /// let mut rcc = dp.RCC.constrain();
     /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
     /// ```
-
     #[inline(always)]
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
         let cfg = Config::from_cfgr(self);

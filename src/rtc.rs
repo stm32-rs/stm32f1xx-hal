@@ -41,7 +41,6 @@ pub enum RestoredOrNewRtc<CS> {
   [examples/rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.7.0/examples/rtc.rs
   [examples/blinky_rtc.rs]: https://github.com/stm32-rs/stm32f1xx-hal/blob/v0.7.0/examples/blinky_rtc.rs
 */
-
 pub struct Rtc<CS = RtcClkLse> {
     regs: RTC,
     _clock_source: PhantomData<CS>,
@@ -360,7 +359,7 @@ impl<CS> Rtc<CS> {
         // Wait for the APB1 interface to be ready
         while !self.regs.crl().read().rsf().bit() {}
 
-        self.regs.cnth().read().bits() << 16 | self.regs.cntl().read().bits()
+        (self.regs.cnth().read().bits() << 16) | self.regs.cntl().read().bits()
     }
 
     /// Enables triggering the RTC interrupt every time the RTC counter is increased

@@ -223,7 +223,7 @@ mod sealed {
     }
 }
 
-use crate::pac::gpioa::crl::{CNF0 as Cnf, MODE0 as Mode};
+use crate::pac::gpioa::crl::{CONFIG as Cnf, MODE as Mode};
 
 use sealed::Interruptable;
 pub(crate) use sealed::PinMode;
@@ -519,7 +519,6 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
       before changing its mode to an output to avoid
       a short spike of an incorrect value
     */
-
     #[inline(always)]
     fn _set_state(&mut self, state: PinState) {
         match state {
