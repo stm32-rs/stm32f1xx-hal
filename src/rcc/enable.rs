@@ -4,8 +4,6 @@ use crate::bb;
 macro_rules! bus {
     ($($PER:ident => ($apbX:ty, $bit:literal),)+) => {
         $(
-            impl crate::Sealed for crate::pac::$PER {}
-
             impl RccBus for crate::pac::$PER {
                 type Bus = $apbX;
             }
@@ -39,8 +37,6 @@ macro_rules! bus {
 macro_rules! ahb_bus {
     ($($PER:ident => ($bit:literal),)+) => {
         $(
-            impl crate::Sealed for crate::pac::$PER {}
-
             impl RccBus for crate::pac::$PER {
                 type Bus = AHB;
             }

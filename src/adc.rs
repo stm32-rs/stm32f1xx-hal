@@ -1,6 +1,7 @@
 //! # API for the Analog to Digital converter
 
 use core::marker::PhantomData;
+use core::ops::Deref;
 use embedded_hal_02::adc::{Channel, OneShot};
 use fugit::HertzU32 as Hertz;
 
@@ -15,6 +16,7 @@ use cortex_m::asm::delay;
 use embedded_dma::WriteBuffer;
 
 use crate::pac::{self, RCC};
+use crate::pacext::adc::{AdcRB, Cr1W, Cr2R, Cr2W, Dr, ExtSelW};
 
 /// Continuous mode
 pub struct Continuous;
@@ -61,18 +63,18 @@ impl Default for SampleTime {
     }
 }
 
-impl From<SampleTime> for u8 {
+impl From<SampleTime> for pac::adc1::smpr1::SMP10 {
     fn from(val: SampleTime) -> Self {
         use SampleTime::*;
         match val {
-            T_1 => 0,
-            T_7 => 1,
-            T_13 => 2,
-            T_28 => 3,
-            T_41 => 4,
-            T_55 => 5,
-            T_71 => 6,
-            T_239 => 7,
+            T_1 => Self::Cycles1_5,
+            T_7 => Self::Cycles7_5,
+            T_13 => Self::Cycles13_5,
+            T_28 => Self::Cycles28_5,
+            T_41 => Self::Cycles41_5,
+            T_55 => Self::Cycles55_5,
+            T_71 => Self::Cycles71_5,
+            T_239 => Self::Cycles239_5,
         }
     }
 }
@@ -93,11 +95,11 @@ impl Default for Align {
     }
 }
 
-impl From<Align> for bool {
+impl From<Align> for pac::adc1::cr2::ALIGN {
     fn from(val: Align) -> Self {
         match val {
-            Align::Right => false,
-            Align::Left => true,
+            Align::Right => Self::Right,
+            Align::Left => Self::Left,
         }
     }
 }
@@ -174,305 +176,325 @@ adc_pins!(pac::ADC3,
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct StoredConfig(SampleTime, Align);
 
-macro_rules! adc_hal {
-    ($(
-        $ADC:ty: ($adc:ident),
-    )+) => {
-        $(
+pub trait Instance:
+    crate::Sealed + crate::Ptr<RB: AdcRB> + Deref<Target = Self::RB> + Reset + Enable
+{
+    type ExtSel;
+    #[doc(hidden)]
+    fn set_extsel(&self, trigger: Self::ExtSel);
+}
 
-            impl Adc<$ADC> {
-                /// Init a new Adc
-                ///
-                /// Sets all configurable parameters to one-shot defaults,
-                /// performs a boot-time calibration.
-                pub fn $adc(adc: $ADC, clocks: &Clocks) -> Self {
-                    let mut s = Self {
-                        rb: adc,
-                        sample_time: SampleTime::default(),
-                        align: Align::default(),
-                        sysclk: clocks.sysclk(),
-                        adcclk: clocks.adcclk(),
-                    };
-                    s.enable_clock();
-                    s.power_down();
-                    s.reset();
-                    s.setup_oneshot();
-                    s.power_up();
+impl Instance for pac::ADC1 {
+    type ExtSel = crate::pac::adc1::cr2::EXTSEL;
+    fn set_extsel(&self, trigger: Self::ExtSel) {
+        self.cr2().modify(|_, w| w.extsel().variant(trigger));
+    }
+}
+#[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+impl Instance for pac::ADC2 {
+    type ExtSel = crate::pac::adc2::cr2::EXTSEL;
+    fn set_extsel(&self, trigger: Self::ExtSel) {
+        self.cr2().modify(|_, w| w.extsel().variant(trigger));
+    }
+}
+#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
+impl Instance for pac::ADC3 {
+    type ExtSel = crate::pac::adc3::cr2::EXTSEL;
+    fn set_extsel(&self, trigger: Self::ExtSel) {
+        self.cr2().modify(|_, w| w.extsel().variant(trigger));
+    }
+}
 
-                    // The manual states that we need to wait two ADC clocks cycles after power-up
-                    // before starting calibration, we already delayed in the power-up process, but
-                    // if the adc clock is too low that was not enough.
-                    if s.adcclk < kHz(2500) {
-                        let two_adc_cycles = s.sysclk / s.adcclk * 2;
-                        let already_delayed = s.sysclk / kHz(800);
-                        if two_adc_cycles > already_delayed {
-                            delay(two_adc_cycles - already_delayed);
-                        }
-                    }
-                    s.calibrate();
-                    s
-                }
+pub trait AdcExt: Sized + Instance {
+    fn adc(self, clocks: &Clocks) -> Adc<Self>;
+}
 
-                /// Save current ADC config
-                pub fn save_cfg(&mut self) -> StoredConfig {
-                    StoredConfig(self.sample_time, self.align)
-                }
+impl<ADC: Instance> AdcExt for ADC {
+    fn adc(self, clocks: &Clocks) -> Adc<Self> {
+        Adc::new(self, clocks)
+    }
+}
 
-                /// Restore saved ADC config
-                pub fn restore_cfg(&mut self, cfg: StoredConfig) {
-                    self.sample_time = cfg.0;
-                    self.align = cfg.1;
-                }
+impl<ADC: Instance> Adc<ADC> {
+    /// Init a new Adc
+    ///
+    /// Sets all configurable parameters to one-shot defaults,
+    /// performs a boot-time calibration.
+    pub fn new(adc: ADC, clocks: &Clocks) -> Self {
+        let mut s = Self {
+            rb: adc,
+            sample_time: SampleTime::default(),
+            align: Align::default(),
+            sysclk: clocks.sysclk(),
+            adcclk: clocks.adcclk(),
+        };
+        s.enable_clock();
+        s.power_down();
+        s.reset();
+        s.setup_oneshot();
+        s.power_up();
 
-                /// Reset the ADC config to default, return existing config
-                pub fn default_cfg(&mut self) -> StoredConfig {
-                    let cfg = self.save_cfg();
-                    self.sample_time = SampleTime::default();
-                    self.align = Align::default();
-                    cfg
-                }
-
-                /// Set ADC sampling time
-                ///
-                /// Options can be found in [SampleTime].
-                pub fn set_sample_time(&mut self, t_samp: SampleTime) {
-                    self.sample_time = t_samp;
-                }
-
-                /// Set the Adc result alignment
-                ///
-                /// Options can be found in [Align].
-                pub fn set_align(&mut self, align: Align) {
-                    self.align = align;
-                }
-
-                /// Returns the largest possible sample value for the current settings
-                pub fn max_sample(&self) -> u16 {
-                    match self.align {
-                        Align::Left => u16::MAX,
-                        Align::Right => (1 << 12) - 1,
-                    }
-                }
-
-                #[inline(always)]
-                pub fn set_external_trigger(&mut self, trigger: crate::pac::$adc::cr2::EXTSEL) {
-                    self.rb.cr2().modify(|_, w| w.extsel().variant(trigger));
-                }
-
-                fn power_up(&mut self) {
-                    self.rb.cr2().modify(|_, w| w.adon().set_bit());
-
-                    // The reference manual says that a stabilization time is needed after power_up,
-                    // this time can be found in the datasheets.
-                    // Here we are delaying for approximately 1us, considering 1.25 instructions per
-                    // cycle. Do we support a chip which needs more than 1us ?
-                    delay(self.sysclk / kHz(800));
-                }
-
-                fn power_down(&mut self) {
-                    self.rb.cr2().modify(|_, w| w.adon().clear_bit());
-                }
-
-                fn reset(&mut self) {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    <$ADC>::reset(rcc);
-                }
-
-                fn enable_clock(&mut self) {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    <$ADC>::enable(rcc);
-                }
-
-                fn disable_clock(&mut self) {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    <$ADC>::disable(rcc);
-                }
-
-                fn calibrate(&mut self) {
-                    /* reset calibration */
-                    self.rb.cr2().modify(|_, w| w.rstcal().set_bit());
-                    while self.rb.cr2().read().rstcal().bit_is_set() {}
-
-                    /* calibrate */
-                    self.rb.cr2().modify(|_, w| w.cal().set_bit());
-                    while self.rb.cr2().read().cal().bit_is_set() {}
-                }
-
-                fn setup_oneshot(&mut self) {
-                    self.rb.cr2().modify(|_, w| w
-                        .cont().clear_bit()
-                        .exttrig().set_bit()
-                        .extsel().swstart()
-                    );
-
-                    self.rb.cr1().modify(|_, w| w
-                        .scan().clear_bit()
-                        .discen().set_bit()
-                    );
-
-                    self.rb.sqr1().modify(|_, w| w.l().set(0b0));
-                }
-
-                fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime) {
-                    let sample_time = sample_time.into();
-                    match chan {
-                        0 => self.rb.smpr2().modify(|_, w| w.smp0().set(sample_time)),
-                        1 => self.rb.smpr2().modify(|_, w| w.smp1().set(sample_time)),
-                        2 => self.rb.smpr2().modify(|_, w| w.smp2().set(sample_time)),
-                        3 => self.rb.smpr2().modify(|_, w| w.smp3().set(sample_time)),
-                        4 => self.rb.smpr2().modify(|_, w| w.smp4().set(sample_time)),
-                        5 => self.rb.smpr2().modify(|_, w| w.smp5().set(sample_time)),
-                        6 => self.rb.smpr2().modify(|_, w| w.smp6().set(sample_time)),
-                        7 => self.rb.smpr2().modify(|_, w| w.smp7().set(sample_time)),
-                        8 => self.rb.smpr2().modify(|_, w| w.smp8().set(sample_time)),
-                        9 => self.rb.smpr2().modify(|_, w| w.smp9().set(sample_time)),
-
-                        10 => self.rb.smpr1().modify(|_, w| w.smp10().set(sample_time)),
-                        11 => self.rb.smpr1().modify(|_, w| w.smp11().set(sample_time)),
-                        12 => self.rb.smpr1().modify(|_, w| w.smp12().set(sample_time)),
-                        13 => self.rb.smpr1().modify(|_, w| w.smp13().set(sample_time)),
-                        14 => self.rb.smpr1().modify(|_, w| w.smp14().set(sample_time)),
-                        15 => self.rb.smpr1().modify(|_, w| w.smp15().set(sample_time)),
-                        16 => self.rb.smpr1().modify(|_, w| w.smp16().set(sample_time)),
-                        17 => self.rb.smpr1().modify(|_, w| w.smp17().set(sample_time)),
-                        _ => unreachable!(),
-                    };
-                }
-
-                fn set_regular_sequence (&mut self, channels: &[u8]) {
-                    let len = channels.len();
-                    let bits = channels.iter().take(6).enumerate().fold(0u32, |s, (i, c)|
-                        s | ((*c as u32) << (i * 5))
-                    );
-                    self.rb.sqr3().write(|w| unsafe { w
-                        .bits( bits )
-                    });
-                    if len > 6 {
-                        let bits = channels.iter().skip(6).take(6).enumerate().fold(0u32, |s, (i, c)|
-                            s | ((*c as u32) << (i * 5))
-                        );
-                        self.rb.sqr2().write(|w| unsafe { w
-                            .bits( bits )
-                        });
-                    }
-                    if len > 12 {
-                        let bits = channels.iter().skip(12).take(4).enumerate().fold(0u32, |s, (i, c)|
-                            s | ((*c as u32) << (i * 5))
-                        );
-                        self.rb.sqr1().write(|w| unsafe { w
-                            .bits( bits )
-                        });
-                    }
-                    self.rb.sqr1().modify(|_, w| w.l().set((len-1) as u8));
-                }
-
-                fn set_continuous_mode(&mut self, continuous: bool) {
-                    self.rb.cr2().modify(|_, w| w.cont().bit(continuous));
-                }
-
-                fn set_discontinuous_mode(&mut self, channels_count: Option<u8>) {
-                    self.rb.cr1().modify(|_, w| match channels_count {
-                        Some(count) => w.discen().set_bit().discnum().set(count),
-                        None => w.discen().clear_bit(),
-                    });
-                }
-
-                /**
-                  Performs an ADC conversion
-
-                  NOTE: Conversions can be started by writing a 1 to the ADON
-                  bit in the `CR2` while it is already 1, and no other bits
-                  are being written in the same operation. This means that
-                  the EOC bit *might* be set already when entering this function
-                  which can cause a read of stale values
-
-                  The check for `cr2.swstart.bit_is_set` *should* fix it, but
-                  does not. Therefore, ensure you do not do any no-op modifications
-                  to `cr2` just before calling this function
-                */
-                fn convert(&mut self, chan: u8) -> u16 {
-                    // Dummy read in case something accidentally triggered
-                    // a conversion by writing to CR2 without changing any
-                    // of the bits
-                    self.rb.dr().read().data().bits();
-
-                    self.set_channel_sample_time(chan, self.sample_time);
-                    self.rb.sqr3().modify(|_, w| unsafe { w.sq1().bits(chan) });
-
-                    // ADC start conversion of regular sequence
-                    self.rb.cr2().modify(|_, w| {
-                        w.swstart().set_bit();
-                        w.align().bit(self.align.into())
-                    });
-                    while self.rb.cr2().read().swstart().bit_is_set() {}
-                    // ADC wait for conversion results
-                    while self.rb.sr().read().eoc().bit_is_clear() {}
-
-                    let res = self.rb.dr().read().data().bits();
-                    res
-                }
-
-                /// Powers down the ADC, disables the ADC clock and releases the ADC Peripheral
-                pub fn release(mut self) -> $ADC {
-                    self.power_down();
-                    self.disable_clock();
-                    self.rb
-                }
-
-                /// Enable interrupt for EOC (end of convert)
-                pub fn enable_eoc_interrupt(&mut self) {
-                    self.rb.cr1().write(|w| w.eocie().set_bit());
-                }
-
-                /// Disable interrupt for EOC (end of convert)
-                pub fn disable_eoc_interrupt(&mut self) {
-                    self.rb.cr1().write(|w| w.eocie().clear_bit());
-                }
-
-                /// Enable interrupt for JEOC (EOC for injected channels)
-                pub fn enable_jeoc_interrupt(&mut self) {
-                    self.rb.cr1().write(|w| w.jeocie().set_bit());
-                }
-
-                /// Disable interrupt for JEOC (EOC for injected channels)
-                pub fn disable_jeoc_interrupt(&mut self) {
-                    self.rb.cr1().write(|w| w.jeocie().clear_bit());
-                }
+        // The manual states that we need to wait two ADC clocks cycles after power-up
+        // before starting calibration, we already delayed in the power-up process, but
+        // if the adc clock is too low that was not enough.
+        if s.adcclk < kHz(2500) {
+            let two_adc_cycles = s.sysclk / s.adcclk * 2;
+            let already_delayed = s.sysclk / kHz(800);
+            if two_adc_cycles > already_delayed {
+                delay(two_adc_cycles - already_delayed);
             }
+        }
+        s.calibrate();
+        s
+    }
 
-            impl ChannelTimeSequence for Adc<$ADC> {
-                #[inline(always)]
-                fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime) {
-                    self.set_channel_sample_time(chan, sample_time);
-                }
-                #[inline(always)]
-                fn set_regular_sequence (&mut self, channels: &[u8]) {
-                    self.set_regular_sequence(channels);
-                }
-                #[inline(always)]
-                fn set_continuous_mode(&mut self, continuous: bool) {
-                    self.set_continuous_mode(continuous);
-                }
-                #[inline(always)]
-                fn set_discontinuous_mode(&mut self, channels: Option<u8>) {
-                    self.set_discontinuous_mode(channels);
-                }
+    /// Save current ADC config
+    pub fn save_cfg(&mut self) -> StoredConfig {
+        StoredConfig(self.sample_time, self.align)
+    }
+
+    /// Restore saved ADC config
+    pub fn restore_cfg(&mut self, cfg: StoredConfig) {
+        self.sample_time = cfg.0;
+        self.align = cfg.1;
+    }
+
+    /// Reset the ADC config to default, return existing config
+    pub fn default_cfg(&mut self) -> StoredConfig {
+        let cfg = self.save_cfg();
+        self.sample_time = SampleTime::default();
+        self.align = Align::default();
+        cfg
+    }
+
+    /// Set ADC sampling time
+    ///
+    /// Options can be found in [SampleTime].
+    pub fn set_sample_time(&mut self, t_samp: SampleTime) {
+        self.sample_time = t_samp;
+    }
+
+    /// Set the Adc result alignment
+    ///
+    /// Options can be found in [Align].
+    pub fn set_align(&mut self, align: Align) {
+        self.align = align;
+    }
+
+    /// Returns the largest possible sample value for the current settings
+    pub fn max_sample(&self) -> u16 {
+        match self.align {
+            Align::Left => u16::MAX,
+            Align::Right => (1 << 12) - 1,
+        }
+    }
+
+    #[inline(always)]
+    pub fn set_external_trigger(&mut self, trigger: ADC::ExtSel) {
+        self.rb.set_extsel(trigger);
+    }
+
+    fn power_up(&mut self) {
+        self.rb.cr2().modify(|_, w| w.adon().set_bit());
+
+        // The reference manual says that a stabilization time is needed after power_up,
+        // this time can be found in the datasheets.
+        // Here we are delaying for approximately 1us, considering 1.25 instructions per
+        // cycle. Do we support a chip which needs more than 1us ?
+        delay(self.sysclk / kHz(800));
+    }
+
+    fn power_down(&mut self) {
+        self.rb.cr2().modify(|_, w| w.adon().clear_bit());
+    }
+
+    fn reset(&mut self) {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        ADC::reset(rcc);
+    }
+
+    fn enable_clock(&mut self) {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        ADC::enable(rcc);
+    }
+
+    fn disable_clock(&mut self) {
+        let rcc = unsafe { &(*RCC::ptr()) };
+        ADC::disable(rcc);
+    }
+
+    fn calibrate(&mut self) {
+        /* reset calibration */
+        self.rb.cr2().modify(|_, w| w.rstcal().set_bit());
+        while self.rb.cr2().read().rstcal().bit_is_set() {}
+
+        /* calibrate */
+        self.rb.cr2().modify(|_, w| w.cal().set_bit());
+        while self.rb.cr2().read().cal().bit_is_set() {}
+    }
+
+    fn setup_oneshot(&mut self) {
+        self.rb.cr2().modify(|_, w| {
+            w.cont().clear_bit();
+            w.exttrig().set_bit();
+            w.select_swstart()
+        });
+
+        self.rb
+            .cr1()
+            .modify(|_, w| w.scan().clear_bit().discen().set_bit());
+
+        self.rb.sqr1().modify(|_, w| w.l().set(0b0));
+    }
+
+    fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime) {
+        let sample_time = sample_time.into();
+        match chan {
+            0..=9 => self
+                .rb
+                .smpr2()
+                .modify(|_, w| w.smp(chan).variant(sample_time)),
+            10..=17 => self
+                .rb
+                .smpr1()
+                .modify(|_, w| w.smp(chan - 10).variant(sample_time)),
+            _ => unreachable!(),
+        };
+    }
+
+    fn set_regular_sequence(&mut self, channels: &[u8]) {
+        let mut iter = channels.chunks(6);
+        unsafe {
+            if let Some(chunk) = iter.next() {
+                self.rb.sqr3().write(|w| {
+                    for (i, &c) in chunk.iter().enumerate() {
+                        w.sq(i as u8).bits(c);
+                    }
+                    w
+                });
             }
-
-            impl<WORD, PIN> OneShot<$ADC, WORD, PIN> for Adc<$ADC>
-            where
-                WORD: From<u16>,
-                PIN: Channel<$ADC, ID = u8>,
-                {
-                    type Error = ();
-
-                    fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                        let res = self.convert(PIN::channel());
-                        Ok(res.into())
+            if let Some(chunk) = iter.next() {
+                self.rb.sqr2().write(|w| {
+                    for (i, &c) in chunk.iter().enumerate() {
+                        w.sq(i as u8).bits(c);
+                    }
+                    w
+                });
+            }
+            self.rb.sqr1().write(|w| {
+                if let Some(chunk) = iter.next() {
+                    for (i, &c) in chunk.iter().enumerate() {
+                        w.sq(i as u8).bits(c);
                     }
                 }
+                w.l().set((channels.len() - 1) as u8)
+            });
+        }
+    }
 
-        )+
+    fn set_continuous_mode(&mut self, continuous: bool) {
+        self.rb.cr2().modify(|_, w| w.cont().bit(continuous));
+    }
+
+    fn set_discontinuous_mode(&mut self, channels_count: Option<u8>) {
+        self.rb.cr1().modify(|_, w| match channels_count {
+            Some(count) => w.discen().set_bit().discnum().set(count),
+            None => w.discen().clear_bit(),
+        });
+    }
+
+    /**
+      Performs an ADC conversion
+
+      NOTE: Conversions can be started by writing a 1 to the ADON
+      bit in the `CR2` while it is already 1, and no other bits
+      are being written in the same operation. This means that
+      the EOC bit *might* be set already when entering this function
+      which can cause a read of stale values
+
+      The check for `cr2.swstart.bit_is_set` *should* fix it, but
+      does not. Therefore, ensure you do not do any no-op modifications
+      to `cr2` just before calling this function
+    */
+    fn convert(&mut self, chan: u8) -> u16 {
+        // Dummy read in case something accidentally triggered
+        // a conversion by writing to CR2 without changing any
+        // of the bits
+        self.rb.dr().read().data().bits();
+
+        self.set_channel_sample_time(chan, self.sample_time);
+        self.rb.sqr3().modify(|_, w| unsafe { w.sq1().bits(chan) });
+
+        // ADC start conversion of regular sequence
+        self.rb.cr2().modify(|_, w| {
+            w.swstart().set_bit();
+            w.align().variant(self.align.into())
+        });
+        while self.rb.cr2().read().swstart().bit_is_set() {}
+        // ADC wait for conversion results
+        while self.rb.sr().read().eoc().bit_is_clear() {}
+
+        let res = self.rb.dr().read().data().bits();
+        res
+    }
+
+    /// Powers down the ADC, disables the ADC clock and releases the ADC Peripheral
+    pub fn release(mut self) -> ADC {
+        self.power_down();
+        self.disable_clock();
+        self.rb
+    }
+
+    /// Enable interrupt for EOC (end of convert)
+    pub fn enable_eoc_interrupt(&mut self) {
+        self.rb.cr1().write(|w| w.eocie().set_bit());
+    }
+
+    /// Disable interrupt for EOC (end of convert)
+    pub fn disable_eoc_interrupt(&mut self) {
+        self.rb.cr1().write(|w| w.eocie().clear_bit());
+    }
+
+    /// Enable interrupt for JEOC (EOC for injected channels)
+    pub fn enable_jeoc_interrupt(&mut self) {
+        self.rb.cr1().write(|w| w.jeocie().set_bit());
+    }
+
+    /// Disable interrupt for JEOC (EOC for injected channels)
+    pub fn disable_jeoc_interrupt(&mut self) {
+        self.rb.cr1().write(|w| w.jeocie().clear_bit());
+    }
+}
+
+impl<ADC: Instance> ChannelTimeSequence for Adc<ADC> {
+    #[inline(always)]
+    fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime) {
+        self.set_channel_sample_time(chan, sample_time);
+    }
+    #[inline(always)]
+    fn set_regular_sequence(&mut self, channels: &[u8]) {
+        self.set_regular_sequence(channels);
+    }
+    #[inline(always)]
+    fn set_continuous_mode(&mut self, continuous: bool) {
+        self.set_continuous_mode(continuous);
+    }
+    #[inline(always)]
+    fn set_discontinuous_mode(&mut self, channels: Option<u8>) {
+        self.set_discontinuous_mode(channels);
+    }
+}
+
+impl<ADC: Instance, WORD, PIN> OneShot<ADC, WORD, PIN> for Adc<ADC>
+where
+    WORD: From<u16>,
+    PIN: Channel<ADC, ID = u8>,
+{
+    type Error = ();
+
+    fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
+        let res = self.convert(PIN::channel());
+        Ok(res.into())
     }
 }
 
@@ -557,20 +579,6 @@ impl Adc<pac::ADC1> {
     pub fn read_vref(&mut self) -> u16 {
         self.read_aux(17u8)
     }
-}
-
-adc_hal! {
-    pac::ADC1: (adc1),
-}
-
-#[cfg(any(feature = "stm32f103", feature = "connectivity"))]
-adc_hal! {
-    pac::ADC2: (adc2),
-}
-
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
-adc_hal! {
-    pac::ADC3: (adc3),
 }
 
 pub struct AdcPayload<ADC, PINS, MODE> {
@@ -672,7 +680,7 @@ macro_rules! adcdma {
                 self.rb.cr1().modify(|_, w| w.discen().clear_bit());
                 self.rb
                     .cr2()
-                    .modify(|_, w| w.align().bit(self.align.into()));
+                    .modify(|_, w| w.align().variant(self.align.into()));
                 self.set_channel_sample_time(PIN::channel(), self.sample_time);
                 self.rb
                     .sqr3()
@@ -702,7 +710,7 @@ macro_rules! adcdma {
                     w.adon().clear_bit();
                     w.dma().clear_bit();
                     w.cont().clear_bit();
-                    w.align().bit(self.align.into())
+                    w.align().variant(self.align.into())
                 });
                 self.rb
                     .cr1()

@@ -51,12 +51,10 @@ where
     }
 }
 
-pub trait DmaExt {
+pub trait DmaExt: crate::Ptr<RB = pac::dma1::RegisterBlock> {
     type Channels;
 
     fn split(self) -> Self::Channels;
-
-    fn ptr() -> *const pac::dma1::RegisterBlock;
 }
 
 pub trait TransferPayload {
@@ -462,10 +460,6 @@ macro_rules! dma {
                     )+
 
                     Channels((), $(super::Ch::<$DMAX, $ch>(super::PhantomData)),+)
-                }
-
-                fn ptr() -> *const crate::pac::dma1::RegisterBlock {
-                    Self::ptr()
                 }
             }
         }

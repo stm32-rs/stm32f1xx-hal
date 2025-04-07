@@ -104,11 +104,10 @@ use crate::pac::{self, RCC};
 use crate::rcc::{BusClock, Clocks, Enable, Reset};
 use crate::time::{Bps, U32Ext};
 
-pub mod ext;
 mod hal_02;
 mod hal_1;
 
-use ext::{SrR, UartExt};
+use crate::pacext::uart::{SrR, UartRB};
 
 pub trait SerialExt: Sized + Instance {
     fn serial<Otype, PULL: UpMode>(
@@ -164,7 +163,7 @@ impl<USART: Instance> SerialExt for USART {
     }
 }
 
-pub trait RBExt: UartExt {
+pub trait RBExt: UartRB {
     fn set_stopbits(&self, bits: StopBits);
 }
 
