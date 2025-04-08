@@ -5,7 +5,7 @@
 use panic_semihosting as _;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{adc, pac, prelude::*};
+use stm32f1xx_hal::{pac, prelude::*};
 
 use cortex_m_semihosting::hprintln;
 
@@ -38,7 +38,7 @@ fn main() -> ! {
     hprintln!("adc freq: {}", clocks.adcclk());
 
     // Setup ADC
-    let mut adc = adc::Adc::adc1(p.ADC1, &clocks);
+    let mut adc = p.ADC1.adc(&clocks);
 
     // Read temperature sensor
     loop {

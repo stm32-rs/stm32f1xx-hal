@@ -1,3 +1,4 @@
+pub use crate::adc::AdcExt as _;
 pub use crate::adc::ChannelTimeSequence as _stm32_hal_adc_ChannelTimeSequence;
 pub use crate::afio::AfioExt as _stm32_hal_afio_AfioExt;
 pub use crate::afio::RFrom as _;
