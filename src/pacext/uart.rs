@@ -168,10 +168,13 @@ macro_rules! impl_ext {
         }
 
         impl reg::SrR for $uart::sr::SRrs {
+            #[inline(always)]
+            fn nf(r: &R<Self>) -> usart1::sr::NE_R {
+                r.ne()
+            }
             impl_read! {
                 pe -> usart1::sr::PE_R;
                 fe -> usart1::sr::FE_R;
-                nf -> usart1::sr::NE_R;
                 ore -> usart1::sr::ORE_R;
                 idle -> usart1::sr::IDLE_R;
                 rxne -> usart1::sr::RXNE_R;
