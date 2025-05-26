@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   Remove `RemapStruct`s. [#462] [#506] [#509]
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]
-- Temporary replace `stm32f1` with `stm32f1-staging` v0.17.1 [#503]
+- Update to `stm32f1` v0.16.0 [#503] [#534]
 - `Spi` now takes `Option<PIN>` for `SCK`, `MISO`, `MOSI` [#514]
 - move `Qei` mod inside `pwm_input` mod [#516]
 
@@ -75,6 +75,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#520]: https://github.com/stm32-rs/stm32f1xx-hal/pull/520
 [#526]: https://github.com/stm32-rs/stm32f1xx-hal/pull/526
 [#528]: https://github.com/stm32-rs/stm32f1xx-hal/pull/528
+[#534]: https://github.com/stm32-rs/stm32f1xx-hal/pull/534
 
 ## [v0.10.0] - 2022-12-12
 
