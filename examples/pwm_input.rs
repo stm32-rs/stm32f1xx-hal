@@ -7,22 +7,19 @@
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{pac, prelude::*, timer::pwm_input::*};
+use stm32f1xx_hal::{pac, prelude::*, rcc::BusTimerClock, timer::pwm_input::*};
 
 #[entry]
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain();
-    let rcc = p.RCC.constrain();
+    let mut rcc = p.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    let mut afio = p.AFIO.constrain();
+    let mut afio = p.AFIO.constrain(&mut rcc);
     let mut dbg = p.DBGMCU;
 
-    let gpioa = p.GPIOA.split();
-    let gpiob = p.GPIOB.split();
+    let gpioa = p.GPIOA.split(&mut rcc);
+    let gpiob = p.GPIOB.split(&mut rcc);
 
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
     let pb5 = gpiob.pb5;
@@ -31,12 +28,13 @@ fn main() -> ! {
         (pb4, pb5),
         &mut dbg,
         Configuration::Frequency(10.kHz()),
-        &clocks,
+        &mut rcc,
     );
+    let timer_clk = pac::TIM3::timer_clock(&rcc.clocks);
 
     loop {
         let _freq = pwm_input
-            .read_frequency(ReadMode::Instant, &clocks)
+            .read_frequency(ReadMode::Instant, timer_clk)
             .unwrap();
         let _duty_cycle = pwm_input.read_duty(ReadMode::Instant).unwrap();
     }

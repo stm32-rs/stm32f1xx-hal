@@ -20,15 +20,12 @@ use stm32f1xx_hal::{
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain();
-    let rcc = p.RCC.constrain();
+    let mut rcc = p.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let mut afio = p.AFIO.constrain(&mut rcc);
 
-    let mut afio = p.AFIO.constrain();
-
-    let mut gpioa = p.GPIOA.split();
-    // let mut gpiob = p.GPIOB.split();
+    let mut gpioa = p.GPIOA.split(&mut rcc);
+    // let mut gpiob = p.GPIOB.split(&mut rcc);
 
     // TIM2
     let c1 = gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl);
@@ -51,11 +48,11 @@ fn main() -> ! {
     // let c4 = gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh);
 
     //let mut pwm =
-    //    Timer::new(p.TIM2, &clocks).pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz());
+    //    Timer::new(p.TIM2, &mut rcc).pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz());
     // or
     let mut pwm = p
         .TIM2
-        .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz(), &clocks);
+        .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz(), &mut rcc);
 
     // Enable clock on each of the channels
     pwm.enable(Channel::C1);

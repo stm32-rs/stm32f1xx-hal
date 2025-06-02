@@ -23,7 +23,8 @@ use stm32f1xx_hal::{pac, prelude::*};
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut gpioc = p.GPIOC.split();
+    let mut rcc = p.RCC.constrain();
+    let mut gpioc = p.GPIOC.split(&mut rcc);
 
     #[cfg(feature = "stm32f100")]
     gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();

@@ -1,6 +1,11 @@
 //! # Reset & Control Clock
 
-use crate::pac::{rcc, PWR, RCC};
+use core::ops::{Deref, DerefMut};
+
+use crate::pac::{
+    rcc::{self, RegisterBlock as RccRB},
+    BKP, PWR, RCC,
+};
 
 use crate::flash::ACR;
 #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
@@ -15,22 +20,28 @@ mod enable;
 pub trait RccExt {
     /// Constrains the `RCC` peripheral so it plays nicely with the other abstractions
     fn constrain(self) -> Rcc;
+
+    /// Constrains the `RCC` peripheral and apply clock configuration
+    fn freeze(self, rcc_cfg: Config, acr: &mut ACR) -> Rcc;
+
+    /// Constrains the `RCC` peripheral and apply clock configuration
+    fn freeze_raw(self, rcc_cfg: RawConfig, acr: &mut ACR) -> Rcc;
 }
 
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
-            cfgr: CFGR {
-                hse: None,
-                hse_bypass: false,
-                hclk: None,
-                pclk1: None,
-                pclk2: None,
-                sysclk: None,
-                adcclk: None,
-            },
-            bkp: BKP,
+            rb: self,
+            clocks: Clocks::default(),
         }
+    }
+
+    fn freeze(self, rcc_cfg: Config, acr: &mut ACR) -> Rcc {
+        self.constrain().freeze(rcc_cfg, acr)
+    }
+
+    fn freeze_raw(self, rcc_cfg: RawConfig, acr: &mut ACR) -> Rcc {
+        self.constrain().freeze_raw(rcc_cfg, acr)
     }
 }
 
@@ -44,59 +55,54 @@ impl RccExt for RCC {
 /// let mut rcc = dp.RCC.constrain();
 /// ```
 pub struct Rcc {
-    pub cfgr: CFGR,
-    pub bkp: BKP,
+    pub clocks: Clocks,
+    pub(crate) rb: RCC,
 }
 
-/// AMBA High-performance Bus (AHB) registers
-#[non_exhaustive]
-pub struct AHB;
-
-impl AHB {
-    fn enr(rcc: &rcc::RegisterBlock) -> &rcc::AHBENR {
-        rcc.ahbenr()
+impl Deref for Rcc {
+    type Target = RCC;
+    fn deref(&self) -> &Self::Target {
+        &self.rb
     }
 }
 
-/// Advanced Peripheral Bus 1 (APB1) registers
-#[non_exhaustive]
-pub struct APB1;
-
-impl APB1 {
-    fn enr(rcc: &rcc::RegisterBlock) -> &rcc::APB1ENR {
-        rcc.apb1enr()
-    }
-
-    fn rstr(rcc: &rcc::RegisterBlock) -> &rcc::APB1RSTR {
-        rcc.apb1rstr()
+impl DerefMut for Rcc {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.rb
     }
 }
 
-impl APB1 {
-    /// Set power interface clock (PWREN) bit in RCC_APB1ENR
-    pub fn set_pwren() {
-        let rcc = unsafe { &*RCC::ptr() };
-        PWR::enable(rcc);
-    }
+macro_rules! bus_struct {
+    ($($busX:ident => ($EN:ident, $en:ident, $($RST:ident, $rst:ident,)? $doc:literal),)+) => {
+        $(
+            #[doc = $doc]
+            #[non_exhaustive]
+            pub struct $busX;
+
+            impl $busX {
+                pub(crate) fn enr(rcc: &RccRB) -> &rcc::$EN {
+                    rcc.$en()
+                }
+                $(
+                    pub(crate) fn rstr(rcc: &RccRB) -> &rcc::$RST {
+                        rcc.$rst()
+                    }
+                )?
+            }
+        )+
+    };
 }
+use bus_struct;
 
-/// Advanced Peripheral Bus 2 (APB2) registers
-#[non_exhaustive]
-pub struct APB2;
-
-impl APB2 {
-    fn enr(rcc: &rcc::RegisterBlock) -> &rcc::APB2ENR {
-        rcc.apb2enr()
-    }
-
-    fn rstr(rcc: &rcc::RegisterBlock) -> &rcc::APB2RSTR {
-        rcc.apb2rstr()
-    }
+bus_struct! {
+    APB1 => (APB1ENR, apb1enr, APB1RSTR, apb1rstr, "Advanced Peripheral Bus 1 (APB1) registers"),
+    APB2 => (APB2ENR, apb2enr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
+    AHB => (AHBENR, ahbenr, "Advanced High-performance Bus (AHB) registers"),
 }
 
 const HSI: u32 = 8_000_000; // Hz
 
-/// Clock configuration register (CFGR)
+/// Clock configuration
 ///
 /// Used to configure the frequencies of the clocks present in the processor.
 ///
@@ -106,7 +112,7 @@ const HSI: u32 = 8_000_000; // Hz
 /// **NOTE**: Currently, it is not guaranteed that the exact frequencies selected will be
 /// used, only frequencies close to it.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub struct CFGR {
+pub struct Config {
     hse: Option<u32>,
     hse_bypass: bool,
     hclk: Option<u32>,
@@ -116,7 +122,25 @@ pub struct CFGR {
     adcclk: Option<u32>,
 }
 
-impl CFGR {
+impl Config {
+    pub const DEFAULT: Self = Self {
+        hse: None,
+        hse_bypass: false,
+        hclk: None,
+        pclk1: None,
+        pclk2: None,
+        sysclk: None,
+        adcclk: None,
+    };
+
+    pub fn hsi() -> Self {
+        Self::DEFAULT
+    }
+
+    pub fn hse(freq: Hertz) -> Self {
+        Self::DEFAULT.use_hse(freq)
+    }
+
     /// Uses HSE (external oscillator) instead of HSI (internal RC oscillator) as the clock source.
     /// Will result in a hang if an external oscillator is not connected or it fails to start.
     /// The frequency specified must be the frequency of the external oscillator
@@ -174,7 +198,9 @@ impl CFGR {
         self.adcclk = Some(freq.raw());
         self
     }
+}
 
+impl Rcc {
     /// Applies the clock configuration and returns a `Clocks` struct that signifies that the
     /// clocks are frozen, and contains the frequencies used. After this function is called,
     /// the clocks can not change
@@ -188,18 +214,13 @@ impl CFGR {
     /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
     /// ```
     #[inline(always)]
-    pub fn freeze(self, acr: &mut ACR) -> Clocks {
-        let cfg = Config::from_cfgr(self);
-        Self::_freeze_with_config(cfg, acr)
+    pub fn freeze(self, config: Config, acr: &mut ACR) -> Self {
+        let cfg = RawConfig::from_cfgr(config);
+        self.freeze_raw(cfg, acr)
     }
 
     #[inline(always)]
-    pub fn freeze_with_config(self, cfg: Config, acr: &mut ACR) -> Clocks {
-        Self::_freeze_with_config(cfg, acr)
-    }
-
-    #[allow(unused_variables)]
-    fn _freeze_with_config(cfg: Config, acr: &mut ACR) -> Clocks {
+    pub fn freeze_raw(self, cfg: RawConfig, acr: &mut ACR) -> Self {
         let clocks = cfg.get_clocks();
         // adjust flash wait states
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
@@ -247,89 +268,78 @@ impl CFGR {
         #[cfg(feature = "connectivity")]
         rcc.cfgr().modify(|_, w| unsafe {
             w.adcpre().variant(cfg.adcpre);
-            w.ppre2()
-                .bits(cfg.ppre2 as u8)
-                .ppre1()
-                .bits(cfg.ppre1 as u8)
-                .hpre()
-                .bits(cfg.hpre as u8)
-                .otgfspre()
-                .variant(cfg.usbpre)
-                .sw()
-                .bits(if cfg.pllmul.is_some() {
-                    // PLL
-                    0b10
-                } else if cfg.hse.is_some() {
-                    // HSE
-                    0b1
-                } else {
-                    // HSI
-                    0b0
-                })
+            w.ppre2().bits(cfg.ppre2 as u8);
+            w.ppre1().bits(cfg.ppre1 as u8);
+            w.hpre().bits(cfg.hpre as u8);
+            w.otgfspre().variant(cfg.usbpre);
+            w.sw().bits(if cfg.pllmul.is_some() {
+                // PLL
+                0b10
+            } else if cfg.hse.is_some() {
+                // HSE
+                0b1
+            } else {
+                // HSI
+                0b0
+            })
         });
 
         #[cfg(feature = "stm32f103")]
         rcc.cfgr().modify(|_, w| unsafe {
             w.adcpre().variant(cfg.adcpre);
-            w.ppre2()
-                .bits(cfg.ppre2 as u8)
-                .ppre1()
-                .bits(cfg.ppre1 as u8)
-                .hpre()
-                .bits(cfg.hpre as u8)
-                .usbpre()
-                .variant(cfg.usbpre)
-                .sw()
-                .bits(if cfg.pllmul.is_some() {
-                    // PLL
-                    0b10
-                } else {
-                    // HSE or HSI
-                    u8::from(cfg.hse.is_some())
-                })
+            w.ppre2().bits(cfg.ppre2 as u8);
+            w.ppre1().bits(cfg.ppre1 as u8);
+            w.hpre().bits(cfg.hpre as u8);
+            w.usbpre().variant(cfg.usbpre);
+            w.sw().bits(if cfg.pllmul.is_some() {
+                // PLL
+                0b10
+            } else {
+                // HSE or HSI
+                u8::from(cfg.hse.is_some())
+            })
         });
 
         #[cfg(any(feature = "stm32f100", feature = "stm32f101"))]
         rcc.cfgr().modify(|_, w| unsafe {
             w.adcpre().variant(cfg.adcpre);
-            w.ppre2()
-                .bits(cfg.ppre2 as u8)
-                .ppre1()
-                .bits(cfg.ppre1 as u8)
-                .hpre()
-                .bits(cfg.hpre as u8)
-                .sw()
-                .bits(if cfg.pllmul.is_some() {
-                    // PLL
-                    0b10
-                } else if cfg.hse.is_some() {
-                    // HSE
-                    0b1
-                } else {
-                    // HSI
-                    0b0
-                })
+            w.ppre2().bits(cfg.ppre2 as u8);
+            w.ppre1().bits(cfg.ppre1 as u8);
+            w.hpre().bits(cfg.hpre as u8);
+            w.sw().bits(if cfg.pllmul.is_some() {
+                // PLL
+                0b10
+            } else if cfg.hse.is_some() {
+                // HSE
+                0b1
+            } else {
+                // HSI
+                0b0
+            })
         });
 
-        clocks
+        Self {
+            rb: self.rb,
+            clocks,
+        }
     }
 }
 
-#[non_exhaustive]
-pub struct BKP;
-
-impl BKP {
+pub trait BkpExt {
     /// Enables write access to the registers in the backup domain
-    pub fn constrain(self, bkp: crate::pac::BKP, pwr: &mut PWR) -> BackupDomain {
+    fn constrain(self, pwr: &mut PWR, rcc: &mut RCC) -> BackupDomain;
+}
+
+impl BkpExt for BKP {
+    fn constrain(self, pwr: &mut PWR, rcc: &mut RCC) -> BackupDomain {
         // Enable the backup interface by setting PWREN and BKPEN
-        let rcc = unsafe { &(*RCC::ptr()) };
-        crate::pac::BKP::enable(rcc);
-        crate::pac::PWR::enable(rcc);
+        BKP::enable(rcc);
+        PWR::enable(rcc);
 
         // Enable access to the backup registers
         pwr.cr().modify(|_r, w| w.dbp().set_bit());
 
-        BackupDomain { _regs: bkp }
+        BackupDomain { _regs: self }
     }
 }
 
@@ -358,6 +368,23 @@ pub struct Clocks {
     adcclk: Hertz,
     #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
     usbclk_valid: bool,
+}
+
+impl Default for Clocks {
+    fn default() -> Clocks {
+        let freq = HSI.Hz();
+        Clocks {
+            hclk: freq,
+            pclk1: freq,
+            pclk2: freq,
+            ppre1: 1,
+            ppre2: 1,
+            sysclk: freq,
+            adcclk: freq / 2,
+            #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
+            usbclk_valid: false,
+        }
+    }
 }
 
 impl Clocks {
@@ -483,16 +510,54 @@ pub trait RccBus: crate::Sealed {
 
 /// Enable/disable peripheral
 pub trait Enable: RccBus {
-    fn enable(rcc: &rcc::RegisterBlock);
-    fn disable(rcc: &rcc::RegisterBlock);
+    /// Enables peripheral
+    fn enable(rcc: &mut RCC);
+
+    /// Disables peripheral
+    fn disable(rcc: &mut RCC);
+
+    /// Check if peripheral enabled
+    fn is_enabled() -> bool;
+
+    /// Check if peripheral disabled
+    #[inline]
+    fn is_disabled() -> bool {
+        !Self::is_enabled()
+    }
+
+    /// # Safety
+    ///
+    /// Enables peripheral. Takes access to RCC internally
+    unsafe fn enable_unchecked() {
+        let mut rcc = RCC::steal();
+        Self::enable(&mut rcc);
+    }
+
+    /// # Safety
+    ///
+    /// Disables peripheral. Takes access to RCC internally
+    unsafe fn disable_unchecked() {
+        let mut rcc = RCC::steal();
+        Self::disable(&mut rcc);
+    }
 }
+
 /// Reset peripheral
 pub trait Reset: RccBus {
-    fn reset(rcc: &rcc::RegisterBlock);
+    /// Resets peripheral
+    fn reset(rcc: &mut RCC);
+
+    /// # Safety
+    ///
+    /// Resets peripheral. Takes access to RCC internally
+    unsafe fn reset_unchecked() {
+        let mut rcc = RCC::steal();
+        Self::reset(&mut rcc);
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Config {
+pub struct RawConfig {
     pub hse: Option<u32>,
     pub hse_bypass: bool,
     pub pllmul: Option<u8>,
@@ -505,7 +570,7 @@ pub struct Config {
     pub allow_overclock: bool,
 }
 
-impl Default for Config {
+impl Default for RawConfig {
     fn default() -> Self {
         Self {
             hse: None,
@@ -566,8 +631,8 @@ pub type UsbPre = rcc::cfgr::USBPRE;
 pub type UsbPre = rcc::cfgr::OTGFSPRE;
 pub type AdcPre = rcc::cfgr::ADCPRE;
 
-impl Config {
-    pub const fn from_cfgr(cfgr: CFGR) -> Self {
+impl RawConfig {
+    pub const fn from_cfgr(cfgr: Config) -> Self {
         let hse = cfgr.hse;
         let hse_bypass = cfgr.hse_bypass;
         let pllsrcclk = if let Some(hse) = hse { hse } else { HSI / 2 };
@@ -746,13 +811,13 @@ impl Config {
 
 #[test]
 fn rcc_config_usb() {
-    let cfgr = CFGR::default()
+    let cfgr = Config::default()
         .use_hse(8.MHz())
         .sysclk(48.MHz())
         .pclk1(24.MHz());
 
-    let config = Config::from_cfgr(cfgr);
-    let config_expected = Config {
+    let config = RawConfig::from_cfgr(cfgr);
+    let config_expected = RawConfig {
         hse: Some(8_000_000),
         hse_bypass: false,
         pllmul: Some(4),

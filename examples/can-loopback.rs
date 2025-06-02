@@ -12,23 +12,22 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use nb::block;
-use stm32f1xx_hal::{can::Can, gpio::Floating, pac, prelude::*};
+use stm32f1xx_hal::{can::Can, gpio::Floating, pac, prelude::*, rcc};
 
 #[entry]
 fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
 
     // To meet CAN clock accuracy requirements, an external crystal or ceramic
     // resonator must be used.
-    rcc.cfgr.use_hse(8.MHz()).freeze(&mut flash.acr);
+    let mut rcc = dp.RCC.freeze(rcc::Config::hse(8.MHz()), &mut flash.acr);
 
     #[cfg(not(feature = "connectivity"))]
-    let can = Can::<_, Floating>::new_loopback(dp.CAN, dp.USB);
+    let can = Can::<_, Floating>::new_loopback(dp.CAN, dp.USB, &mut rcc);
     #[cfg(feature = "connectivity")]
-    let can = Can::<_, Floating>::new_loopback(dp.CAN1);
+    let can = Can::<_, Floating>::new_loopback(dp.CAN1, &mut rcc);
 
     // Use loopback mode: No pins need to be assigned to peripheral.
     // APB1 (PCLK1): 8MHz, Bit rate: 500Bit/s, Sample Point 87.5%
@@ -109,7 +108,7 @@ fn main() -> ! {
         assert!(can.receive().is_err());
     }
 
-    let mut gpiob = dp.GPIOB.split();
+    let mut gpiob = dp.GPIOB.split(&mut rcc);
     let mut led = gpiob.pb9.into_push_pull_output(&mut gpiob.crh);
     led.set_high();
 

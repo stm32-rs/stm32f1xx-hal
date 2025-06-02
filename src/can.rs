@@ -25,10 +25,12 @@ pub trait CanExt: Sized + Instance {
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
         pins: (impl RInto<Self::Tx, 0>, impl RInto<Self::Rx<PULL>, 0>),
+        rcc: &mut RCC,
     ) -> Can<Self, PULL>;
     fn can_loopback(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
+        rcc: &mut RCC,
     ) -> Can<Self, Floating>;
 }
 
@@ -37,22 +39,26 @@ impl<CAN: Instance> CanExt for CAN {
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
         pins: (impl RInto<Self::Tx, 0>, impl RInto<Self::Rx<PULL>, 0>),
+        rcc: &mut RCC,
     ) -> Can<Self, PULL> {
         Can::new(
             self,
             #[cfg(not(feature = "connectivity"))]
             usb,
             pins,
+            rcc,
         )
     }
     fn can_loopback(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
+        rcc: &mut RCC,
     ) -> Can<Self, Floating> {
         Can::new_loopback(
             self,
             #[cfg(not(feature = "connectivity"))]
             usb,
+            rcc,
         )
     }
 }
@@ -79,8 +85,8 @@ impl<CAN: Instance, const R: u8> Rmp<CAN, R> {
         self,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
         pins: (impl RInto<CAN::Tx, R>, impl RInto<CAN::Rx<PULL>, R>),
+        rcc: &mut RCC,
     ) -> Can<CAN, PULL> {
-        let rcc = unsafe { &(*RCC::ptr()) };
         CAN::enable(rcc);
 
         let pins = (Some(pins.0.rinto()), Some(pins.1.rinto()));
@@ -89,11 +95,13 @@ impl<CAN: Instance, const R: u8> Rmp<CAN, R> {
     pub fn can_loopback(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
+        rcc: &mut RCC,
     ) -> Can<CAN, Floating> {
         Can::new_loopback(
             self.0,
             #[cfg(not(feature = "connectivity"))]
             usb,
+            rcc,
         )
     }
 }
@@ -107,11 +115,13 @@ impl<CAN: Instance, PULL: UpMode> Can<CAN, PULL> {
         can: impl Into<Rmp<CAN, R>>,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
         pins: (impl RInto<CAN::Tx, R>, impl RInto<CAN::Rx<PULL>, R>),
+        rcc: &mut RCC,
     ) -> Can<CAN, PULL> {
         can.into().can(
             #[cfg(not(feature = "connectivity"))]
             _usb,
             pins,
+            rcc,
         )
     }
 
@@ -119,8 +129,8 @@ impl<CAN: Instance, PULL: UpMode> Can<CAN, PULL> {
     pub fn new_loopback(
         can: CAN,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
+        rcc: &mut RCC,
     ) -> Can<CAN, PULL> {
-        let rcc = unsafe { &(*RCC::ptr()) };
         CAN::enable(rcc);
 
         Can {
