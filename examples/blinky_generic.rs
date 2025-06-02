@@ -16,17 +16,14 @@ fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
-
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let mut rcc = dp.RCC.constrain();
 
     // Acquire the GPIO peripherals
-    let mut gpioa = dp.GPIOA.split();
-    let mut gpioc = dp.GPIOC.split();
+    let mut gpioa = dp.GPIOA.split(&mut rcc);
+    let mut gpioc = dp.GPIOC.split(&mut rcc);
 
     // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, &clocks).counter_hz();
+    let mut timer = Timer::syst(cp.SYST, &rcc.clocks).counter_hz();
     timer.start(1.Hz()).unwrap();
 
     // Create an array of LEDS to blink

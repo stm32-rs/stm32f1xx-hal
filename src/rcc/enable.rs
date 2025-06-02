@@ -1,59 +1,55 @@
 use super::*;
 use crate::bb;
 
-macro_rules! bus {
-    ($($PER:ident => ($apbX:ty, $bit:literal),)+) => {
-        $(
-            impl RccBus for crate::pac::$PER {
-                type Bus = $apbX;
-            }
-            impl Enable for crate::pac::$PER {
-                #[inline(always)]
-                fn enable(rcc: &rcc::RegisterBlock) {
-                    unsafe {
-                        bb::set(Self::Bus::enr(rcc), $bit);
-                    }
+macro_rules! bus_enable {
+    ($PER:ident => $bit:literal) => {
+        impl Enable for crate::pac::$PER {
+            #[inline(always)]
+            fn enable(rcc: &mut RCC) {
+                unsafe {
+                    bb::set(Self::Bus::enr(rcc), $bit);
                 }
-                #[inline(always)]
-                fn disable(rcc: &rcc::RegisterBlock) {
-                    unsafe {
-                        bb::clear(Self::Bus::enr(rcc), $bit);
-                    }
+                // Stall the pipeline to work around erratum 2.1.13 (DM00037591)
+                cortex_m::asm::dsb();
+            }
+            #[inline(always)]
+            fn disable(rcc: &mut RCC) {
+                unsafe {
+                    bb::clear(Self::Bus::enr(rcc), $bit);
                 }
             }
-            impl Reset for crate::pac::$PER {
-                #[inline(always)]
-                fn reset(rcc: &rcc::RegisterBlock) {
-                    unsafe {
-                        bb::set(Self::Bus::rstr(rcc), $bit);
-                        bb::clear(Self::Bus::rstr(rcc), $bit);
-                    }
-                }
+            #[inline(always)]
+            fn is_enabled() -> bool {
+                let rcc = RCC::ptr();
+                (Self::Bus::enr(unsafe { &*rcc }).read().bits() >> $bit) & 0x1 != 0
             }
-        )+
-    }
+        }
+    };
 }
 
-macro_rules! ahb_bus {
-    ($($PER:ident => ($bit:literal),)+) => {
+macro_rules! bus_reset {
+    ($PER:ident => $bit:literal) => {
+        impl Reset for crate::pac::$PER {
+            #[inline(always)]
+            fn reset(rcc: &mut RCC) {
+                let rstr = Self::Bus::rstr(rcc);
+                unsafe {
+                    bb::set(rstr, $bit);
+                    bb::clear(rstr, $bit);
+                }
+            }
+        }
+    };
+}
+
+macro_rules! bus {
+    ($($PER:ident => ($busX:ty, $bit:literal),)+) => {
         $(
             impl RccBus for crate::pac::$PER {
-                type Bus = AHB;
+                type Bus = $busX;
             }
-            impl Enable for crate::pac::$PER {
-                #[inline(always)]
-                fn enable(rcc: &rcc::RegisterBlock) {
-                    unsafe {
-                        bb::set(Self::Bus::enr(rcc), $bit);
-                    }
-                }
-                #[inline(always)]
-                fn disable(rcc: &rcc::RegisterBlock) {
-                    unsafe {
-                        bb::clear(Self::Bus::enr(rcc), $bit);
-                    }
-                }
-            }
+            bus_enable!($PER => $bit);
+            bus_reset!($PER => $bit);
         )+
     }
 }
@@ -110,16 +106,25 @@ bus! {
     SPI3 => (APB1, 15),
 }
 
-ahb_bus! {
-    CRC => (6),
-    DMA1 => (0),
-    DMA2 => (1),
+impl RccBus for crate::pac::CRC {
+    type Bus = AHB;
 }
+bus_enable! { CRC => 6 }
+impl RccBus for crate::pac::DMA1 {
+    type Bus = AHB;
+}
+bus_enable! { DMA1 => 0 }
+impl RccBus for crate::pac::DMA2 {
+    type Bus = AHB;
+}
+bus_enable! { DMA2 => 1 }
 
 #[cfg(feature = "high")]
-ahb_bus! {
-    FSMC => (8),
+impl RccBus for crate::pac::FSMC {
+    type Bus = AHB;
 }
+#[cfg(feature = "high")]
+bus_enable! { FSMC => 8 }
 
 bus! {
     TIM2 => (APB1, 0),

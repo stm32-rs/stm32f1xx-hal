@@ -6,7 +6,7 @@
 use crate::pac::{self, DBGMCU as DBG};
 
 use crate::afio::{RInto, Rmp, TimC};
-use crate::rcc::{BusTimerClock, Clocks};
+use crate::rcc::Rcc;
 use crate::time::Hertz;
 use crate::timer::{General, Timer};
 
@@ -132,7 +132,7 @@ pub trait PwmInputExt: Sized + Instance {
         ),
         dbg: &mut DBG,
         mode: Configuration,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> PwmInput<Self>;
 }
 
@@ -144,7 +144,7 @@ pub trait QeiExt: Sized + Instance {
             impl RInto<<Self as TimC<1>>::In, 0>,
         ),
         options: QeiOptions,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Qei<Self>;
 }
 
@@ -194,9 +194,9 @@ macro_rules! hal {
                 ),
                 dbg: &mut DBG,
                 mode: Configuration,
-                clocks: &Clocks,
+                rcc: &mut Rcc,
             ) -> PwmInput<Self> {
-                Timer::new(self, clocks).pwm_input(pins, dbg, mode)
+                Timer::new(self, rcc).pwm_input(pins, dbg, mode)
             }
         }
         impl QeiExt for $TIM {
@@ -207,9 +207,9 @@ macro_rules! hal {
                     impl RInto<<Self as TimC<1>>::In, 0>,
                 ),
                 options: QeiOptions,
-                clocks: &Clocks,
+                rcc: &mut Rcc,
             ) -> Qei<Self> {
-                Timer::new(self, clocks).qei(pins, options)
+                Timer::new(self, rcc).qei(pins, options)
             }
         }
 
@@ -222,9 +222,9 @@ macro_rules! hal {
                 ),
                 dbg: &mut DBG,
                 mode: Configuration,
-                clocks: &Clocks,
+                rcc: &mut Rcc,
             ) -> PwmInput<$TIM> {
-                let mut tim = Timer::new(self.0, clocks);
+                let mut tim = Timer::new(self.0, rcc);
                 tim.stop_in_debug(dbg, false);
                 let Timer { tim, clk } = tim;
                 $timX(tim, pins, clk, mode)
@@ -236,9 +236,9 @@ macro_rules! hal {
                     impl RInto<<$TIM as TimC<1>>::In, R>,
                 ),
                 options: QeiOptions,
-                clocks: &Clocks,
+                rcc: &mut Rcc,
             ) -> Qei<$TIM> {
-                let Timer { tim, clk: _ } = Timer::new(self.0, clocks);
+                let Timer { tim, clk: _ } = Timer::new(self.0, rcc);
                 $qeix(tim, pins, options)
             }
         }
@@ -321,7 +321,7 @@ macro_rules! hal {
 
         impl PwmInput<$TIM> {
             /// Return the frequency sampled by the timer
-            pub fn read_frequency(&self, mode: ReadMode, clocks: &Clocks) -> Result<Hertz, Error> {
+            pub fn read_frequency(&self, mode: ReadMode, clk: Hertz) -> Result<Hertz, Error> {
                 if let ReadMode::WaitForNextCapture = mode {
                     self.wait_for_capture();
                 }
@@ -346,7 +346,6 @@ macro_rules! hal {
                 if ccr1 == 0 {
                     Err(Error::FrequencyTooLow)
                 } else {
-                    let clk = <$TIM>::timer_clock(&clocks);
                     Ok(clk / ((presc + 1) as u32 * (ccr1 + 1) as u32))
                 }
             }

@@ -58,7 +58,7 @@
         polarity: Polarity::IdleLow,
         phase: Phase::CaptureOnFirstTransition,
     };
-    let spi = dp.SPI2.spi(pins, spi_mode, 100.khz(), &clocks);
+    let spi = dp.SPI2.spi(pins, spi_mode, 100.khz(), &mut rcc);
   ```
 */
 
@@ -76,7 +76,7 @@ use crate::dma::dma1;
 use crate::dma::dma2;
 use crate::dma::{self, Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma};
 use crate::gpio::{Floating, PushPull, UpMode};
-use crate::rcc::{BusClock, Clocks, Enable, Reset};
+use crate::rcc::{BusClock, Enable, Rcc, Reset};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
@@ -150,7 +150,7 @@ pub trait SpiExt: Sized + Instance {
         ),
         mode: Mode,
         freq: Hertz,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Spi<Self, u8, PULL>;
     fn spi_u16<PULL: UpMode>(
         self,
@@ -161,9 +161,9 @@ pub trait SpiExt: Sized + Instance {
         ),
         mode: Mode,
         freq: Hertz,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Spi<Self, u16, PULL> {
-        Self::spi(self, pins, mode, freq, clocks).frame_size_16bit()
+        Self::spi(self, pins, mode, freq, rcc).frame_size_16bit()
     }
     fn spi_slave<Otype, PULL: UpMode>(
         self,
@@ -173,6 +173,7 @@ pub trait SpiExt: Sized + Instance {
             Option<impl RInto<Self::Si<PULL>, 0>>,
         ),
         mode: Mode,
+        rcc: &mut RCC,
     ) -> SpiSlave<Self, u8, Otype, PULL>;
     fn spi_slave_u16<Otype, PULL: UpMode>(
         self,
@@ -182,8 +183,9 @@ pub trait SpiExt: Sized + Instance {
             Option<impl RInto<Self::Si<PULL>, 0>>,
         ),
         mode: Mode,
+        rcc: &mut RCC,
     ) -> SpiSlave<Self, u16, Otype, PULL> {
-        Self::spi_slave(self, pins, mode).frame_size_16bit()
+        Self::spi_slave(self, pins, mode, rcc).frame_size_16bit()
     }
 }
 
@@ -197,9 +199,9 @@ impl<SPI: Instance> SpiExt for SPI {
         ),
         mode: Mode,
         freq: Hertz,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Spi<Self, u8, PULL> {
-        Spi::new(self, pins, mode, freq, clocks)
+        Spi::new(self, pins, mode, freq, rcc)
     }
     fn spi_slave<Otype, PULL: UpMode>(
         self,
@@ -209,8 +211,9 @@ impl<SPI: Instance> SpiExt for SPI {
             Option<impl RInto<Self::Si<PULL>, 0>>,
         ),
         mode: Mode,
+        rcc: &mut RCC,
     ) -> SpiSlave<Self, u8, Otype, PULL> {
-        SpiSlave::new(self, pins, mode)
+        SpiSlave::new(self, pins, mode, rcc)
     }
 }
 
@@ -306,18 +309,17 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
         ),
         mode: Mode,
         freq: Hertz,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Spi<SPI, u8, PULL> {
         let spi = self.0;
         // enable or reset SPI
-        let rcc = unsafe { &(*RCC::ptr()) };
         SPI::enable(rcc);
         SPI::reset(rcc);
 
         // disable SS output
         spi.cr2().write(|w| w.ssoe().clear_bit());
 
-        let br = match SPI::clock(clocks) / freq {
+        let br = match SPI::clock(&rcc.clocks) / freq {
             0 => unreachable!(),
             1..=2 => 0b000,
             3..=5 => 0b001,
@@ -374,9 +376,9 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
         ),
         mode: Mode,
         freq: Hertz,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Spi<SPI, u16, PULL> {
-        self.spi(pins, mode, freq, clocks).frame_size_16bit()
+        self.spi(pins, mode, freq, rcc).frame_size_16bit()
     }
     pub fn spi_slave<Otype, PULL: UpMode>(
         self,
@@ -386,10 +388,10 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
             Option<impl RInto<SPI::Si<PULL>, R>>,
         ),
         mode: Mode,
+        rcc: &mut RCC,
     ) -> SpiSlave<SPI, u8, Otype, PULL> {
         let spi = self.0;
         // enable or reset SPI
-        let rcc = unsafe { &(*RCC::ptr()) };
         SPI::enable(rcc);
         SPI::reset(rcc);
 
@@ -438,8 +440,9 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
             Option<impl RInto<SPI::Si<PULL>, R>>,
         ),
         mode: Mode,
+        rcc: &mut RCC,
     ) -> SpiSlave<SPI, u16, Otype, PULL> {
-        self.spi_slave(pins, mode).frame_size_16bit()
+        self.spi_slave(pins, mode, rcc).frame_size_16bit()
     }
 }
 
@@ -460,9 +463,9 @@ impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
         ),
         mode: Mode,
         freq: Hertz,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Self {
-        spi.into().spi(pins, mode, freq, clocks)
+        spi.into().spi(pins, mode, freq, rcc)
     }
 }
 
@@ -494,8 +497,9 @@ impl<SPI: Instance, Otype, PULL: UpMode> SpiSlave<SPI, u8, Otype, PULL> {
             Option<impl RInto<SPI::Si<PULL>, R>>,
         ),
         mode: Mode,
+        rcc: &mut RCC,
     ) -> Self {
-        spi.into().spi_slave(pins, mode)
+        spi.into().spi_slave(pins, mode, rcc)
     }
 }
 

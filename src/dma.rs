@@ -1,7 +1,7 @@
 //! # Direct Memory Access
 #![allow(dead_code)]
 
-use crate::pac;
+use crate::pac::{self, RCC};
 use core::{
     convert::TryFrom,
     marker::PhantomData,
@@ -54,7 +54,7 @@ where
 pub trait DmaExt: crate::Ptr<RB = pac::dma1::RegisterBlock> {
     type Channels;
 
-    fn split(self) -> Self::Channels;
+    fn split(self, rcc: &mut RCC) -> Self::Channels;
 }
 
 pub trait TransferPayload {
@@ -450,8 +450,7 @@ macro_rules! dma {
             impl DmaExt for $DMAX {
                 type Channels = Channels;
 
-                fn split(self) -> Channels {
-                    let rcc = unsafe { &(*RCC::ptr()) };
+                fn split(self, rcc: &mut RCC) -> Channels {
                     $DMAX::enable(rcc);
 
                     // reset the DMA control registers (stops all on-going transfers)

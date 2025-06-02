@@ -7,12 +7,11 @@ use crate::rcc::Enable;
 pub trait CrcExt {
     /// Constrains the CRC peripheral to play nicely with the other abstractions
     #[allow(clippy::wrong_self_convention, clippy::new_ret_no_self)]
-    fn new(self) -> Crc;
+    fn new(self, rcc: &mut RCC) -> Crc;
 }
 
 impl CrcExt for CRC {
-    fn new(self) -> Crc {
-        let rcc = unsafe { &(*RCC::ptr()) };
+    fn new(self, rcc: &mut RCC) -> Crc {
         CRC::enable(rcc);
 
         Crc { crc: self }

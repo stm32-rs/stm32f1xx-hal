@@ -21,20 +21,13 @@ fn main() -> ! {
     // Get access to the device specific peripherals from the peripheral access crate
     let p = pac::Peripherals::take().unwrap();
 
-    // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-    // HAL structs
-    let mut flash = p.FLASH.constrain();
-    let rcc = p.RCC.constrain();
-
-    // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
-    // `clocks`
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let mut rcc = p.RCC.constrain();
 
     // Prepare the alternate function I/O registers
-    //let mut afio = p.AFIO.constrain();
+    //let mut afio = p.AFIO.constrain(&mut rcc);
 
     // Prepare the GPIOB peripheral
-    let mut gpiob = p.GPIOB.split();
+    let mut gpiob = p.GPIOB.split(&mut rcc);
 
     // USART1
     // let tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
@@ -58,7 +51,7 @@ fn main() -> ! {
     // the registers are used to enable and configure the device.
     let mut serial = p
         .USART3
-        .serial((tx, rx), Config::default().baudrate(115200.bps()), &clocks);
+        .serial((tx, rx), Config::default().baudrate(115200.bps()), &mut rcc);
 
     // Loopback test. Write `X` and wait until the write is successful.
     let sent = b'X';

@@ -24,18 +24,18 @@ impl<I2C: Instance> BlockingI2c<I2C> {
         i2c: impl Into<Rmp<I2C, R>>,
         pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
         mode: impl Into<Mode>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> Self {
-        I2c::new(i2c, pins, mode, clocks).blocking(
+        I2c::new(i2c, pins, mode, rcc).blocking(
             start_timeout_us,
             start_retries,
             addr_timeout_us,
             data_timeout_us,
-            clocks,
+            &rcc.clocks,
         )
     }
 }

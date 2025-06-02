@@ -31,13 +31,10 @@ static mut SPI2SLAVE: Option<SpiSlave<SPI2, u8>> = None;
 fn main() -> ! {
     let dp = Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
+    let mut rcc = dp.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    let gpioa = dp.GPIOA.split();
-    let gpiob = dp.GPIOB.split();
+    let gpioa = dp.GPIOA.split(&mut rcc);
+    let gpiob = dp.GPIOB.split(&mut rcc);
 
     // SPI1
     // Convert pins during SPI initialization
@@ -45,9 +42,12 @@ fn main() -> ! {
     let miso = gpioa.pa6;
     let mosi = gpioa.pa7;
 
-    let spi1 = dp
-        .SPI1
-        .spi((Some(sck), Some(miso), Some(mosi)), MODE, 10.kHz(), &clocks);
+    let spi1 = dp.SPI1.spi(
+        (Some(sck), Some(miso), Some(mosi)),
+        MODE,
+        10.kHz(),
+        &mut rcc,
+    );
 
     // SPI2
     // Convert pins before SPI initialization
@@ -55,10 +55,12 @@ fn main() -> ! {
     let miso = gpiob.pb14;
     let mosi = gpiob.pb15;
 
-    let spi2 = dp.SPI2.spi_slave((Some(sck), Some(miso), Some(mosi)), MODE);
+    let spi2 = dp
+        .SPI2
+        .spi_slave((Some(sck), Some(miso), Some(mosi)), MODE, &mut rcc);
 
     // Set up the DMA device
-    let dma = dp.DMA1.split();
+    let dma = dp.DMA1.split(&mut rcc);
 
     let master_spi_dma = spi1.with_rx_tx_dma(dma.2, dma.3);
     let slave_spi_dma = spi2.with_rx_tx_dma(dma.4, dma.5);

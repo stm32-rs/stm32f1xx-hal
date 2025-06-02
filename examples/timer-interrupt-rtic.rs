@@ -31,17 +31,10 @@ mod app {
 
     #[init]
     fn init(cx: init::Context) -> (Shared, Local, init::Monotonics) {
-        // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-        // HAL structs
-        let mut flash = cx.device.FLASH.constrain();
-        let rcc = cx.device.RCC.constrain();
-
-        // Freeze the configuration of all the clocks in the system and store the frozen frequencies
-        // in `clocks`
-        let clocks = rcc.cfgr.freeze(&mut flash.acr);
+        let mut rcc = cx.device.RCC.constrain();
 
         // Acquire the GPIOC peripheral
-        let mut gpioc = cx.device.GPIOC.split();
+        let mut gpioc = cx.device.GPIOC.split(&mut rcc);
 
         // Configure gpio C pin 13 as a push-pull output. The `crh` register is passed to the
         // function in order to configure the port. For pins 0-7, crl should be passed instead
@@ -49,7 +42,7 @@ mod app {
             .pc13
             .into_push_pull_output_with_state(&mut gpioc.crh, PinState::High);
         // Configure the syst timer to trigger an update every second and enables interrupt
-        let mut timer = cx.device.TIM1.counter_ms(&clocks);
+        let mut timer = cx.device.TIM1.counter_ms(&mut rcc);
         timer.start(1.secs()).unwrap();
         timer.listen(Event::Update);
 

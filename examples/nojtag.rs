@@ -13,9 +13,10 @@ use stm32f1xx_hal::{pac, prelude::*};
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut gpioa = p.GPIOA.split();
-    let mut gpiob = p.GPIOB.split();
-    let mut afio = p.AFIO.constrain();
+    let mut rcc = p.RCC.constrain();
+    let mut gpioa = p.GPIOA.split(&mut rcc);
+    let mut gpiob = p.GPIOB.split(&mut rcc);
+    let mut afio = p.AFIO.constrain(&mut rcc);
 
     let (pa15, pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
 

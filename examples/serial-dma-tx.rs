@@ -20,16 +20,13 @@ use stm32f1xx_hal::{
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain();
-    let rcc = p.RCC.constrain();
+    let mut rcc = p.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    //let mut afio = p.AFIO.constrain(&mut rcc);
+    let channels = p.DMA1.split(&mut rcc);
 
-    //let mut afio = p.AFIO.constrain();
-    let channels = p.DMA1.split();
-
-    let mut gpioa = p.GPIOA.split();
-    // let mut gpiob = p.GPIOB.split();
+    let mut gpioa = p.GPIOA.split(&mut rcc);
+    // let mut gpiob = p.GPIOB.split(&mut rcc);
 
     // USART1
     let tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
@@ -51,7 +48,7 @@ fn main() -> ! {
         p.USART1,
         (tx, rx),
         Config::default().baudrate(9600.bps()),
-        &clocks,
+        &mut rcc,
     );
 
     let tx = serial.tx.with_dma(channels.4);
