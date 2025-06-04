@@ -14,12 +14,9 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
+    let mut rcc = dp.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    let mut gpioc = dp.GPIOC.split();
+    let mut gpioc = dp.GPIOC.split(&mut rcc);
 
     #[cfg(feature = "stm32f100")]
     let mut led = gpioc.pc9.into_push_pull_output(&mut gpioc.crh);
@@ -30,9 +27,9 @@ fn main() -> ! {
     #[cfg(any(feature = "stm32f103", feature = "stm32f105", feature = "stm32f107"))]
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 
-    //let mut delay = hal::timer::Timer::syst(cp.SYST, &clocks).delay();
+    //let mut delay = hal::timer::Timer::syst(cp.SYST, &rcc.clocks).delay();
     // or
-    let mut delay = cp.SYST.delay(&clocks);
+    let mut delay = cp.SYST.delay(&rcc.clocks);
 
     loop {
         led.set_high();

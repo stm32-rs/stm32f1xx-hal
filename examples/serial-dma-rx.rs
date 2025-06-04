@@ -10,26 +10,19 @@ use panic_halt as _;
 use cortex_m::{asm, singleton};
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{
-    pac,
-    prelude::*,
-    serial::{Config, Serial},
-};
+use stm32f1xx_hal::{pac, prelude::*, serial::Serial};
 
 #[entry]
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain();
-    let rcc = p.RCC.constrain();
+    let mut rcc = p.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    //let mut afio = p.AFIO.constrain(&mut rcc);
+    let channels = p.DMA1.split(&mut rcc);
 
-    //let mut afio = p.AFIO.constrain();
-    let channels = p.DMA1.split();
-
-    let mut gpioa = p.GPIOA.split();
-    // let mut gpiob = p.GPIOB.split();
+    let mut gpioa = p.GPIOA.split(&mut rcc);
+    // let mut gpiob = p.GPIOB.split(&mut rcc);
 
     // USART1
     let tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
@@ -47,12 +40,7 @@ fn main() -> ! {
     // let tx = gpiob.pb10.into_alternate_push_pull(&mut gpiob.crh);
     // let rx = gpiob.pb11;
 
-    let serial = Serial::new(
-        p.USART1,
-        (tx, rx),
-        Config::default().baudrate(9_600.bps()),
-        &clocks,
-    );
+    let serial = Serial::new(p.USART1, (tx, rx), 9_600.bps(), &mut rcc);
 
     let rx = serial.rx.with_dma(channels.5);
     let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();

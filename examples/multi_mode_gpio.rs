@@ -17,21 +17,14 @@ fn main() -> ! {
     // Get access to the device specific peripherals from the peripheral access crate
     let dp = pac::Peripherals::take().unwrap();
 
-    // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-    // HAL structs
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
-
-    // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
-    // `clocks`
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let mut rcc = dp.RCC.constrain();
 
     // Acquire the GPIOC peripheral
-    let mut gpioc = dp.GPIOC.split();
+    let mut gpioc = dp.GPIOC.split(&mut rcc);
 
     let mut pin = gpioc.pc13.into_floating_input(&mut gpioc.crh);
     // Configure the syst timer to trigger an update every second
-    let mut timer = Timer::syst(cp.SYST, &clocks).counter_hz();
+    let mut timer = Timer::syst(cp.SYST, &rcc.clocks).counter_hz();
     timer.start(1.Hz()).unwrap();
 
     // Wait for the timer to trigger an update and change the state of the LED

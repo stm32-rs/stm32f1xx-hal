@@ -22,17 +22,17 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     let mut pwr = dp.PWR;
-    let rcc = dp.RCC.constrain();
+    let mut rcc = dp.RCC.constrain();
 
     // Set up the GPIO pin
-    let mut gpioc = dp.GPIOC.split();
+    let mut gpioc = dp.GPIOC.split(&mut rcc);
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
 
     // Set up the RTC
     // Enable writes to the backup domain
-    let mut backup_domain = rcc.bkp.constrain(dp.BKP, &mut pwr);
+    let mut backup_domain = dp.BKP.constrain(&mut pwr, &mut rcc);
     // Start the RTC
-    let mut rtc = Rtc::new(dp.RTC, &mut backup_domain);
+    let mut rtc = Rtc::new(dp.RTC, &mut backup_domain, &mut rcc);
 
     let mut led_on = false;
     loop {

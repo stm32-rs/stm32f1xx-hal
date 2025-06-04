@@ -7,12 +7,11 @@ use crate::gpio::{self, Alternate, Cr, Debugger, Floating, Input, OpenDrain, Pus
 use crate::sealed::Sealed;
 
 pub trait AfioExt {
-    fn constrain(self) -> Parts;
+    fn constrain(self, rcc: &mut RCC) -> Parts;
 }
 
 impl AfioExt for AFIO {
-    fn constrain(self) -> Parts {
-        let rcc = unsafe { &(*RCC::ptr()) };
+    fn constrain(self, rcc: &mut RCC) -> Parts {
         AFIO::enable(rcc);
         AFIO::reset(rcc);
 

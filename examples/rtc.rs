@@ -18,8 +18,8 @@ fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
     let mut pwr = p.PWR;
-    let rcc = p.RCC.constrain();
-    let mut backup_domain = rcc.bkp.constrain(p.BKP, &mut pwr);
+    let mut rcc = p.RCC.constrain();
+    let mut backup_domain = p.BKP.constrain(&mut pwr, &mut rcc);
 
     // Initializes rtc every startup, use only if you don't have a battery.
     // let rtc = Rtc::new(p.RTC, &mut backup_domain);
@@ -30,7 +30,7 @@ fn main() -> ! {
     // due to unnecessary reinitialization of the crystal,
     // as well as reset of the selected frequency.
     // Else, the rtc is initialized.
-    let rtc = match Rtc::restore_or_new(p.RTC, &mut backup_domain) {
+    let rtc = match Rtc::restore_or_new(p.RTC, &mut backup_domain, &mut rcc) {
         Restored(rtc) => rtc, // The rtc is restored from previous configuration. You may verify the frequency you want if needed.
         New(mut rtc) => {
             // The rtc was just initialized, the clock source selected, frequency is 1.Hz()

@@ -57,7 +57,7 @@ use crate::afio::MAPR;
 use crate::gpio::{self, Alternate};
 
 use super::{compute_arr_presc, Channel, FTimer, Instance, Ocm, Timer, WithPwm};
-use crate::rcc::Clocks;
+use crate::rcc::Rcc;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use fugit::{HertzU32 as Hertz, TimerDurationU32};
@@ -137,7 +137,7 @@ where
         pins: PINS,
         mapr: &mut MAPR,
         time: TimerDurationU32<FREQ>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Pwm<Self, REMAP, P, PINS, FREQ>
     where
         REMAP: Remap<Periph = Self>,
@@ -148,7 +148,7 @@ where
         pins: PINS,
         mapr: &mut MAPR,
         freq: Hertz,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> PwmHz<Self, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = Self>,
@@ -159,13 +159,13 @@ where
         pins: PINS,
         mapr: &mut MAPR,
         time: TimerDurationU32<1_000_000>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Pwm<Self, REMAP, P, PINS, 1_000_000>
     where
         REMAP: Remap<Periph = Self>,
         PINS: Pins<REMAP, P>,
     {
-        self.pwm::<_, _, _, 1_000_000>(pins, mapr, time, clocks)
+        self.pwm::<_, _, _, 1_000_000>(pins, mapr, time, rcc)
     }
 }
 
@@ -178,13 +178,13 @@ where
         pins: PINS,
         mapr: &mut MAPR,
         time: TimerDurationU32<FREQ>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Pwm<TIM, REMAP, P, PINS, FREQ>
     where
         REMAP: Remap<Periph = Self>,
         PINS: Pins<REMAP, P>,
     {
-        FTimer::<Self, FREQ>::new(self, clocks).pwm(pins, mapr, time)
+        FTimer::<Self, FREQ>::new(self, rcc).pwm(pins, mapr, time)
     }
 
     fn pwm_hz<REMAP, P, PINS>(
@@ -192,13 +192,13 @@ where
         pins: PINS,
         mapr: &mut MAPR,
         time: Hertz,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> PwmHz<TIM, REMAP, P, PINS>
     where
         REMAP: Remap<Periph = Self>,
         PINS: Pins<REMAP, P>,
     {
-        Timer::new(self, clocks).pwm_hz(pins, mapr, time)
+        Timer::new(self, rcc).pwm_hz(pins, mapr, time)
     }
 }
 

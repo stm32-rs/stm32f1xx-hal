@@ -15,7 +15,8 @@ use stm32f1xx_hal::{pac, prelude::*};
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut crc = p.CRC.new();
+    let mut rcc = p.RCC.constrain();
+    let mut crc = p.CRC.new(&mut rcc);
 
     crc.reset();
     crc.write(0x12345678);
