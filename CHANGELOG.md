@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
 - Take `&Clocks` instead of `Clocks` [#498]
 - Update to `stm32f1` v0.16.0 [#503] [#534]
-- `Spi` now takes `Option<PIN>` for `SCK`, `MISO`, `MOSI` [#514]
+- `Spi` now takes `Option<PIN>` for `SCK`, `MISO`, `MOSI` [#514],
+  add `SPIx::NoSck`, etc. [#537]
 - move `Qei` mod inside `pwm_input` mod [#516]
 
 ### Changed

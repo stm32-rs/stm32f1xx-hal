@@ -6,7 +6,7 @@
   As some STM32F1xx chips have 5V tolerant SPI pins, it is also possible to configure Sck and Mosi outputs as `Alternate<PushPull>`. Then
   a simple Pull-Up to 5V can be used to use SPI on a 5V bus without a level shifter.
 
-  You can also use `None::<PA6>` if you don't want to use the pins
+  You can also use `None::<PA6>` or `SPI1::NoMiso` if you don't want to use the pins
 
   ## Alternate function remapping
 
@@ -133,7 +133,14 @@ pub enum Error {
 
 use core::marker::PhantomData;
 
+#[allow(non_upper_case_globals)]
 pub trait SpiExt: Sized + Instance {
+    const NoSck: Option<Self::MSck> = None;
+    const NoMiso: Option<Self::Mi<Floating>> = None;
+    const NoMosi: Option<Self::Mo> = None;
+    const NoSSck: Option<Self::SSck> = None;
+    const NoSo: Option<Self::So<PushPull>> = None;
+    const NoSi: Option<Self::Si<Floating>> = None;
     fn spi<PULL: UpMode>(
         self,
         pins: (
