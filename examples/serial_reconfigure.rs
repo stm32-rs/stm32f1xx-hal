@@ -25,20 +25,13 @@ fn main() -> ! {
     // Get access to the device specific peripherals from the peripheral access crate
     let p = pac::Peripherals::take().unwrap();
 
-    // Take ownership over the raw flash and rcc devices and convert them into the corresponding
-    // HAL structs
-    let mut flash = p.FLASH.constrain();
-    let rcc = p.RCC.constrain();
-
-    // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
-    // `clocks`
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let mut rcc = p.RCC.constrain();
 
     // Prepare the alternate function I/O registers
     //let mut afio = p.AFIO.constrain();
 
     // Prepare the GPIOB peripheral
-    let mut gpiob = p.GPIOB.split();
+    let mut gpiob = p.GPIOB.split(&mut rcc);
 
     // USART1
     // let tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);
@@ -64,7 +57,7 @@ fn main() -> ! {
         p.USART3,
         (tx, rx),
         Config::default().baudrate(9600.bps()),
-        &clocks,
+        &mut rcc,
     );
 
     // Loopback test. Write `X` and wait until the write is successful.
@@ -82,7 +75,7 @@ fn main() -> ! {
 
     // You can reconfigure the serial port to use a different baud rate at runtime.
     // This may block for a while if the transmission is still in progress.
-    block!(serial.reconfigure(Config::default().baudrate(115_200.bps()), &clocks)).unwrap();
+    block!(serial.reconfigure(Config::default().baudrate(115_200.bps()), &rcc.clocks)).unwrap();
 
     // Let's see if it works.'
     let sent = b'Y';
@@ -97,7 +90,7 @@ fn main() -> ! {
         &mut tx,
         &mut rx,
         Config::default().baudrate(9600.bps()),
-        &clocks
+        &rcc.clocks
     ))
     .unwrap();
 

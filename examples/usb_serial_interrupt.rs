@@ -7,9 +7,12 @@ extern crate panic_semihosting;
 
 use cortex_m::asm::{delay, wfi};
 use cortex_m_rt::entry;
-use stm32f1xx_hal::pac::{self, interrupt, Interrupt, NVIC};
-use stm32f1xx_hal::prelude::*;
-use stm32f1xx_hal::usb::{Peripheral, UsbBus, UsbBusType};
+use stm32f1xx_hal::{
+    pac::{self, interrupt, Interrupt, NVIC},
+    prelude::*,
+    rcc,
+    usb::{Peripheral, UsbBus, UsbBusType},
+};
 use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
@@ -22,18 +25,14 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
+    let mut rcc = dp.RCC.freeze(
+        rcc::Config::hse(8.MHz()).sysclk(48.MHz()).pclk1(24.MHz()),
+        &mut flash.acr,
+    );
 
-    let clocks = rcc
-        .cfgr
-        .use_hse(8.MHz())
-        .sysclk(48.MHz())
-        .pclk1(24.MHz())
-        .freeze(&mut flash.acr);
+    assert!(rcc.clocks.usbclk_valid());
 
-    assert!(clocks.usbclk_valid());
-
-    let mut gpioa = dp.GPIOA.split();
+    let mut gpioa = dp.GPIOA.split(&mut rcc);
 
     // BluePill board has a pull-up resistor on the D+ line.
     // Pull the D+ pin down to send a RESET condition to the USB bus.
@@ -41,7 +40,7 @@ fn main() -> ! {
     // will not reset your device when you upload new firmware.
     let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
     usb_dp.set_low();
-    delay(clocks.sysclk().raw() / 100);
+    delay(rcc.clocks.sysclk().raw() / 100);
 
     let usb_dm = gpioa.pa11;
     let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);

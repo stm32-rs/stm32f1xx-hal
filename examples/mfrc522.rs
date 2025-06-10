@@ -24,12 +24,9 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     let _stim = &mut cp.ITM.stim[0];
-    let rcc = dp.RCC.constrain();
-    let mut flash = dp.FLASH.constrain();
-    let mut gpioa = dp.GPIOA.split();
-    let mut gpioc = dp.GPIOC.split();
-
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let mut rcc = dp.RCC.constrain();
+    let mut gpioa = dp.GPIOA.split(&mut rcc);
+    let mut gpioc = dp.GPIOC.split(&mut rcc);
 
     let sck = gpioa.pa5;
     let miso = gpioa.pa6;
@@ -39,7 +36,7 @@ fn main() -> ! {
         (Some(sck), Some(miso), Some(mosi)),
         MODE,
         1.MHz(),
-        &clocks,
+        &mut rcc,
     );
 
     let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);

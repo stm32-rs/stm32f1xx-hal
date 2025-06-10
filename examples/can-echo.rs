@@ -10,29 +10,28 @@ use panic_halt as _;
 use bxcan::filter::Mask32;
 use cortex_m_rt::entry;
 use nb::block;
-use stm32f1xx_hal::{pac, prelude::*};
+use stm32f1xx_hal::{pac, prelude::*, rcc};
 
 #[entry]
 fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
 
     // To meet CAN clock accuracy requirements an external crystal or ceramic
     // resonator must be used. The blue pill has a 8MHz external crystal.
     // Other boards might have a crystal with another frequency or none at all.
-    rcc.cfgr.use_hse(8.MHz()).freeze(&mut flash.acr);
+    let mut rcc = dp.RCC.freeze(rcc::Config::hse(8.MHz()), &mut flash.acr);
 
     let mut can1 = {
-        let gpioa = dp.GPIOA.split();
+        let gpioa = dp.GPIOA.split(&mut rcc);
         let rx = gpioa.pa11;
         let tx = gpioa.pa12;
 
         #[cfg(not(feature = "connectivity"))]
-        let can = dp.CAN.can(dp.USB, (tx, rx));
+        let can = dp.CAN.can(dp.USB, (tx, rx), &mut rcc);
         #[cfg(feature = "connectivity")]
-        let can = dp.CAN1.can((tx, rx));
+        let can = dp.CAN1.can((tx, rx), &mut rcc);
 
         // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
@@ -47,8 +46,8 @@ fn main() -> ! {
 
     #[cfg(feature = "connectivity")]
     let _can2 = {
-        let gpiob = dp.GPIOB.split();
-        let can = dp.CAN2.can((gpiob.pb6, gpiob.pb5));
+        let gpiob = dp.GPIOB.split(&mut rcc);
+        let can = dp.CAN2.can((gpiob.pb6, gpiob.pb5), &mut rcc);
 
         // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/

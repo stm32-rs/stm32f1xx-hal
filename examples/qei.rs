@@ -20,13 +20,10 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
+    let mut rcc = dp.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    // let gpioa = dp.GPIOA.split();
-    let gpiob = dp.GPIOB.split();
+    // let gpioa = dp.GPIOA.split(&mut rcc);
+    let gpiob = dp.GPIOB.split(&mut rcc);
 
     // TIM2
     // let c1 = gpioa.pa0;
@@ -40,8 +37,8 @@ fn main() -> ! {
     let c1 = gpiob.pb6;
     let c2 = gpiob.pb7;
 
-    let qei = Timer::new(dp.TIM4, &clocks).qei((c1, c2), QeiOptions::default());
-    let mut delay = cp.SYST.delay(&clocks);
+    let qei = Timer::new(dp.TIM4, &mut rcc).qei((c1, c2), QeiOptions::default());
+    let mut delay = cp.SYST.delay(&rcc.clocks);
 
     loop {
         let before = qei.count();

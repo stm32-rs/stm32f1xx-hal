@@ -24,15 +24,12 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
+    let mut rcc = dp.RCC.constrain();
 
-    let clock = rcc.cfgr.freeze(&mut flash.acr);
-
-    let mut gpioa = dp.GPIOA.split();
-    let mut _gpiob = dp.GPIOB.split();
-    let mut gpioc = dp.GPIOC.split();
-    let mut gpiod = dp.GPIOD.split();
+    let mut gpioa = dp.GPIOA.split(&mut rcc);
+    let mut _gpiob = dp.GPIOB.split(&mut rcc);
+    let mut gpioc = dp.GPIOC.split(&mut rcc);
+    let mut gpiod = dp.GPIOD.split(&mut rcc);
 
     // red_led and green_led
     let mut red_led = gpioa
@@ -42,7 +39,7 @@ fn main() -> ! {
         .pd2
         .into_push_pull_output_with_state(&mut gpiod.crl, PinState::High);
 
-    let mut afio = dp.AFIO.constrain();
+    let mut afio = dp.AFIO.constrain(&mut rcc);
     let (gpioa_pa15, _gpiob_pb3, _gpiob_pb4) =
         afio.mapr.disable_jtag(gpioa.pa15, _gpiob.pb3, _gpiob.pb4);
 
@@ -53,7 +50,7 @@ fn main() -> ! {
     // The key_up for check buttons if long press.
     // if key_up is true, and buttons were not long press.
     let mut key_up: bool = true;
-    let mut delay = cp.SYST.delay(&clock);
+    let mut delay = cp.SYST.delay(&rcc.clocks);
     loop {
         let key_result = (key_0.is_low(), key_1.is_low());
         if key_up && (key_result.0 || key_result.1) {

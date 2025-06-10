@@ -16,21 +16,18 @@ use cortex_m_rt::entry;
 fn main() -> ! {
     let p = pac::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain();
-    let rcc = p.RCC.constrain();
+    let mut rcc = p.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    let mut afio = p.AFIO.constrain();
-    let gpioa = p.GPIOA.split();
-    let mut gpiob = p.GPIOB.split();
+    let mut afio = p.AFIO.constrain(&mut rcc);
+    let gpioa = p.GPIOA.split(&mut rcc);
+    let mut gpiob = p.GPIOB.split(&mut rcc);
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
 
     // TIM3
     let p0 = pb4.into_alternate_push_pull(&mut gpiob.crl);
     let p1 = gpiob.pb5.into_alternate_push_pull(&mut gpiob.crl);
 
-    let pwm = Timer::new(p.TIM3, &clocks).pwm_hz((p0, p1), &mut afio.mapr, 1.kHz());
+    let pwm = Timer::new(p.TIM3, &mut rcc).pwm_hz((p0, p1), &mut afio.mapr, 1.kHz());
 
     let max = pwm.get_max_duty();
 
