@@ -18,6 +18,7 @@ use crate::hal::{
     gpio::{gpioc, Output, PinState, PushPull},
     pac::{interrupt, Interrupt, Peripherals, TIM2},
     prelude::*,
+    rcc,
     timer::{CounterMs, Event},
 };
 
@@ -69,16 +70,14 @@ fn TIM2() {
 fn main() -> ! {
     let dp = Peripherals::take().unwrap();
 
-    let rcc = dp.RCC.constrain();
     let mut flash = dp.FLASH.constrain();
-    let clocks = rcc
-        .cfgr
-        .sysclk(8.MHz())
-        .pclk1(8.MHz())
-        .freeze(&mut flash.acr);
+    let mut rcc = dp.RCC.freeze(
+        rcc::Config::hsi().sysclk(8.MHz()).pclk1(8.MHz()),
+        &mut flash.acr,
+    );
 
     // Configure PC13 pin to blink LED
-    let mut gpioc = dp.GPIOC.split();
+    let mut gpioc = dp.GPIOC.split(&mut rcc);
     let led = Output::new(gpioc.pc13, &mut gpioc.crh, PinState::High);
     //or
     //let led = gpioc.pc13.into_push_pull_output_with_state(&mut gpioc.crh, PinState::High);
@@ -87,7 +86,7 @@ fn main() -> ! {
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 
     // Set up a timer expiring after 1s
-    let mut timer = dp.TIM2.counter_ms(&clocks);
+    let mut timer = dp.TIM2.counter_ms(&mut rcc);
     timer.start(1.secs()).unwrap();
 
     // Generate an interrupt when the timer expires

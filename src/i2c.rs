@@ -21,8 +21,8 @@
 // https://www.st.com/content/ccc/resource/technical/document/application_note/5d/ae/a3/6f/08/69/4e/9b/CD00209826.pdf/files/CD00209826.pdf/jcr:content/translations/en.CD00209826.pdf
 
 use crate::afio::{self, RInto, Rmp};
-use crate::pac::{self, DWT, RCC};
-use crate::rcc::{BusClock, Clocks, Enable, Reset};
+use crate::pac::{self, DWT};
+use crate::rcc::{BusClock, Clocks, Enable, Rcc, Reset};
 use crate::time::{kHz, Hertz};
 use core::ops::Deref;
 
@@ -106,7 +106,7 @@ pub trait I2cExt: Sized + Instance {
         self,
         pins: (impl RInto<Self::Scl, 0>, impl RInto<Self::Sda, 0>),
         mode: impl Into<Mode>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> I2c<Self>;
 
     #[allow(clippy::too_many_arguments)]
@@ -114,18 +114,18 @@ pub trait I2cExt: Sized + Instance {
         self,
         pins: (impl RInto<Self::Scl, 0>, impl RInto<Self::Sda, 0>),
         mode: impl Into<Mode>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> BlockingI2c<Self> {
-        Self::i2c(self, pins, mode, clocks).blocking(
+        Self::i2c(self, pins, mode, rcc).blocking(
             start_timeout_us,
             start_retries,
             addr_timeout_us,
             data_timeout_us,
-            clocks,
+            &rcc.clocks,
         )
     }
 }
@@ -135,9 +135,9 @@ impl<I2C: Instance> I2cExt for I2C {
         self,
         pins: (impl RInto<Self::Scl, 0>, impl RInto<Self::Sda, 0>),
         mode: impl Into<Mode>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> I2c<Self> {
-        I2c::new(self, pins, mode, clocks)
+        I2c::new(self, pins, mode, rcc)
     }
 }
 
@@ -168,9 +168,9 @@ impl<I2C: Instance> I2c<I2C> {
         i2c: impl Into<Rmp<I2C, R>>,
         pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
         mode: impl Into<Mode>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> Self {
-        i2c.into().i2c(pins, mode, clocks)
+        i2c.into().i2c(pins, mode, rcc)
     }
 }
 
@@ -180,14 +180,13 @@ impl<I2C: Instance, const R: u8> Rmp<I2C, R> {
         self,
         pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
         mode: impl Into<Mode>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
     ) -> I2c<I2C> {
         let mode = mode.into();
-        let rcc = unsafe { &(*RCC::ptr()) };
         I2C::enable(rcc);
         I2C::reset(rcc);
 
-        let pclk1 = I2C::clock(clocks);
+        let pclk1 = I2C::clock(&rcc.clocks);
 
         assert!(mode.get_frequency() <= kHz(400));
 
@@ -206,18 +205,18 @@ impl<I2C: Instance, const R: u8> Rmp<I2C, R> {
         self,
         pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
         mode: impl Into<Mode>,
-        clocks: &Clocks,
+        rcc: &mut Rcc,
         start_timeout_us: u32,
         start_retries: u8,
         addr_timeout_us: u32,
         data_timeout_us: u32,
     ) -> BlockingI2c<I2C> {
-        self.i2c(pins, mode, clocks).blocking(
+        self.i2c(pins, mode, rcc).blocking(
             start_timeout_us,
             start_retries,
             addr_timeout_us,
             data_timeout_us,
-            clocks,
+            &rcc.clocks,
         )
     }
 }

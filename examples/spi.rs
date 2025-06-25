@@ -21,13 +21,10 @@ use stm32f1xx_hal::{
 fn setup() -> (Spi<SPI1, u8>, PA4<Output>) {
     let dp = Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
-
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let mut rcc = dp.RCC.constrain();
 
     //let mut afio = dp.AFIO.constrain();
-    let mut gpioa = dp.GPIOA.split();
+    let mut gpioa = dp.GPIOA.split(&mut rcc);
 
     // SPI1
     let sck = gpioa.pa5;
@@ -38,7 +35,7 @@ fn setup() -> (Spi<SPI1, u8>, PA4<Output>) {
     let spi = dp
         .SPI1
         //.remap(&mut afio.mapr) // if you want to use PB3, PB4, PB5
-        .spi((Some(sck), Some(miso), Some(mosi)), MODE, 1.MHz(), &clocks);
+        .spi((Some(sck), Some(miso), Some(mosi)), MODE, 1.MHz(), &mut rcc);
 
     (spi, cs)
 }

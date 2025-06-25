@@ -9,7 +9,7 @@ use fugit::HertzU32 as Hertz;
 use crate::dma::dma2;
 use crate::dma::{dma1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
 use crate::gpio::{self, Analog};
-use crate::rcc::{Clocks, Enable, Reset};
+use crate::rcc::{Enable, Rcc, Reset};
 use crate::time::kHz;
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
@@ -206,12 +206,12 @@ impl Instance for pac::ADC3 {
 }
 
 pub trait AdcExt: Sized + Instance {
-    fn adc(self, clocks: &Clocks) -> Adc<Self>;
+    fn adc(self, rcc: &mut Rcc) -> Adc<Self>;
 }
 
 impl<ADC: Instance> AdcExt for ADC {
-    fn adc(self, clocks: &Clocks) -> Adc<Self> {
-        Adc::new(self, clocks)
+    fn adc(self, rcc: &mut Rcc) -> Adc<Self> {
+        Adc::new(self, rcc)
     }
 }
 
@@ -220,17 +220,17 @@ impl<ADC: Instance> Adc<ADC> {
     ///
     /// Sets all configurable parameters to one-shot defaults,
     /// performs a boot-time calibration.
-    pub fn new(adc: ADC, clocks: &Clocks) -> Self {
+    pub fn new(adc: ADC, rcc: &mut Rcc) -> Self {
         let mut s = Self {
             rb: adc,
             sample_time: SampleTime::default(),
             align: Align::default(),
-            sysclk: clocks.sysclk(),
-            adcclk: clocks.adcclk(),
+            sysclk: rcc.clocks.sysclk(),
+            adcclk: rcc.clocks.adcclk(),
         };
-        s.enable_clock();
+        s.enable_clock(rcc);
         s.power_down();
-        s.reset();
+        s.reset(rcc);
         s.setup_oneshot();
         s.power_up();
 
@@ -308,18 +308,15 @@ impl<ADC: Instance> Adc<ADC> {
         self.rb.cr2().modify(|_, w| w.adon().clear_bit());
     }
 
-    fn reset(&mut self) {
-        let rcc = unsafe { &(*RCC::ptr()) };
+    fn reset(&mut self, rcc: &mut RCC) {
         ADC::reset(rcc);
     }
 
-    fn enable_clock(&mut self) {
-        let rcc = unsafe { &(*RCC::ptr()) };
+    fn enable_clock(&mut self, rcc: &mut RCC) {
         ADC::enable(rcc);
     }
 
-    fn disable_clock(&mut self) {
-        let rcc = unsafe { &(*RCC::ptr()) };
+    fn disable_clock(&mut self, rcc: &mut RCC) {
         ADC::disable(rcc);
     }
 
@@ -439,9 +436,9 @@ impl<ADC: Instance> Adc<ADC> {
     }
 
     /// Powers down the ADC, disables the ADC clock and releases the ADC Peripheral
-    pub fn release(mut self) -> ADC {
+    pub fn release(mut self, rcc: &mut RCC) -> ADC {
         self.power_down();
-        self.disable_clock();
+        self.disable_clock(rcc);
         self.rb
     }
 

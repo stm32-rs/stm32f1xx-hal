@@ -49,12 +49,11 @@ impl Pins<DAC> for (PA4<Analog>, PA5<Analog>) {
     }
 }
 
-pub fn dac<PINS>(_dac: DAC, _pins: PINS) -> PINS::Output
+pub fn dac<PINS>(_dac: DAC, _pins: PINS, rcc: &mut RCC) -> PINS::Output
 where
     PINS: Pins<DAC>,
 {
     // Enable and reset clock.
-    let rcc = unsafe { &(*RCC::ptr()) };
     DAC::enable(rcc);
     DAC::reset(rcc);
 
@@ -85,17 +84,17 @@ macro_rules! dac {
 }
 
 pub trait DacExt {
-    fn constrain<PINS>(self, pins: PINS) -> PINS::Output
+    fn constrain<PINS>(self, pins: PINS, rcc: &mut RCC) -> PINS::Output
     where
         PINS: Pins<DAC>;
 }
 
 impl DacExt for DAC {
-    fn constrain<PINS>(self, pins: PINS) -> PINS::Output
+    fn constrain<PINS>(self, pins: PINS, rcc: &mut RCC) -> PINS::Output
     where
         PINS: Pins<DAC>,
     {
-        dac(self, pins)
+        dac(self, pins, rcc)
     }
 }
 

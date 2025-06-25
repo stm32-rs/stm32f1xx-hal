@@ -19,13 +19,10 @@ fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
+    let mut rcc = dp.RCC.constrain();
 
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    let mut gpioa = dp.GPIOA.split();
-    // let mut gpiob = dp.GPIOB.split();
+    let mut gpioa = dp.GPIOA.split(&mut rcc);
+    // let mut gpiob = dp.GPIOB.split(&mut rcc);
 
     let nss = gpioa.pa4.into_push_pull_output(&mut gpioa.crl);
 
@@ -44,10 +41,10 @@ fn main() -> ! {
         (Some(sck), Some(miso), Some(mosi)),
         mpu9250::MODE.into(),
         1.MHz(),
-        &clocks,
+        &mut rcc,
     );
 
-    let mut delay = cp.SYST.delay(&clocks);
+    let mut delay = cp.SYST.delay(&rcc.clocks);
 
     let mut mpu9250 = Mpu9250::marg_default(spi, nss, &mut delay).unwrap();
 

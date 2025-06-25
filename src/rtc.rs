@@ -62,13 +62,13 @@ impl Rtc<RtcClkLse> {
       you may want to use
       [`restore_or_new`](Rtc::<RtcClkLse>::restore_or_new) instead.
     */
-    pub fn new(regs: RTC, bkp: &mut BackupDomain) -> Self {
+    pub fn new(regs: RTC, bkp: &mut BackupDomain, rcc: &mut RCC) -> Self {
         let mut result = Rtc {
             regs,
             _clock_source: PhantomData,
         };
 
-        Self::enable_rtc(bkp);
+        Self::enable_rtc(bkp, rcc);
 
         // Set the prescaler to make it count up once every second.
         let prl = LSE_HERTZ.raw() - 1;
@@ -97,9 +97,13 @@ impl Rtc<RtcClkLse> {
     ///    }
     /// };
     /// ```
-    pub fn restore_or_new(regs: RTC, bkp: &mut BackupDomain) -> RestoredOrNewRtc<RtcClkLse> {
+    pub fn restore_or_new(
+        regs: RTC,
+        bkp: &mut BackupDomain,
+        rcc: &mut RCC,
+    ) -> RestoredOrNewRtc<RtcClkLse> {
         if !Self::is_enabled() {
-            RestoredOrNewRtc::New(Rtc::new(regs, bkp))
+            RestoredOrNewRtc::New(Rtc::new(regs, bkp, rcc))
         } else {
             RestoredOrNewRtc::Restored(Rtc {
                 regs,
@@ -116,10 +120,7 @@ impl Rtc<RtcClkLse> {
     }
 
     /// Enables the RTC device with the lse as the clock
-    fn enable_rtc(_bkp: &mut BackupDomain) {
-        // NOTE: Safe RCC access because we are only accessing bdcr
-        // and we have a &mut on BackupDomain
-        let rcc = unsafe { &*RCC::ptr() };
+    fn enable_rtc(_bkp: &mut BackupDomain, rcc: &mut RCC) {
         rcc.bdcr().modify(|_, w| {
             // start the LSE oscillator
             w.lseon().set_bit();

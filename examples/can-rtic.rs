@@ -59,7 +59,7 @@ mod app {
     use stm32f1xx_hal::pac::CAN as CAN1;
     #[cfg(feature = "connectivity")]
     use stm32f1xx_hal::pac::CAN1;
-    use stm32f1xx_hal::{can::Can, prelude::*};
+    use stm32f1xx_hal::{can::Can, prelude::*, rcc};
 
     #[local]
     struct Local {
@@ -75,27 +75,30 @@ mod app {
     #[init]
     fn init(cx: init::Context) -> (Shared, Local, init::Monotonics) {
         let mut flash = cx.device.FLASH.constrain();
-        let rcc = cx.device.RCC.constrain();
-
-        let _clocks = rcc
-            .cfgr
-            .use_hse(8.MHz())
-            .sysclk(64.MHz())
-            .hclk(64.MHz())
-            .pclk1(16.MHz())
-            .pclk2(64.MHz())
-            .freeze(&mut flash.acr);
+        let mut rcc = cx.device.RCC.freeze(
+            rcc::Config::hse(8.MHz())
+                .sysclk(64.MHz())
+                .hclk(64.MHz())
+                .pclk1(16.MHz())
+                .pclk2(64.MHz()),
+            &mut flash.acr,
+        );
 
         // Select pins for CAN1.
-        let gpioa = cx.device.GPIOA.split();
+        let gpioa = cx.device.GPIOA.split(&mut rcc);
         let can_rx_pin = gpioa.pa11;
         let can_tx_pin = gpioa.pa12;
 
         #[cfg(not(feature = "connectivity"))]
-        let can = Can::new(cx.device.CAN, cx.device.USB, (can_tx_pin, can_rx_pin));
+        let can = Can::new(
+            cx.device.CAN,
+            cx.device.USB,
+            (can_tx_pin, can_rx_pin),
+            &mut rcc,
+        );
 
         #[cfg(feature = "connectivity")]
-        let can = Can::new(cx.device.CAN1, (can_tx_pin, can_rx_pin));
+        let can = Can::new(cx.device.CAN1, (can_tx_pin, can_rx_pin), &mut rcc);
 
         // APB1 (PCLK1): 16MHz, Bit rate: 1000kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/

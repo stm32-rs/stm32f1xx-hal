@@ -27,6 +27,7 @@ use stm32f1xx_hal::{
     i2c::{BlockingI2c, DutyCycle, Mode},
     pac,
     prelude::*,
+    rcc,
 };
 
 #[entry]
@@ -39,25 +40,24 @@ fn main() -> ! {
     // Take ownership over the raw flash and rcc devices and convert them into the corresponding
     // HAL structs
     let mut flash = dp.FLASH.constrain();
-    let rcc = dp.RCC.constrain();
-    let mut afio = dp.AFIO.constrain();
-    // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
-    // `clocks`
-    let clocks = if 1 == 1 {
-        rcc.cfgr.use_hse(8.MHz()).freeze(&mut flash.acr)
-    } else {
-        // My blue pill with a stm32f103 clone dose not seem to respect rcc so will not compensate its pulse legths
-        // with a faster clock like this. And so the sensor dose not have time to respond to the START pulse.
-        // I would be interested if others with real stm32f103's can use this program with the faster clocks.
-        rcc.cfgr
-            .use_hse(8.MHz())
-            .sysclk(48.MHz())
-            .pclk1(6.MHz())
-            .freeze(&mut flash.acr)
-    };
+    let mut rcc = dp.RCC.freeze(
+        if 1 == 1 {
+            // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
+            // `clocks`
+            rcc::Config::hse(8.MHz())
+        } else {
+            // My blue pill with a stm32f103 clone dose not seem to respect rcc so will not compensate its pulse legths
+            // with a faster clock like this. And so the sensor dose not have time to respond to the START pulse.
+            // I would be interested if others with real stm32f103's can use this program with the faster clocks.
+            rcc::Config::hse(8.MHz()).sysclk(48.MHz()).pclk1(6.MHz())
+        },
+        &mut flash.acr,
+    );
+
+    let mut afio = dp.AFIO.constrain(&mut rcc);
 
     // Acquire the GPIOB peripheral
-    let mut gpiob = dp.GPIOB.split();
+    let mut gpiob = dp.GPIOB.split(&mut rcc);
 
     let scl = gpiob.pb6;
     let sda = gpiob.pb7;
