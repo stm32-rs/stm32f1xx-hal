@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   Add `RInto` trait and `Rmp` peripheral wrapper, add `remap` for peripherals. [#514] [#520]
   Remove `RemapStruct`s. [#462] [#506] [#509]
 - Use independent `Spi` and `SpiSlave` structures instead of `OP` generic [#462]
-- Include `Clocks` in `Rcc`. Take `&mut Rcc/RCC` where possible [#498] [#536]
+- Include `Clocks` in `Rcc`. Take `&mut Rcc/RCC` where possible, `freeze` takes `Config` or `RawConfig` [#498] [#536]
 - Update to `stm32f1` v0.16.0 [#503] [#534]
 - `Spi` now takes `Option<PIN>` for `SCK`, `MISO`, `MOSI` [#514],
   add `SPIx::NoSck`, etc. [#537]

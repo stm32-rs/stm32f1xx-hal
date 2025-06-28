@@ -22,10 +22,7 @@ pub trait RccExt {
     fn constrain(self) -> Rcc;
 
     /// Constrains the `RCC` peripheral and apply clock configuration
-    fn freeze(self, rcc_cfg: Config, acr: &mut ACR) -> Rcc;
-
-    /// Constrains the `RCC` peripheral and apply clock configuration
-    fn freeze_raw(self, rcc_cfg: RawConfig, acr: &mut ACR) -> Rcc;
+    fn freeze(self, rcc_cfg: impl Into<RawConfig>, acr: &mut ACR) -> Rcc;
 }
 
 impl RccExt for RCC {
@@ -36,12 +33,8 @@ impl RccExt for RCC {
         }
     }
 
-    fn freeze(self, rcc_cfg: Config, acr: &mut ACR) -> Rcc {
+    fn freeze(self, rcc_cfg: impl Into<RawConfig>, acr: &mut ACR) -> Rcc {
         self.constrain().freeze(rcc_cfg, acr)
-    }
-
-    fn freeze_raw(self, rcc_cfg: RawConfig, acr: &mut ACR) -> Rcc {
-        self.constrain().freeze_raw(rcc_cfg, acr)
     }
 }
 
@@ -214,13 +207,8 @@ impl Rcc {
     /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
     /// ```
     #[inline(always)]
-    pub fn freeze(self, config: Config, acr: &mut ACR) -> Self {
-        let cfg = RawConfig::from_cfgr(config);
-        self.freeze_raw(cfg, acr)
-    }
-
-    #[inline(always)]
-    pub fn freeze_raw(self, cfg: RawConfig, acr: &mut ACR) -> Self {
+    pub fn freeze(self, cfg: impl Into<RawConfig>, acr: &mut ACR) -> Self {
+        let cfg = cfg.into();
         let clocks = cfg.get_clocks();
         // adjust flash wait states
         #[cfg(any(feature = "stm32f103", feature = "connectivity"))]
@@ -630,6 +618,13 @@ pub type UsbPre = rcc::cfgr::USBPRE;
 #[cfg(feature = "connectivity")]
 pub type UsbPre = rcc::cfgr::OTGFSPRE;
 pub type AdcPre = rcc::cfgr::ADCPRE;
+
+impl From<Config> for RawConfig {
+    #[inline(always)]
+    fn from(cfgr: Config) -> Self {
+        Self::from_cfgr(cfgr)
+    }
+}
 
 impl RawConfig {
     pub const fn from_cfgr(cfgr: Config) -> Self {
