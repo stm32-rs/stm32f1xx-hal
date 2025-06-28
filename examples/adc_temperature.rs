@@ -24,7 +24,7 @@ fn main() -> ! {
 
     /*
     // Alternative configuration using dividers and multipliers directly
-    let rcc = p.RCC.freeze_raw(
+    let rcc = p.RCC.freeze(
         rcc::RawConfig {
             hse: Some(8_000_000),
             pllmul: Some(7),
