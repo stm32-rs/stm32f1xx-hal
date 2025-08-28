@@ -318,14 +318,14 @@ pub mod can2 {
 
     pin! {
         <Tx, Alternate<PushPull>> for [
-            PB6:  [0],
-            PB13: [1],
+            PB13: [0],
+            PB6:  [1],
         ],
     }
     pin! {
         <Rx, Input> default:Floating for [
-            PB5:  [0],
-            PB12: [1],
+            PB12: [0],
+            PB5:  [1],
         ],
     }
 
