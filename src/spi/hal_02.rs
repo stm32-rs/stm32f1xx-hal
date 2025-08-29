@@ -33,7 +33,7 @@ impl From<Mode> for super::Mode {
 impl<SPI, W, PULL> spi::FullDuplex<W> for Spi<SPI, W, PULL>
 where
     SPI: Instance,
-    W: Copy,
+    W: FrameSize,
 {
     type Error = Error;
 
@@ -49,7 +49,7 @@ where
 impl<SPI, W, PULL> blocking::transfer::Default<W> for Spi<SPI, W, PULL>
 where
     SPI: Instance,
-    W: Copy,
+    W: FrameSize,
 {
 }
 
