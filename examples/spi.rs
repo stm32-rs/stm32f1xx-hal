@@ -23,7 +23,7 @@ fn setup() -> (Spi<SPI1, u8>, PA4<Output>) {
 
     let mut rcc = dp.RCC.constrain();
 
-    //let mut afio = dp.AFIO.constrain();
+    //let mut afio = dp.AFIO.constrain(&mut rcc);
     let mut gpioa = dp.GPIOA.split(&mut rcc);
 
     // SPI1

@@ -46,8 +46,12 @@ fn main() -> ! {
 
     #[cfg(feature = "connectivity")]
     let _can2 = {
+        let mut afio = dp.AFIO.constrain(&mut rcc);
         let gpiob = dp.GPIOB.split(&mut rcc);
-        let can = dp.CAN2.can((gpiob.pb6, gpiob.pb5), &mut rcc);
+        let can = dp
+            .CAN2
+            .remap(&mut afio.mapr)
+            .can((gpiob.pb6, gpiob.pb5), &mut rcc);
 
         // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/

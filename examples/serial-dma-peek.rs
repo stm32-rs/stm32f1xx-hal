@@ -22,7 +22,7 @@ fn main() -> ! {
 
     let mut rcc = p.RCC.constrain();
 
-    //let mut afio = p.AFIO.constrain();
+    //let mut afio = p.AFIO.constrain(&mut rcc);
     let channels = p.DMA1.split(&mut rcc);
 
     let mut gpioa = p.GPIOA.split(&mut rcc);
