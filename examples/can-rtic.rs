@@ -134,31 +134,19 @@ mod app {
         let mut tx_queue = cx.shared.can_tx_queue;
 
         // Enqueue some messages. Higher ID means lower priority.
-        tx_queue.lock(|mut tx_queue| {
-            enqueue_frame(
-                &mut tx_queue,
-                Frame::new_data(StandardId::new(9).unwrap(), []),
-            );
-            enqueue_frame(
-                &mut tx_queue,
-                Frame::new_data(ExtendedId::new(9).unwrap(), []),
-            );
+        tx_queue.lock(|tx_queue| {
+            enqueue_frame(tx_queue, Frame::new_data(StandardId::new(9).unwrap(), []));
+            enqueue_frame(tx_queue, Frame::new_data(ExtendedId::new(9).unwrap(), []));
+
+            enqueue_frame(tx_queue, Frame::new_data(StandardId::new(8).unwrap(), []));
+            enqueue_frame(tx_queue, Frame::new_data(ExtendedId::new(8).unwrap(), []));
 
             enqueue_frame(
-                &mut tx_queue,
-                Frame::new_data(StandardId::new(8).unwrap(), []),
-            );
-            enqueue_frame(
-                &mut tx_queue,
-                Frame::new_data(ExtendedId::new(8).unwrap(), []),
-            );
-
-            enqueue_frame(
-                &mut tx_queue,
+                tx_queue,
                 Frame::new_data(StandardId::new(0x7FF).unwrap(), []),
             );
             enqueue_frame(
-                &mut tx_queue,
+                tx_queue,
                 Frame::new_data(ExtendedId::new(0x1FFF_FFFF).unwrap(), []),
             );
         });
@@ -168,19 +156,10 @@ mod app {
             let tx_count = cx.shared.tx_count.lock(|tx_count| *tx_count);
 
             if tx_count >= 3 {
-                tx_queue.lock(|mut tx_queue| {
-                    enqueue_frame(
-                        &mut tx_queue,
-                        Frame::new_data(StandardId::new(3).unwrap(), []),
-                    );
-                    enqueue_frame(
-                        &mut tx_queue,
-                        Frame::new_data(StandardId::new(2).unwrap(), []),
-                    );
-                    enqueue_frame(
-                        &mut tx_queue,
-                        Frame::new_data(StandardId::new(1).unwrap(), []),
-                    );
+                tx_queue.lock(|tx_queue| {
+                    enqueue_frame(tx_queue, Frame::new_data(StandardId::new(3).unwrap(), []));
+                    enqueue_frame(tx_queue, Frame::new_data(StandardId::new(2).unwrap(), []));
+                    enqueue_frame(tx_queue, Frame::new_data(StandardId::new(1).unwrap(), []));
                 });
                 break;
             }

@@ -70,18 +70,18 @@ wrap_r! {
 
 wrap_w! {
     pub trait Cr1W {
-        fn awdch(&mut self) -> adc1::cr1::AWDCH_W<REG>;
-        fn eocie(&mut self) -> adc1::cr1::EOCIE_W<REG>;
-        fn awdie(&mut self) -> adc1::cr1::AWDIE_W<REG>;
-        fn jeocie(&mut self) -> adc1::cr1::JEOCIE_W<REG>;
-        fn scan(&mut self) -> adc1::cr1::SCAN_W<REG>;
-        fn awdsgl(&mut self) -> adc1::cr1::AWDSGL_W<REG>;
-        fn jauto(&mut self) -> adc1::cr1::JAUTO_W<REG>;
-        fn discen(&mut self) -> adc1::cr1::DISCEN_W<REG>;
-        fn jdiscen(&mut self) -> adc1::cr1::JDISCEN_W<REG>;
-        fn discnum(&mut self) -> adc1::cr1::DISCNUM_W<REG>;
-        fn jawden(&mut self) -> adc1::cr1::JAWDEN_W<REG>;
-        fn awden(&mut self) -> adc1::cr1::AWDEN_W<REG>;
+        fn awdch(&mut self) -> adc1::cr1::AWDCH_W<'_, REG>;
+        fn eocie(&mut self) -> adc1::cr1::EOCIE_W<'_, REG>;
+        fn awdie(&mut self) -> adc1::cr1::AWDIE_W<'_, REG>;
+        fn jeocie(&mut self) -> adc1::cr1::JEOCIE_W<'_, REG>;
+        fn scan(&mut self) -> adc1::cr1::SCAN_W<'_, REG>;
+        fn awdsgl(&mut self) -> adc1::cr1::AWDSGL_W<'_, REG>;
+        fn jauto(&mut self) -> adc1::cr1::JAUTO_W<'_, REG>;
+        fn discen(&mut self) -> adc1::cr1::DISCEN_W<'_, REG>;
+        fn jdiscen(&mut self) -> adc1::cr1::JDISCEN_W<'_, REG>;
+        fn discnum(&mut self) -> adc1::cr1::DISCNUM_W<'_, REG>;
+        fn jawden(&mut self) -> adc1::cr1::JAWDEN_W<'_, REG>;
+        fn awden(&mut self) -> adc1::cr1::AWDEN_W<'_, REG>;
     }
 }
 
@@ -103,17 +103,17 @@ wrap_r! {
 
 wrap_w! {
     pub trait Cr2W {
-        fn adon(&mut self) -> adc1::cr2::ADON_W<REG>;
-        fn cont(&mut self) -> adc1::cr2::CONT_W<REG>;
-        fn cal(&mut self) -> adc1::cr2::CAL_W<REG>;
-        fn rstcal(&mut self) -> adc1::cr2::RSTCAL_W<REG>;
-        fn dma(&mut self) -> adc1::cr2::DMA_W<REG>;
-        fn align(&mut self) -> adc1::cr2::ALIGN_W<REG>;
-        fn jexttrig(&mut self) -> adc1::cr2::JEXTTRIG_W<REG>;
-        fn exttrig(&mut self) -> adc1::cr2::EXTTRIG_W<REG>;
-        fn jswstart(&mut self) -> adc1::cr2::JSWSTART_W<REG>;
-        fn swstart(&mut self) -> adc1::cr2::SWSTART_W<REG>;
-        fn tsvrefe(&mut self) -> adc1::cr2::TSVREFE_W<REG>;
+        fn adon(&mut self) -> adc1::cr2::ADON_W<'_, REG>;
+        fn cont(&mut self) -> adc1::cr2::CONT_W<'_, REG>;
+        fn cal(&mut self) -> adc1::cr2::CAL_W<'_, REG>;
+        fn rstcal(&mut self) -> adc1::cr2::RSTCAL_W<'_, REG>;
+        fn dma(&mut self) -> adc1::cr2::DMA_W<'_, REG>;
+        fn align(&mut self) -> adc1::cr2::ALIGN_W<'_, REG>;
+        fn jexttrig(&mut self) -> adc1::cr2::JEXTTRIG_W<'_, REG>;
+        fn exttrig(&mut self) -> adc1::cr2::EXTTRIG_W<'_, REG>;
+        fn jswstart(&mut self) -> adc1::cr2::JSWSTART_W<'_, REG>;
+        fn swstart(&mut self) -> adc1::cr2::SWSTART_W<'_, REG>;
+        fn tsvrefe(&mut self) -> adc1::cr2::TSVREFE_W<'_, REG>;
     }
 }
 
@@ -152,18 +152,18 @@ mod reg {
     }
 
     pub trait Cr1W: RegisterSpec<Ux = u32> + Writable + Resettable + Sized {
-        fn awdch(w: &mut W<Self>) -> adc1::cr1::AWDCH_W<Self>;
-        fn eocie(w: &mut W<Self>) -> adc1::cr1::EOCIE_W<Self>;
-        fn awdie(w: &mut W<Self>) -> adc1::cr1::AWDIE_W<Self>;
-        fn jeocie(w: &mut W<Self>) -> adc1::cr1::JEOCIE_W<Self>;
-        fn scan(w: &mut W<Self>) -> adc1::cr1::SCAN_W<Self>;
-        fn awdsgl(w: &mut W<Self>) -> adc1::cr1::AWDSGL_W<Self>;
-        fn jauto(w: &mut W<Self>) -> adc1::cr1::JAUTO_W<Self>;
-        fn discen(w: &mut W<Self>) -> adc1::cr1::DISCEN_W<Self>;
-        fn jdiscen(w: &mut W<Self>) -> adc1::cr1::JDISCEN_W<Self>;
-        fn discnum(w: &mut W<Self>) -> adc1::cr1::DISCNUM_W<Self>;
-        fn jawden(w: &mut W<Self>) -> adc1::cr1::JAWDEN_W<Self>;
-        fn awden(w: &mut W<Self>) -> adc1::cr1::AWDEN_W<Self>;
+        fn awdch(w: &mut W<Self>) -> adc1::cr1::AWDCH_W<'_, Self>;
+        fn eocie(w: &mut W<Self>) -> adc1::cr1::EOCIE_W<'_, Self>;
+        fn awdie(w: &mut W<Self>) -> adc1::cr1::AWDIE_W<'_, Self>;
+        fn jeocie(w: &mut W<Self>) -> adc1::cr1::JEOCIE_W<'_, Self>;
+        fn scan(w: &mut W<Self>) -> adc1::cr1::SCAN_W<'_, Self>;
+        fn awdsgl(w: &mut W<Self>) -> adc1::cr1::AWDSGL_W<'_, Self>;
+        fn jauto(w: &mut W<Self>) -> adc1::cr1::JAUTO_W<'_, Self>;
+        fn discen(w: &mut W<Self>) -> adc1::cr1::DISCEN_W<'_, Self>;
+        fn jdiscen(w: &mut W<Self>) -> adc1::cr1::JDISCEN_W<'_, Self>;
+        fn discnum(w: &mut W<Self>) -> adc1::cr1::DISCNUM_W<'_, Self>;
+        fn jawden(w: &mut W<Self>) -> adc1::cr1::JAWDEN_W<'_, Self>;
+        fn awden(w: &mut W<Self>) -> adc1::cr1::AWDEN_W<'_, Self>;
     }
 
     pub trait Cr2R: RegisterSpec<Ux = u32> + Readable + Sized {
@@ -180,17 +180,17 @@ mod reg {
         fn tsvrefe(r: &R<Self>) -> adc1::cr2::TSVREFE_R;
     }
     pub trait Cr2W: RegisterSpec<Ux = u32> + Writable + Resettable + Sized + ExtSelW {
-        fn adon(w: &mut W<Self>) -> adc1::cr2::ADON_W<Self>;
-        fn cont(w: &mut W<Self>) -> adc1::cr2::CONT_W<Self>;
-        fn cal(w: &mut W<Self>) -> adc1::cr2::CAL_W<Self>;
-        fn rstcal(w: &mut W<Self>) -> adc1::cr2::RSTCAL_W<Self>;
-        fn dma(w: &mut W<Self>) -> adc1::cr2::DMA_W<Self>;
-        fn align(w: &mut W<Self>) -> adc1::cr2::ALIGN_W<Self>;
-        fn jexttrig(w: &mut W<Self>) -> adc1::cr2::JEXTTRIG_W<Self>;
-        fn exttrig(w: &mut W<Self>) -> adc1::cr2::EXTTRIG_W<Self>;
-        fn jswstart(w: &mut W<Self>) -> adc1::cr2::JSWSTART_W<Self>;
-        fn swstart(w: &mut W<Self>) -> adc1::cr2::SWSTART_W<Self>;
-        fn tsvrefe(w: &mut W<Self>) -> adc1::cr2::TSVREFE_W<Self>;
+        fn adon(w: &mut W<Self>) -> adc1::cr2::ADON_W<'_, Self>;
+        fn cont(w: &mut W<Self>) -> adc1::cr2::CONT_W<'_, Self>;
+        fn cal(w: &mut W<Self>) -> adc1::cr2::CAL_W<'_, Self>;
+        fn rstcal(w: &mut W<Self>) -> adc1::cr2::RSTCAL_W<'_, Self>;
+        fn dma(w: &mut W<Self>) -> adc1::cr2::DMA_W<'_, Self>;
+        fn align(w: &mut W<Self>) -> adc1::cr2::ALIGN_W<'_, Self>;
+        fn jexttrig(w: &mut W<Self>) -> adc1::cr2::JEXTTRIG_W<'_, Self>;
+        fn exttrig(w: &mut W<Self>) -> adc1::cr2::EXTTRIG_W<'_, Self>;
+        fn jswstart(w: &mut W<Self>) -> adc1::cr2::JSWSTART_W<'_, Self>;
+        fn swstart(w: &mut W<Self>) -> adc1::cr2::SWSTART_W<'_, Self>;
+        fn tsvrefe(w: &mut W<Self>) -> adc1::cr2::TSVREFE_W<'_, Self>;
     }
     pub trait Dr: RegisterSpec<Ux = u32> + Readable + Sized {
         fn data(r: &R<Self>) -> adc1::dr::DATA_R;
@@ -244,18 +244,18 @@ macro_rules! impl_ext {
         }
         impl reg::Cr1W for $adc::cr1::CR1rs {
             impl_write! {
-                awdch -> adc1::cr1::AWDCH_W<Self>;
-                eocie -> adc1::cr1::EOCIE_W<Self>;
-                awdie -> adc1::cr1::AWDIE_W<Self>;
-                jeocie -> adc1::cr1::JEOCIE_W<Self>;
-                scan -> adc1::cr1::SCAN_W<Self>;
-                awdsgl -> adc1::cr1::AWDSGL_W<Self>;
-                jauto -> adc1::cr1::JAUTO_W<Self>;
-                discen -> adc1::cr1::DISCEN_W<Self>;
-                jdiscen -> adc1::cr1::JDISCEN_W<Self>;
-                discnum -> adc1::cr1::DISCNUM_W<Self>;
-                jawden -> adc1::cr1::JAWDEN_W<Self>;
-                awden -> adc1::cr1::AWDEN_W<Self>;
+                awdch -> adc1::cr1::AWDCH_W<'_, Self>;
+                eocie -> adc1::cr1::EOCIE_W<'_, Self>;
+                awdie -> adc1::cr1::AWDIE_W<'_, Self>;
+                jeocie -> adc1::cr1::JEOCIE_W<'_, Self>;
+                scan -> adc1::cr1::SCAN_W<'_, Self>;
+                awdsgl -> adc1::cr1::AWDSGL_W<'_, Self>;
+                jauto -> adc1::cr1::JAUTO_W<'_, Self>;
+                discen -> adc1::cr1::DISCEN_W<'_, Self>;
+                jdiscen -> adc1::cr1::JDISCEN_W<'_, Self>;
+                discnum -> adc1::cr1::DISCNUM_W<'_, Self>;
+                jawden -> adc1::cr1::JAWDEN_W<'_, Self>;
+                awden -> adc1::cr1::AWDEN_W<'_, Self>;
             }
         }
         impl reg::Dr for $adc::dr::DRrs {
@@ -285,17 +285,17 @@ macro_rules! impl_cr2 {
         }
         impl reg::Cr2W for $adc::cr2::CR2rs {
             impl_write! {
-                adon -> adc1::cr2::ADON_W<Self>;
-                cont -> adc1::cr2::CONT_W<Self>;
-                cal -> adc1::cr2::CAL_W<Self>;
-                rstcal -> adc1::cr2::RSTCAL_W<Self>;
-                dma -> adc1::cr2::DMA_W<Self>;
-                align -> adc1::cr2::ALIGN_W<Self>;
-                jexttrig -> adc1::cr2::JEXTTRIG_W<Self>;
-                exttrig -> adc1::cr2::EXTTRIG_W<Self>;
-                jswstart -> adc1::cr2::JSWSTART_W<Self>;
-                swstart -> adc1::cr2::SWSTART_W<Self>;
-                tsvrefe -> adc1::cr2::TSVREFE_W<Self>;
+                adon -> adc1::cr2::ADON_W<'_, Self>;
+                cont -> adc1::cr2::CONT_W<'_, Self>;
+                cal -> adc1::cr2::CAL_W<'_, Self>;
+                rstcal -> adc1::cr2::RSTCAL_W<'_, Self>;
+                dma -> adc1::cr2::DMA_W<'_, Self>;
+                align -> adc1::cr2::ALIGN_W<'_, Self>;
+                jexttrig -> adc1::cr2::JEXTTRIG_W<'_, Self>;
+                exttrig -> adc1::cr2::EXTTRIG_W<'_, Self>;
+                jswstart -> adc1::cr2::JSWSTART_W<'_, Self>;
+                swstart -> adc1::cr2::SWSTART_W<'_, Self>;
+                tsvrefe -> adc1::cr2::TSVREFE_W<'_, Self>;
             }
         }
         impl reg::ExtSelW for $adc::cr2::CR2rs {

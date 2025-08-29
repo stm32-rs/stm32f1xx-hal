@@ -69,7 +69,7 @@ fn RTCALARM() {
     exti.pr().write(|w| w.pr17().clear_bit_by_one());
     rtc.set_alarm(rtc.current_time() + TOGGLE_INTERVAL_SECONDS);
 
-    let _ = led.toggle();
+    led.toggle();
 }
 
 #[cfg(not(feature = "stm32f101"))]
@@ -83,7 +83,7 @@ fn main() -> ! {
     // Set up the GPIO pin
     let mut gpioc = dp.GPIOC.split(&mut rcc);
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    let _ = led.set_high(); // Turn off
+    led.set_high(); // Turn off
 
     cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 

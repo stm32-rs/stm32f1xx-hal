@@ -62,8 +62,8 @@ fn TIM2() {
         })
     });
 
-    let _ = led.toggle();
-    let _ = tim.wait();
+    led.toggle();
+    tim.wait().ok();
 }
 
 #[entry]
