@@ -55,8 +55,8 @@
 //! let mut flash = dp.FLASH.constrain();
 //! let mut rcc = dp.RCC.constrain();
 //! let clocks = rcc.cfgr.freeze(&mut flash.acr);
-//! let mut afio = dp.AFIO.constrain();
-//! let mut gpioa = dp.GPIOA.split();
+//! let mut afio = dp.AFIO.constrain(&mut rcc);
+//! let mut gpioa = dp.GPIOA.split(&mut rcc);
 //!
 //! // USART1 on Pins A9 and A10
 //! let pin_tx = gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh);

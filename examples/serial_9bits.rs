@@ -102,7 +102,7 @@ fn main() -> ! {
     let mut rcc = p.RCC.constrain();
 
     // Prepare the alternate function I/O registers.
-    //let mut afio = p.AFIO.constrain();
+    //let mut afio = p.AFIO.constrain(&mut rcc);
 
     // Prepare the GPIOB peripheral.
     let gpiob = p.GPIOB.split(&mut rcc);

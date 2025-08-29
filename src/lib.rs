@@ -62,7 +62,7 @@
 //! let clocks = rcc.cfgr.freeze(&mut flash.acr);
 //!
 //! // Prepare the alternate function I/O registers
-//! let mut afio = dp.AFIO.constrain();
+//! let mut afio = dp.AFIO.constrain(&mut rcc);
 //! ```
 //!
 //! ## Usage examples
