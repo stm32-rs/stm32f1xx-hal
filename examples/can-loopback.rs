@@ -112,5 +112,7 @@ fn main() -> ! {
     let mut led = gpiob.pb9.into_push_pull_output(&mut gpiob.crh);
     led.set_high();
 
-    loop {}
+    loop {
+        continue;
+    }
 }

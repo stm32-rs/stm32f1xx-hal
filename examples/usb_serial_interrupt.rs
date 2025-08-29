@@ -57,18 +57,20 @@ fn main() -> ! {
 
         USB_BUS = Some(bus);
 
-        USB_SERIAL = Some(SerialPort::new(USB_BUS.as_ref().unwrap()));
+        if let Some(bus) = USB_BUS.as_ref() {
+            USB_SERIAL = Some(SerialPort::new(bus));
 
-        let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
-            .device_class(USB_CLASS_CDC)
-            .strings(&[StringDescriptors::default()
-                .manufacturer("Fake Company")
-                .product("Serial port")
-                .serial_number("TEST")])
-            .unwrap()
-            .build();
+            let usb_dev = UsbDeviceBuilder::new(bus, UsbVidPid(0x16c0, 0x27dd))
+                .device_class(USB_CLASS_CDC)
+                .strings(&[StringDescriptors::default()
+                    .manufacturer("Fake Company")
+                    .product("Serial port")
+                    .serial_number("TEST")])
+                .unwrap()
+                .build();
 
-        USB_DEVICE = Some(usb_dev);
+            USB_DEVICE = Some(usb_dev);
+        }
     }
 
     unsafe {
