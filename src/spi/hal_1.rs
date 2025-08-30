@@ -43,13 +43,13 @@ impl<SPI: Instance, W, PULL> ErrorType for Spi<SPI, W, PULL> {
 }
 
 mod nb {
-    use super::{Error, Instance, Spi};
+    use super::{Error, FrameSize, Instance, Spi};
     use embedded_hal_nb::spi::FullDuplex;
 
     impl<SPI, W, PULL> FullDuplex<W> for Spi<SPI, W, PULL>
     where
         SPI: Instance,
-        W: Copy,
+        W: FrameSize,
     {
         fn read(&mut self) -> nb::Result<W, Error> {
             self.read_nonblocking()
@@ -62,25 +62,25 @@ mod nb {
 }
 
 mod blocking {
-    use super::super::{Instance, Spi};
+    use super::super::{FrameSize, Instance, Spi};
     use core::ops::DerefMut;
     use embedded_hal::spi::SpiBus;
 
     impl<SPI: Instance, W, PULL> SpiBus<W> for Spi<SPI, W, PULL>
     where
         SPI: Instance,
-        W: Copy + 'static,
+        W: FrameSize + 'static,
     {
-        fn transfer_in_place(&mut self, _words: &mut [W]) -> Result<(), Self::Error> {
-            todo!()
+        fn transfer_in_place(&mut self, words: &mut [W]) -> Result<(), Self::Error> {
+            self.deref_mut().transfer_in_place(words)
         }
 
-        fn transfer(&mut self, _buff: &mut [W], _data: &[W]) -> Result<(), Self::Error> {
-            todo!()
+        fn transfer(&mut self, buff: &mut [W], data: &[W]) -> Result<(), Self::Error> {
+            self.deref_mut().transfer(buff, data)
         }
 
-        fn read(&mut self, _words: &mut [W]) -> Result<(), Self::Error> {
-            todo!()
+        fn read(&mut self, words: &mut [W]) -> Result<(), Self::Error> {
+            self.deref_mut().read(words)
         }
 
         fn write(&mut self, words: &[W]) -> Result<(), Self::Error> {
