@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::pac::DWT;
+
 /// embedded-hal compatible blocking I2C implementation
 ///
 /// **NOTE**: Before using blocking I2C, you need to enable the DWT cycle counter using the
@@ -307,5 +309,49 @@ impl<I2C: Instance> BlockingI2c<I2C> {
         _ops_slice: &mut [embedded_hal_02::blocking::i2c::Operation<'_>],
     ) -> Result<(), Error> {
         todo!();
+    }
+}
+
+pub trait BlockingI2cExt: I2cExt {
+    #[allow(clippy::too_many_arguments)]
+    fn blocking_i2c(
+        self,
+        pins: (impl RInto<Self::Scl, 0>, impl RInto<Self::Sda, 0>),
+        mode: impl Into<Mode>,
+        rcc: &mut Rcc,
+        start_timeout_us: u32,
+        start_retries: u8,
+        addr_timeout_us: u32,
+        data_timeout_us: u32,
+    ) -> BlockingI2c<Self> {
+        Self::i2c(self, pins, mode, rcc).blocking(
+            start_timeout_us,
+            start_retries,
+            addr_timeout_us,
+            data_timeout_us,
+            &rcc.clocks,
+        )
+    }
+}
+
+impl<I2C: Instance, const R: u8> Rmp<I2C, R> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn blocking_i2c(
+        self,
+        pins: (impl RInto<I2C::Scl, R>, impl RInto<I2C::Sda, R>),
+        mode: impl Into<Mode>,
+        rcc: &mut Rcc,
+        start_timeout_us: u32,
+        start_retries: u8,
+        addr_timeout_us: u32,
+        data_timeout_us: u32,
+    ) -> BlockingI2c<I2C> {
+        self.i2c(pins, mode, rcc).blocking(
+            start_timeout_us,
+            start_retries,
+            addr_timeout_us,
+            data_timeout_us,
+            &rcc.clocks,
+        )
     }
 }

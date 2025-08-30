@@ -16,6 +16,7 @@ pub use crate::flash::FlashExt as _stm32_hal_flash_FlashExt;
 pub use crate::gpio::GpioExt as _stm32_hal_gpio_GpioExt;
 pub use crate::hal_02::adc::OneShot as _embedded_hal_adc_OneShot;
 pub use crate::hal_02::prelude::*;
+pub use crate::i2c::blocking::BlockingI2cExt as _;
 pub use crate::i2c::I2cExt as _;
 pub use crate::rcc::BkpExt as _;
 pub use crate::rcc::RccExt as _stm32_hal_rcc_RccExt;

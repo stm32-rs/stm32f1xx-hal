@@ -1,24 +1,14 @@
-use embedded_hal::i2c::{Error, ErrorKind, ErrorType};
-
-impl Error for super::Error {
-    fn kind(&self) -> ErrorKind {
-        match *self {
-            Self::Overrun => ErrorKind::Overrun,
-            Self::Bus => ErrorKind::Bus,
-            Self::ArbitrationLoss => ErrorKind::ArbitrationLoss,
-            Self::NoAcknowledge(nack) => ErrorKind::NoAcknowledge(nack),
-            Self::Timeout => ErrorKind::Other,
-        }
-    }
+impl<I2C: super::Instance> embedded_hal::i2c::ErrorType for super::I2c<I2C> {
+    type Error = super::Error;
 }
 
-impl<I2C: super::Instance> ErrorType for super::BlockingI2c<I2C> {
+impl<I2C: super::Instance> embedded_hal::i2c::ErrorType for super::BlockingI2c<I2C> {
     type Error = super::Error;
 }
 
 mod blocking {
-    use super::super::{BlockingI2c, Instance};
-    use embedded_hal::i2c::Operation;
+    use super::super::{BlockingI2c, I2c, Instance};
+    use embedded_hal::i2c::{Operation, SevenBitAddress, TenBitAddress};
 
     impl<I2C: Instance> embedded_hal::i2c::I2c for BlockingI2c<I2C> {
         fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -41,6 +31,59 @@ mod blocking {
         fn transaction(
             &mut self,
             addr: u8,
+            operations: &mut [Operation<'_>],
+        ) -> Result<(), Self::Error> {
+            self.transaction_slice(addr, operations)
+        }
+    }
+    impl<I2C: Instance> embedded_hal::i2c::I2c for I2c<I2C> {
+        fn read(&mut self, addr: SevenBitAddress, buffer: &mut [u8]) -> Result<(), Self::Error> {
+            self.read(addr, buffer)
+        }
+
+        fn write(&mut self, addr: SevenBitAddress, bytes: &[u8]) -> Result<(), Self::Error> {
+            self.write(addr, bytes)
+        }
+
+        fn write_read(
+            &mut self,
+            addr: SevenBitAddress,
+            bytes: &[u8],
+            buffer: &mut [u8],
+        ) -> Result<(), Self::Error> {
+            self.write_read(addr, bytes, buffer)
+        }
+
+        fn transaction(
+            &mut self,
+            addr: SevenBitAddress,
+            operations: &mut [Operation<'_>],
+        ) -> Result<(), Self::Error> {
+            self.transaction_slice(addr, operations)
+        }
+    }
+
+    impl<I2C: Instance> embedded_hal::i2c::I2c<TenBitAddress> for I2c<I2C> {
+        fn read(&mut self, addr: TenBitAddress, buffer: &mut [u8]) -> Result<(), Self::Error> {
+            self.read(addr, buffer)
+        }
+
+        fn write(&mut self, addr: TenBitAddress, bytes: &[u8]) -> Result<(), Self::Error> {
+            self.write(addr, bytes)
+        }
+
+        fn write_read(
+            &mut self,
+            addr: TenBitAddress,
+            bytes: &[u8],
+            buffer: &mut [u8],
+        ) -> Result<(), Self::Error> {
+            self.write_read(addr, bytes, buffer)
+        }
+
+        fn transaction(
+            &mut self,
+            addr: TenBitAddress,
             operations: &mut [Operation<'_>],
         ) -> Result<(), Self::Error> {
             self.transaction_slice(addr, operations)
