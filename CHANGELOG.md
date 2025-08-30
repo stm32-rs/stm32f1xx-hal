@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `Spi` now takes `Option<PIN>` for `SCK`, `MISO`, `MOSI` [#514],
   add `SPIx::NoSck`, etc. [#537]
 - `spi::FrameSize` and `embedded-hal` 1.0 implementations
+- Backport `I2c` implementation from `f4xx-hal`
 - move `Qei` mod inside `pwm_input` mod [#516]
 
 ### Changed
