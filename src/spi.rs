@@ -66,7 +66,6 @@ mod hal_02;
 mod hal_1;
 
 use core::ops::{Deref, DerefMut};
-use core::ptr;
 
 use crate::pac::{self, RCC};
 
@@ -107,6 +106,36 @@ pub struct Mode {
     pub polarity: Polarity,
     /// Clock phase
     pub phase: Phase,
+}
+
+type SpiRB = pac::spi1::RegisterBlock;
+
+pub trait FrameSize: Copy + Default {
+    const DFF: bool;
+    #[doc(hidden)]
+    fn read_data(spi: &SpiRB) -> Self;
+    #[doc(hidden)]
+    fn write_data(self, spi: &SpiRB);
+}
+
+impl FrameSize for u8 {
+    const DFF: bool = false;
+    fn read_data(spi: &SpiRB) -> Self {
+        spi.dr8().read().dr().bits()
+    }
+    fn write_data(self, spi: &SpiRB) {
+        spi.dr8().write(|w| w.dr().set(self));
+    }
+}
+
+impl FrameSize for u16 {
+    const DFF: bool = true;
+    fn read_data(spi: &SpiRB) -> Self {
+        spi.dr().read().dr().bits()
+    }
+    fn write_data(self, spi: &SpiRB) {
+        spi.dr().write(|w| w.dr().set(self));
+    }
 }
 
 /// Interrupt event
@@ -519,24 +548,7 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u8, Otype, PULL> {
     }
 }
 
-pub trait SpiReadWrite<T> {
-    fn read_data_reg(&mut self) -> T;
-    fn write_data_reg(&mut self, data: T);
-    fn spi_write(&mut self, words: &[T]) -> Result<(), Error>;
-}
-
-impl<SPI: Instance, W: Copy> SpiReadWrite<W> for SpiInner<SPI, W> {
-    fn read_data_reg(&mut self) -> W {
-        // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
-        // reading a half-word)
-        unsafe { ptr::read_volatile(self.spi.dr().as_ptr() as *const W) }
-    }
-
-    fn write_data_reg(&mut self, data: W) {
-        // NOTE(write_volatile) see note above
-        unsafe { ptr::write_volatile(self.spi.dr().as_ptr() as *mut W, data) }
-    }
-
+impl<SPI: Instance, W: FrameSize> SpiInner<SPI, W> {
     // Implement write as per the "Transmit only procedure" page 712
     // of RM0008 Rev 20. This is more than twice as fast as the
     // default Write<> implementation (which reads and drops each
@@ -547,7 +559,7 @@ impl<SPI: Instance, W: Copy> SpiReadWrite<W> for SpiInner<SPI, W> {
             loop {
                 let sr = self.spi.sr().read();
                 if sr.txe().bit_is_set() {
-                    self.write_data_reg(*word);
+                    (*word).write_data(&self.spi);
                     if sr.modf().bit_is_set() {
                         return Err(Error::ModeFault);
                     }
@@ -560,13 +572,13 @@ impl<SPI: Instance, W: Copy> SpiReadWrite<W> for SpiInner<SPI, W> {
         // Wait for final !BSY
         while self.is_busy() {}
         // Clear OVR set due to dropped received values
-        let _ = self.read_data_reg();
+        let _ = W::read_data(&self.spi);
         let _ = self.spi.sr().read();
         Ok(())
     }
 }
 
-impl<SPI: Instance, W: Copy> SpiInner<SPI, W> {
+impl<SPI: Instance, W> SpiInner<SPI, W> {
     /// Select which frame format is used for data transfers
     pub fn bit_format(&mut self, format: SpiBitFormat) {
         self.spi
@@ -676,9 +688,9 @@ impl<SPI: Instance, Otype, PULL> SpiSlave<SPI, u16, Otype, PULL> {
 impl<SPI, W> SpiInner<SPI, W>
 where
     SPI: Instance,
-    W: Copy,
+    W: FrameSize,
 {
-    pub fn read_nonblocking(&mut self) -> nb::Result<W, Error> {
+    pub(crate) fn check_read(&mut self) -> nb::Result<W, Error> {
         let sr = self.spi.sr().read();
 
         Err(if sr.ovr().bit_is_set() {
@@ -690,12 +702,13 @@ where
         } else if sr.rxne().bit_is_set() {
             // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
             // reading a half-word)
-            return Ok(self.read_data_reg());
+            return Ok(W::read_data(&self.spi));
         } else {
             nb::Error::WouldBlock
         })
     }
-    pub fn write_nonblocking(&mut self, data: W) -> nb::Result<(), Error> {
+
+    pub(crate) fn check_send(&mut self, data: W) -> nb::Result<(), Error> {
         let sr = self.spi.sr().read();
 
         // NOTE: Error::Overrun was deleted in #408. Need check
@@ -705,14 +718,82 @@ where
             Error::Crc.into()
         } else if sr.txe().bit_is_set() {
             // NOTE(write_volatile) see note above
-            self.write_data_reg(data);
+            data.write_data(&self.spi);
             return Ok(());
         } else {
             nb::Error::WouldBlock
         })
     }
+
+    #[inline(always)]
+    pub fn read_nonblocking(&mut self) -> nb::Result<W, Error> {
+        // TODO: bidimode
+        self.check_read()
+    }
+
+    #[inline(always)]
+    pub fn write_nonblocking(&mut self, data: W) -> nb::Result<(), Error> {
+        // TODO: bidimode
+        self.check_send(data)
+    }
+
+    #[inline(always)]
     pub fn write(&mut self, words: &[W]) -> Result<(), Error> {
         self.spi_write(words)
+    }
+
+    pub fn transfer_in_place(&mut self, words: &mut [W]) -> Result<(), Error> {
+        for word in words {
+            nb::block!(self.write_nonblocking(*word))?;
+            *word = nb::block!(self.read_nonblocking())?;
+        }
+
+        Ok(())
+    }
+
+    pub fn transfer(&mut self, buff: &mut [W], data: &[W]) -> Result<(), Error> {
+        if data.len() == buff.len() {
+            for (d, b) in data.iter().cloned().zip(buff.iter_mut()) {
+                nb::block!(self.write_nonblocking(d))?;
+                *b = nb::block!(self.read_nonblocking())?;
+            }
+        } else {
+            let mut iter_r = buff.iter_mut();
+            let mut iter_w = data.iter().cloned();
+            loop {
+                match (iter_r.next(), iter_w.next()) {
+                    (Some(r), Some(w)) => {
+                        nb::block!(self.write_nonblocking(w))?;
+                        *r = nb::block!(self.read_nonblocking())?;
+                    }
+                    (Some(r), None) => {
+                        nb::block!(self.write_nonblocking(W::default()))?;
+                        *r = nb::block!(self.read_nonblocking())?;
+                    }
+                    (None, Some(w)) => {
+                        nb::block!(self.write_nonblocking(w))?;
+                        let _ = nb::block!(self.read_nonblocking())?;
+                    }
+                    (None, None) => break,
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn flush(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
+    pub fn read(&mut self, words: &mut [W]) -> Result<(), Error> {
+        // TODO: bidimode
+        for word in words {
+            nb::block!(self.check_send(W::default()))?;
+            *word = nb::block!(self.check_read())?;
+        }
+
+        Ok(())
     }
 }
 
