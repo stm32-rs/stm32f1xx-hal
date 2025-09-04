@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Update `bxcan`, `heapless`, `mfrc522`, reenable `mpu9250` example [#513]
 - PWM timer auto reload value is now preloaded/buffered [#453]
 - Move from bors/manual merge to GH merge queue [#467]
+- `Rtc::restore_or_new`: adds restoring mechanism of running Rtc [#468]
+- `Rtc::select_frequency`: fix for LSI and HSE, where correct frequency was not selected [#468]
 - Replace UB code by a legitimate pointer access [#480]
 - Fix flash error flag clearing [#489]
 - Clarify README for windows users [#496]
@@ -59,6 +61,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#453]: https://github.com/stm32-rs/stm32f1xx-hal/pull/453
 [#462]: https://github.com/stm32-rs/stm32f1xx-hal/pull/462
 [#467]: https://github.com/stm32-rs/stm32f1xx-hal/pull/467
+[#468]: https://github.com/stm32-rs/stm32f1xx-hal/pull/468
 [#479]: https://github.com/stm32-rs/stm32f1xx-hal/pull/479
 [#480]: https://github.com/stm32-rs/stm32f1xx-hal/pull/480
 [#483]: https://github.com/stm32-rs/stm32f1xx-hal/pull/483
@@ -81,6 +84,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#528]: https://github.com/stm32-rs/stm32f1xx-hal/pull/528
 [#534]: https://github.com/stm32-rs/stm32f1xx-hal/pull/534
 [#536]: https://github.com/stm32-rs/stm32f1xx-hal/pull/536
+- Move from bors/manual merge to GH merge queue
+- Add tools/check.py python script for local check
+- Add changelog check on PRs
 
 ## [v0.10.0] - 2022-12-12
 
