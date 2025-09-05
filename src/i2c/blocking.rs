@@ -334,6 +334,8 @@ pub trait BlockingI2cExt: I2cExt {
     }
 }
 
+impl<I2C: I2cExt> BlockingI2cExt for I2C {}
+
 impl<I2C: Instance, const R: u8> Rmp<I2C, R> {
     #[allow(clippy::too_many_arguments)]
     pub fn blocking_i2c(
