@@ -212,6 +212,10 @@ impl<I2C: Instance> BlockingI2c<I2C> {
         Ok(())
     }
 
+    pub fn reset(&mut self) {
+        self.nb.reset();
+    }
+
     pub fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
         self.send_start_and_wait()?;
         self.send_addr_and_wait(addr, true)?;
