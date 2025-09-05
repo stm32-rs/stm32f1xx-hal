@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- reset methods for I2C and BlockingI2C interfaces
 - `Serial` support for UART4/5
 - Allow to set HSE bypass bit in `RCC` clock configuration register to use an external clock input on the `OSC_IN` pin [#485]
 - initial support of `embedded-hal-1.0` [#416]
