@@ -6,7 +6,7 @@
 
 use crate::pac::USB;
 use crate::rcc::{Enable, Reset};
-use stm32_usbd::UsbPeripheral;
+use stm32_usbd::{MemoryAccess, UsbPeripheral};
 
 use crate::gpio::gpioa::{PA11, PA12};
 use crate::gpio::{Floating, Input};
@@ -25,7 +25,7 @@ unsafe impl UsbPeripheral for Peripheral {
     const DP_PULL_UP_FEATURE: bool = false;
     const EP_MEMORY: *const () = 0x4000_6000 as _;
     const EP_MEMORY_SIZE: usize = 512;
-    const EP_MEMORY_ACCESS_2X16: bool = false;
+    const EP_MEMORY_ACCESS: MemoryAccess = MemoryAccess::Word16x1;
 
     fn enable() {
         unsafe {
