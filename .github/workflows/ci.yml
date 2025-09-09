@@ -1,6 +1,6 @@
 on:
   push:
-    branches: master
+    branches: [master]
   pull_request:
   merge_group:
 
@@ -34,7 +34,7 @@ jobs:
             experimental: true
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Use the latest ${{ matrix.rust }} rustc
         run: rustup update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
       - name: Add Cortex-M3 target
