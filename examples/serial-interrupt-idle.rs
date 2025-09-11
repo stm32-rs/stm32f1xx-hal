@@ -2,6 +2,7 @@
 //!
 //! You have to short the TX and RX pins to make this program work
 
+#![allow(clippy::empty_loop)]
 #![no_main]
 #![no_std]
 
@@ -52,9 +53,7 @@ fn main() -> ! {
         cortex_m::peripheral::NVIC::unmask(pac::Interrupt::USART1);
     }
 
-    loop {
-        cortex_m::asm::wfi()
-    }
+    loop {}
 }
 const BUFFER_LEN: usize = 4096;
 static mut BUFFER: &mut [u8; BUFFER_LEN] = &mut [0; BUFFER_LEN];
