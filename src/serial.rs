@@ -54,7 +54,7 @@
 //! let dp = stm32f1xx_hal::Peripherals::take().unwrap();
 //! let mut flash = dp.FLASH.constrain();
 //! let mut rcc = dp.RCC.constrain();
-//! let clocks = rcc.cfgr.freeze(&mut flash.acr);
+//! let clocks = rcc.freeze(rcc::Config::default(), &mut flash.acr);
 //! let mut afio = dp.AFIO.constrain(&mut rcc);
 //! let mut gpioa = dp.GPIOA.split(&mut rcc);
 //!

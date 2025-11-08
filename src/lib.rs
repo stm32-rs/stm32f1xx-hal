@@ -59,7 +59,7 @@
 //!
 //! // Freeze the configuration of all the clocks in the system and store the frozen frequencies in
 //! // `clocks`
-//! let clocks = rcc.cfgr.freeze(&mut flash.acr);
+//! let clocks = rcc.freeze(rcc::Config::default(), &mut flash.acr);
 //!
 //! // Prepare the alternate function I/O registers
 //! let mut afio = dp.AFIO.constrain(&mut rcc);

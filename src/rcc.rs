@@ -204,7 +204,7 @@ impl Rcc {
     /// let dp = pac::Peripherals::take().unwrap();
     /// let mut flash = dp.FLASH.constrain();
     /// let mut rcc = dp.RCC.constrain();
-    /// let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    /// let clocks = rcc.freeze(rcc::Config::default(), &mut flash.acr);
     /// ```
     #[inline(always)]
     pub fn freeze(self, cfg: impl Into<RawConfig>, acr: &mut ACR) -> Self {
@@ -343,7 +343,7 @@ impl BkpExt for BKP {
 /// let mut rcc = dp.RCC.constrain();
 /// let mut flash = dp.FLASH.constrain();
 ///
-/// let clocks = rcc.cfgr.freeze(&mut flash.acr);
+/// let clocks = rcc.freeze(rcc::Config::default(), &mut flash.acr);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Clocks {
