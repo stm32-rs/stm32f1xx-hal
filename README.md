@@ -56,7 +56,7 @@ panic-halt = "1.0.0"
 
 [dependencies.stm32f1xx-hal]
 version = "0.11.0"
-features = ["rt", "stm32f103", "medium"]
+features = ["stm32f103", "medium"]
 ```
 
 If you build your project now, you should get a single error: `error: language
@@ -191,8 +191,8 @@ be specified as part of the `Cargo.toml` definition.
 
 ```toml
 [dependencies.stm32f1xx-hal]
-version = "0.9.0"
-features = ["stm32f100", "rt"]
+version = "0.11.0"
+features = ["stm32f100"]
 ```
 
 ## Documentation
