@@ -63,9 +63,8 @@
 //! let pin_rx = gpioa.pa10;
 //! // Create an interface struct for USART1 with 9600 Baud
 //! let serial = Serial::new(
-//!     dp.USART1,
+//!     dp.USART1.remap(&mut afio.mapr),
 //!     (pin_tx, pin_rx),
-//!     &mut afio.mapr,
 //!     Config::default()
 //!         .baudrate(9600.bps())
 //!         .wordlength_9bits()
@@ -519,7 +518,17 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
     /// Basic usage:
     ///
     /// ```
-    /// let mut serial = Serial::new(usart, (tx_pin, rx_pin), &mut afio.mapr, 9600.bps(), &mut rcc);
+    /// let serial = Serial::new(
+    ///     usart.remap(&mut afio.mapr),
+    ///     (tx_pin, rx_pin),
+    ///     9600.bps(),
+    ///     &mut rcc);
+    ///
+    /// // Or
+    ///
+    /// let serial = usart
+    ///     .remap(&mut afio.mapr)
+    ///     .serial((tx_pin, rx_pin), 9600.bps(), &mut rcc);
     ///
     /// // You can split the `Serial`
     /// let Serial { tx, rx, token } = serial;
