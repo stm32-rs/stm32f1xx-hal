@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `timer.rs` refactoring
+
 ## [v0.11.0] - 2025-09-09
 
 ### Breaking changes

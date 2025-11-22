@@ -207,6 +207,7 @@ impl Rcc {
     /// let clocks = rcc.freeze(rcc::Config::default(), &mut flash.acr);
     /// ```
     #[inline(always)]
+    #[allow(unused)]
     pub fn freeze(self, cfg: impl Into<RawConfig>, acr: &mut ACR) -> Self {
         let cfg = cfg.into();
         let clocks = cfg.get_clocks();
