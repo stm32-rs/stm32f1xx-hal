@@ -32,7 +32,7 @@ impl<TIM: Instance> CounterHz<TIM> {
 impl<TIM: Instance> CounterHz<TIM> {
     pub fn start(&mut self, timeout: Hertz) -> Result<(), Error> {
         // pause
-        self.tim.disable_counter();
+        self.tim.enable_counter(false);
 
         self.tim.clear_interrupt_flag(Event::Update);
 
@@ -47,7 +47,7 @@ impl<TIM: Instance> CounterHz<TIM> {
         self.tim.trigger_update();
 
         // start counter
-        self.tim.enable_counter();
+        self.tim.enable_counter(true);
 
         Ok(())
     }
@@ -67,14 +67,14 @@ impl<TIM: Instance> CounterHz<TIM> {
         }
 
         // disable counter
-        self.tim.disable_counter();
+        self.tim.enable_counter(false);
         Ok(())
     }
 
     /// Restarts the timer in count down mode with user-defined prescaler and auto-reload register
     pub fn start_raw(&mut self, psc: u16, arr: u16) {
         // pause
-        self.tim.disable_counter();
+        self.tim.enable_counter(false);
 
         self.tim.set_prescaler(psc);
 
@@ -84,7 +84,7 @@ impl<TIM: Instance> CounterHz<TIM> {
         self.tim.trigger_update();
 
         // start counter
-        self.tim.enable_counter();
+        self.tim.enable_counter(true);
     }
 
     /// Retrieves the content of the prescaler register. The real prescaler is this value + 1.
@@ -160,7 +160,7 @@ impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
 
     pub fn start(&mut self, timeout: TimerDurationU32<FREQ>) -> Result<(), Error> {
         // pause
-        self.tim.disable_counter();
+        self.tim.enable_counter(false);
 
         self.tim.clear_interrupt_flag(Event::Update);
 
@@ -173,7 +173,7 @@ impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
         self.tim.trigger_update();
 
         // start counter
-        self.tim.enable_counter();
+        self.tim.enable_counter(true);
 
         Ok(())
     }
@@ -193,7 +193,7 @@ impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
         }
 
         // disable counter
-        self.tim.disable_counter();
+        self.tim.enable_counter(false);
         Ok(())
     }
 }
