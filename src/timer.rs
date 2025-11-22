@@ -956,32 +956,39 @@ hal!(pac::TIM7: [Timer7, u16, dbg_tim7_stop, m: tim6,]);
 #[cfg(all(feature = "stm32f103", feature = "high"))]
 hal!(pac::TIM8: [Timer8, u16, dbg_tim8_stop, c: (4, 4, _aoe), m: tim1,]);
 
+//TODO: restore these timers once stm32-rs has been updated
+// dbg_tim(12-13)_stop fields missing from 103 xl in stm32-rs
+// dbg_tim(9-10)_stop fields missing from 101 xl in stm32-rs
+/*
+#[cfg(feature = "xl")]
+hal!(pac::TIM9: [Timer9, u16, dbg_tim9_stop, c: (2, 2),]);
+#[cfg(feature = "xl")]
+hal!(pac::TIM10: [Timer10, u16, dbg_tim10_stop, c: (1, 1),]);
+#[cfg(feature = "xl")]
+hal!(pac::TIM11: [Timer11, u16, dbg_tim11_stop, c: (1, 1),]);
+*/
+#[cfg(any(
+    all(feature = "stm32f100", feature = "high"),
+    all(feature = "stm32f101", feature = "xl"),
+    //all(feature = "stm32f103", feature = "xl"),
+))]
+hal!(pac::TIM12: [Timer12, u16, dbg_tim12_stop, c: (2, 2),]);
+#[cfg(any(
+    all(feature = "stm32f100", feature = "high"),
+    all(feature = "stm32f101", feature = "xl"),
+    //all(feature = "stm32f103", feature = "xl"),
+))]
+hal!(pac::TIM13: [Timer13, u16, dbg_tim13_stop, c: (1, 1),]);
+#[cfg(any(
+    all(feature = "stm32f100", feature = "high"),
+    all(feature = "stm32f101", feature = "xl"),
+    //all(feature = "stm32f103", feature = "xl"),
+))]
+hal!(pac::TIM14: [Timer14, u16, dbg_tim14_stop, c: (1, 1),]);
+
 #[cfg(feature = "stm32f100")]
 hal!(pac::TIM15: [Timer15, u16, dbg_tim15_stop, c: (2, 2),]);
 #[cfg(feature = "stm32f100")]
 hal!(pac::TIM16: [Timer16, u16, dbg_tim16_stop, c: (1, 1),]);
 #[cfg(feature = "stm32f100")]
 hal!(pac::TIM17: [Timer17, u16, dbg_tim17_stop, c: (1, 1),]);
-
-//TODO: restore these timers once stm32-rs has been updated
-/*
- *   dbg_tim(12-13)_stop fields missing from 103 xl in stm32-rs
- *   dbg_tim(9-10)_stop fields missing from 101 xl in stm32-rs
-#[cfg(any(
-    feature = "xl",
-    all(
-        feature = "stm32f100",
-        feature = "high",
-)))]
-hal! {
-    TIM12: (tim12, dbg_tim12_stop),
-    TIM13: (tim13, dbg_tim13_stop),
-    TIM14: (tim14, dbg_tim14_stop),
-}
-#[cfg(feature = "xl")]
-hal! {
-    TIM9: (tim9, dbg_tim9_stop),
-    TIM10: (tim10, dbg_tim10_stop),
-    TIM11: (tim11, dbg_tim11_stop),
-}
-*/
