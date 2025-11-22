@@ -303,19 +303,19 @@ impl<TIM: Instance + WithPwm> Timer<TIM> {
 
         if PINS::C1 {
             self.tim
-                .preload_output_channel_in_mode(Channel::C1, Ocm::PwmMode1);
+                .preload_output_channel_in_mode(Channel::C1 as u8, Ocm::PwmMode1);
         }
         if PINS::C2 && TIM::CH_NUMBER > 1 {
             self.tim
-                .preload_output_channel_in_mode(Channel::C2, Ocm::PwmMode1);
+                .preload_output_channel_in_mode(Channel::C2 as u8, Ocm::PwmMode1);
         }
         if PINS::C3 && TIM::CH_NUMBER > 2 {
             self.tim
-                .preload_output_channel_in_mode(Channel::C3, Ocm::PwmMode1);
+                .preload_output_channel_in_mode(Channel::C3 as u8, Ocm::PwmMode1);
         }
         if PINS::C4 && TIM::CH_NUMBER > 3 {
             self.tim
-                .preload_output_channel_in_mode(Channel::C4, Ocm::PwmMode1);
+                .preload_output_channel_in_mode(Channel::C4 as u8, Ocm::PwmMode1);
         }
 
         // The reference manual is a bit ambiguous about when enabling this bit is really
@@ -449,19 +449,19 @@ impl<TIM: Instance + WithPwm, const FREQ: u32> FTimer<TIM, FREQ> {
 
         if PINS::C1 {
             self.tim
-                .preload_output_channel_in_mode(Channel::C1, Ocm::PwmMode1);
+                .preload_output_channel_in_mode(Channel::C1 as u8, Ocm::PwmMode1);
         }
         if PINS::C2 && TIM::CH_NUMBER > 1 {
             self.tim
-                .preload_output_channel_in_mode(Channel::C2, Ocm::PwmMode1);
+                .preload_output_channel_in_mode(Channel::C2 as u8, Ocm::PwmMode1);
         }
         if PINS::C3 && TIM::CH_NUMBER > 2 {
             self.tim
-                .preload_output_channel_in_mode(Channel::C3, Ocm::PwmMode1);
+                .preload_output_channel_in_mode(Channel::C3 as u8, Ocm::PwmMode1);
         }
         if PINS::C4 && TIM::CH_NUMBER > 3 {
             self.tim
-                .preload_output_channel_in_mode(Channel::C4, Ocm::PwmMode1);
+                .preload_output_channel_in_mode(Channel::C4 as u8, Ocm::PwmMode1);
         }
 
         // The reference manual is a bit ambiguous about when enabling this bit is really
