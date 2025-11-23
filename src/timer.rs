@@ -354,7 +354,7 @@ pub use pac::tim1::cr1::CMS as CenterAlignedMode;
 mod sealed {
     use super::{
         CaptureFilter, CaptureMode, CapturePolarity, CapturePrescaler, CenterAlignedMode, Event,
-        IdleState, Ocm, Polarity, DBG,
+        IdleState, Ocm, Polarity,
     };
     pub trait General {
         type Width: Into<u32> + From<u16>;
@@ -376,7 +376,6 @@ mod sealed {
         fn start_one_pulse(&mut self);
         fn cr1_reset(&mut self);
         fn cnt_reset(&mut self);
-        fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool);
     }
 
     pub trait WithChannel: General {
@@ -422,7 +421,7 @@ mod sealed {
 pub(crate) use sealed::{Advanced, General, MasterTimer, WithCapture, WithChannel, WithPwm};
 
 pub trait Instance:
-    crate::Sealed + rcc::Enable + rcc::Reset + rcc::BusTimerClock + General
+    crate::Sealed + rcc::Enable + rcc::Reset + rcc::BusTimerClock + rcc::StopInDebug + General
 {
 }
 
@@ -430,7 +429,6 @@ macro_rules! hal {
     ($TIM:ty: [
         $Timer:ident,
         $bits:ty,
-        $dbg_timX_stop:ident,
         $(c: ($cnum:tt, $ncnum:tt $(, $aoe:ident)?),)?
         $(m: $timbase:ident,)?
     ]) => {
@@ -528,10 +526,6 @@ macro_rules! hal {
             #[inline(always)]
             fn cnt_reset(&mut self) {
                 self.cnt().reset();
-            }
-            #[inline(always)]
-            fn stop_in_debug(&mut self, dbg: &mut DBG, state: bool) {
-                dbg.cr().modify(|_, w| w.$dbg_timX_stop().bit(state));
             }
         }
         $(
@@ -933,62 +927,46 @@ const fn compute_arr_presc(freq: u32, clock: u32) -> (u16, u32) {
 }
 
 #[cfg(any(feature = "stm32f100", feature = "stm32f103", feature = "connectivity"))]
-hal!(pac::TIM1: [Timer1, u16, dbg_tim1_stop, c: (4, 4, _aoe), m: tim1,]);
+hal!(pac::TIM1: [Timer1, u16, c: (4, 4, _aoe), m: tim1,]);
 
-hal!(pac::TIM2: [Timer2, u16, dbg_tim2_stop, c: (4, 0), m: tim2,]);
-hal!(pac::TIM3: [Timer3, u16, dbg_tim3_stop, c: (4, 0), m: tim2,]);
+hal!(pac::TIM2: [Timer2, u16, c: (4, 0), m: tim2,]);
+hal!(pac::TIM3: [Timer3, u16, c: (4, 0), m: tim2,]);
 
 #[cfg(feature = "medium")]
-hal!(pac::TIM4: [Timer4, u16, dbg_tim4_stop, c: (4, 0), m: tim2,]);
+hal!(pac::TIM4: [Timer4, u16, c: (4, 0), m: tim2,]);
 
 #[cfg(any(feature = "high", feature = "connectivity"))]
-hal!(pac::TIM5: [Timer5, u16, dbg_tim5_stop, c: (4, 0), m: tim2,]);
+hal!(pac::TIM5: [Timer5, u16, c: (4, 0), m: tim2,]);
 
 #[cfg(any(feature = "stm32f100", feature = "high", feature = "connectivity"))]
-hal!(pac::TIM6: [Timer6, u16, dbg_tim6_stop, m: tim6,]);
+hal!(pac::TIM6: [Timer6, u16, m: tim6,]);
 
 #[cfg(any(
     all(feature = "high", any(feature = "stm32f101", feature = "stm32f103")),
     any(feature = "stm32f100", feature = "connectivity")
 ))]
-hal!(pac::TIM7: [Timer7, u16, dbg_tim7_stop, m: tim6,]);
+hal!(pac::TIM7: [Timer7, u16, m: tim6,]);
 
 #[cfg(all(feature = "stm32f103", feature = "high"))]
-hal!(pac::TIM8: [Timer8, u16, dbg_tim8_stop, c: (4, 4, _aoe), m: tim1,]);
+hal!(pac::TIM8: [Timer8, u16, c: (4, 4, _aoe), m: tim1,]);
 
-//TODO: restore these timers once stm32-rs has been updated
-// dbg_tim(12-13)_stop fields missing from 103 xl in stm32-rs
-// dbg_tim(9-10)_stop fields missing from 101 xl in stm32-rs
-/*
 #[cfg(feature = "xl")]
-hal!(pac::TIM9: [Timer9, u16, dbg_tim9_stop, c: (2, 2),]);
+hal!(pac::TIM9: [Timer9, u16, c: (2, 2),]);
 #[cfg(feature = "xl")]
-hal!(pac::TIM10: [Timer10, u16, dbg_tim10_stop, c: (1, 1),]);
+hal!(pac::TIM10: [Timer10, u16, c: (1, 1),]);
 #[cfg(feature = "xl")]
-hal!(pac::TIM11: [Timer11, u16, dbg_tim11_stop, c: (1, 1),]);
-*/
-#[cfg(any(
-    all(feature = "stm32f100", feature = "high"),
-    all(feature = "stm32f101", feature = "xl"),
-    //all(feature = "stm32f103", feature = "xl"),
-))]
-hal!(pac::TIM12: [Timer12, u16, dbg_tim12_stop, c: (2, 2),]);
-#[cfg(any(
-    all(feature = "stm32f100", feature = "high"),
-    all(feature = "stm32f101", feature = "xl"),
-    //all(feature = "stm32f103", feature = "xl"),
-))]
-hal!(pac::TIM13: [Timer13, u16, dbg_tim13_stop, c: (1, 1),]);
-#[cfg(any(
-    all(feature = "stm32f100", feature = "high"),
-    all(feature = "stm32f101", feature = "xl"),
-    //all(feature = "stm32f103", feature = "xl"),
-))]
-hal!(pac::TIM14: [Timer14, u16, dbg_tim14_stop, c: (1, 1),]);
+hal!(pac::TIM11: [Timer11, u16, c: (1, 1),]);
+
+#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high")))]
+hal!(pac::TIM12: [Timer12, u16, c: (2, 2),]);
+#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high")))]
+hal!(pac::TIM13: [Timer13, u16, c: (1, 1),]);
+#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high")))]
+hal!(pac::TIM14: [Timer14, u16, c: (1, 1),]);
 
 #[cfg(feature = "stm32f100")]
-hal!(pac::TIM15: [Timer15, u16, dbg_tim15_stop, c: (2, 2),]);
+hal!(pac::TIM15: [Timer15, u16, c: (2, 2),]);
 #[cfg(feature = "stm32f100")]
-hal!(pac::TIM16: [Timer16, u16, dbg_tim16_stop, c: (1, 1),]);
+hal!(pac::TIM16: [Timer16, u16, c: (1, 1),]);
 #[cfg(feature = "stm32f100")]
-hal!(pac::TIM17: [Timer17, u16, dbg_tim17_stop, c: (1, 1),]);
+hal!(pac::TIM17: [Timer17, u16, c: (1, 1),]);

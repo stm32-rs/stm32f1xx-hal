@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut};
 
 use crate::pac::{
     rcc::{self, RegisterBlock as RccRB},
-    BKP, PWR, RCC,
+    BKP, DBGMCU, PWR, RCC,
 };
 
 use crate::flash::ACR;
@@ -543,6 +543,11 @@ pub trait Reset: RccBus {
         let mut rcc = RCC::steal();
         Self::reset(&mut rcc);
     }
+}
+
+/// Stop peripheral when Core is halted
+pub trait StopInDebug {
+    fn stop_in_debug(&mut self, dbg: &mut DBGMCU, state: bool);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
