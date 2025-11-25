@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut};
 
 use crate::pac::{
     rcc::{self, RegisterBlock as RccRB},
-    BKP, PWR, RCC,
+    BKP, DBGMCU, PWR, RCC,
 };
 
 use crate::flash::ACR;
@@ -207,6 +207,7 @@ impl Rcc {
     /// let clocks = rcc.freeze(rcc::Config::default(), &mut flash.acr);
     /// ```
     #[inline(always)]
+    #[allow(unused)]
     pub fn freeze(self, cfg: impl Into<RawConfig>, acr: &mut ACR) -> Self {
         let cfg = cfg.into();
         let clocks = cfg.get_clocks();
@@ -542,6 +543,11 @@ pub trait Reset: RccBus {
         let mut rcc = RCC::steal();
         Self::reset(&mut rcc);
     }
+}
+
+/// Stop peripheral when Core is halted
+pub trait StopInDebug {
+    fn stop_in_debug(&mut self, dbg: &mut DBGMCU, state: bool);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
