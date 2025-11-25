@@ -1,4 +1,5 @@
 // RTICv2 Monotonic impl
+#![allow(unused)]
 use super::{FTimer, General};
 use crate::{pac, rcc::Rcc};
 use atomic_polyfill::{AtomicU64, Ordering};
