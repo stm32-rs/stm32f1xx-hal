@@ -59,10 +59,14 @@ use cortex_m::peripheral::SYST;
 
 use crate::time::Hertz;
 
-#[cfg(feature = "rtic")]
+#[cfg(feature = "rtic1")]
 pub mod monotonic;
-#[cfg(feature = "rtic")]
+#[cfg(feature = "rtic1")]
 pub use monotonic::*;
+#[cfg(feature = "rtic2")]
+pub mod monotonics;
+#[cfg(feature = "rtic2")]
+pub use monotonics::*;
 pub mod delay;
 pub mod pwm_input;
 pub use delay::*;

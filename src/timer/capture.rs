@@ -21,7 +21,7 @@ use super::{
     CaptureFilter, CaptureMode, CapturePolarity, CapturePrescaler, Instance, Timer, WithCapture,
 };
 pub use super::{Ch, C1, C2, C3, C4};
-use crate::afio::TimC;
+use crate::afio::{RInto, TimC};
 use crate::rcc::Rcc;
 use core::ops::{Deref, DerefMut};
 use fugit::HertzU32 as Hertz;
@@ -95,11 +95,11 @@ impl<TIM, const C: u8, const R: u8> CaptureChannelDisabled<TIM, C, R>
 where
     TIM: Instance + WithCapture + crate::Steal + TimC<C>,
 {
-    pub fn with(mut self, pin: impl Into<TIM::In>) -> CaptureChannel<TIM, C, false> {
+    pub fn with(mut self, pin: impl RInto<TIM::In, R>) -> CaptureChannel<TIM, C, false> {
         self.tim.preload_capture(C, CaptureMode::InputCapture);
         CaptureChannel {
             tim: self.tim,
-            pin: pin.into(),
+            pin: pin.rinto(),
         }
     }
 }
