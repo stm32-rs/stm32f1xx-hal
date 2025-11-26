@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - `timer.rs` refactoring
+- `rtic` feature renamed to `rtic1` [#517]
+
+### Added
+
+- `rtic2` feature, timer `Capture` support [#517]
 
 [#517]: https://github.com/stm32-rs/stm32f1xx-hal/pull/517
 
