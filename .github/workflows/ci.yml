@@ -43,7 +43,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --features=${{ matrix.mcu }},rtic,high --examples
+          args: --features=${{ matrix.mcu }},rtic1,high --examples
 
       - uses: actions-rs/cargo@v1
         with:
