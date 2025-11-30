@@ -89,21 +89,24 @@
 //! let received = block!(rx.read()).unwrap();
 //!  ```
 
-use core::marker::PhantomData;
 use core::ops::Deref;
 use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
+use enumflags2::BitFlags;
 
 use crate::afio::{self, RInto, Rmp};
 use crate::gpio::{Floating, PushPull, UpMode};
 use crate::pac::{self};
 use crate::rcc::{BusClock, Clocks, Enable, Rcc, Reset};
-use crate::time::{Bps, U32Ext};
 
+mod config;
 mod dma;
 mod hal_02;
 mod hal_1;
+mod rbext;
+pub use config::*;
 pub use dma::*;
+use rbext::RBExt;
 
 use crate::pacext::uart::{SrR, UartRB};
 
@@ -161,44 +164,10 @@ impl<USART: Instance> SerialExt for USART {
     }
 }
 
-pub trait RBExt: UartRB {
-    fn set_stopbits(&self, bits: StopBits);
-}
-
-impl RBExt for pac::usart1::RegisterBlock {
-    fn set_stopbits(&self, bits: StopBits) {
-        use crate::pac::usart1::cr2::STOP;
-
-        self.cr2().write(|w| {
-            w.stop().variant(match bits {
-                StopBits::STOP0P5 => STOP::Stop0p5,
-                StopBits::STOP1 => STOP::Stop1,
-                StopBits::STOP1P5 => STOP::Stop1p5,
-                StopBits::STOP2 => STOP::Stop2,
-            })
-        });
-    }
-}
-
-#[cfg(any(all(feature = "stm32f103", feature = "high"), feature = "connectivity"))]
-impl RBExt for pac::uart4::RegisterBlock {
-    fn set_stopbits(&self, bits: StopBits) {
-        use crate::pac::uart4::cr2::STOP;
-
-        // StopBits::STOP0P5 and StopBits::STOP1P5 aren't supported when using UART
-        // STOP_A::STOP1 and STOP_A::STOP2 will be used, respectively
-        self.cr2().write(|w| {
-            w.stop().variant(match bits {
-                StopBits::STOP0P5 | StopBits::STOP1 => STOP::Stop1,
-                StopBits::STOP1P5 | StopBits::STOP2 => STOP::Stop2,
-            })
-        });
-    }
-}
-
 pub trait Instance:
     crate::Sealed
     + crate::Ptr<RB: RBExt>
+    + crate::Steal
     + Deref<Target = Self::RB>
     + Enable
     + Reset
@@ -243,101 +212,117 @@ pub enum Error {
     Other,
 }
 
-pub enum WordLength {
-    /// When parity is enabled, a word has 7 data bits + 1 parity bit,
-    /// otherwise 8 data bits.
-    Bits8,
-    /// When parity is enabled, a word has 8 data bits + 1 parity bit,
-    /// otherwise 9 data bits.
-    Bits9,
+/// UART interrupt events
+#[enumflags2::bitflags]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u16)]
+pub enum Event {
+    /// IDLE interrupt enable
+    Idle = 1 << 4,
+    /// RXNE interrupt enable
+    RxNotEmpty = 1 << 5,
+    /// Transmission complete interrupt enable
+    TransmissionComplete = 1 << 6,
+    /// TXE interrupt enable
+    TxEmpty = 1 << 7,
+    /// PE interrupt enable
+    ParityError = 1 << 8,
 }
 
-pub enum Parity {
-    ParityNone,
-    ParityEven,
-    ParityOdd,
+/// UART/USART status flags
+#[enumflags2::bitflags]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u16)]
+pub enum Flag {
+    /// Parity error
+    ParityError = 1 << 0,
+    /// Framing error
+    FramingError = 1 << 1,
+    /// Noise detected flag
+    Noise = 1 << 2,
+    /// Overrun error
+    Overrun = 1 << 3,
+    /// IDLE line detected
+    Idle = 1 << 4,
+    /// Read data register not empty
+    RxNotEmpty = 1 << 5,
+    /// Transmission complete
+    TransmissionComplete = 1 << 6,
+    /// Transmit data register empty
+    TxEmpty = 1 << 7,
+    /// LIN break detection flag
+    LinBreak = 1 << 8,
+    /// CTS flag
+    Cts = 1 << 9,
 }
 
-pub enum StopBits {
-    /// 1 stop bit
-    STOP1,
-    /// 0.5 stop bits
-    STOP0P5,
-    /// 2 stop bits
-    STOP2,
-    /// 1.5 stop bits
-    STOP1P5,
+/// UART clearable flags
+#[enumflags2::bitflags]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u16)]
+pub enum CFlag {
+    /// Read data register not empty
+    RxNotEmpty = 1 << 5,
+    /// Transmission complete
+    TransmissionComplete = 1 << 6,
+    /// LIN break detection flag
+    LinBreak = 1 << 8,
+    /// CTS flag
+    Cts = 1 << 9,
 }
 
-pub struct Config {
-    pub baudrate: Bps,
-    pub wordlength: WordLength,
-    pub parity: Parity,
-    pub stopbits: StopBits,
+/// Trait for [`Rx`] interrupt handling.
+pub trait RxISR {
+    /// Return true if the line idle status is set
+    fn is_idle(&self) -> bool;
+
+    /// Return true if the rx register is not empty (and can be read)
+    fn is_rx_not_empty(&self) -> bool;
+
+    /// Clear idle line interrupt flag
+    fn clear_idle_interrupt(&self);
 }
 
-impl Config {
-    pub fn baudrate(mut self, baudrate: Bps) -> Self {
-        self.baudrate = baudrate;
-        self
-    }
-
-    pub fn wordlength(mut self, wordlength: WordLength) -> Self {
-        self.wordlength = wordlength;
-        self
-    }
-
-    pub fn wordlength_8bits(mut self) -> Self {
-        self.wordlength = WordLength::Bits8;
-        self
-    }
-
-    pub fn wordlength_9bits(mut self) -> Self {
-        self.wordlength = WordLength::Bits9;
-        self
-    }
-
-    pub fn parity(mut self, parity: Parity) -> Self {
-        self.parity = parity;
-        self
-    }
-
-    pub fn parity_none(mut self) -> Self {
-        self.parity = Parity::ParityNone;
-        self
-    }
-
-    pub fn parity_even(mut self) -> Self {
-        self.parity = Parity::ParityEven;
-        self
-    }
-
-    pub fn parity_odd(mut self) -> Self {
-        self.parity = Parity::ParityOdd;
-        self
-    }
-
-    pub fn stopbits(mut self, stopbits: StopBits) -> Self {
-        self.stopbits = stopbits;
-        self
-    }
+/// Trait for [`Tx`] interrupt handling.
+pub trait TxISR {
+    /// Return true if the tx register is empty (and can accept data)
+    fn is_tx_empty(&self) -> bool;
 }
 
-impl Default for Config {
-    fn default() -> Config {
-        Config {
-            baudrate: 115_200_u32.bps(),
-            wordlength: WordLength::Bits8,
-            parity: Parity::ParityNone,
-            stopbits: StopBits::STOP1,
-        }
-    }
+/// Trait for listening [`Rx`] interrupt events.
+pub trait RxListen {
+    /// Start listening for an rx not empty interrupt event
+    ///
+    /// Note, you will also have to enable the corresponding interrupt
+    /// in the NVIC to start receiving events.
+    fn listen(&mut self);
+
+    /// Stop listening for the rx not empty interrupt event
+    fn unlisten(&mut self);
+
+    /// Start listening for a line idle interrupt event
+    ///
+    /// Note, you will also have to enable the corresponding interrupt
+    /// in the NVIC to start receiving events.
+    fn listen_idle(&mut self);
+
+    /// Stop listening for the line idle interrupt event
+    fn unlisten_idle(&mut self);
 }
 
-impl From<Bps> for Config {
-    fn from(baud: Bps) -> Self {
-        Config::default().baudrate(baud)
-    }
+/// Trait for listening [`Tx`] interrupt event.
+pub trait TxListen {
+    /// Start listening for a tx empty interrupt event
+    ///
+    /// Note, you will also have to enable the corresponding interrupt
+    /// in the NVIC to start receiving events.
+    fn listen(&mut self);
+
+    /// Stop listening for the tx empty interrupt event
+    fn unlisten(&mut self);
 }
 
 /// Serial abstraction
@@ -345,22 +330,21 @@ pub struct Serial<USART: Instance, Otype = PushPull, PULL = Floating> {
     pub tx: Tx<USART>,
     pub rx: Rx<USART>,
     #[allow(clippy::type_complexity)]
-    pub token: ReleaseToken<USART, (Option<USART::Tx<Otype>>, Option<USART::Rx<PULL>>)>,
+    pub token: ReleaseToken<(Option<USART::Tx<Otype>>, Option<USART::Rx<PULL>>)>,
 }
 
 /// Serial transmitter
 pub struct Tx<USART> {
-    _usart: PhantomData<USART>,
+    usart: USART,
 }
 
 /// Serial receiver
 pub struct Rx<USART> {
-    _usart: PhantomData<USART>,
+    usart: USART,
 }
 
 /// Stores data for release
-pub struct ReleaseToken<USART, PINS> {
-    usart: USART,
+pub struct ReleaseToken<PINS> {
     pins: PINS,
 }
 
@@ -486,13 +470,11 @@ impl<USART: Instance, Otype, PULL: UpMode> Serial<USART, Otype, PULL> {
         });
 
         Serial {
-            tx: Tx {
-                _usart: PhantomData,
-            },
+            tx: Tx { usart },
             rx: Rx {
-                _usart: PhantomData,
+                usart: unsafe { USART::steal() },
             },
-            token: ReleaseToken { usart, pins },
+            token: ReleaseToken { pins },
         }
     }
 }
@@ -540,7 +522,7 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
     /// ```
     #[allow(clippy::type_complexity)]
     pub fn release(self) -> (USART, (Option<USART::Tx<Otype>>, Option<USART::Rx<PULL>>)) {
-        (self.token.usart, self.token.pins)
+        (self.tx.usart, self.token.pins)
     }
 
     /// Separates the serial struct into separate channel objects for sending (Tx) and
@@ -568,8 +550,8 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     // Configure word
     usart.cr1().modify(|_r, w| {
         w.m().bit(match config.wordlength {
-            WordLength::Bits8 => false,
-            WordLength::Bits9 => true,
+            WordLength::DataBits8 => false,
+            WordLength::DataBits9 => true,
         });
         use crate::pac::usart1::cr1::PS;
         w.ps().variant(match config.parity {
@@ -610,10 +592,8 @@ impl<USART: Instance> Tx<USART> {
     /// be transmitted and the other 7 bits will be ignored. Otherwise, the 8 least significant bits
     /// will be transmitted and the other 8 bits will be ignored.
     pub fn write_u16(&mut self, word: u16) -> nb::Result<(), Error> {
-        let usart = unsafe { &*USART::ptr() };
-
-        if usart.sr().read().txe().bit_is_set() {
-            usart.dr().write(|w| w.dr().set(word));
+        if self.usart.sr().read().txe().bit_is_set() {
+            self.usart.dr().write(|w| w.dr().set(word));
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -639,9 +619,7 @@ impl<USART: Instance> Tx<USART> {
     }
 
     pub fn flush(&mut self) -> nb::Result<(), Error> {
-        let usart = unsafe { &*USART::ptr() };
-
-        if usart.sr().read().tc().bit_is_set() {
+        if self.usart.sr().read().tc().bit_is_set() {
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -650,25 +628,6 @@ impl<USART: Instance> Tx<USART> {
 
     pub fn bflush(&mut self) -> Result<(), Error> {
         nb::block!(self.flush())
-    }
-
-    /// Start listening for transmit interrupt event
-    pub fn listen(&mut self) {
-        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.txeie().set_bit()) };
-    }
-
-    /// Stop listening for transmit interrupt event
-    pub fn unlisten(&mut self) {
-        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.txeie().clear_bit()) };
-    }
-
-    /// Returns true if the tx register is empty (and can accept data)
-    pub fn is_tx_empty(&self) -> bool {
-        unsafe { (*USART::ptr()).sr().read().txe().bit_is_set() }
-    }
-
-    pub fn is_tx_complete(&self) -> bool {
-        unsafe { (*USART::ptr()).sr().read().tc().bit_is_set() }
     }
 }
 
@@ -687,8 +646,7 @@ impl<USART: Instance> Rx<USART> {
     /// 9 received data bits and all other bits set to zero. Otherwise, the returned value will contain
     /// 8 received data bits and all other bits set to zero.
     pub fn read_u16(&mut self) -> nb::Result<u16, Error> {
-        let usart = unsafe { &*USART::ptr() };
-        let sr = usart.sr().read();
+        let sr = self.usart.sr().read();
 
         // Check for any errors
         let err = if sr.pe().bit_is_set() {
@@ -706,118 +664,146 @@ impl<USART: Instance> Rx<USART> {
         if let Some(err) = err {
             // Some error occurred. In order to clear that error flag, you have to
             // do a read from the sr register followed by a read from the dr register.
-            let _ = usart.sr().read();
-            let _ = usart.dr().read();
+            let _ = self.usart.sr().read();
+            let _ = self.usart.dr().read();
             Err(nb::Error::Other(err))
         } else {
             // Check if a byte is available
             if sr.rxne().bit_is_set() {
                 // Read the received byte
-                Ok(usart.dr().read().dr().bits())
+                Ok(self.usart.dr().read().dr().bits())
             } else {
                 Err(nb::Error::WouldBlock)
             }
         }
     }
 
+    pub fn read_u8(&mut self) -> nb::Result<u8, Error> {
+        self.usart.read_u8()
+    }
+
+    // Synonym to `read_u8`
     pub fn read(&mut self) -> nb::Result<u8, Error> {
-        self.read_u16().map(|word16| word16 as u8)
-    }
-
-    /// Start listening for receive interrupt event
-    pub fn listen(&mut self) {
-        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.rxneie().set_bit()) };
-    }
-
-    /// Stop listening for receive interrupt event
-    pub fn unlisten(&mut self) {
-        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.rxneie().clear_bit()) };
-    }
-
-    /// Start listening for idle interrupt event
-    pub fn listen_idle(&mut self) {
-        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.idleie().set_bit()) };
-    }
-
-    /// Stop listening for idle interrupt event
-    pub fn unlisten_idle(&mut self) {
-        unsafe { (*USART::ptr()).cr1().modify(|_, w| w.idleie().clear_bit()) };
-    }
-
-    /// Returns true if the line idle status is set
-    pub fn is_idle(&self) -> bool {
-        unsafe { (*USART::ptr()).sr().read().idle().bit_is_set() }
-    }
-
-    /// Returns true if the rx register is not empty (and can be read)
-    pub fn is_rx_not_empty(&self) -> bool {
-        unsafe { (*USART::ptr()).sr().read().rxne().bit_is_set() }
-    }
-
-    /// Clear idle line interrupt flag
-    pub fn clear_idle_interrupt(&self) {
-        unsafe {
-            let _ = (*USART::ptr()).sr().read();
-            let _ = (*USART::ptr()).dr().read();
-        }
+        self.usart.read_u8()
     }
 }
 
-/// Interrupt event
-pub enum Event {
-    /// New data can be sent
-    Txe,
-    /// New data has been received
-    Rxne,
-    /// Idle line state detected
-    Idle,
-}
-
-impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
-    /// Starts listening to the USART by enabling the _Received data
-    /// ready to be read (RXNE)_ interrupt and _Transmit data
-    /// register empty (TXE)_ interrupt
-    pub fn listen(&mut self, event: Event) {
-        match event {
-            Event::Rxne => self.rx.listen(),
-            Event::Txe => self.tx.listen(),
-            Event::Idle => self.rx.listen_idle(),
-        }
-    }
-
-    /// Stops listening to the USART by disabling the _Received data
-    /// ready to be read (RXNE)_ interrupt and _Transmit data
-    /// register empty (TXE)_ interrupt
-    pub fn unlisten(&mut self, event: Event) {
-        match event {
-            Event::Rxne => self.rx.unlisten(),
-            Event::Txe => self.tx.unlisten(),
-            Event::Idle => self.rx.unlisten_idle(),
-        }
-    }
-
-    /// Returns true if the line idle status is set
-    pub fn is_idle(&self) -> bool {
+impl<UART: Instance, Otype, PULL> RxISR for Serial<UART, Otype, PULL>
+where
+    Rx<UART>: RxISR,
+{
+    fn is_idle(&self) -> bool {
         self.rx.is_idle()
     }
 
-    /// Returns true if the tx register is empty (and can accept data)
-    pub fn is_tx_empty(&self) -> bool {
-        self.tx.is_tx_empty()
-    }
-
-    /// Returns true if the rx register is not empty (and can be read)
-    pub fn is_rx_not_empty(&self) -> bool {
+    fn is_rx_not_empty(&self) -> bool {
         self.rx.is_rx_not_empty()
     }
 
-    /// Clear idle line interrupt flag
-    pub fn clear_idle_interrupt(&self) {
+    /// This clears `Idle`, `Overrun`, `Noise`, `FrameError` and `ParityError` flags
+    fn clear_idle_interrupt(&self) {
         self.rx.clear_idle_interrupt();
     }
 }
 
-impl<USART: Instance, PINS> core::fmt::Write for Serial<USART, PINS> {
+impl<UART: Instance> RxISR for Rx<UART> {
+    fn is_idle(&self) -> bool {
+        self.usart.is_idle()
+    }
+
+    fn is_rx_not_empty(&self) -> bool {
+        self.usart.is_rx_not_empty()
+    }
+
+    /// This clears `Idle`, `Overrun`, `Noise`, `FrameError` and `ParityError` flags
+    fn clear_idle_interrupt(&self) {
+        self.usart.clear_idle_interrupt();
+    }
+}
+
+impl<UART: Instance> TxISR for Serial<UART>
+where
+    Tx<UART>: TxISR,
+{
+    fn is_tx_empty(&self) -> bool {
+        self.tx.is_tx_empty()
+    }
+}
+
+impl<UART: Instance> TxISR for Tx<UART> {
+    fn is_tx_empty(&self) -> bool {
+        self.usart.is_tx_empty()
+    }
+}
+
+impl<UART: Instance> RxListen for Rx<UART> {
+    fn listen(&mut self) {
+        self.usart.listen_rxne()
+    }
+
+    fn unlisten(&mut self) {
+        self.usart.unlisten_rxne()
+    }
+
+    fn listen_idle(&mut self) {
+        self.usart.listen_idle()
+    }
+
+    fn unlisten_idle(&mut self) {
+        self.usart.unlisten_idle()
+    }
+}
+
+impl<UART: Instance> TxListen for Tx<UART> {
+    fn listen(&mut self) {
+        self.usart.listen_txe()
+    }
+
+    fn unlisten(&mut self) {
+        self.usart.unlisten_txe()
+    }
+}
+
+impl<UART: Instance, Otype, PULL> crate::ClearFlags for Serial<UART, Otype, PULL> {
+    type Flag = CFlag;
+
+    #[inline(always)]
+    fn clear_flags(&mut self, flags: impl Into<BitFlags<Self::Flag>>) {
+        self.tx.usart.clear_flags(flags.into())
+    }
+}
+
+impl<UART: Instance, Otype, PULL> crate::ReadFlags for Serial<UART, Otype, PULL> {
+    type Flag = Flag;
+
+    #[inline(always)]
+    fn flags(&self) -> BitFlags<Self::Flag> {
+        self.tx.usart.flags()
+    }
+}
+
+impl<UART: Instance, Otype, PULL> crate::Listen for Serial<UART, Otype, PULL> {
+    type Event = Event;
+
+    #[inline(always)]
+    fn listen(&mut self, event: impl Into<BitFlags<Event>>) {
+        self.tx.usart.listen_event(None, Some(event.into()));
+    }
+
+    #[inline(always)]
+    fn listen_only(&mut self, event: impl Into<BitFlags<Self::Event>>) {
+        self.tx
+            .usart
+            .listen_event(Some(BitFlags::ALL), Some(event.into()));
+    }
+
+    #[inline(always)]
+    fn unlisten(&mut self, event: impl Into<BitFlags<Event>>) {
+        self.tx.usart.listen_event(Some(event.into()), None);
+    }
+}
+
+impl<USART: Instance, Otype, PULL> core::fmt::Write for Serial<USART, Otype, PULL> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.tx.write_str(s)
     }

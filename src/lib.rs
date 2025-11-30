@@ -113,6 +113,8 @@ compile_error!(
     "Multiple targets specified. Only a single `--features <target-name>` can be specified."
 );
 
+use enumflags2::{BitFlag, BitFlags};
+
 pub mod pacext;
 
 pub use embedded_hal as hal;
@@ -160,6 +162,63 @@ mod sealed {
 }
 use sealed::Sealed;
 use stm32f1::Periph;
+
+pub trait ReadFlags {
+    /// Enum of bit flags
+    type Flag: BitFlag;
+
+    /// Get all interrupts flags a once.
+    fn flags(&self) -> BitFlags<Self::Flag>;
+}
+
+pub trait ClearFlags {
+    /// Enum of manually clearable flags
+    type Flag: BitFlag;
+
+    /// Clear interrupts flags with `Self::Flags`s
+    ///
+    /// If event flag is not cleared, it will immediately retrigger interrupt
+    /// after interrupt handler has finished.
+    fn clear_flags(&mut self, flags: impl Into<BitFlags<Self::Flag>>);
+
+    /// Clears all interrupts flags
+    #[inline(always)]
+    fn clear_all_flags(&mut self) {
+        self.clear_flags(BitFlags::ALL)
+    }
+}
+
+pub trait Listen {
+    /// Enum of bit flags associated with events
+    type Event: BitFlag;
+
+    /// Start listening for `Event`s
+    ///
+    /// Note, you will also have to enable the appropriate interrupt in the NVIC to start
+    /// receiving events.
+    fn listen(&mut self, event: impl Into<BitFlags<Self::Event>>);
+
+    /// Start listening for `Event`s, stop all other
+    ///
+    /// Note, you will also have to enable the appropriate interrupt in the NVIC to start
+    /// receiving events.
+    fn listen_only(&mut self, event: impl Into<BitFlags<Self::Event>>);
+
+    /// Stop listening for `Event`s
+    fn unlisten(&mut self, event: impl Into<BitFlags<Self::Event>>);
+
+    /// Start listening all `Event`s
+    #[inline(always)]
+    fn listen_all(&mut self) {
+        self.listen(BitFlags::ALL)
+    }
+
+    /// Stop listening all `Event`s
+    #[inline(always)]
+    fn unlisten_all(&mut self) {
+        self.unlisten(BitFlags::ALL)
+    }
+}
 
 impl<RB, const A: usize> Sealed for Periph<RB, A> {}
 

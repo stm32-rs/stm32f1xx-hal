@@ -30,8 +30,7 @@ where
     Self: Receive<RxChannel = CH>,
 {
     pub fn with_dma(self, channel: CH) -> RxDma<Self, CH> {
-        let usart = unsafe { &*USART::PTR };
-        usart.cr3().modify(|_, w| w.dmar().set_bit());
+        self.usart.cr3().modify(|_, w| w.dmar().set_bit());
         RxDma {
             payload: self,
             channel,
@@ -44,8 +43,7 @@ where
     Self: Transmit<TxChannel = CH>,
 {
     pub fn with_dma(self, channel: CH) -> TxDma<Self, CH> {
-        let usart = unsafe { &*USART::PTR };
-        usart.cr3().modify(|_, w| w.dmat().set_bit());
+        self.usart.cr3().modify(|_, w| w.dmat().set_bit());
         TxDma {
             payload: self,
             channel,
@@ -59,8 +57,7 @@ where
 {
     pub fn release(mut self) -> (Rx<USART>, CH) {
         self.stop();
-        let usart = unsafe { &*USART::PTR };
-        usart.cr3().modify(|_, w| w.dmar().clear_bit());
+        self.payload.usart.cr3().modify(|_, w| w.dmar().clear_bit());
         (self.payload, self.channel)
     }
 }
@@ -71,8 +68,7 @@ where
 {
     pub fn release(mut self) -> (Tx<USART>, CH) {
         self.stop();
-        let usart = unsafe { &*USART::PTR };
-        usart.cr3().modify(|_, w| w.dmat().clear_bit());
+        self.payload.usart.cr3().modify(|_, w| w.dmat().clear_bit());
         (self.payload, self.channel)
     }
 }
@@ -89,7 +85,7 @@ where
         // until the end of the transfer.
         let (ptr, len) = unsafe { buffer.write_buffer() };
         self.channel
-            .set_peripheral_address(unsafe { &*USART::PTR }.dr().as_ptr() as u32, false);
+            .set_peripheral_address(self.payload.usart.dr().as_ptr() as u32, false);
         self.channel.set_memory_address(ptr as u32, true);
         self.channel.set_transfer_length(len);
 
@@ -121,7 +117,7 @@ where
         // until the end of the transfer.
         let (ptr, len) = unsafe { buffer.write_buffer() };
         self.channel
-            .set_peripheral_address(unsafe { &*USART::PTR }.dr().as_ptr() as u32, false);
+            .set_peripheral_address(self.payload.usart.dr().as_ptr() as u32, false);
         self.channel.set_memory_address(ptr as u32, true);
         self.channel.set_transfer_length(len);
 
@@ -152,7 +148,7 @@ where
         let (ptr, len) = unsafe { buffer.read_buffer() };
 
         self.channel
-            .set_peripheral_address(unsafe { &*USART::PTR }.dr().as_ptr() as u32, false);
+            .set_peripheral_address(self.payload.usart.dr().as_ptr() as u32, false);
 
         self.channel.set_memory_address(ptr as u32, true);
         self.channel.set_transfer_length(len);

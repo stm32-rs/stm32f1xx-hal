@@ -52,7 +52,7 @@ mod nb {
 
     impl<USART: Instance> serial::Read<u8> for Rx<USART> {
         fn read(&mut self) -> nb::Result<u8, Self::Error> {
-            self.read()
+            self.read_u8()
         }
     }
 

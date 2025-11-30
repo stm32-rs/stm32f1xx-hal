@@ -17,7 +17,7 @@ mod app {
         gpio::{gpioc::PC13, Output, PinState, PushPull},
         pac,
         prelude::*,
-        timer::{CounterMs, Event},
+        timer::{CounterMs, Event, Flag},
     };
 
     #[shared]
@@ -94,6 +94,6 @@ mod app {
         }
 
         // Clears the update flag
-        cx.local.timer_handler.clear_interrupt(Event::Update);
+        cx.local.timer_handler.clear_flags(Flag::Update);
     }
 }

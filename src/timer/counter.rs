@@ -1,5 +1,6 @@
-use super::{compute_arr_presc, Error, Event, FTimer, Instance, SysEvent, Timer};
+use super::{compute_arr_presc, Error, FTimer, Instance, SysEvent, Timer};
 use crate::pac::SYST;
+use crate::timer::Flag;
 use core::convert::TryFrom;
 use core::ops::{Deref, DerefMut};
 use fugit::{HertzU32 as Hertz, MicrosDurationU32, TimerDurationU32, TimerInstantU32};
@@ -34,7 +35,7 @@ impl<TIM: Instance> CounterHz<TIM> {
         // pause
         self.tim.enable_counter(false);
 
-        self.tim.clear_interrupt_flag(Event::Update);
+        self.tim.clear_interrupt_flag(Flag::Update.into());
 
         // reset counter
         self.tim.reset_counter();
@@ -53,8 +54,8 @@ impl<TIM: Instance> CounterHz<TIM> {
     }
 
     pub fn wait(&mut self) -> nb::Result<(), Error> {
-        if self.tim.get_interrupt_flag().contains(Event::Update) {
-            self.tim.clear_interrupt_flag(Event::Update);
+        if self.tim.get_interrupt_flag().contains(Flag::Update) {
+            self.tim.clear_interrupt_flag(Flag::Update.into());
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -162,7 +163,7 @@ impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
         // pause
         self.tim.enable_counter(false);
 
-        self.tim.clear_interrupt_flag(Event::Update);
+        self.tim.clear_interrupt_flag(Flag::Update.into());
 
         // reset counter
         self.tim.reset_counter();
@@ -179,8 +180,8 @@ impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
     }
 
     pub fn wait(&mut self) -> nb::Result<(), Error> {
-        if self.tim.get_interrupt_flag().contains(Event::Update) {
-            self.tim.clear_interrupt_flag(Event::Update);
+        if self.tim.get_interrupt_flag().contains(Flag::Update) {
+            self.tim.clear_interrupt_flag(Flag::Update.into());
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
