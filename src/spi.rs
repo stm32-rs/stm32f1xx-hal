@@ -322,32 +322,40 @@ pub trait Instance:
 {
 }
 
+//impl<T, const R: u8> Instance for Rmp<T, R> where T: Instance + RccBus {}
+
+impl<const R: u8> Instance for Rmp<pac::SPI1, R> {}
+impl<const R: u8> Instance for Rmp<pac::SPI2, R> {}
+
 impl Instance for pac::SPI1 {}
 impl Instance for pac::SPI2 {}
 #[cfg(any(feature = "high", feature = "connectivity"))]
 impl Instance for pac::SPI3 {}
 
-impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
+impl<SPI, const R: u8> Rmp<SPI, R>
+where
+    Self: Instance,
+{
     pub fn spi<PULL: UpMode>(
         self,
         pins: (
-            Option<impl RInto<SPI::MSck, R>>,
-            Option<impl RInto<SPI::Mi<PULL>, R>>,
-            Option<impl RInto<SPI::Mo, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::MSck, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::Mi<PULL>, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::Mo, R>>,
         ),
         mode: Mode,
         freq: Hertz,
         rcc: &mut Rcc,
-    ) -> Spi<SPI, u8, PULL> {
-        let spi = self.0;
+    ) -> Spi<Self, u8, PULL> {
+        let spi = self;
         // enable or reset SPI
-        SPI::enable(rcc);
-        SPI::reset(rcc);
+        Self::enable(rcc);
+        Self::reset(rcc);
 
         // disable SS output
         spi.cr2().write(|w| w.ssoe().clear_bit());
 
-        let br = match SPI::clock(&rcc.clocks) / freq {
+        let br = match Self::clock(&rcc.clocks) / freq {
             0 => unreachable!(),
             1..=2 => 0b000,
             3..=5 => 0b001,
@@ -398,30 +406,30 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
     pub fn spi_u16<PULL: UpMode>(
         self,
         pins: (
-            Option<impl RInto<SPI::MSck, R>>,
-            Option<impl RInto<SPI::Mi<PULL>, R>>,
-            Option<impl RInto<SPI::Mo, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::MSck, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::Mi<PULL>, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::Mo, R>>,
         ),
         mode: Mode,
         freq: Hertz,
         rcc: &mut Rcc,
-    ) -> Spi<SPI, u16, PULL> {
+    ) -> Spi<Self, u16, PULL> {
         self.spi(pins, mode, freq, rcc).frame_size_16bit()
     }
     pub fn spi_slave<Otype, PULL: UpMode>(
         self,
         pins: (
-            Option<impl RInto<SPI::SSck, R>>,
-            Option<impl RInto<SPI::So<Otype>, R>>,
-            Option<impl RInto<SPI::Si<PULL>, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::SSck, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::So<Otype>, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::Si<PULL>, R>>,
         ),
         mode: Mode,
         rcc: &mut RCC,
-    ) -> SpiSlave<SPI, u8, Otype, PULL> {
-        let spi = self.0;
+    ) -> SpiSlave<Self, u8, Otype, PULL> {
+        let spi = self;
         // enable or reset SPI
-        SPI::enable(rcc);
-        SPI::reset(rcc);
+        Self::enable(rcc);
+        Self::reset(rcc);
 
         // disable SS output
         spi.cr2().write(|w| w.ssoe().clear_bit());
@@ -463,18 +471,18 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
     pub fn spi_slave_u16<Otype, PULL: UpMode>(
         self,
         pins: (
-            Option<impl RInto<SPI::SSck, R>>,
-            Option<impl RInto<SPI::So<Otype>, R>>,
-            Option<impl RInto<SPI::Si<PULL>, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::SSck, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::So<Otype>, R>>,
+            Option<impl RInto<<Self as afio::SpiCommon>::Si<PULL>, R>>,
         ),
         mode: Mode,
         rcc: &mut RCC,
-    ) -> SpiSlave<SPI, u16, Otype, PULL> {
+    ) -> SpiSlave<Self, u16, Otype, PULL> {
         self.spi_slave(pins, mode, rcc).frame_size_16bit()
     }
 }
 
-impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
+impl<SPI, PULL: UpMode> Spi<SPI, u8, PULL> {
     /**
       Constructs an SPI instance using SPI1 in 8bit dataframe mode.
 
@@ -492,7 +500,10 @@ impl<SPI: Instance, PULL: UpMode> Spi<SPI, u8, PULL> {
         mode: Mode,
         freq: Hertz,
         rcc: &mut Rcc,
-    ) -> Self {
+    ) -> Spi<Rmp<SPI, R>, u8, PULL>
+    where
+        Rmp<SPI, R>: Instance,
+    {
         spi.into().spi(pins, mode, freq, rcc)
     }
 }

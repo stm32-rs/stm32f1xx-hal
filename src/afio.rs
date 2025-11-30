@@ -1,10 +1,11 @@
 //! # Alternate Function I/Os
+use core::ops::Deref;
+
 use crate::pac::{self, afio, AFIO, RCC};
 
 use crate::rcc::{Enable, Reset};
 
 use crate::gpio::{self, Alternate, Cr, Debugger, Floating, Input, OpenDrain, PushPull};
-use crate::sealed::Sealed;
 
 pub trait AfioExt {
     fn constrain(self, rcc: &mut RCC) -> Parts;
@@ -153,7 +154,7 @@ impl MAPR2 {
     }
 }
 
-pub trait Remap: Sealed + Sized {
+pub trait Remap: crate::Sealed + Sized {
     type Mapr;
     #[doc(hidden)]
     fn rmp(mapr: &mut Self::Mapr, to: u8);
@@ -263,9 +264,94 @@ impl<S, T, const R: u8> RInto<T, R> for S
 where
     T: RFrom<Self, R>,
 {
+    #[inline(always)]
     fn rinto(self) -> T {
         T::rfrom(self)
     }
+}
+
+impl<T, const R: u8> Deref for Rmp<T, R>
+where
+    T: Deref,
+{
+    type Target = T::Target;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+impl<T, const R: u8> crate::Sealed for Rmp<T, R> {}
+
+impl<T, const R: u8> crate::Ptr for Rmp<T, R>
+where
+    T: crate::Ptr,
+{
+    type RB = T::RB;
+
+    const PTR: *const Self::RB = T::PTR;
+}
+
+impl<T, const R: u8> crate::Steal for Rmp<T, R>
+where
+    T: crate::Steal,
+{
+    #[inline(always)]
+    unsafe fn steal() -> Self {
+        unsafe { Rmp(T::steal()) }
+    }
+}
+
+impl<T, const R: u8> crate::rcc::RccBus for Rmp<T, R>
+where
+    T: crate::rcc::RccBus,
+{
+    type Bus = T::Bus;
+}
+
+impl<T, const R: u8> crate::rcc::Enable for Rmp<T, R>
+where
+    T: crate::rcc::Enable,
+{
+    #[inline(always)]
+    fn enable(rcc: &mut RCC) {
+        T::enable(rcc);
+    }
+
+    #[inline(always)]
+    fn disable(rcc: &mut RCC) {
+        T::disable(rcc);
+    }
+
+    #[inline(always)]
+    fn is_enabled() -> bool {
+        T::is_enabled()
+    }
+}
+
+impl<T, const R: u8> crate::rcc::Reset for Rmp<T, R>
+where
+    T: crate::rcc::Reset,
+{
+    #[inline(always)]
+    fn reset(rcc: &mut RCC) {
+        T::reset(rcc);
+    }
+}
+
+impl<T, const R: u8> SpiCommon for Rmp<T, R>
+where
+    T: SpiCommon,
+{
+    type MSck = T::MSck;
+    type SSck = T::SSck;
+    type Mi<PULL> = T::Mi<PULL>;
+    type So<Otype> = T::So<Otype>;
+    type Mo = T::Mo;
+    type Si<PULL> = T::Si<PULL>;
+    type Nss = T::Nss;
+    type Ss<PULL> = T::Ss<PULL>;
 }
 
 // REMAPPING, see: https://www.st.com/content/ccc/resource/technical/document/reference_manual/59/b9/ba/7f/11/af/43/d5/CD00171190.pdf/files/CD00171190.pdf/jcr:content/translations/en.CD00171190.pdf
