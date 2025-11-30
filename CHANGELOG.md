@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - `timer.rs` refactoring
+- Demacrofy `RxDma`/`TxDma` implementations
 
 ## [v0.11.0] - 2025-09-09
 

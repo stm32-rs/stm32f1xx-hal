@@ -35,7 +35,8 @@ use cortex_m::peripheral::{DCB, DWT};
 use crate::rcc::Clocks;
 
 /// Bits per second
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Bps(pub u32);
 
 pub use fugit::{

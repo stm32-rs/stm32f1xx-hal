@@ -553,3 +553,35 @@ where
 {
     fn read_write(self, rx_buffer: RXB, tx_buffer: TXB) -> Transfer<W, (RXB, TXB), Self>;
 }
+
+impl<P, CH, W> Receive for RxDma<P, CH>
+where
+    P: Receive<RxChannel = CH, TransmittedWord = W>,
+{
+    type RxChannel = CH;
+    type TransmittedWord = W;
+}
+
+impl<P, CH, W> Transmit for TxDma<P, CH>
+where
+    P: Transmit<TxChannel = CH, ReceivedWord = W>,
+{
+    type TxChannel = CH;
+    type ReceivedWord = W;
+}
+
+impl<P, RXCH, TXCH, W> Receive for RxTxDma<P, RXCH, TXCH>
+where
+    P: Receive<RxChannel = RXCH, TransmittedWord = W>,
+{
+    type RxChannel = RXCH;
+    type TransmittedWord = W;
+}
+
+impl<P, RXCH, TXCH, W> Transmit for RxTxDma<P, RXCH, TXCH>
+where
+    P: Transmit<TxChannel = TXCH, ReceivedWord = W>,
+{
+    type TxChannel = TXCH;
+    type ReceivedWord = W;
+}
