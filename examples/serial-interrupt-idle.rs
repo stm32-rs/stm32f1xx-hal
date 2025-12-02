@@ -11,7 +11,7 @@ use cortex_m_rt::entry;
 use stm32f1xx_hal::{
     pac::{self, interrupt, USART1},
     prelude::*,
-    serial::{Rx, Tx},
+    serial::{Rx, RxEvent, Tx, TxEvent},
 };
 
 static mut RX: Option<Rx<USART1>> = None;
@@ -40,9 +40,8 @@ fn main() -> ! {
         .remap(&mut afio.mapr)
         .serial((tx, rx), 115_200.bps(), &mut rcc)
         .split();
-    tx.listen();
-    rx.listen();
-    rx.listen_idle();
+    tx.listen(TxEvent::TxEmpty);
+    rx.listen(RxEvent::RxNotEmpty | RxEvent::Idle);
 
     cortex_m::interrupt::free(|_| unsafe {
         TX.replace(tx);
@@ -79,9 +78,9 @@ unsafe fn USART1() {
                         WIDX = 0;
                     }
                 }
-                rx.listen_idle();
+                rx.listen(RxEvent::Idle);
             } else if rx.is_idle() {
-                rx.unlisten_idle();
+                rx.unlisten(RxEvent::Idle);
                 write(&BUFFER[0..WIDX]);
                 WIDX = 0;
             }

@@ -1,6 +1,6 @@
 use crate::pacext::uart::{Cr3W, SrR, UartRB};
 
-use super::{config, config::IrdaMode, CFlag, Error, Event, Flag};
+use super::{config, config::IrdaMode, CFlag, Error, Event, Flag, RxEvent, TxEvent};
 use enumflags2::BitFlags;
 
 pub trait RBExt: UartRB {
@@ -109,7 +109,7 @@ pub trait RBExt: UartRB {
     // ISR
     #[inline(always)]
     fn flags(&self) -> BitFlags<Flag> {
-        BitFlags::from_bits_truncate(self.sr().read().bits())
+        unsafe { BitFlags::from_bits_unchecked(self.sr().read().bits()) }
     }
 
     #[inline(always)]
@@ -171,29 +171,34 @@ pub trait RBExt: UartRB {
         });
     }
 
-    #[inline(always)]
-    fn listen_rxne(&self) {
-        self.listen_event(None, Some(Event::RxNotEmpty.into()))
+    fn listen_rx(&self, disable: Option<BitFlags<RxEvent>>, enable: Option<BitFlags<RxEvent>>) {
+        self.cr1().modify(|r, w| unsafe {
+            w.bits({
+                let mut bits = r.bits();
+                if let Some(d) = disable {
+                    bits &= !(d.bits());
+                }
+                if let Some(e) = enable {
+                    bits |= e.bits();
+                }
+                bits
+            })
+        });
     }
-    #[inline(always)]
-    fn unlisten_rxne(&self) {
-        self.listen_event(Some(Event::RxNotEmpty.into()), None)
-    }
-    #[inline(always)]
-    fn listen_idle(&self) {
-        self.listen_event(None, Some(Event::Idle.into()))
-    }
-    #[inline(always)]
-    fn unlisten_idle(&self) {
-        self.listen_event(Some(Event::Idle.into()), None)
-    }
-    #[inline(always)]
-    fn listen_txe(&self) {
-        self.listen_event(None, Some(Event::TxEmpty.into()))
-    }
-    #[inline(always)]
-    fn unlisten_txe(&self) {
-        self.listen_event(Some(Event::TxEmpty.into()), None)
+
+    fn listen_tx(&self, disable: Option<BitFlags<TxEvent>>, enable: Option<BitFlags<TxEvent>>) {
+        self.cr1().modify(|r, w| unsafe {
+            w.bits({
+                let mut bits = r.bits();
+                if let Some(d) = disable {
+                    bits &= !(d.bits());
+                }
+                if let Some(e) = enable {
+                    bits |= e.bits();
+                }
+                bits
+            })
+        });
     }
 
     // PeriAddress

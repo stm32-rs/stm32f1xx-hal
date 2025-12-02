@@ -75,6 +75,7 @@ use crate::afio::{self, RInto, Rmp};
 use crate::gpio::{Floating, PushPull, UpMode};
 use crate::rcc::{BusClock, Enable, Rcc, Reset};
 use crate::time::Hertz;
+use enumflags2::BitFlags;
 
 use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
@@ -136,16 +137,6 @@ impl FrameSize for u16 {
     }
 }
 
-/// Interrupt event
-pub enum Event {
-    /// New data has been received
-    Rxne,
-    /// New data can be sent
-    Txe,
-    /// an error condition occurs(Crcerr, Overrun, ModeFault)
-    Error,
-}
-
 /// SPI error
 #[derive(Debug)]
 #[non_exhaustive]
@@ -156,6 +147,59 @@ pub enum Error {
     ModeFault,
     /// CRC error
     Crc,
+}
+
+/// SPI interrupt events
+#[enumflags2::bitflags]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u16)]
+pub enum Event {
+    /// An error occurred.
+    ///
+    /// This bit controls the generation of an interrupt
+    /// when an error condition occurs
+    /// (OVR, CRCERR, MODF, FRE in SPI mode,
+    /// and UDR, OVR in I2S mode)
+    Error = 1 << 5,
+    /// New data has been received
+    ///
+    /// RX buffer not empty interrupt enable
+    RxNotEmpty = 1 << 6,
+    /// Data can be sent
+    ///
+    /// Tx buffer empty interrupt enable
+    TxEmpty = 1 << 7,
+}
+
+/// SPI status flags
+#[enumflags2::bitflags]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u16)]
+pub enum Flag {
+    /// Receive buffer not empty
+    RxNotEmpty = 1 << 0,
+    /// Transmit buffer empty
+    TxEmpty = 1 << 1,
+    /// CRC error flag
+    CrcError = 1 << 4,
+    /// Mode fault
+    ModeFault = 1 << 5,
+    /// Overrun flag
+    Overrun = 1 << 6,
+    /// Busy flag
+    Busy = 1 << 7,
+}
+
+/// SPI clearable flags
+#[enumflags2::bitflags]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u32)]
+pub enum CFlag {
+    /// CRC error flag
+    CrcError = 1 << 4,
 }
 
 use core::marker::PhantomData;
@@ -585,28 +629,6 @@ impl<SPI: Instance, W> SpiInner<SPI, W> {
             .modify(|_, w| w.lsbfirst().bit(matches!(format, SpiBitFormat::LsbFirst)));
     }
 
-    /// Starts listening to the SPI by enabling the _Received data
-    /// ready to be read (RXNE)_ interrupt and _Transmit data
-    /// register empty (TXE)_ interrupt
-    pub fn listen(&mut self, event: Event) {
-        self.spi.cr2().modify(|_, w| match event {
-            Event::Rxne => w.rxneie().set_bit(),
-            Event::Txe => w.txeie().set_bit(),
-            Event::Error => w.errie().set_bit(),
-        });
-    }
-
-    /// Stops listening to the SPI by disabling the _Received data
-    /// ready to be read (RXNE)_ interrupt and _Transmit data
-    /// register empty (TXE)_ interrupt
-    pub fn unlisten(&mut self, event: Event) {
-        self.spi.cr2().modify(|_, w| match event {
-            Event::Rxne => w.rxneie().clear_bit(),
-            Event::Txe => w.txeie().clear_bit(),
-            Event::Error => w.errie().clear_bit(),
-        });
-    }
-
     /// Returns true if the tx register is empty (and can accept data)
     #[inline]
     pub fn is_tx_empty(&self) -> bool {
@@ -629,6 +651,52 @@ impl<SPI: Instance, W> SpiInner<SPI, W> {
     #[inline]
     pub fn is_overrun(&self) -> bool {
         self.spi.sr().read().ovr().bit_is_set()
+    }
+
+    fn listen_event(&mut self, disable: Option<BitFlags<Event>>, enable: Option<BitFlags<Event>>) {
+        self.spi.cr2().modify(|r, w| unsafe {
+            w.bits({
+                let mut bits = r.bits();
+                if let Some(d) = disable {
+                    bits &= !d.bits();
+                }
+                if let Some(e) = enable {
+                    bits |= e.bits();
+                }
+                bits
+            })
+        });
+    }
+}
+
+impl<SPI: Instance, W> crate::Listen for SpiInner<SPI, W> {
+    type Event = Event;
+
+    #[inline(always)]
+    fn listen_event(
+        &mut self,
+        disable: Option<BitFlags<Self::Event>>,
+        enable: Option<BitFlags<Self::Event>>,
+    ) {
+        self.listen_event(disable, enable)
+    }
+}
+
+impl<SPI: Instance, W> crate::ClearFlags for SpiInner<SPI, W> {
+    type Flag = CFlag;
+    fn clear_flags(&mut self, flags: impl Into<BitFlags<Self::Flag>>) {
+        if flags.into().contains(CFlag::CrcError) {
+            self.spi
+                .sr()
+                .write(|w| unsafe { w.bits(0xffff).crcerr().clear_bit() });
+        }
+    }
+}
+
+impl<SPI: Instance, W> crate::ReadFlags for SpiInner<SPI, W> {
+    type Flag = Flag;
+    fn flags(&self) -> BitFlags<Self::Flag> {
+        unsafe { BitFlags::from_bits_unchecked(self.spi.sr().read().bits()) }
     }
 }
 

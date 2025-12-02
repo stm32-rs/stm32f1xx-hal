@@ -80,9 +80,7 @@ fn main() -> ! {
     // test SPI with interrupts
     let (mut spi2, _, _) = spi2_dma.release();
 
-    spi2.listen(Event::Rxne);
-    spi2.listen(Event::Txe);
-    spi2.listen(Event::Error);
+    spi2.listen(Event::RxNotEmpty | Event::TxEmpty | Event::Error);
 
     cortex_m::interrupt::free(|_| unsafe {
         SPI2SLAVE.replace(spi2);

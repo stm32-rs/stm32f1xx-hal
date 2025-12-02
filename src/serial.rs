@@ -230,6 +230,32 @@ pub enum Event {
     ParityError = 1 << 8,
 }
 
+/// UART interrupt events
+#[enumflags2::bitflags]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u16)]
+pub enum RxEvent {
+    /// IDLE interrupt enable
+    Idle = 1 << 4,
+    /// RXNE interrupt enable
+    RxNotEmpty = 1 << 5,
+    /// PE interrupt enable
+    ParityError = 1 << 8,
+}
+
+/// UART interrupt events
+#[enumflags2::bitflags]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u16)]
+pub enum TxEvent {
+    /// Transmission complete interrupt enable
+    TransmissionComplete = 1 << 6,
+    /// TXE interrupt enable
+    TxEmpty = 1 << 7,
+}
+
 /// UART/USART status flags
 #[enumflags2::bitflags]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -290,39 +316,6 @@ pub trait RxISR {
 pub trait TxISR {
     /// Return true if the tx register is empty (and can accept data)
     fn is_tx_empty(&self) -> bool;
-}
-
-/// Trait for listening [`Rx`] interrupt events.
-pub trait RxListen {
-    /// Start listening for an rx not empty interrupt event
-    ///
-    /// Note, you will also have to enable the corresponding interrupt
-    /// in the NVIC to start receiving events.
-    fn listen(&mut self);
-
-    /// Stop listening for the rx not empty interrupt event
-    fn unlisten(&mut self);
-
-    /// Start listening for a line idle interrupt event
-    ///
-    /// Note, you will also have to enable the corresponding interrupt
-    /// in the NVIC to start receiving events.
-    fn listen_idle(&mut self);
-
-    /// Stop listening for the line idle interrupt event
-    fn unlisten_idle(&mut self);
-}
-
-/// Trait for listening [`Tx`] interrupt event.
-pub trait TxListen {
-    /// Start listening for a tx empty interrupt event
-    ///
-    /// Note, you will also have to enable the corresponding interrupt
-    /// in the NVIC to start receiving events.
-    fn listen(&mut self);
-
-    /// Stop listening for the tx empty interrupt event
-    fn unlisten(&mut self);
 }
 
 /// Serial abstraction
@@ -736,34 +729,6 @@ impl<UART: Instance> TxISR for Tx<UART> {
     }
 }
 
-impl<UART: Instance> RxListen for Rx<UART> {
-    fn listen(&mut self) {
-        self.usart.listen_rxne()
-    }
-
-    fn unlisten(&mut self) {
-        self.usart.unlisten_rxne()
-    }
-
-    fn listen_idle(&mut self) {
-        self.usart.listen_idle()
-    }
-
-    fn unlisten_idle(&mut self) {
-        self.usart.unlisten_idle()
-    }
-}
-
-impl<UART: Instance> TxListen for Tx<UART> {
-    fn listen(&mut self) {
-        self.usart.listen_txe()
-    }
-
-    fn unlisten(&mut self) {
-        self.usart.unlisten_txe()
-    }
-}
-
 impl<UART: Instance, Otype, PULL> crate::ClearFlags for Serial<UART, Otype, PULL> {
     type Flag = CFlag;
 
@@ -786,20 +751,38 @@ impl<UART: Instance, Otype, PULL> crate::Listen for Serial<UART, Otype, PULL> {
     type Event = Event;
 
     #[inline(always)]
-    fn listen(&mut self, event: impl Into<BitFlags<Event>>) {
-        self.tx.usart.listen_event(None, Some(event.into()));
+    fn listen_event(
+        &mut self,
+        disable: Option<BitFlags<Self::Event>>,
+        enable: Option<BitFlags<Self::Event>>,
+    ) {
+        self.tx.usart.listen_event(disable, enable)
     }
+}
+
+impl<UART: Instance> crate::Listen for Rx<UART> {
+    type Event = RxEvent;
 
     #[inline(always)]
-    fn listen_only(&mut self, event: impl Into<BitFlags<Self::Event>>) {
-        self.tx
-            .usart
-            .listen_event(Some(BitFlags::ALL), Some(event.into()));
+    fn listen_event(
+        &mut self,
+        disable: Option<BitFlags<Self::Event>>,
+        enable: Option<BitFlags<Self::Event>>,
+    ) {
+        self.usart.listen_rx(disable, enable)
     }
+}
+
+impl<UART: Instance> crate::Listen for Tx<UART> {
+    type Event = TxEvent;
 
     #[inline(always)]
-    fn unlisten(&mut self, event: impl Into<BitFlags<Event>>) {
-        self.tx.usart.listen_event(Some(event.into()), None);
+    fn listen_event(
+        &mut self,
+        disable: Option<BitFlags<Self::Event>>,
+        enable: Option<BitFlags<Self::Event>>,
+    ) {
+        self.usart.listen_tx(disable, enable)
     }
 }
 

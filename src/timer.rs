@@ -563,7 +563,7 @@ macro_rules! hal {
             }
             #[inline(always)]
             fn get_interrupt_flag(&self) -> BitFlags<Flag> {
-                BitFlags::from_bits_truncate(self.sr().read().bits())
+                unsafe { BitFlags::from_bits_unchecked(self.sr().read().bits()) }
             }
             #[inline(always)]
             fn read_count(&self) -> Self::Width {
@@ -924,29 +924,27 @@ impl<TIM: Instance + MasterTimer, const FREQ: u32> FTimer<TIM, FREQ> {
 
 impl<TIM: Instance> crate::Listen for Timer<TIM> {
     type Event = Event;
-    fn listen(&mut self, event: impl Into<BitFlags<Event>>) {
-        self.tim.listen_event(None, Some(event.into()));
-    }
-    fn listen_only(&mut self, event: impl Into<BitFlags<Event>>) {
-        self.tim
-            .listen_event(Some(BitFlags::ALL), Some(event.into()));
-    }
-    fn unlisten(&mut self, event: impl Into<BitFlags<Event>>) {
-        self.tim.listen_event(Some(event.into()), None);
+
+    #[inline(always)]
+    fn listen_event(
+        &mut self,
+        disable: Option<BitFlags<Self::Event>>,
+        enable: Option<BitFlags<Self::Event>>,
+    ) {
+        self.tim.listen_event(disable, enable)
     }
 }
 
 impl<TIM: Instance, const FREQ: u32> crate::Listen for FTimer<TIM, FREQ> {
     type Event = Event;
-    fn listen(&mut self, event: impl Into<BitFlags<Event>>) {
-        self.tim.listen_event(None, Some(event.into()));
-    }
-    fn listen_only(&mut self, event: impl Into<BitFlags<Event>>) {
-        self.tim
-            .listen_event(Some(BitFlags::ALL), Some(event.into()));
-    }
-    fn unlisten(&mut self, event: impl Into<BitFlags<Event>>) {
-        self.tim.listen_event(Some(event.into()), None);
+
+    #[inline(always)]
+    fn listen_event(
+        &mut self,
+        disable: Option<BitFlags<Self::Event>>,
+        enable: Option<BitFlags<Self::Event>>,
+    ) {
+        self.tim.listen_event(disable, enable)
     }
 }
 
