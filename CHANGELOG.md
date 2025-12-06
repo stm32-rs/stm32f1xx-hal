@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - `timer.rs` refactoring
 
+### Added
+
+- `embedded_io::Read` trait implemented for `serial`
+
 ## [v0.11.0] - 2025-09-09
 
 ### Breaking changes
