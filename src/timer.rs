@@ -51,7 +51,7 @@
 use crate::bb;
 use crate::pac::{self, DBGMCU as DBG};
 
-use crate::rcc::{self, Clocks, Rcc};
+use crate::rcc::{self, BusTimerClock, Clocks, Rcc};
 use core::convert::TryFrom;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
@@ -421,7 +421,7 @@ mod sealed {
 pub(crate) use sealed::{Advanced, General, MasterTimer, WithCapture, WithChannel, WithPwm};
 
 pub trait Instance:
-    crate::Sealed + rcc::Enable + rcc::Reset + rcc::BusTimerClock + rcc::StopInDebug + General
+    rcc::Instance + rcc::RccBus<Bus: BusTimerClock> + rcc::StopInDebug + General
 {
 }
 
@@ -777,7 +777,7 @@ impl<TIM: Instance> Timer<TIM> {
         TIM::reset(rcc);
 
         Self {
-            clk: TIM::timer_clock(&rcc.clocks),
+            clk: TIM::Bus::timer_clock(&rcc.clocks),
             tim,
         }
     }

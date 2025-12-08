@@ -75,7 +75,7 @@ use crate::dma::dma1;
 use crate::dma::dma2;
 use crate::dma::{self, Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma};
 use crate::gpio::{Floating, PushPull, UpMode};
-use crate::rcc::{BusClock, Enable, Rcc, Reset};
+use crate::rcc::{BusClock, Rcc};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
@@ -314,12 +314,7 @@ pub enum SpiBitFormat {
 }
 
 pub trait Instance:
-    crate::Sealed
-    + Deref<Target = crate::pac::spi1::RegisterBlock>
-    + Enable
-    + Reset
-    + BusClock
-    + afio::SpiCommon
+    crate::rcc::Instance + crate::Ptr<RB = crate::pac::spi1::RegisterBlock> + afio::SpiCommon
 {
 }
 
