@@ -90,7 +90,6 @@
 //!  ```
 
 use core::marker::PhantomData;
-use core::ops::Deref;
 use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
 
@@ -99,8 +98,8 @@ use crate::afio::{self, RInto, Rmp};
 use crate::dma::dma2;
 use crate::dma::{self, dma1, CircBuffer, RxDma, Transfer, TxDma};
 use crate::gpio::{Floating, PushPull, UpMode};
-use crate::pac::{self};
-use crate::rcc::{BusClock, Clocks, Enable, Rcc, Reset};
+use crate::pac;
+use crate::rcc::{BusClock, Clocks, Rcc};
 use crate::time::{Bps, U32Ext};
 
 mod hal_02;
@@ -197,16 +196,7 @@ impl RBExt for pac::uart4::RegisterBlock {
     }
 }
 
-pub trait Instance:
-    crate::Sealed
-    + crate::Ptr<RB: RBExt>
-    + Deref<Target = Self::RB>
-    + Enable
-    + Reset
-    + BusClock
-    + afio::SerialAsync
-{
-}
+pub trait Instance: crate::rcc::Instance + crate::Ptr<RB: RBExt> + afio::SerialAsync {}
 
 macro_rules! inst {
     ($($USARTX:ty;)+) => {
@@ -562,7 +552,7 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     let usart = unsafe { &*USART::ptr() };
 
     // Configure baud rate
-    let brr = USART::clock(clocks).raw() / config.baudrate.0;
+    let brr = USART::Bus::clock(clocks).raw() / config.baudrate.0;
     assert!(brr >= 16, "impossible baud rate");
     usart.brr().write(|w| unsafe { w.bits(brr as u16) });
 

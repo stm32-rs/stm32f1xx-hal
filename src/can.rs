@@ -63,7 +63,7 @@ impl<CAN: Instance> CanExt for CAN {
     }
 }
 
-pub trait Instance: crate::rcc::Enable + afio::CanCommon {}
+pub trait Instance: crate::rcc::Instance + afio::CanCommon {}
 #[cfg(not(feature = "connectivity"))]
 use pac::CAN as CAN1;
 #[cfg(feature = "connectivity")]

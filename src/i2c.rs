@@ -22,9 +22,8 @@
 
 use crate::afio::{self, RInto, Rmp};
 use crate::pac::{self, i2c1};
-use crate::rcc::{BusClock, Clocks, Enable, Rcc, Reset};
+use crate::rcc::{BusClock, Clocks, Rcc};
 use crate::time::{kHz, Hertz};
-use core::ops::Deref;
 
 pub mod blocking;
 pub use blocking::BlockingI2c;
@@ -115,12 +114,7 @@ pub struct I2c<I2C: Instance> {
 }
 
 pub trait Instance:
-    crate::Sealed
-    + Deref<Target = crate::pac::i2c1::RegisterBlock>
-    + Enable
-    + Reset
-    + BusClock
-    + afio::I2cCommon
+    crate::rcc::Instance + crate::Ptr<RB = crate::pac::i2c1::RegisterBlock> + afio::I2cCommon
 {
 }
 
@@ -151,7 +145,7 @@ impl<I2C: Instance, const R: u8> Rmp<I2C, R> {
         I2C::enable(rcc);
         I2C::reset(rcc);
 
-        let pclk1 = I2C::clock(&rcc.clocks);
+        let pclk1 = I2C::Bus::clock(&rcc.clocks);
 
         assert!(mode.get_frequency() <= kHz(400));
 
