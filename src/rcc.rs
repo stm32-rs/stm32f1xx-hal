@@ -447,26 +447,6 @@ pub trait BusTimerClock {
     fn timer_clock(clocks: &Clocks) -> Hertz;
 }
 
-impl<T> BusClock for T
-where
-    T: RccBus,
-    T::Bus: BusClock,
-{
-    fn clock(clocks: &Clocks) -> Hertz {
-        T::Bus::clock(clocks)
-    }
-}
-
-impl<T> BusTimerClock for T
-where
-    T: RccBus,
-    T::Bus: BusTimerClock,
-{
-    fn timer_clock(clocks: &Clocks) -> Hertz {
-        T::Bus::timer_clock(clocks)
-    }
-}
-
 impl BusClock for AHB {
     fn clock(clocks: &Clocks) -> Hertz {
         clocks.hclk
