@@ -552,7 +552,7 @@ fn apply_config<USART: Instance>(config: Config, clocks: &Clocks) {
     let usart = unsafe { &*USART::ptr() };
 
     // Configure baud rate
-    let brr = USART::clock(clocks).raw() / config.baudrate.0;
+    let brr = USART::Bus::clock(clocks).raw() / config.baudrate.0;
     assert!(brr >= 16, "impossible baud rate");
     usart.brr().write(|w| unsafe { w.bits(brr as u16) });
 

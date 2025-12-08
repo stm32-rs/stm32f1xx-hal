@@ -343,7 +343,7 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
         // disable SS output
         spi.cr2().write(|w| w.ssoe().clear_bit());
 
-        let br = match SPI::clock(&rcc.clocks) / freq {
+        let br = match SPI::Bus::clock(&rcc.clocks) / freq {
             0 => unreachable!(),
             1..=2 => 0b000,
             3..=5 => 0b001,

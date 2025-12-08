@@ -145,7 +145,7 @@ impl<I2C: Instance, const R: u8> Rmp<I2C, R> {
         I2C::enable(rcc);
         I2C::reset(rcc);
 
-        let pclk1 = I2C::clock(&rcc.clocks);
+        let pclk1 = I2C::Bus::clock(&rcc.clocks);
 
         assert!(mode.get_frequency() <= kHz(400));
 

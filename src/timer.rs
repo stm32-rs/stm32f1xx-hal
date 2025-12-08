@@ -783,7 +783,7 @@ impl<TIM: Instance> Timer<TIM> {
     }
 
     pub fn configure(&mut self, clocks: &Clocks) {
-        self.clk = TIM::timer_clock(clocks);
+        self.clk = TIM::Bus::timer_clock(clocks);
     }
 
     pub fn counter_hz(self) -> CounterHz<TIM> {
@@ -860,7 +860,7 @@ impl<TIM: Instance, const FREQ: u32> FTimer<TIM, FREQ> {
 
     /// Calculate prescaler depending on `Clocks` state
     pub fn configure(&mut self, clocks: &Clocks) {
-        let clk = TIM::timer_clock(clocks);
+        let clk = TIM::Bus::timer_clock(clocks);
         assert!(clk.raw() % FREQ == 0);
         let psc = clk.raw() / FREQ;
         self.tim.set_prescaler(u16::try_from(psc - 1).unwrap());
