@@ -1,7 +1,6 @@
 //! # API for the Analog to Digital converter
 
 use core::marker::PhantomData;
-use core::ops::Deref;
 use embedded_hal_02::adc::{Channel, OneShot};
 use fugit::HertzU32 as Hertz;
 
@@ -9,7 +8,7 @@ use fugit::HertzU32 as Hertz;
 use crate::dma::dma2;
 use crate::dma::{dma1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
 use crate::gpio::{self, Analog};
-use crate::rcc::{Enable, Rcc, Reset};
+use crate::rcc::Rcc;
 use crate::time::kHz;
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
@@ -179,9 +178,7 @@ adc_pins!(pac::ADC3,
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct StoredConfig(SampleTime, Align);
 
-pub trait Instance:
-    crate::Sealed + crate::Ptr<RB: AdcRB> + Deref<Target = Self::RB> + Reset + Enable
-{
+pub trait Instance: crate::rcc::Instance + crate::Ptr<RB: AdcRB> {
     type ExtSel;
     #[doc(hidden)]
     fn set_extsel(&self, trigger: Self::ExtSel);

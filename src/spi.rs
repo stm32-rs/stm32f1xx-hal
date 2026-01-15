@@ -75,7 +75,7 @@ use crate::dma::dma1;
 use crate::dma::dma2;
 use crate::dma::{self, Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma};
 use crate::gpio::{Floating, PushPull, UpMode};
-use crate::rcc::{BusClock, Enable, Rcc, Reset};
+use crate::rcc::{BusClock, Rcc};
 use crate::time::Hertz;
 
 use core::sync::atomic::{self, Ordering};
@@ -314,12 +314,7 @@ pub enum SpiBitFormat {
 }
 
 pub trait Instance:
-    crate::Sealed
-    + Deref<Target = crate::pac::spi1::RegisterBlock>
-    + Enable
-    + Reset
-    + BusClock
-    + afio::SpiCommon
+    crate::rcc::Instance + crate::Ptr<RB = crate::pac::spi1::RegisterBlock> + afio::SpiCommon
 {
 }
 
@@ -348,7 +343,7 @@ impl<SPI: Instance, const R: u8> Rmp<SPI, R> {
         // disable SS output
         spi.cr2().write(|w| w.ssoe().clear_bit());
 
-        let br = match SPI::clock(&rcc.clocks) / freq {
+        let br = match SPI::Bus::clock(&rcc.clocks) / freq {
             0 => unreachable!(),
             1..=2 => 0b000,
             3..=5 => 0b001,
