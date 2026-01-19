@@ -7,7 +7,12 @@
 use panic_halt as _;
 
 use cortex_m_rt::entry;
-use stm32f1xx_hal::{pac, prelude::*, rcc::BusTimerClock, timer::pwm_input::*};
+use stm32f1xx_hal::{
+    pac,
+    prelude::*,
+    rcc::{BusTimerClock, RccBus},
+    timer::pwm_input::*,
+};
 
 #[entry]
 fn main() -> ! {
@@ -30,7 +35,7 @@ fn main() -> ! {
         Configuration::Frequency(10.kHz()),
         &mut rcc,
     );
-    let timer_clk = pac::TIM3::timer_clock(&rcc.clocks);
+    let timer_clk = <pac::TIM3 as RccBus>::Bus::timer_clock(&rcc.clocks);
 
     loop {
         let _freq = pwm_input

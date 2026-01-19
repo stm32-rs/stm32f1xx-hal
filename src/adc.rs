@@ -1,15 +1,11 @@
 //! # API for the Analog to Digital converter
 
 use core::marker::PhantomData;
-use core::ops::Deref;
 use embedded_hal_02::adc::{Channel, OneShot};
 use fugit::HertzU32 as Hertz;
 
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
-use crate::dma::dma2;
-use crate::dma::{dma1, CircBuffer, Receive, RxDma, Transfer, TransferPayload, W};
 use crate::gpio::{self, Analog};
-use crate::rcc::{Enable, Rcc, Reset};
+use crate::rcc::Rcc;
 use crate::time::kHz;
 use core::sync::atomic::{self, Ordering};
 use cortex_m::asm::delay;
@@ -17,6 +13,9 @@ use embedded_dma::WriteBuffer;
 
 use crate::pac::{self, RCC};
 use crate::pacext::adc::{AdcRB, Cr1W, Cr2R, Cr2W, Dr, ExtSelW};
+
+mod dma;
+pub use dma::*;
 
 const TEMP_CHANNEL: u8 = 16;
 const VREF_CHANNEL: u8 = 17;
@@ -179,9 +178,7 @@ adc_pins!(pac::ADC3,
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct StoredConfig(SampleTime, Align);
 
-pub trait Instance:
-    crate::Sealed + crate::Ptr<RB: AdcRB> + Deref<Target = Self::RB> + Reset + Enable
-{
+pub trait Instance: crate::rcc::Instance + crate::Ptr<RB: AdcRB> {
     type ExtSel;
     #[doc(hidden)]
     fn set_extsel(&self, trigger: Self::ExtSel);
@@ -609,12 +606,6 @@ impl Adc<pac::ADC1> {
     }
 }
 
-pub struct AdcPayload<ADC, PINS, MODE> {
-    adc: Adc<ADC>,
-    pins: PINS,
-    _mode: PhantomData<MODE>,
-}
-
 pub trait ChannelTimeSequence {
     /// Set ADC sampling time for particular channel
     fn set_channel_sample_time(&mut self, chan: u8, sample_time: SampleTime);
@@ -654,222 +645,4 @@ pub trait ChannelTimeSequence {
 pub trait SetChannels<PINS>: ChannelTimeSequence {
     fn set_samples(&mut self);
     fn set_sequence(&mut self);
-}
-
-pub type AdcDma<ADC, PINS, MODE, CHANNEL> = RxDma<AdcPayload<ADC, PINS, MODE>, CHANNEL>;
-
-macro_rules! adcdma {
-    ($ADCX:ty: (
-        $rxdma:ident,
-        $dmarxch:ty,
-    )) => {
-        pub type $rxdma<PINS, MODE> = AdcDma<$ADCX, PINS, MODE, $dmarxch>;
-
-        impl<PINS, MODE> Receive for AdcDma<$ADCX, PINS, MODE, $dmarxch> {
-            type RxChannel = $dmarxch;
-            type TransmittedWord = u16;
-        }
-
-        impl<PINS> TransferPayload for AdcDma<$ADCX, PINS, Continuous, $dmarxch> {
-            fn start(&mut self) {
-                self.channel.start();
-                self.payload.adc.rb.cr2().modify(|_, w| w.cont().set_bit());
-                self.payload.adc.rb.cr2().modify(|_, w| w.adon().set_bit());
-            }
-            fn stop(&mut self) {
-                self.channel.stop();
-                self.payload
-                    .adc
-                    .rb
-                    .cr2()
-                    .modify(|_, w| w.cont().clear_bit());
-            }
-        }
-
-        impl<PINS> TransferPayload for AdcDma<$ADCX, PINS, Scan, $dmarxch> {
-            fn start(&mut self) {
-                self.channel.start();
-                self.payload.adc.rb.cr2().modify(|_, w| w.adon().set_bit());
-            }
-            fn stop(&mut self) {
-                self.channel.stop();
-            }
-        }
-
-        impl Adc<$ADCX> {
-            pub fn with_dma<PIN>(
-                mut self,
-                pins: PIN,
-                dma_ch: $dmarxch,
-            ) -> AdcDma<$ADCX, PIN, Continuous, $dmarxch>
-            where
-                PIN: Channel<$ADCX, ID = u8>,
-            {
-                self.rb.cr1().modify(|_, w| w.discen().clear_bit());
-                self.rb
-                    .cr2()
-                    .modify(|_, w| w.align().variant(self.align.into()));
-                self.set_channel_sample_time(PIN::channel(), self.sample_time);
-                self.rb
-                    .sqr3()
-                    .modify(|_, w| unsafe { w.sq1().bits(PIN::channel()) });
-                self.rb.cr2().modify(|_, w| w.dma().set_bit());
-
-                let payload = AdcPayload {
-                    adc: self,
-                    pins,
-                    _mode: PhantomData,
-                };
-                RxDma {
-                    payload,
-                    channel: dma_ch,
-                }
-            }
-
-            pub fn with_scan_dma<PINS>(
-                mut self,
-                pins: PINS,
-                dma_ch: $dmarxch,
-            ) -> AdcDma<$ADCX, PINS, Scan, $dmarxch>
-            where
-                Self: SetChannels<PINS>,
-            {
-                self.rb.cr2().modify(|_, w| {
-                    w.adon().clear_bit();
-                    w.dma().clear_bit();
-                    w.cont().clear_bit();
-                    w.align().variant(self.align.into())
-                });
-                self.rb
-                    .cr1()
-                    .modify(|_, w| w.scan().set_bit().discen().clear_bit());
-                self.set_samples();
-                self.set_sequence();
-                self.rb
-                    .cr2()
-                    .modify(|_, w| w.dma().set_bit().adon().set_bit());
-
-                let payload = AdcPayload {
-                    adc: self,
-                    pins,
-                    _mode: PhantomData,
-                };
-                RxDma {
-                    payload,
-                    channel: dma_ch,
-                }
-            }
-        }
-
-        impl<PINS> AdcDma<$ADCX, PINS, Continuous, $dmarxch>
-        where
-            Self: TransferPayload,
-        {
-            pub fn split(mut self) -> (Adc<$ADCX>, PINS, $dmarxch) {
-                self.stop();
-
-                let AdcDma { payload, channel } = self;
-                payload.adc.rb.cr2().modify(|_, w| w.dma().clear_bit());
-                payload.adc.rb.cr1().modify(|_, w| w.discen().set_bit());
-
-                (payload.adc, payload.pins, channel)
-            }
-        }
-
-        impl<PINS> AdcDma<$ADCX, PINS, Scan, $dmarxch>
-        where
-            Self: TransferPayload,
-        {
-            pub fn split(mut self) -> (Adc<$ADCX>, PINS, $dmarxch) {
-                self.stop();
-
-                let AdcDma { payload, channel } = self;
-                payload.adc.rb.cr2().modify(|_, w| w.dma().clear_bit());
-                payload.adc.rb.cr1().modify(|_, w| w.discen().set_bit());
-                payload.adc.rb.cr1().modify(|_, w| w.scan().clear_bit());
-
-                (payload.adc, payload.pins, channel)
-            }
-        }
-
-        impl<B, PINS, MODE> crate::dma::CircReadDma<B, u16> for AdcDma<$ADCX, PINS, MODE, $dmarxch>
-        where
-            Self: TransferPayload,
-            &'static mut [B; 2]: WriteBuffer<Word = u16>,
-            B: 'static,
-        {
-            fn circ_read(mut self, mut buffer: &'static mut [B; 2]) -> CircBuffer<B, Self> {
-                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                // until the end of the transfer.
-                let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel.set_peripheral_address(
-                    unsafe { (*<$ADCX>::ptr()).dr().as_ptr() as u32 },
-                    false,
-                );
-                self.channel.set_memory_address(ptr as u32, true);
-                self.channel.set_transfer_length(len);
-
-                atomic::compiler_fence(Ordering::Release);
-
-                self.channel.ch().cr().modify(|_, w| {
-                    w.mem2mem().clear_bit();
-                    w.pl().medium();
-                    w.msize().bits16();
-                    w.psize().bits16();
-                    w.circ().set_bit();
-                    w.dir().clear_bit()
-                });
-
-                self.start();
-
-                CircBuffer::new(buffer, self)
-            }
-        }
-
-        impl<B, PINS, MODE> crate::dma::ReadDma<B, u16> for AdcDma<$ADCX, PINS, MODE, $dmarxch>
-        where
-            Self: TransferPayload,
-            B: WriteBuffer<Word = u16>,
-        {
-            fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
-                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
-                // until the end of the transfer.
-                let (ptr, len) = unsafe { buffer.write_buffer() };
-                self.channel.set_peripheral_address(
-                    unsafe { (*<$ADCX>::ptr()).dr().as_ptr() as u32 },
-                    false,
-                );
-                self.channel.set_memory_address(ptr as u32, true);
-                self.channel.set_transfer_length(len);
-
-                atomic::compiler_fence(Ordering::Release);
-                self.channel.ch().cr().modify(|_, w| {
-                    w.mem2mem().clear_bit();
-                    w.pl().medium();
-                    w.msize().bits16();
-                    w.psize().bits16();
-                    w.circ().clear_bit();
-                    w.dir().clear_bit()
-                });
-                self.start();
-
-                Transfer::w(buffer, self)
-            }
-        }
-    };
-}
-
-adcdma! {
-    pac::ADC1: (
-        AdcDma1,
-        dma1::C1,
-    )
-}
-
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
-adcdma! {
-    pac::ADC3: (
-        AdcDma3,
-        dma2::C5,
-    )
 }

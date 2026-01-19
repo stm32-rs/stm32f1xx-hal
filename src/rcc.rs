@@ -429,6 +429,12 @@ impl Clocks {
     }
 }
 
+/// Common trait for most of peripherals
+pub trait Instance:
+    crate::Ptr + crate::Steal + Enable + Reset + RccBus<Bus: BusClock> + Deref<Target = Self::RB>
+{
+}
+
 /// Frequency on bus that peripheral is connected in
 pub trait BusClock {
     /// Calculates frequency depending on `Clock` state
@@ -439,26 +445,6 @@ pub trait BusClock {
 pub trait BusTimerClock {
     /// Calculates base frequency of timer depending on `Clock` state
     fn timer_clock(clocks: &Clocks) -> Hertz;
-}
-
-impl<T> BusClock for T
-where
-    T: RccBus,
-    T::Bus: BusClock,
-{
-    fn clock(clocks: &Clocks) -> Hertz {
-        T::Bus::clock(clocks)
-    }
-}
-
-impl<T> BusTimerClock for T
-where
-    T: RccBus,
-    T::Bus: BusTimerClock,
-{
-    fn timer_clock(clocks: &Clocks) -> Hertz {
-        T::Bus::timer_clock(clocks)
-    }
 }
 
 impl BusClock for AHB {
