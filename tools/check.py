@@ -21,30 +21,32 @@ def run(mcu, cargo_cmd):
 
 def main():
     cargo_meta = json.loads(
-        subprocess.check_output("cargo metadata --no-deps --format-version=1",
-                       shell=True,
-                       universal_newlines=True)
+        subprocess.check_output(
+            "cargo metadata --no-deps --format-version=1",
+            shell=True,
+            universal_newlines=True,
         )
+    )
 
     crate_info = cargo_meta["packages"][0]
 
-    features = ["{},rtic,high,stm32-usbd".format(x)
-            for x in crate_info["features"].keys()
-            if x.startswith("stm32f1")]
+    features = [
+        "{},rtic1,defmt,high,stm32-usbd".format(x)
+        for x in crate_info["features"].keys()
+        if x.startswith("stm32f1")
+    ]
 
-    if 'size_check' in sys.argv:
-        cargo_cmd = ['cargo', 'build', '--release']
+    if "size_check" in sys.argv:
+        cargo_cmd = ["cargo", "build", "--release"]
     else:
-        cargo_cmd = ['cargo', 'check']
-    
-    if '--examples' in sys.argv:
-        cargo_cmd += ['--examples']
+        cargo_cmd = ["cargo", "check"]
 
-    if not all(map(lambda f: run(f, cargo_cmd),
-                   features)):
+    if "--examples" in sys.argv:
+        cargo_cmd += ["--examples"]
+
+    if not all(map(lambda f: run(f, cargo_cmd), features)):
         sys.exit(-1)
 
 
 if __name__ == "__main__":
     main()
-

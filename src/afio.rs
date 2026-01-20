@@ -190,7 +190,6 @@ macro_rules! remap {
         }
     };
 }
-use remap;
 
 remap! {
     pac::SPI1: MAPR, bool: spi1_remap;

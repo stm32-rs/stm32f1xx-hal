@@ -3,7 +3,7 @@
     "rust-analyzer": {
       "initialization_options": {
         "cargo": {
-          "features": ["defmt", "rtic", "stm32f103", "medium"]
+          "features": ["defmt", "rtic1", "stm32f103", "medium"]
         },
         "check": {
           "allTargets": false,
