@@ -101,7 +101,7 @@ mod nb {
 
 mod io {
     use super::super::{Error, Instance, Rx, Serial, Tx};
-    use embedded_io::Write;
+    use embedded_io::{Read, Write};
 
     impl embedded_io::Error for Error {
         // TODO: fix error conversion
@@ -120,6 +120,19 @@ mod io {
 
     impl<USART: Instance> embedded_io::ErrorType for Rx<USART> {
         type Error = Error;
+    }
+
+    impl<USART: Instance> Read for Rx<USART> {
+        fn read(&mut self, bytes: &mut [u8]) -> Result<usize, Self::Error> {
+            for (i, byte) in bytes.iter_mut().enumerate() {
+                match self.read() {
+                    Ok(b) => *byte = b,
+                    Err(nb::Error::WouldBlock) => return Ok(i),
+                    Err(nb::Error::Other(e)) => return Err(e),
+                }
+            }
+            Ok(bytes.len())
+        }
     }
 
     impl<USART: Instance> Write for Tx<USART> {
@@ -144,6 +157,22 @@ mod io {
         fn flush(&mut self) -> Result<(), Self::Error> {
             self.bflush()?;
             Ok(())
+        }
+    }
+
+    impl<USART: Instance, Otype, PULL> Read for Serial<USART, Otype, PULL>
+    where
+        Rx<USART>: Read<Error = Error>,
+    {
+        fn read(&mut self, bytes: &mut [u8]) -> Result<usize, Self::Error> {
+            for (i, byte) in bytes.iter_mut().enumerate() {
+                match self.rx.read() {
+                    Ok(b) => *byte = b,
+                    Err(nb::Error::WouldBlock) => return Ok(i),
+                    Err(nb::Error::Other(e)) => return Err(e),
+                }
+            }
+            Ok(bytes.len())
         }
     }
 

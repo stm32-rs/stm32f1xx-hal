@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#554]: https://github.com/stm32-rs/stm32f1xx-hal/pull/554
 [#557]: https://github.com/stm32-rs/stm32f1xx-hal/pull/557
 
+### Added
+
+- `embedded_io::Read` trait implemented for `serial`
+
 ## [v0.11.0] - 2025-09-09
 
 ### Breaking changes
