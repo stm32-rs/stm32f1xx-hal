@@ -25,8 +25,10 @@ pub use crate::spi::SpiExt as _;
 pub use crate::time::U32Ext as _stm32_hal_time_U32Ext;
 pub use crate::timer::pwm_input::PwmInputExt as _;
 pub use crate::timer::pwm_input::QeiExt as _;
-#[cfg(feature = "rtic")]
+#[cfg(feature = "rtic1")]
 pub use crate::timer::MonoTimerExt as _stm32f4xx_hal_timer_MonoTimerExt;
+#[cfg(feature = "rtic2")]
+pub use crate::timer::MonoTimerExt as _;
 pub use crate::timer::PwmExt as _stm32f4xx_hal_timer_PwmExt;
 pub use crate::timer::SysTimerExt as _stm32f4xx_hal_timer_SysCounterExt;
 pub use crate::timer::TimerExt as _stm32f4xx_hal_timer_TimerExt;
