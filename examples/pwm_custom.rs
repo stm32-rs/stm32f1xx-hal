@@ -8,7 +8,7 @@
 use panic_halt as _;
 
 use cortex_m::asm;
-use stm32f1xx_hal::{pac, prelude::*, timer::Timer};
+use stm32f1xx_hal::{pac, prelude::*};
 
 use cortex_m_rt::entry;
 
@@ -27,30 +27,31 @@ fn main() -> ! {
     let p0 = pb4.into_alternate_push_pull(&mut gpiob.crl);
     let p1 = gpiob.pb5.into_alternate_push_pull(&mut gpiob.crl);
 
-    let pwm = Timer::new(p.TIM3, &mut rcc).pwm_hz((p0, p1), &mut afio.mapr, 1.kHz());
+    let (pwm, pwm_channels) = p.TIM3.remap(&mut afio.mapr).pwm_hz(1.kHz(), &mut rcc);
 
     let max = pwm.get_max_duty();
 
-    let mut pwm_channels = pwm.split();
+    let mut c1 = pwm_channels.0.with(p0);
+    let mut c2 = pwm_channels.1.with(p1);
 
     // Enable the individual channels
-    pwm_channels.0.enable();
-    pwm_channels.1.enable();
+    c1.enable();
+    c2.enable();
 
     // full
-    pwm_channels.0.set_duty(max);
-    pwm_channels.1.set_duty(max);
+    c1.set_duty(max);
+    c2.set_duty(max);
 
     asm::bkpt();
 
     // dim
-    pwm_channels.1.set_duty(max / 4);
+    c2.set_duty(max / 4);
 
     asm::bkpt();
 
     // zero
-    pwm_channels.0.set_duty(0);
-    pwm_channels.1.set_duty(0);
+    c1.set_duty(0);
+    c2.set_duty(0);
 
     asm::bkpt();
 

@@ -107,18 +107,17 @@ has-dac = []
 rtic1 = ["dep:rtic-monotonic", "dep:systick-monotonic", "cortex-m-rtic"]
 
 ## Support monotonic timers and other stuff that can be used by [RTICv2 framework](https://crates.io/crates/rtic)
-##
-## Requires one of `rtic-timX` features also be enabled
 rtic2 = [
     "dep:rtic-time",
     "dep:rtic",
     "dep:atomic-polyfill",
     "dep:embedded-hal-async",
 ]
-rtic-tim2 = []
-rtic-tim3 = []
-rtic-tim4 = []
-rtic-tim5 = []
+## `rtic-timX` features enable `rtic-time` global monotonic timer implementation
+rtic-tim2 = ["rtic2"]
+rtic-tim3 = ["rtic2"]
+rtic-tim4 = ["rtic2"]
+rtic-tim5 = ["rtic2"]
 
 [profile.dev]
 incremental = false
@@ -188,3 +187,7 @@ required-features = ["stm32f103", "medium"]
 [[example]]
 name = "rtic2-tick"
 required-features = ["rtic2", "rtic-tim3", "defmt"]
+
+[[example]]
+name = "rtic2-timer-input-capture"
+required-features = ["stm32f103", "rtic2"]

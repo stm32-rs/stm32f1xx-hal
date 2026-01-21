@@ -1,323 +1,131 @@
-/*!
-  # Pulse width modulation
+//! Provides basic Pulse-width modulation (PWM) capabilities
+//!
+//! There are 2 main structures [`Pwm`] and [`PwmHz`]. Both structures implement [`embedded_hal_02::Pwm`] and have some additional API.
+//!
+//! First one is based on [`FTimer`] with fixed prescaler
+//! and easy to use with [`fugit::TimerDurationU32`] for setting pulse width and period without advanced calculations.
+//!
+//! Second one is based on [`Timer`] with dynamic internally calculated prescaler and require [`fugit::Hertz`] to set period.
+//!
+//! The main way to run PWM is calling [`FTimer::pwm`] with initial `period`/`frequency` corresponding PWM period.
+//! This returns [`PwmManager`] and a tuple of all [`PwmChannel`]s supported by timer.
+//! Also there is [`PwmExt`] trait implemented on `pac::TIMx` to simplify creating new structure.
+//!
+//! ```rust,ignore
+//! let (pwm_manager, (pwm_ch1, pwm_ch2, ..)) = dp.TIM1.pwm_us(100.micros(), &mut rcc);
+//! ```
+//!
+//! Each `PwmChannel` implements [`embedded_hal::pwm::SetDutyCycle`].
+//! They are disabled.
+//! To enable `PwmChannel` you need to pass one or more regular pins allowed by channel
+//! using `with` or `with_open_drain`.
+//! Also you can pass complementary pins by `.with_complementary(other_complementary_pin)`.
+//! After connecting pins you can dynamically enable main or complementary channels with `enable` and `enable_complementary`
+//! and change their polarity with `set_polarity` and `set_complementary_polarity`.
+//!
+//! ```rust,ignore
+//! let mut pwm_c1 = pwm_c1.with(gpioa.pa8).with_complementary(gpioa.pa7);
+//! pwm_c1.enable();
+//! pwm_c1.enable_complementary();
+//! ```
+//!
+//! By default `PwmChannel` contains information about connected pins to be possible to `release` them.
+//! But you can `erase` this information to constuct [`ErasedChannel`] which can be collected to array.
+//! Note that this operation is irreversible.
+//!
+//! `PwmManager` allows you to change PWM `period`/`frequency` and also has methods for advanced PWM control.
 
-  The general purpose timers (`TIM2`, `TIM3`, and `TIM4`) can be used to output
-  pulse width modulated signals on some pins. The timers support up to 4
-  simultaneous pwm outputs in separate `Channels`
-
-  ## Usage for pre-defined channel combinations
-
-  This crate only defines basic channel combinations for default AFIO remappings,
-  where all the channels are enabled. Start by setting all the pins for the
-  timer you want to use to alternate push pull pins:
-
-  ```rust
-  let gpioa = ..; // Set up and split GPIOA
-  // Select the pins you want to use
-  let pins = (
-      gpioa.pa0.into_alternate_push_pull(&mut gpioa.crl),
-      gpioa.pa1.into_alternate_push_pull(&mut gpioa.crl),
-      gpioa.pa2.into_alternate_push_pull(&mut gpioa.crl),
-      gpioa.pa3.into_alternate_push_pull(&mut gpioa.crl),
-  );
-
-  // Set up the timer as a PWM output. If selected pins may correspond to different remap options,
-  // then you must specify the remap generic parameter. Otherwise, if there is no such ambiguity,
-  // the remap generic parameter can be omitted without complains from the compiler.
-  let (c1, c2, c3, c4) = Timer::tim2(p.TIM2, &clocks)
-      .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 1.kHz())
-      .3;
-
-  // Start using the channels
-  c1.set_duty(c1.get_max_duty());
-  // ...
-  ```
-
-  Then call the `pwm` function on the corresponding timer.
-
-  NOTE: In some cases you need to specify remap you need, especially for TIM2
-  (see [Alternate function remapping](super)):
-
-  ```
-    let device: pac::Peripherals = ..;
-
-    // Put the timer in PWM mode using the specified pins
-    // with a frequency of 100 Hz.
-    let (c0, c1, c2, c3) = Timer::tim2(device.TIM2, &clocks)
-        .pwm_hz::<Tim2NoRemap, _, _>(pins, &mut afio.mapr, 100.Hz());
-
-    // Set the duty cycle of channel 0 to 50%
-    c0.set_duty(c0.get_max_duty() / 2);
-    // PWM outputs are disabled by default
-    c0.enable()
-  ```
-*/
-
-use crate::afio::MAPR;
-use crate::gpio::{self, Alternate};
-
-use super::{compute_arr_presc, Channel, FTimer, Instance, Ocm, Timer, WithPwm};
+use super::sealed::Split;
+use super::{
+    compute_arr_presc, Advanced, CenterAlignedMode, FTimer, IdleState, Instance, Ocm, Polarity,
+    TimC, TimNC, Timer, WithPwm,
+};
+pub use super::{Ch, C1, C2, C3, C4};
+use crate::afio::{RInto, Rmp};
 use crate::rcc::Rcc;
-use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use fugit::{HertzU32 as Hertz, TimerDurationU32};
 
-pub trait Pins<REMAP, P> {
-    const C1: bool = false;
-    const C2: bool = false;
-    const C3: bool = false;
-    const C4: bool = false;
-    type Channels;
-
-    fn check_used(c: Channel) -> Channel {
-        if (c == Channel::C1 && Self::C1)
-            || (c == Channel::C2 && Self::C2)
-            || (c == Channel::C3 && Self::C3)
-            || (c == Channel::C4 && Self::C4)
-        {
-            c
-        } else {
-            panic!("Unused channel")
-        }
-    }
-
-    fn split() -> Self::Channels;
-}
-
-pub use super::{pins::sealed::Remap, CPin, Ch, C1, C2, C3, C4};
-
-pub struct PwmChannel<TIM, const C: u8> {
-    pub(super) _tim: PhantomData<TIM>,
-}
-
-macro_rules! pins_impl {
-    ( $( ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ); )+ ) => {
-        $(
-            #[allow(unused_parens)]
-            impl<TIM, REMAP, Otype, $($PINX,)+> Pins<REMAP, ($(Ch<$ENCHX>),+)> for ($($PINX),+)
-            where
-                TIM: Instance + WithPwm,
-                REMAP: Remap<Periph = TIM>,
-                $($PINX: CPin<REMAP, $ENCHX> + gpio::PinExt<Mode=Alternate<Otype>>,)+
-            {
-                $(const $ENCHX: bool = true;)+
-                type Channels = ($(PwmChannel<TIM, $ENCHX>),+);
-                fn split() -> Self::Channels {
-                    ($(PwmChannel::<TIM, $ENCHX>::new()),+)
-                }
-            }
-        )+
-    };
-}
-
-pins_impl!(
-    (P1, P2, P3, P4), (C1, C2, C3, C4);
-    (P2, P3, P4), (C2, C3, C4);
-    (P1, P3, P4), (C1, C3, C4);
-    (P1, P2, P4), (C1, C2, C4);
-    (P1, P2, P3), (C1, C2, C3);
-    (P3, P4), (C3, C4);
-    (P2, P4), (C2, C4);
-    (P2, P3), (C2, C3);
-    (P1, P4), (C1, C4);
-    (P1, P3), (C1, C3);
-    (P1, P2), (C1, C2);
-    (P1), (C1);
-    (P2), (C2);
-    (P3), (C3);
-    (P4), (C4);
-);
-
 pub trait PwmExt
 where
-    Self: Sized + Instance + WithPwm,
+    Self: Sized + Instance + WithPwm + Split,
 {
-    fn pwm<REMAP, P, PINS, const FREQ: u32>(
+    fn pwm<const FREQ: u32>(
         self,
-        pins: PINS,
-        mapr: &mut MAPR,
         time: TimerDurationU32<FREQ>,
         rcc: &mut Rcc,
-    ) -> Pwm<Self, REMAP, P, PINS, FREQ>
-    where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>;
+    ) -> (PwmManager<Self, FREQ>, Self::Channels);
 
-    fn pwm_hz<REMAP, P, PINS>(
-        self,
-        pins: PINS,
-        mapr: &mut MAPR,
-        freq: Hertz,
-        rcc: &mut Rcc,
-    ) -> PwmHz<Self, REMAP, P, PINS>
-    where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>;
+    fn pwm_hz(self, freq: Hertz, rcc: &mut Rcc) -> (PwmHzManager<Self>, Self::Channels);
 
-    fn pwm_us<REMAP, P, PINS>(
+    fn pwm_us(
         self,
-        pins: PINS,
-        mapr: &mut MAPR,
         time: TimerDurationU32<1_000_000>,
         rcc: &mut Rcc,
-    ) -> Pwm<Self, REMAP, P, PINS, 1_000_000>
-    where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>,
-    {
-        self.pwm::<_, _, _, 1_000_000>(pins, mapr, time, rcc)
+    ) -> (PwmManager<Self, 1_000_000>, Self::Channels) {
+        self.pwm::<1_000_000>(time, rcc)
     }
 }
 
 impl<TIM> PwmExt for TIM
 where
-    Self: Sized + Instance + WithPwm,
+    Self: Sized + Instance + WithPwm + Split,
 {
-    fn pwm<REMAP, P, PINS, const FREQ: u32>(
+    fn pwm<const FREQ: u32>(
         self,
-        pins: PINS,
-        mapr: &mut MAPR,
         time: TimerDurationU32<FREQ>,
         rcc: &mut Rcc,
-    ) -> Pwm<TIM, REMAP, P, PINS, FREQ>
-    where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>,
-    {
-        FTimer::<Self, FREQ>::new(self, rcc).pwm(pins, mapr, time)
+    ) -> (PwmManager<Self, FREQ>, Self::Channels) {
+        FTimer::<Self, FREQ>::new(self, rcc).pwm(time)
     }
 
-    fn pwm_hz<REMAP, P, PINS>(
+    fn pwm_hz(self, freq: Hertz, rcc: &mut Rcc) -> (PwmHzManager<Self>, Self::Channels) {
+        Timer::new(self, rcc).pwm_hz(freq)
+    }
+}
+
+impl<TIM, const R: u8> Rmp<TIM, R>
+where
+    TIM: Sized + Instance + WithPwm,
+    Self: Split,
+{
+    pub fn pwm<const FREQ: u32>(
         self,
-        pins: PINS,
-        mapr: &mut MAPR,
-        time: Hertz,
+        time: TimerDurationU32<FREQ>,
         rcc: &mut Rcc,
-    ) -> PwmHz<TIM, REMAP, P, PINS>
-    where
-        REMAP: Remap<Periph = Self>,
-        PINS: Pins<REMAP, P>,
-    {
-        Timer::new(self, rcc).pwm_hz(pins, mapr, time)
-    }
-}
-
-impl<TIM: Instance + WithPwm, const C: u8> PwmChannel<TIM, C> {
-    pub(crate) fn new() -> Self {
-        Self {
-            _tim: core::marker::PhantomData,
-        }
-    }
-}
-
-impl<TIM: Instance + WithPwm, const C: u8> PwmChannel<TIM, C> {
-    #[inline]
-    pub fn disable(&mut self) {
-        TIM::enable_channel(C, false);
+    ) -> (PwmManager<TIM, FREQ>, <Self as Split>::Channels) {
+        let mut timer = FTimer::<TIM, FREQ>::new(self.0, rcc);
+        timer._pwm_init(time);
+        (PwmManager { timer }, Self::split())
     }
 
-    #[inline]
-    pub fn enable(&mut self) {
-        TIM::enable_channel(C, true);
+    pub fn pwm_us(
+        self,
+        time: TimerDurationU32<1_000_000>,
+        rcc: &mut Rcc,
+    ) -> (PwmManager<TIM, 1_000_000>, <Self as Split>::Channels) {
+        self.pwm::<1_000_000>(time, rcc)
     }
 
-    #[inline]
-    pub fn get_duty(&self) -> u16 {
-        TIM::read_cc_value(C) as u16
-    }
-
-    /// If `0` returned means max_duty is 2^16
-    #[inline]
-    pub fn get_max_duty(&self) -> u16 {
-        (TIM::read_auto_reload() as u16).wrapping_add(1)
-    }
-
-    #[inline]
-    pub fn set_duty(&mut self, duty: u16) {
-        TIM::set_cc_value(C, duty as u32)
-    }
-}
-
-pub struct PwmHz<TIM, REMAP, P, PINS>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    timer: Timer<TIM>,
-    _pins: PhantomData<(REMAP, P, PINS)>,
-}
-
-impl<TIM, REMAP, P, PINS> PwmHz<TIM, REMAP, P, PINS>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    pub fn release(mut self) -> Timer<TIM> {
-        // stop timer
-        self.tim.cr1_reset();
-        self.timer
-    }
-
-    pub fn split(self) -> PINS::Channels {
-        PINS::split()
-    }
-}
-
-impl<TIM, REMAP, P, PINS> Deref for PwmHz<TIM, REMAP, P, PINS>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    type Target = Timer<TIM>;
-    fn deref(&self) -> &Self::Target {
-        &self.timer
-    }
-}
-
-impl<TIM, REMAP, P, PINS> DerefMut for PwmHz<TIM, REMAP, P, PINS>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.timer
-    }
-}
-
-impl<TIM: Instance + WithPwm> Timer<TIM> {
-    pub fn pwm_hz<REMAP, P, PINS>(
-        mut self,
-        _pins: PINS,
-        mapr: &mut MAPR,
+    pub fn pwm_hz(
+        self,
         freq: Hertz,
-    ) -> PwmHz<TIM, REMAP, P, PINS>
-    where
-        REMAP: Remap<Periph = TIM>,
-        PINS: Pins<REMAP, P>,
-    {
-        REMAP::remap(mapr);
+        rcc: &mut Rcc,
+    ) -> (PwmHzManager<TIM>, <Self as Split>::Channels) {
+        let mut timer = Timer::new(self.0, rcc);
+        timer._pwm_hz_init(freq);
+        (PwmHzManager { timer }, Self::split())
+    }
+}
 
-        if PINS::C1 {
-            self.tim
-                .preload_output_channel_in_mode(Channel::C1 as u8, Ocm::PwmMode1);
-        }
-        if PINS::C2 && TIM::CH_NUMBER > 1 {
-            self.tim
-                .preload_output_channel_in_mode(Channel::C2 as u8, Ocm::PwmMode1);
-        }
-        if PINS::C3 && TIM::CH_NUMBER > 2 {
-            self.tim
-                .preload_output_channel_in_mode(Channel::C3 as u8, Ocm::PwmMode1);
-        }
-        if PINS::C4 && TIM::CH_NUMBER > 3 {
-            self.tim
-                .preload_output_channel_in_mode(Channel::C4 as u8, Ocm::PwmMode1);
-        }
-
+impl<TIM: Instance + WithPwm + Split> Timer<TIM> {
+    pub fn pwm_hz(mut self, freq: Hertz) -> (PwmHzManager<TIM>, TIM::Channels) {
+        self._pwm_hz_init(freq);
+        (PwmHzManager { timer: self }, TIM::split())
+    }
+}
+impl<TIM: Instance + WithPwm> Timer<TIM> {
+    fn _pwm_hz_init(&mut self, freq: Hertz) {
         // The reference manual is a bit ambiguous about when enabling this bit is really
         // necessary, but since we MUST enable the preload for the output channels then we
         // might as well enable for the auto-reload too
@@ -331,139 +139,17 @@ impl<TIM: Instance + WithPwm> Timer<TIM> {
         self.tim.trigger_update();
 
         self.tim.start_pwm();
-
-        PwmHz {
-            timer: self,
-            _pins: PhantomData,
-        }
     }
 }
 
-impl<TIM, REMAP, P, PINS> PwmHz<TIM, REMAP, P, PINS>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    pub fn enable(&mut self, channel: Channel) {
-        TIM::enable_channel(PINS::check_used(channel) as u8, true)
-    }
-
-    pub fn disable(&mut self, channel: Channel) {
-        TIM::enable_channel(PINS::check_used(channel) as u8, false)
-    }
-
-    pub fn get_duty(&self, channel: Channel) -> u16 {
-        TIM::read_cc_value(PINS::check_used(channel) as u8) as u16
-    }
-
-    pub fn set_duty(&mut self, channel: Channel, duty: u16) {
-        TIM::set_cc_value(PINS::check_used(channel) as u8, duty as u32)
-    }
-
-    /// If `0` returned means max_duty is 2^16
-    pub fn get_max_duty(&self) -> u16 {
-        (TIM::read_auto_reload() as u16).wrapping_add(1)
-    }
-
-    pub fn get_period(&self) -> Hertz {
-        let clk = self.clk;
-        let psc = self.tim.read_prescaler() as u32;
-        let arr = TIM::read_auto_reload();
-
-        // Length in ms of an internal clock pulse
-        clk / ((psc + 1) * (arr + 1))
-    }
-
-    pub fn set_period(&mut self, period: Hertz) {
-        let clk = self.clk;
-
-        let (psc, arr) = compute_arr_presc(period.raw(), clk.raw());
-        self.tim.set_prescaler(psc);
-        self.tim.set_auto_reload(arr).unwrap();
+impl<TIM: Instance + WithPwm + Split, const FREQ: u32> FTimer<TIM, FREQ> {
+    pub fn pwm(mut self, time: TimerDurationU32<FREQ>) -> (PwmManager<TIM, FREQ>, TIM::Channels) {
+        self._pwm_init(time);
+        (PwmManager { timer: self }, TIM::split())
     }
 }
-
-pub struct Pwm<TIM, REMAP, P, PINS, const FREQ: u32>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    timer: FTimer<TIM, FREQ>,
-    _pins: PhantomData<(REMAP, P, PINS)>,
-}
-
-impl<TIM, REMAP, P, PINS, const FREQ: u32> Pwm<TIM, REMAP, P, PINS, FREQ>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    pub fn split(self) -> PINS::Channels {
-        PINS::split()
-    }
-
-    pub fn release(mut self) -> FTimer<TIM, FREQ> {
-        // stop counter
-        self.tim.cr1_reset();
-        self.timer
-    }
-}
-
-impl<TIM, REMAP, P, PINS, const FREQ: u32> Deref for Pwm<TIM, REMAP, P, PINS, FREQ>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    type Target = FTimer<TIM, FREQ>;
-    fn deref(&self) -> &Self::Target {
-        &self.timer
-    }
-}
-
-impl<TIM, REMAP, P, PINS, const FREQ: u32> DerefMut for Pwm<TIM, REMAP, P, PINS, FREQ>
-where
-    TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.timer
-    }
-}
-
 impl<TIM: Instance + WithPwm, const FREQ: u32> FTimer<TIM, FREQ> {
-    pub fn pwm<REMAP, P, PINS>(
-        mut self,
-        _pins: PINS,
-        mapr: &mut MAPR,
-        time: TimerDurationU32<FREQ>,
-    ) -> Pwm<TIM, REMAP, P, PINS, FREQ>
-    where
-        REMAP: Remap<Periph = TIM>,
-        PINS: Pins<REMAP, P>,
-    {
-        REMAP::remap(mapr);
-
-        if PINS::C1 {
-            self.tim
-                .preload_output_channel_in_mode(Channel::C1 as u8, Ocm::PwmMode1);
-        }
-        if PINS::C2 && TIM::CH_NUMBER > 1 {
-            self.tim
-                .preload_output_channel_in_mode(Channel::C2 as u8, Ocm::PwmMode1);
-        }
-        if PINS::C3 && TIM::CH_NUMBER > 2 {
-            self.tim
-                .preload_output_channel_in_mode(Channel::C3 as u8, Ocm::PwmMode1);
-        }
-        if PINS::C4 && TIM::CH_NUMBER > 3 {
-            self.tim
-                .preload_output_channel_in_mode(Channel::C4 as u8, Ocm::PwmMode1);
-        }
-
+    fn _pwm_init(&mut self, time: TimerDurationU32<FREQ>) {
         // The reference manual is a bit ambiguous about when enabling this bit is really
         // necessary, but since we MUST enable the preload for the output channels then we
         // might as well enable for the auto-reload too
@@ -475,46 +161,388 @@ impl<TIM: Instance + WithPwm, const FREQ: u32> FTimer<TIM, FREQ> {
         self.tim.trigger_update();
 
         self.tim.start_pwm();
+    }
+}
 
-        Pwm {
-            timer: self,
-            _pins: PhantomData,
+pub struct PwmChannelDisabled<TIM, const C: u8, const R: u8> {
+    pub(super) tim: TIM,
+}
+
+impl<TIM: crate::Steal, const C: u8, const R: u8> PwmChannelDisabled<TIM, C, R> {
+    pub(crate) fn new() -> Self {
+        Self {
+            tim: unsafe { TIM::steal() },
         }
     }
 }
 
-impl<TIM, REMAP, P, PINS, const FREQ: u32> Pwm<TIM, REMAP, P, PINS, FREQ>
+impl<TIM: Instance + WithPwm, const C: u8, const R: u8> PwmChannelDisabled<TIM, C, R>
+where
+    TIM: TimC<C>,
+{
+    pub fn with(mut self, pin: impl RInto<TIM::Out, R>) -> PwmChannel<TIM, C, false> {
+        self.tim.preload_output_channel_in_mode(C, Ocm::PwmMode1);
+        PwmChannel {
+            tim: self.tim,
+            regular: pin.rinto(),
+        }
+    }
+}
+
+impl<TIM: Instance + WithPwm, const C: u8, const R: u8> PwmChannelDisabled<TIM, C, R>
+where
+    TIM: TimC<C>,
+    TIM: TimNC<C>,
+{
+    pub fn with_regular_and_complementary(
+        mut self,
+        reg_pin: impl RInto<TIM::Out, R>,
+        comp_pin: impl RInto<TIM::ChN, R>,
+    ) -> PwmChannel<TIM, C, true> {
+        self.tim.preload_output_channel_in_mode(C, Ocm::PwmMode1);
+        let regular = reg_pin.rinto();
+        let _ = comp_pin.rinto();
+        PwmChannel {
+            tim: self.tim,
+            regular,
+        }
+    }
+}
+
+pub struct PwmChannel<TIM: TimC<C>, const C: u8, const COMP: bool = false> {
+    pub(super) tim: TIM,
+    #[allow(unused)]
+    regular: TIM::Out,
+    // TODO: add complementary pins
+}
+
+impl<TIM: Instance + WithPwm + TimC<C>, const C: u8, const COMP: bool> PwmChannel<TIM, C, COMP> {
+    pub const fn channel(&self) -> u8 {
+        C
+    }
+    /*pub fn release(mut self) -> (PwmChannelDisabled<TIM, C>, TIM::Out) {
+        self.tim.freeze_output_channel(C);
+        (PwmChannelDisabled { tim: self.tim }, self.regular)
+    }*/
+    pub fn erase(self) -> ErasedChannel<TIM> {
+        ErasedChannel {
+            _tim: self.tim,
+            channel: C,
+        }
+    }
+}
+
+pub struct ErasedChannel<TIM> {
+    _tim: TIM,
+    channel: u8,
+}
+
+impl<TIM> ErasedChannel<TIM> {
+    pub const fn channel(&self) -> u8 {
+        self.channel
+    }
+}
+
+macro_rules! ch_impl {
+    () => {
+        /// Disable PWM channel
+        #[inline]
+        pub fn disable(&mut self) {
+            TIM::enable_channel(self.channel(), false);
+        }
+
+        /// Enable PWM channel
+        #[inline]
+        pub fn enable(&mut self) {
+            TIM::enable_channel(self.channel(), true);
+        }
+
+        /// Get PWM channel duty cycle
+        #[inline]
+        pub fn get_duty(&self) -> u16 {
+            TIM::read_cc_value(self.channel()) as u16
+        }
+
+        /// Get the maximum duty cycle value of the PWM channel
+        ///
+        /// If `0` returned means max_duty is 2^16
+        #[inline]
+        pub fn get_max_duty(&self) -> u16 {
+            (TIM::read_auto_reload() as u16).wrapping_add(1)
+        }
+
+        /// Set PWM channel duty cycle
+        #[inline]
+        pub fn set_duty(&mut self, duty: u16) {
+            TIM::set_cc_value(self.channel(), duty as u32)
+        }
+
+        /// Set PWM channel polarity
+        #[inline]
+        pub fn set_polarity(&mut self, p: Polarity) {
+            TIM::set_pwm_channel_polarity(self.channel(), p);
+        }
+
+        /// Set complementary PWM channel polarity
+        #[inline]
+        pub fn set_complementary_polarity(&mut self, p: Polarity) {
+            TIM::set_pwm_nchannel_polarity(self.channel(), p);
+        }
+    };
+}
+
+macro_rules! chN_impl {
+    () => {
+        /// Disable complementary PWM channel
+        #[inline]
+        pub fn disable_complementary(&mut self) {
+            TIM::enable_nchannel(self.channel(), false);
+        }
+
+        /// Enable complementary PWM channel
+        #[inline]
+        pub fn enable_complementary(&mut self) {
+            TIM::enable_nchannel(self.channel(), true);
+        }
+
+        /// Set PWM channel idle state
+        #[inline]
+        pub fn set_idle_state(&mut self, s: IdleState) {
+            TIM::idle_state(self.channel(), false, s);
+        }
+
+        /// Set complementary PWM channel idle state
+        #[inline]
+        pub fn set_complementary_idle_state(&mut self, s: IdleState) {
+            TIM::idle_state(self.channel(), true, s);
+        }
+    };
+}
+
+impl<TIM: Instance + WithPwm + TimC<C>, const C: u8, const COMP: bool> PwmChannel<TIM, C, COMP> {
+    ch_impl!();
+}
+
+impl<TIM: Instance + WithPwm + Advanced + TimC<C>, const C: u8> PwmChannel<TIM, C, true> {
+    chN_impl!();
+}
+
+impl<TIM: Instance + WithPwm> ErasedChannel<TIM> {
+    ch_impl!();
+}
+
+impl<TIM: Instance + WithPwm + Advanced> ErasedChannel<TIM> {
+    chN_impl!();
+}
+
+pub struct PwmManager<TIM, const FREQ: u32>
 where
     TIM: Instance + WithPwm,
-    REMAP: Remap<Periph = TIM>,
-    PINS: Pins<REMAP, P>,
 {
-    pub fn enable(&mut self, channel: Channel) {
-        TIM::enable_channel(PINS::check_used(channel) as u8, true)
-    }
+    pub(super) timer: FTimer<TIM, FREQ>,
+}
 
-    pub fn disable(&mut self, channel: Channel) {
-        TIM::enable_channel(PINS::check_used(channel) as u8, false)
+impl<TIM, const FREQ: u32> PwmManager<TIM, FREQ>
+where
+    TIM: Instance + WithPwm + Split,
+{
+    pub fn release(mut self, _channels: TIM::Channels) -> FTimer<TIM, FREQ> {
+        // stop counter
+        self.tim.cr1_reset();
+        self.timer
     }
+}
 
-    pub fn get_duty(&self, channel: Channel) -> u16 {
-        TIM::read_cc_value(PINS::check_used(channel) as u8) as u16
+impl<TIM, const FREQ: u32> Deref for PwmManager<TIM, FREQ>
+where
+    TIM: Instance + WithPwm,
+{
+    type Target = FTimer<TIM, FREQ>;
+    fn deref(&self) -> &Self::Target {
+        &self.timer
     }
+}
 
-    pub fn set_duty(&mut self, channel: Channel, duty: u16) {
-        TIM::set_cc_value(PINS::check_used(channel) as u8, duty.into())
+impl<TIM, const FREQ: u32> DerefMut for PwmManager<TIM, FREQ>
+where
+    TIM: Instance + WithPwm,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.timer
     }
+}
 
+pub struct PwmHzManager<TIM>
+where
+    TIM: Instance + WithPwm,
+{
+    pub(super) timer: Timer<TIM>,
+}
+
+/*impl<TIM> PwmHzManager<TIM>
+where
+    TIM: Instance + WithPwm + Split,
+{
+    pub fn release(mut self, _channels: TIM::Channels) -> Timer<TIM> {
+        // stop timer
+        self.tim.cr1_reset();
+        self.timer
+    }
+}*/
+
+impl<TIM> Deref for PwmHzManager<TIM>
+where
+    TIM: Instance + WithPwm,
+{
+    type Target = Timer<TIM>;
+    fn deref(&self) -> &Self::Target {
+        &self.timer
+    }
+}
+
+impl<TIM> DerefMut for PwmHzManager<TIM>
+where
+    TIM: Instance + WithPwm,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.timer
+    }
+}
+
+impl<TIM, const FREQ: u32> PwmManager<TIM, FREQ>
+where
+    TIM: Instance + WithPwm,
+{
+    /// Get the maximum duty cycle value of the timer
+    ///
     /// If `0` returned means max_duty is 2^16
     pub fn get_max_duty(&self) -> u16 {
         (TIM::read_auto_reload() as u16).wrapping_add(1)
     }
 
+    /// Get the PWM frequency of the timer as a duration
     pub fn get_period(&self) -> TimerDurationU32<FREQ> {
         TimerDurationU32::from_ticks(TIM::read_auto_reload() + 1)
     }
 
+    /// Set the PWM frequency for the timer from a duration
     pub fn set_period(&mut self, period: TimerDurationU32<FREQ>) {
         self.tim.set_auto_reload(period.ticks() - 1).unwrap();
+        self.tim.cnt_reset();
+    }
+}
+
+impl<TIM> PwmHzManager<TIM>
+where
+    TIM: Instance + WithPwm,
+{
+    /// Get the maximum duty cycle value of the timer
+    ///
+    /// If `0` returned means max_duty is 2^16
+    pub fn get_max_duty(&self) -> u16 {
+        (TIM::read_auto_reload() as u16).wrapping_add(1)
+    }
+
+    /// Get the PWM frequency of the timer in Hertz
+    pub fn get_period(&self) -> Hertz {
+        let clk = self.clk;
+        let psc = self.tim.read_prescaler() as u32;
+        let arr = TIM::read_auto_reload();
+
+        // Length in ms of an internal clock pulse
+        clk / ((psc + 1) * (arr + 1))
+    }
+
+    /// Set the PWM frequency for the timer in Hertz
+    pub fn set_period(&mut self, period: Hertz) {
+        let clk = self.clk;
+
+        let (psc, arr) = compute_arr_presc(period.raw(), clk.raw());
+        self.tim.set_prescaler(psc);
+        self.tim.set_auto_reload(arr).unwrap();
+        self.tim.cnt_reset();
+    }
+}
+
+macro_rules! impl_advanced {
+    () => {
+        /// Set number DTS ticks during that the primary and complementary PWM pins are simultaneously forced to their inactive states
+        /// ( see [`Polarity`] setting ) when changing PWM state. This duration when both channels are in an 'off' state  is called 'dead time'.
+        ///
+        /// This is necessary in applications like motor control or power converters to prevent the destruction of the switching elements by
+        /// short circuit in the moment of switching.
+        #[inline]
+        pub fn set_dead_time(&mut self, dts_ticks: u16) {
+            let bits = pack_ceil_dead_time(dts_ticks);
+            TIM::set_dtg_value(bits);
+        }
+
+        /// Set raw dead time (DTG) bits
+        ///
+        /// The dead time generation is nonlinear and constrained by the DTS tick duration. DTG register configuration and calculation of
+        /// the actual resulting dead time is described in the application note RM0368 from ST Microelectronics
+        #[inline]
+        pub fn set_dead_time_bits(&mut self, bits: u8) {
+            TIM::set_dtg_value(bits);
+        }
+
+        /// Return dead time for complementary pins in the unit of DTS ticks
+        #[inline]
+        pub fn get_dead_time(&self) -> u16 {
+            unpack_dead_time(TIM::read_dtg_value())
+        }
+
+        /// Get raw dead time (DTG) bits
+        #[inline]
+        pub fn get_dead_time_bits(&self) -> u8 {
+            TIM::read_dtg_value()
+        }
+
+        /// Sets the alignment mode
+        #[inline]
+        pub fn set_cms(&mut self, mode: CenterAlignedMode) {
+            self.tim.enable_counter(false);
+            TIM::set_cms(mode);
+            self.tim.enable_counter(true);
+        }
+    };
+}
+
+impl<TIM, const FREQ: u32> PwmManager<TIM, FREQ>
+where
+    TIM: Instance + WithPwm + Advanced,
+{
+    impl_advanced!();
+}
+
+impl<TIM> PwmHzManager<TIM>
+where
+    TIM: Instance + WithPwm + Advanced,
+{
+    impl_advanced!();
+}
+
+/// Convert number dead time ticks to raw DTG register bits.
+/// Values greater than 1009 result in maximum dead time of 126 us
+const fn pack_ceil_dead_time(dts_ticks: u16) -> u8 {
+    match dts_ticks {
+        0..=127 => dts_ticks as u8,
+        128..=254 => ((((dts_ticks + 1) >> 1) - 64) as u8) | 0b_1000_0000,
+        255..=504 => ((((dts_ticks + 7) >> 3) - 32) as u8) | 0b_1100_0000,
+        505..=1008 => ((((dts_ticks + 15) >> 4) - 32) as u8) | 0b_1110_0000,
+        1009.. => 0xff,
+    }
+}
+
+/// Convert raw DTG register bits value to number of dead time ticks
+const fn unpack_dead_time(bits: u8) -> u16 {
+    if bits & 0b_1000_0000 == 0 {
+        bits as u16
+    } else if bits & 0b_0100_0000 == 0 {
+        (((bits & !0b_1000_0000) as u16) + 64) * 2
+    } else if bits & 0b_0010_0000 == 0 {
+        (((bits & !0b_1100_0000) as u16) + 32) * 8
+    } else {
+        (((bits & !0b_1110_0000) as u16) + 32) * 16
     }
 }
