@@ -12,7 +12,7 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use nb::block;
-use stm32f1xx_hal::{can::Can, gpio::Floating, pac, prelude::*, rcc};
+use stm32f1xx_hal::{can::Can, pac, prelude::*, rcc};
 
 #[entry]
 fn main() -> ! {
@@ -25,9 +25,9 @@ fn main() -> ! {
     let mut rcc = dp.RCC.freeze(rcc::Config::hse(8.MHz()), &mut flash.acr);
 
     #[cfg(not(feature = "connectivity"))]
-    let can = Can::<_, Floating>::new_loopback(dp.CAN, dp.USB, &mut rcc);
+    let can = Can::new_loopback(dp.CAN, dp.USB, &mut rcc);
     #[cfg(feature = "connectivity")]
-    let can = Can::<_, Floating>::new_loopback(dp.CAN1, &mut rcc);
+    let can = Can::new_loopback(dp.CAN1, &mut rcc);
 
     // Use loopback mode: No pins need to be assigned to peripheral.
     // APB1 (PCLK1): 8MHz, Bit rate: 500Bit/s, Sample Point 87.5%

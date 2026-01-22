@@ -72,7 +72,7 @@ impl<const P: char, const N: u8, MODE> ToggleableOutputPin for Pin<P, N, Output<
     }
 }
 
-impl<const P: char, const N: u8, MODE> InputPin for Pin<P, N, Input<MODE>> {
+impl<const P: char, const N: u8> InputPin for Pin<P, N, Input> {
     type Error = Infallible;
     #[inline]
     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -152,7 +152,7 @@ impl<const P: char> InputPin for PartiallyErasedPin<P, Output<OpenDrain>> {
     }
 }
 
-impl<const P: char, MODE> InputPin for PartiallyErasedPin<P, Input<MODE>> {
+impl<const P: char> InputPin for PartiallyErasedPin<P, Input> {
     type Error = Infallible;
 
     #[inline(always)]
@@ -191,7 +191,7 @@ impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
     }
 }
 
-impl<MODE> InputPin for ErasedPin<Input<MODE>> {
+impl InputPin for ErasedPin<Input> {
     type Error = Infallible;
     fn is_high(&self) -> Result<bool, Infallible> {
         Ok(self.is_high())

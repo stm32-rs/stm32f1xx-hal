@@ -115,7 +115,7 @@ fn main() -> ! {
     //
     //let serial = Serial::<_, PushPull, _>::new(p.USART3,
     // or shorter
-    let serial = p.USART3.serial::<PushPull, _>(
+    let serial = p.USART3.serial::<PushPull>(
         (tx_pin, rx_pin),
         Config::default()
             .baudrate(9600.bps())

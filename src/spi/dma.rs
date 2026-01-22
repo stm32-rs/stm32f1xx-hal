@@ -5,22 +5,19 @@ use crate::dma::dma2;
 use crate::dma::{self, Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma};
 use crate::dma::{dma1, Ch, DmaExt};
 
-pub type SpiTxDma<SPI, CHANNEL, PULL = Floating> = TxDma<Spi<SPI, u8, PULL>, CHANNEL>;
-pub type SpiRxDma<SPI, CHANNEL, PULL = Floating> = RxDma<Spi<SPI, u8, PULL>, CHANNEL>;
-pub type SpiRxTxDma<SPI, RXCHANNEL, TXCHANNEL, PULL = Floating> =
-    RxTxDma<Spi<SPI, u8, PULL>, RXCHANNEL, TXCHANNEL>;
+pub type SpiTxDma<SPI, CHANNEL> = TxDma<Spi<SPI, u8>, CHANNEL>;
+pub type SpiRxDma<SPI, CHANNEL> = RxDma<Spi<SPI, u8>, CHANNEL>;
+pub type SpiRxTxDma<SPI, RXCHANNEL, TXCHANNEL> = RxTxDma<Spi<SPI, u8>, RXCHANNEL, TXCHANNEL>;
 
-pub type SpiSlaveTxDma<SPI, CHANNEL, Otype, PULL = Floating> =
-    TxDma<SpiSlave<SPI, u8, Otype, PULL>, CHANNEL>;
-pub type SpiSlaveRxDma<SPI, CHANNEL, Otype, PULL = Floating> =
-    RxDma<SpiSlave<SPI, u8, Otype, PULL>, CHANNEL>;
-pub type SpiSlaveRxTxDma<SPI, RXCHANNEL, TXCHANNEL, Otype, PULL = Floating> =
-    RxTxDma<SpiSlave<SPI, u8, Otype, PULL>, RXCHANNEL, TXCHANNEL>;
+pub type SpiSlaveTxDma<SPI, CHANNEL, Otype> = TxDma<SpiSlave<SPI, u8, Otype>, CHANNEL>;
+pub type SpiSlaveRxDma<SPI, CHANNEL, Otype> = RxDma<SpiSlave<SPI, u8, Otype>, CHANNEL>;
+pub type SpiSlaveRxTxDma<SPI, RXCHANNEL, TXCHANNEL, Otype> =
+    RxTxDma<SpiSlave<SPI, u8, Otype>, RXCHANNEL, TXCHANNEL>;
 
 macro_rules! spi_impl {
     ($Spi:ident) => {
-        impl<SPI: Instance, PULL, DMA: DmaExt, const C: u8> TransferPayload
-            for RxDma<$Spi<SPI, u8, PULL>, Ch<DMA, C>>
+        impl<SPI: Instance, DMA: DmaExt, const C: u8> TransferPayload
+            for RxDma<$Spi<SPI, u8>, Ch<DMA, C>>
         {
             fn start(&mut self) {
                 self.channel.start();
@@ -30,8 +27,8 @@ macro_rules! spi_impl {
             }
         }
 
-        impl<SPI: Instance, PULL, DMA: DmaExt, const C: u8> TransferPayload
-            for TxDma<$Spi<SPI, u8, PULL>, Ch<DMA, C>>
+        impl<SPI: Instance, DMA: DmaExt, const C: u8> TransferPayload
+            for TxDma<$Spi<SPI, u8>, Ch<DMA, C>>
         {
             fn start(&mut self) {
                 self.channel.start();
@@ -41,8 +38,8 @@ macro_rules! spi_impl {
             }
         }
 
-        impl<SPI: Instance, PULL, DMA1: DmaExt, const C1: u8, DMA2: DmaExt, const C2: u8>
-            TransferPayload for RxTxDma<$Spi<SPI, u8, PULL>, Ch<DMA1, C1>, Ch<DMA2, C2>>
+        impl<SPI: Instance, DMA1: DmaExt, const C1: u8, DMA2: DmaExt, const C2: u8> TransferPayload
+            for RxTxDma<$Spi<SPI, u8>, Ch<DMA1, C1>, Ch<DMA2, C2>>
         {
             fn start(&mut self) {
                 self.rxchannel.start();
@@ -54,11 +51,11 @@ macro_rules! spi_impl {
             }
         }
 
-        impl<SPI: Instance, PULL, CH> $Spi<SPI, u8, PULL>
+        impl<SPI: Instance, CH> $Spi<SPI, u8>
         where
             Self: Transmit<TxChannel = CH>,
         {
-            pub fn with_tx_dma(self, channel: CH) -> TxDma<$Spi<SPI, u8, PULL>, CH> {
+            pub fn with_tx_dma(self, channel: CH) -> TxDma<$Spi<SPI, u8>, CH> {
                 self.spi.cr2().modify(|_, w| w.txdmaen().set_bit());
                 TxDma {
                     payload: self,
@@ -66,11 +63,11 @@ macro_rules! spi_impl {
                 }
             }
         }
-        impl<SPI: Instance, PULL, CH> $Spi<SPI, u8, PULL>
+        impl<SPI: Instance, CH> $Spi<SPI, u8>
         where
             Self: Receive<RxChannel = CH>,
         {
-            pub fn with_rx_dma(self, channel: CH) -> RxDma<$Spi<SPI, u8, PULL>, CH> {
+            pub fn with_rx_dma(self, channel: CH) -> RxDma<$Spi<SPI, u8>, CH> {
                 self.spi.cr2().modify(|_, w| w.rxdmaen().set_bit());
                 RxDma {
                     payload: self,
@@ -78,7 +75,7 @@ macro_rules! spi_impl {
                 }
             }
         }
-        impl<SPI: Instance, PULL, RXCH, TXCH> $Spi<SPI, u8, PULL>
+        impl<SPI: Instance, RXCH, TXCH> $Spi<SPI, u8>
         where
             Self: Receive<RxChannel = RXCH>,
             Self: Transmit<TxChannel = TXCH>,
@@ -87,7 +84,7 @@ macro_rules! spi_impl {
                 self,
                 rxchannel: RXCH,
                 txchannel: TXCH,
-            ) -> RxTxDma<$Spi<SPI, u8, PULL>, RXCH, TXCH> {
+            ) -> RxTxDma<$Spi<SPI, u8>, RXCH, TXCH> {
                 self.spi
                     .cr2()
                     .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
@@ -99,8 +96,8 @@ macro_rules! spi_impl {
             }
         }
 
-        impl<SPI: Instance, PULL, CH> TxDma<$Spi<SPI, u8, PULL>, CH> {
-            pub fn release(self) -> ($Spi<SPI, u8, PULL>, CH) {
+        impl<SPI: Instance, CH> TxDma<$Spi<SPI, u8>, CH> {
+            pub fn release(self) -> ($Spi<SPI, u8>, CH) {
                 // self.stop(); ?
                 self.payload
                     .spi
@@ -110,8 +107,8 @@ macro_rules! spi_impl {
             }
         }
 
-        impl<SPI: Instance, PULL, CH> RxDma<$Spi<SPI, u8, PULL>, CH> {
-            pub fn release(self) -> ($Spi<SPI, u8, PULL>, CH) {
+        impl<SPI: Instance, CH> RxDma<$Spi<SPI, u8>, CH> {
+            pub fn release(self) -> ($Spi<SPI, u8>, CH) {
                 // self.stop(); ?
                 self.payload
                     .spi
@@ -121,8 +118,8 @@ macro_rules! spi_impl {
             }
         }
 
-        impl<SPI: Instance, PULL, RXCH, TXCH> RxTxDma<$Spi<SPI, u8, PULL>, RXCH, TXCH> {
-            pub fn release(self) -> ($Spi<SPI, u8, PULL>, RXCH, TXCH) {
+        impl<SPI: Instance, RXCH, TXCH> RxTxDma<$Spi<SPI, u8>, RXCH, TXCH> {
+            pub fn release(self) -> ($Spi<SPI, u8>, RXCH, TXCH) {
                 // self.stop(); ?
                 self.payload
                     .spi
@@ -132,10 +129,10 @@ macro_rules! spi_impl {
             }
         }
 
-        impl<SPI: Instance, PULL, DMA: DmaExt, const C: u8, B> crate::dma::ReadDma<B, u8>
-            for RxDma<$Spi<SPI, u8, PULL>, Ch<DMA, C>>
+        impl<SPI: Instance, DMA: DmaExt, const C: u8, B> crate::dma::ReadDma<B, u8>
+            for RxDma<$Spi<SPI, u8>, Ch<DMA, C>>
         where
-            $Spi<SPI, u8, PULL>: Receive<RxChannel = Ch<DMA, C>>,
+            $Spi<SPI, u8>: Receive<RxChannel = Ch<DMA, C>>,
             B: WriteBuffer<Word = u8>,
         {
             fn read(mut self, mut buffer: B) -> Transfer<dma::W, B, Self> {
@@ -168,10 +165,10 @@ macro_rules! spi_impl {
             }
         }
 
-        impl<SPI: Instance, PULL, DMA: DmaExt, const C: u8, B> crate::dma::WriteDma<B, u8>
-            for TxDma<$Spi<SPI, u8, PULL>, Ch<DMA, C>>
+        impl<SPI: Instance, DMA: DmaExt, const C: u8, B> crate::dma::WriteDma<B, u8>
+            for TxDma<$Spi<SPI, u8>, Ch<DMA, C>>
         where
-            $Spi<SPI, u8, PULL>: Transmit<TxChannel = Ch<DMA, C>>,
+            $Spi<SPI, u8>: Transmit<TxChannel = Ch<DMA, C>>,
             B: ReadBuffer<Word = u8>,
         {
             fn write(mut self, buffer: B) -> Transfer<dma::R, B, Self> {
@@ -206,7 +203,6 @@ macro_rules! spi_impl {
 
         impl<
                 SPI: Instance,
-                PULL,
                 RXDMA: DmaExt,
                 const RXC: u8,
                 RXB,
@@ -214,9 +210,9 @@ macro_rules! spi_impl {
                 const TXC: u8,
                 TXB,
             > crate::dma::ReadWriteDma<RXB, TXB, u8>
-            for RxTxDma<$Spi<SPI, u8, PULL>, Ch<RXDMA, RXC>, Ch<TXDMA, TXC>>
+            for RxTxDma<$Spi<SPI, u8>, Ch<RXDMA, RXC>, Ch<TXDMA, TXC>>
         where
-            $Spi<SPI, u8, PULL>:
+            $Spi<SPI, u8>:
                 Receive<RxChannel = Ch<RXDMA, RXC>> + Transmit<TxChannel = Ch<TXDMA, TXC>>,
             RXB: WriteBuffer<Word = u8>,
             TXB: ReadBuffer<Word = u8>,
@@ -297,33 +293,30 @@ macro_rules! spi_dma {
         $slavetxdma:ident,
         $slaverxtxdma:ident
     ) => {
-        pub type $rxdma<PULL = Floating> = SpiRxDma<$SPIi, $RCi, PULL>;
-        pub type $txdma<PULL = Floating> = SpiTxDma<$SPIi, $TCi, PULL>;
-        pub type $rxtxdma<PULL = Floating> = SpiRxTxDma<$SPIi, $RCi, $TCi, PULL>;
+        pub type $rxdma = SpiRxDma<$SPIi, $RCi>;
+        pub type $txdma = SpiTxDma<$SPIi, $TCi>;
+        pub type $rxtxdma = SpiRxTxDma<$SPIi, $RCi, $TCi>;
 
-        impl<PULL> Transmit for Spi<$SPIi, u8, PULL> {
+        impl Transmit for Spi<$SPIi, u8> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<PULL> Receive for Spi<$SPIi, u8, PULL> {
+        impl Receive for Spi<$SPIi, u8> {
             type RxChannel = $RCi;
             type TransmittedWord = u8;
         }
 
-        pub type $slaverxdma<Otype = PushPull, PULL = Floating> =
-            SpiSlaveRxDma<$SPIi, $RCi, Otype, PULL>;
-        pub type $slavetxdma<Otype = PushPull, PULL = Floating> =
-            SpiSlaveTxDma<$SPIi, $TCi, Otype, PULL>;
-        pub type $slaverxtxdma<Otype = PushPull, PULL = Floating> =
-            SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype, PULL>;
+        pub type $slaverxdma<Otype = PushPull> = SpiSlaveRxDma<$SPIi, $RCi, Otype>;
+        pub type $slavetxdma<Otype = PushPull> = SpiSlaveTxDma<$SPIi, $TCi, Otype>;
+        pub type $slaverxtxdma<Otype = PushPull> = SpiSlaveRxTxDma<$SPIi, $RCi, $TCi, Otype>;
 
-        impl<Otype, PULL> Transmit for SpiSlave<$SPIi, u8, Otype, PULL> {
+        impl<Otype> Transmit for SpiSlave<$SPIi, u8, Otype> {
             type TxChannel = $TCi;
             type ReceivedWord = u8;
         }
 
-        impl<Otype, PULL> Receive for SpiSlave<$SPIi, u8, Otype, PULL> {
+        impl<Otype> Receive for SpiSlave<$SPIi, u8, Otype> {
             type RxChannel = $RCi;
             type TransmittedWord = u8;
         }

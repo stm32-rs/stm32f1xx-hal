@@ -17,30 +17,29 @@
 //! | RX (I-F/PU)      | PB5         | PB12 |
 
 use crate::afio::{self, RInto, Rmp};
-use crate::gpio::{Floating, UpMode};
 use crate::pac::{self, RCC};
 
 pub trait CanExt: Sized + Instance {
-    fn can<PULL: UpMode>(
+    fn can(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-        pins: (impl RInto<Self::Tx, 0>, impl RInto<Self::Rx<PULL>, 0>),
+        pins: (impl RInto<Self::Tx, 0>, impl RInto<Self::Rx, 0>),
         rcc: &mut RCC,
-    ) -> Can<Self, PULL>;
+    ) -> Can<Self>;
     fn can_loopback(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
         rcc: &mut RCC,
-    ) -> Can<Self, Floating>;
+    ) -> Can<Self>;
 }
 
 impl<CAN: Instance> CanExt for CAN {
-    fn can<PULL: UpMode>(
+    fn can(
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
-        pins: (impl RInto<Self::Tx, 0>, impl RInto<Self::Rx<PULL>, 0>),
+        pins: (impl RInto<Self::Tx, 0>, impl RInto<Self::Rx, 0>),
         rcc: &mut RCC,
-    ) -> Can<Self, PULL> {
+    ) -> Can<Self> {
         Can::new(
             self,
             #[cfg(not(feature = "connectivity"))]
@@ -53,7 +52,7 @@ impl<CAN: Instance> CanExt for CAN {
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
         rcc: &mut RCC,
-    ) -> Can<Self, Floating> {
+    ) -> Can<Self> {
         Can::new_loopback(
             self,
             #[cfg(not(feature = "connectivity"))]
@@ -75,18 +74,18 @@ impl Instance for pac::CAN2 {}
 
 /// Interface to the CAN peripheral.
 #[allow(unused)]
-pub struct Can<CAN: Instance, PULL = Floating> {
+pub struct Can<CAN: Instance> {
     can: CAN,
-    pins: (Option<CAN::Tx>, Option<CAN::Rx<PULL>>),
+    pins: (Option<CAN::Tx>, Option<CAN::Rx>),
 }
 
 impl<CAN: Instance, const R: u8> Rmp<CAN, R> {
-    pub fn can<PULL: UpMode>(
+    pub fn can(
         self,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
-        pins: (impl RInto<CAN::Tx, R>, impl RInto<CAN::Rx<PULL>, R>),
+        pins: (impl RInto<CAN::Tx, R>, impl RInto<CAN::Rx, R>),
         rcc: &mut RCC,
-    ) -> Can<CAN, PULL> {
+    ) -> Can<CAN> {
         CAN::enable(rcc);
 
         let pins = (Some(pins.0.rinto()), Some(pins.1.rinto()));
@@ -96,7 +95,7 @@ impl<CAN: Instance, const R: u8> Rmp<CAN, R> {
         self,
         #[cfg(not(feature = "connectivity"))] usb: pac::USB,
         rcc: &mut RCC,
-    ) -> Can<CAN, Floating> {
+    ) -> Can<CAN> {
         Can::new_loopback(
             self.0,
             #[cfg(not(feature = "connectivity"))]
@@ -106,7 +105,7 @@ impl<CAN: Instance, const R: u8> Rmp<CAN, R> {
     }
 }
 
-impl<CAN: Instance, PULL: UpMode> Can<CAN, PULL> {
+impl<CAN: Instance> Can<CAN> {
     /// Creates a CAN interface.
     ///
     /// CAN shares SRAM with the USB peripheral. Take ownership of USB to
@@ -114,9 +113,9 @@ impl<CAN: Instance, PULL: UpMode> Can<CAN, PULL> {
     pub fn new<const R: u8>(
         can: impl Into<Rmp<CAN, R>>,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
-        pins: (impl RInto<CAN::Tx, R>, impl RInto<CAN::Rx<PULL>, R>),
+        pins: (impl RInto<CAN::Tx, R>, impl RInto<CAN::Rx, R>),
         rcc: &mut RCC,
-    ) -> Can<CAN, PULL> {
+    ) -> Can<CAN> {
         can.into().can(
             #[cfg(not(feature = "connectivity"))]
             _usb,
@@ -130,7 +129,7 @@ impl<CAN: Instance, PULL: UpMode> Can<CAN, PULL> {
         can: CAN,
         #[cfg(not(feature = "connectivity"))] _usb: pac::USB,
         rcc: &mut RCC,
-    ) -> Can<CAN, PULL> {
+    ) -> Can<CAN> {
         CAN::enable(rcc);
 
         Can {
@@ -140,18 +139,18 @@ impl<CAN: Instance, PULL: UpMode> Can<CAN, PULL> {
     }
 }
 
-unsafe impl<PULL> bxcan::Instance for Can<CAN1, PULL> {
+unsafe impl bxcan::Instance for Can<CAN1> {
     const REGISTERS: *mut bxcan::RegisterBlock = CAN1::ptr() as *mut _;
 }
 
 #[cfg(feature = "connectivity")]
-unsafe impl<PULL> bxcan::Instance for Can<pac::CAN2, PULL> {
+unsafe impl bxcan::Instance for Can<pac::CAN2> {
     const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN2::ptr() as *mut _;
 }
 
-unsafe impl<PULL> bxcan::FilterOwner for Can<CAN1, PULL> {
+unsafe impl bxcan::FilterOwner for Can<CAN1> {
     const NUM_FILTER_BANKS: u8 = 28;
 }
 
 #[cfg(feature = "connectivity")]
-unsafe impl<PULL> bxcan::MasterInstance for Can<CAN1, PULL> {}
+unsafe impl bxcan::MasterInstance for Can<CAN1> {}
