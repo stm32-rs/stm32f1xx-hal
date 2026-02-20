@@ -1,11 +1,13 @@
 //! CDC-ACM serial port example using interrupts.
 //! Target board: Blue Pill
+
+#![allow(clippy::empty_loop)]
 #![no_std]
 #![no_main]
 
 extern crate panic_semihosting;
 
-use cortex_m::asm::{delay, wfi};
+use cortex_m::asm::delay;
 use cortex_m_rt::entry;
 use stm32f1xx_hal::{
     pac::{self, interrupt, Interrupt, NVIC},
@@ -78,9 +80,7 @@ fn main() -> ! {
         NVIC::unmask(Interrupt::USB_LP_CAN_RX0);
     }
 
-    loop {
-        wfi();
-    }
+    loop {}
 }
 
 #[interrupt]
