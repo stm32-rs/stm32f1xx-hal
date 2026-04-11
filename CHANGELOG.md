@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - `rtic2` feature, renamed `rtic` to `rtic1`
 - `embedded_io::Read` trait implemented for `serial`
+- `dac` example
 
 ## [v0.11.0] - 2025-09-09
 
