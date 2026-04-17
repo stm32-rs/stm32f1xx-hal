@@ -1,7 +1,5 @@
 use super::*;
-#[cfg(any(all(feature = "stm32f103", feature = "high"), feature = "connectivity"))]
-use crate::dma::dma2;
-use crate::dma::{self, dma1, Ch, CircBuffer, DmaExt, RxDma, Transfer, TxDma};
+use crate::dma::{self, Ch, CircBuffer, DmaExt, RxDma, Transfer, TxDma};
 
 use crate::dma::{Receive, TransferPayload, Transmit};
 
@@ -200,28 +198,28 @@ serialdma! {
     pac::USART1,
     RxDma1,
     TxDma1,
-    rx: dma1::C5,
-    tx: dma1::C4
+    rx: dma::dma1::C5,
+    tx: dma::dma1::C4
 }
 serialdma! {
     pac::USART2,
     RxDma2,
     TxDma2,
-    rx: dma1::C6,
-    tx: dma1::C7
+    rx: dma::dma1::C6,
+    tx: dma::dma1::C7
 }
 serialdma! {
     pac::USART3,
     RxDma3,
     TxDma3,
-    rx: dma1::C3,
-    tx: dma1::C2
+    rx: dma::dma1::C3,
+    tx: dma::dma1::C2
 }
 #[cfg(any(all(feature = "stm32f103", feature = "high"), feature = "connectivity"))]
 serialdma! {
     pac::UART4,
     RxDma4,
     TxDma4,
-    rx: dma2::C3,
-    tx: dma2::C5
+    rx: dma::dma2::C3,
+    tx: dma::dma2::C5
 }

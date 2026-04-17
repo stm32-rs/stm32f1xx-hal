@@ -24,10 +24,14 @@ fn main() -> ! {
     // resonator must be used.
     let mut rcc = dp.RCC.freeze(rcc::Config::hse(8.MHz()), &mut flash.acr);
 
-    #[cfg(not(feature = "connectivity"))]
-    let can = Can::<_, Floating>::new_loopback(dp.CAN, dp.USB, &mut rcc);
-    #[cfg(feature = "connectivity")]
-    let can = Can::<_, Floating>::new_loopback(dp.CAN1, &mut rcc);
+    let can = cfg_select! {
+        feature = "connectivity" => {
+            Can::<_, Floating>::new_loopback(dp.CAN1, &mut rcc)
+        }
+        _ => {
+            Can::<_, Floating>::new_loopback(dp.CAN, dp.USB, &mut rcc)
+        }
+    };
 
     // Use loopback mode: No pins need to be assigned to peripheral.
     // APB1 (PCLK1): 8MHz, Bit rate: 500Bit/s, Sample Point 87.5%

@@ -28,6 +28,12 @@ pub use crate::timer::pwm_input::QeiExt as _;
 #[cfg(feature = "rtic1")]
 pub use crate::timer::MonoTimerExt as _stm32f4xx_hal_timer_MonoTimerExt;
 #[cfg(feature = "rtic2")]
+#[cfg(any(
+    feature = "rtic-tim2",
+    feature = "rtic-tim3",
+    feature = "rtic-tim4",
+    feature = "rtic-tim5"
+))]
 pub use crate::timer::MonoTimerExt as _;
 pub use crate::timer::PwmExt as _stm32f4xx_hal_timer_PwmExt;
 pub use crate::timer::SysTimerExt as _stm32f4xx_hal_timer_SysCounterExt;

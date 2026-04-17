@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- use `cfg_select`, bump MSRV to `1.95`
 - `timer.rs` refactoring [#553]
 - Add `rcc::Instance` trait [#557]
 - Demacrofy `RxDma`/`TxDma` implementations [#554]

@@ -504,52 +504,51 @@ pub mod spi2 {
 pub mod spi3 {
     use super::*;
 
-    #[cfg(not(feature = "connectivity"))]
-    pin! {
-        <Si, Input> default:Floating && <Mo, Alternate<PushPull>> for [
-            PB5: [0],
-        ],
-        <Ss, Input> default:Floating && <Nss, Alternate<PushPull>> for [
-            PA15: [0],
-        ],
-    }
-    #[cfg(not(feature = "connectivity"))]
-    pin! {
-        <SSck, Input<Floating>> && <MSck, Alternate<PushPull>> for [
-            PB3: [0],
-        ],
-    }
-    #[cfg(not(feature = "connectivity"))]
-    pin! {
-        <Mi, Input> default:Floating && <So, Alternate> default:PushPull for [
-            PB4: [0],
-        ],
-    }
-
-    #[cfg(feature = "connectivity")]
-    pin! {
-        <Si, Input> default:Floating && <Mo, Alternate<PushPull>> for [
-            PB5: [0],
-            PC12: [1],
-        ],
-        <Ss, Input> default:Floating && <Nss, Alternate<PushPull>> for [
-            PA15: [0],
-            PA4: [1],
-        ],
-    }
-    #[cfg(feature = "connectivity")]
-    pin! {
-        <SSck, Input<Floating>> && <MSck, Alternate<PushPull>> for [
-            PB3: [0],
-            PC10: [1],
-        ],
-    }
-    #[cfg(feature = "connectivity")]
-    pin! {
-        <Mi, Input> default:Floating && <So, Alternate> default:PushPull for [
-            PB4: [0],
-            PC11: [1],
-        ],
+    cfg_select! {
+        not(feature = "connectivity") => {
+            pin! {
+                <Si, Input> default:Floating && <Mo, Alternate<PushPull>> for [
+                    PB5: [0],
+                ],
+                <Ss, Input> default:Floating && <Nss, Alternate<PushPull>> for [
+                    PA15: [0],
+                ],
+            }
+            pin! {
+                <SSck, Input<Floating>> && <MSck, Alternate<PushPull>> for [
+                    PB3: [0],
+                ],
+            }
+            pin! {
+                <Mi, Input> default:Floating && <So, Alternate> default:PushPull for [
+                    PB4: [0],
+                ],
+            }
+        }
+        _ => {
+            pin! {
+                <Si, Input> default:Floating && <Mo, Alternate<PushPull>> for [
+                    PB5: [0],
+                    PC12: [1],
+                ],
+                <Ss, Input> default:Floating && <Nss, Alternate<PushPull>> for [
+                    PA15: [0],
+                    PA4: [1],
+                ],
+            }
+            pin! {
+                <SSck, Input<Floating>> && <MSck, Alternate<PushPull>> for [
+                    PB3: [0],
+                    PC10: [1],
+                ],
+            }
+            pin! {
+                <Mi, Input> default:Floating && <So, Alternate> default:PushPull for [
+                    PB4: [0],
+                    PC11: [1],
+                ],
+            }
+        }
     }
 
     impl SpiCommon for pac::SPI3 {

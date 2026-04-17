@@ -1,9 +1,7 @@
 use super::*;
 
-#[cfg(feature = "connectivity")]
-use crate::dma::dma2;
 use crate::dma::{self, Receive, RxDma, RxTxDma, Transfer, TransferPayload, Transmit, TxDma};
-use crate::dma::{dma1, Ch, DmaExt};
+use crate::dma::{Ch, DmaExt};
 
 pub type SpiTxDma<SPI, CHANNEL, PULL = Floating> = TxDma<Spi<SPI, u8, PULL>, CHANNEL>;
 pub type SpiRxDma<SPI, CHANNEL, PULL = Floating> = RxDma<Spi<SPI, u8, PULL>, CHANNEL>;
@@ -332,8 +330,8 @@ macro_rules! spi_dma {
 
 spi_dma!(
     pac::SPI1,
-    rx: dma1::C2,
-    tx: dma1::C3,
+    rx: dma::dma1::C2,
+    tx: dma::dma1::C3,
     Spi1RxDma,
     Spi1TxDma,
     Spi1RxTxDma,
@@ -343,8 +341,8 @@ spi_dma!(
 );
 spi_dma!(
     pac::SPI2,
-    rx: dma1::C4,
-    tx: dma1::C5,
+    rx: dma::dma1::C4,
+    tx: dma::dma1::C5,
     Spi2RxDma,
     Spi2TxDma,
     Spi2RxTxDma,
@@ -355,8 +353,8 @@ spi_dma!(
 #[cfg(feature = "connectivity")]
 spi_dma!(
     pac::SPI3,
-    rx: dma2::C1,
-    tx: dma2::C2,
+    rx: dma::dma2::C1,
+    tx: dma::dma2::C2,
     Spi3RxDma,
     Spi3TxDma,
     Spi3RxTxDma,

@@ -26,14 +26,17 @@ fn main() -> ! {
     let mut rcc = p.RCC.constrain();
     let mut gpioc = p.GPIOC.split(&mut rcc);
 
-    #[cfg(feature = "stm32f100")]
-    gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();
-
-    #[cfg(feature = "stm32f101")]
-    gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();
-
-    #[cfg(any(feature = "stm32f103", feature = "stm32f105", feature = "stm32f107"))]
-    gpioc.pc13.into_push_pull_output(&mut gpioc.crh).set_low();
+    cfg_select! {
+        feature = "stm32f100" => {
+            gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();
+        }
+        feature = "stm32f101" => {
+            gpioc.pc9.into_push_pull_output(&mut gpioc.crh).set_high();
+        }
+        _ => {
+            gpioc.pc13.into_push_pull_output(&mut gpioc.crh).set_low();
+        }
+    }
 
     loop {}
 }

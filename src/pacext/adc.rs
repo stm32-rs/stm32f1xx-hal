@@ -1,11 +1,7 @@
-use crate::Sealed;
+use crate::{cfg_if, Sealed};
 
 use super::*;
 use crate::pac::adc1;
-#[cfg(not(feature = "stm32f100"))]
-use crate::pac::adc2;
-#[cfg(not(feature = "stm32f100"))]
-use crate::pac::adc3;
 
 pub trait AdcRB: Sealed {
     fn sr(&self) -> &adc1::SR;
@@ -309,9 +305,10 @@ macro_rules! impl_cr2 {
 impl_ext!(adc1);
 impl_cr2!(adc1);
 
-#[cfg(not(feature = "stm32f100"))]
-impl_ext!(adc2);
-#[cfg(not(feature = "stm32f100"))]
-impl_ext!(adc3);
-#[cfg(not(feature = "stm32f100"))]
-impl_cr2!(adc3);
+cfg_if! {not(feature = "stm32f100") => {
+    use crate::pac::adc2;
+    use crate::pac::adc3;
+    impl_ext!(adc2);
+    impl_ext!(adc3);
+    impl_cr2!(adc3);
+}}

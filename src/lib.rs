@@ -86,49 +86,25 @@
 #![no_std]
 #![deny(rustdoc::broken_intra_doc_links)]
 
-// If no target specified, print error message.
-#[cfg(not(any(
-    feature = "stm32f100",
-    feature = "stm32f101",
-    feature = "stm32f103",
-    feature = "stm32f105",
-    feature = "stm32f107",
-)))]
-compile_error!("Target not found. A `--features <target-name>` is required.");
-
-// If any two or more targets are specified, print error message.
-#[cfg(any(
-    all(feature = "stm32f100", feature = "stm32f101"),
-    all(feature = "stm32f100", feature = "stm32f103"),
-    all(feature = "stm32f100", feature = "stm32f105"),
-    all(feature = "stm32f100", feature = "stm32f107"),
-    all(feature = "stm32f101", feature = "stm32f103"),
-    all(feature = "stm32f101", feature = "stm32f105"),
-    all(feature = "stm32f101", feature = "stm32f107"),
-    all(feature = "stm32f103", feature = "stm32f105"),
-    all(feature = "stm32f103", feature = "stm32f107"),
-    all(feature = "stm32f105", feature = "stm32f107"),
-))]
-compile_error!(
-    "Multiple targets specified. Only a single `--features <target-name>` can be specified."
-);
-
 pub mod pacext;
 
 pub use embedded_hal as hal;
 pub use embedded_hal_02 as hal_02;
 
-#[cfg(feature = "stm32f100")]
-pub use stm32f1::stm32f100 as pac;
-
-#[cfg(feature = "stm32f101")]
-pub use stm32f1::stm32f101 as pac;
-
-#[cfg(feature = "stm32f103")]
-pub use stm32f1::stm32f103 as pac;
-
-#[cfg(any(feature = "stm32f105", feature = "stm32f107"))]
-pub use stm32f1::stm32f107 as pac;
+cfg_select! {
+    feature = "stm32f100" => {
+        pub use stm32f1::stm32f100 as pac;
+    }
+    feature = "stm32f101" => {
+        pub use stm32f1::stm32f101 as pac;
+    }
+    feature = "stm32f103" => {
+        pub use stm32f1::stm32f103 as pac;
+    }
+    any(feature = "stm32f105", feature = "stm32f107") => {
+        pub use stm32f1::stm32f107 as pac;
+    }
+}
 
 pub mod adc;
 pub mod afio;
@@ -203,3 +179,13 @@ impl<RB, const A: usize> Steal for Periph<RB, A> {
         Self::steal()
     }
 }
+
+macro_rules! cfg_if {
+    ($($tt:tt)*) => {
+        cfg_select!(
+            $($tt)*
+            _ => {}
+        );
+    };
+}
+use cfg_if;

@@ -1,8 +1,6 @@
 use super::*;
 
-#[cfg(all(feature = "stm32f103", any(feature = "high", feature = "xl")))]
-use crate::dma::dma2;
-use crate::dma::{dma1, Ch, CircBuffer, DmaExt, Receive, RxDma, Transfer, TransferPayload, W};
+use crate::dma::{Ch, CircBuffer, DmaExt, Receive, RxDma, Transfer, TransferPayload, W};
 
 pub struct AdcPayload<ADC, PINS, MODE> {
     adc: Adc<ADC>,
@@ -214,7 +212,7 @@ macro_rules! adcdma {
 adcdma! {
     pac::ADC1: (
         AdcDma1,
-        dma1::C1,
+        crate::dma::dma1::C1,
     )
 }
 
@@ -222,6 +220,6 @@ adcdma! {
 adcdma! {
     pac::ADC3: (
         AdcDma3,
-        dma2::C5,
+        crate::dma::dma2::C5,
     )
 }

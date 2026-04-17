@@ -28,10 +28,14 @@ fn main() -> ! {
         let rx = gpioa.pa11;
         let tx = gpioa.pa12;
 
-        #[cfg(not(feature = "connectivity"))]
-        let can = dp.CAN.can(dp.USB, (tx, rx), &mut rcc);
-        #[cfg(feature = "connectivity")]
-        let can = dp.CAN1.can((tx, rx), &mut rcc);
+        let can = cfg_select! {
+            feature = "connectivity" => {
+                dp.CAN1.can((tx, rx), &mut rcc)
+            }
+            _ => {
+                dp.CAN.can(dp.USB, (tx, rx), &mut rcc)
+            }
+        };
 
         // APB1 (PCLK1): 8MHz, Bit rate: 125kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/
