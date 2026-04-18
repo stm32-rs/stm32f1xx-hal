@@ -9,13 +9,13 @@ use crate::rcc::{Enable, Reset};
 use stm32_usbd::{MemoryAccess, UsbPeripheral};
 
 use crate::gpio::gpioa::{PA11, PA12};
-use crate::gpio::{Floating, Input};
+use crate::gpio::Input;
 pub use stm32_usbd::UsbBus;
 
 pub struct Peripheral {
     pub usb: USB,
-    pub pin_dm: PA11<Input<Floating>>,
-    pub pin_dp: PA12<Input<Floating>>,
+    pub pin_dm: PA11<Input>,
+    pub pin_dp: PA12<Input>,
 }
 
 unsafe impl Sync for Peripheral {}

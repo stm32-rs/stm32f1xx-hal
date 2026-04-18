@@ -12,7 +12,7 @@ use panic_halt as _;
 
 use cortex_m_rt::entry;
 use nb::block;
-use stm32f1xx_hal::{can::Can, gpio::Floating, pac, prelude::*, rcc};
+use stm32f1xx_hal::{can::Can, pac, prelude::*, rcc};
 
 #[entry]
 fn main() -> ! {
@@ -26,10 +26,10 @@ fn main() -> ! {
 
     let can = cfg_select! {
         feature = "connectivity" => {
-            Can::<_, Floating>::new_loopback(dp.CAN1, &mut rcc)
+            Can::new_loopback(dp.CAN1, &mut rcc)
         }
         _ => {
-            Can::<_, Floating>::new_loopback(dp.CAN, dp.USB, &mut rcc)
+            Can::new_loopback(dp.CAN, dp.USB, &mut rcc)
         }
     };
 

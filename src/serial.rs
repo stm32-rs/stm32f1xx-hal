@@ -94,7 +94,7 @@ use core::sync::atomic::{self, Ordering};
 use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use crate::afio::{self, RInto, Rmp};
-use crate::gpio::{Floating, PushPull, UpMode};
+use crate::gpio::PushPull;
 use crate::pac;
 use crate::rcc::{BusClock, Clocks, Rcc};
 use crate::time::{Bps, U32Ext};
@@ -107,39 +107,33 @@ pub use dma::*;
 use crate::pacext::uart::{SrR, UartRB};
 
 pub trait SerialExt: Sized + Instance {
-    fn serial<Otype, PULL: UpMode>(
+    fn serial<Otype>(
         self,
-        pins: (
-            impl RInto<Self::Tx<Otype>, 0>,
-            impl RInto<Self::Rx<PULL>, 0>,
-        ),
+        pins: (impl RInto<Self::Tx<Otype>, 0>, impl RInto<Self::Rx, 0>),
         config: impl Into<Config>,
         rcc: &mut Rcc,
-    ) -> Serial<Self, Otype, PULL>;
+    ) -> Serial<Self, Otype>;
     fn tx<Otype>(
         self,
         tx_pin: impl RInto<Self::Tx<Otype>, 0>,
         config: impl Into<Config>,
         rcc: &mut Rcc,
     ) -> Tx<Self>;
-    fn rx<PULL: UpMode>(
+    fn rx(
         self,
-        rx_pin: impl RInto<Self::Rx<PULL>, 0>,
+        rx_pin: impl RInto<Self::Rx, 0>,
         config: impl Into<Config>,
         rcc: &mut Rcc,
     ) -> Rx<Self>;
 }
 
 impl<USART: Instance> SerialExt for USART {
-    fn serial<Otype, PULL: UpMode>(
+    fn serial<Otype>(
         self,
-        pins: (
-            impl RInto<Self::Tx<Otype>, 0>,
-            impl RInto<Self::Rx<PULL>, 0>,
-        ),
+        pins: (impl RInto<Self::Tx<Otype>, 0>, impl RInto<Self::Rx, 0>),
         config: impl Into<Config>,
         rcc: &mut Rcc,
-    ) -> Serial<Self, Otype, PULL> {
+    ) -> Serial<Self, Otype> {
         Serial::new(self, pins, config, rcc)
     }
     fn tx<Otype>(
@@ -150,9 +144,9 @@ impl<USART: Instance> SerialExt for USART {
     ) -> Tx<Self> {
         Serial::tx(self, tx_pin, config, rcc)
     }
-    fn rx<PULL: UpMode>(
+    fn rx(
         self,
-        rx_pin: impl RInto<Self::Rx<PULL>, 0>,
+        rx_pin: impl RInto<Self::Rx, 0>,
         config: impl Into<Config>,
         rcc: &mut Rcc,
     ) -> Rx<Self> {
@@ -331,11 +325,11 @@ impl From<Bps> for Config {
 }
 
 /// Serial abstraction
-pub struct Serial<USART: Instance, Otype = PushPull, PULL = Floating> {
+pub struct Serial<USART: Instance, Otype = PushPull> {
     pub tx: Tx<USART>,
     pub rx: Rx<USART>,
     #[allow(clippy::type_complexity)]
-    pub token: ReleaseToken<USART, (Option<USART::Tx<Otype>>, Option<USART::Rx<PULL>>)>,
+    pub token: ReleaseToken<USART, (Option<USART::Tx<Otype>>, Option<USART::Rx>)>,
 }
 
 /// Serial transmitter
@@ -355,15 +349,12 @@ pub struct ReleaseToken<USART, PINS> {
 }
 
 impl<USART: Instance, const R: u8> Rmp<USART, R> {
-    pub fn serial<Otype, PULL: UpMode>(
+    pub fn serial<Otype>(
         self,
-        pins: (
-            impl RInto<USART::Tx<Otype>, R>,
-            impl RInto<USART::Rx<PULL>, R>,
-        ),
+        pins: (impl RInto<USART::Tx<Otype>, R>, impl RInto<USART::Rx, R>),
         config: impl Into<Config>,
         rcc: &mut Rcc,
-    ) -> Serial<USART, Otype, PULL> {
+    ) -> Serial<USART, Otype> {
         Serial::_new(self.0, (Some(pins.0), Some(pins.1)), config, rcc)
     }
     pub fn tx<Otype>(
@@ -372,24 +363,19 @@ impl<USART: Instance, const R: u8> Rmp<USART, R> {
         config: impl Into<Config>,
         rcc: &mut Rcc,
     ) -> Tx<USART> {
-        Serial::_new(
-            self.0,
-            (Some(tx_pin), None::<USART::Rx<Floating>>),
-            config,
-            rcc,
-        )
-        .split()
-        .0
+        Serial::_new(self.0, (Some(tx_pin), None::<USART::Rx>), config, rcc)
+            .split()
+            .0
     }
-    pub fn rx<PULL: UpMode>(
+    pub fn rx(
         self,
-        rx_pin: impl RInto<USART::Rx<PULL>, R>,
+        rx_pin: impl RInto<USART::Rx, R>,
         config: impl Into<Config>,
         rcc: &mut Rcc,
     ) -> Rx<USART> {
         Serial::_new(
             self.0,
-            (None::<USART::Tx<Floating>>, Some(rx_pin)),
+            (None::<USART::Tx<PushPull>>, Some(rx_pin)),
             config,
             rcc,
         )
@@ -398,7 +384,7 @@ impl<USART: Instance, const R: u8> Rmp<USART, R> {
     }
 }
 
-impl<USART: Instance, Otype> Serial<USART, Otype, Floating> {
+impl<USART: Instance, Otype> Serial<USART, Otype> {
     pub fn tx<const R: u8>(
         usart: impl Into<Rmp<USART, R>>,
         tx_pin: impl RInto<USART::Tx<Otype>, R>,
@@ -409,10 +395,10 @@ impl<USART: Instance, Otype> Serial<USART, Otype, Floating> {
     }
 }
 
-impl<USART: Instance, PULL: UpMode> Serial<USART, PushPull, PULL> {
+impl<USART: Instance> Serial<USART, PushPull> {
     pub fn rx<const R: u8>(
         usart: impl Into<Rmp<USART, R>>,
-        rx_pin: impl RInto<USART::Rx<PULL>, R>,
+        rx_pin: impl RInto<USART::Rx, R>,
         config: impl Into<Config>,
         rcc: &mut Rcc,
     ) -> Rx<USART> {
@@ -420,7 +406,7 @@ impl<USART: Instance, PULL: UpMode> Serial<USART, PushPull, PULL> {
     }
 }
 
-impl<USART: Instance, Otype, PULL: UpMode> Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> Serial<USART, Otype> {
     /// Configures the serial interface and creates the interface
     /// struct.
     ///
@@ -438,10 +424,7 @@ impl<USART: Instance, Otype, PULL: UpMode> Serial<USART, Otype, PULL> {
     /// corresponding pins. `APBX` is used to reset the USART.)
     pub fn new<const R: u8>(
         usart: impl Into<Rmp<USART, R>>,
-        pins: (
-            impl RInto<USART::Tx<Otype>, R>,
-            impl RInto<USART::Rx<PULL>, R>,
-        ),
+        pins: (impl RInto<USART::Tx<Otype>, R>, impl RInto<USART::Rx, R>),
         config: impl Into<Config>,
         rcc: &mut Rcc,
     ) -> Self {
@@ -452,7 +435,7 @@ impl<USART: Instance, Otype, PULL: UpMode> Serial<USART, Otype, PULL> {
         usart: USART,
         pins: (
             Option<impl RInto<USART::Tx<Otype>, R>>,
-            Option<impl RInto<USART::Rx<PULL>, R>>,
+            Option<impl RInto<USART::Rx, R>>,
         ),
         config: impl Into<Config>,
         rcc: &mut Rcc,
@@ -487,7 +470,7 @@ impl<USART: Instance, Otype, PULL: UpMode> Serial<USART, Otype, PULL> {
     }
 }
 
-impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> Serial<USART, Otype> {
     /// Reconfigure the USART instance.
     ///
     /// If a transmission is currently in progress, this returns
@@ -529,7 +512,7 @@ impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
     /// let (usart, (tx_pin, rx_pin)) = serial.release();
     /// ```
     #[allow(clippy::type_complexity)]
-    pub fn release(self) -> (USART, (Option<USART::Tx<Otype>>, Option<USART::Rx<PULL>>)) {
+    pub fn release(self) -> (USART, (Option<USART::Tx<Otype>>, Option<USART::Rx>)) {
         (self.token.usart, self.token.pins)
     }
 
@@ -763,7 +746,7 @@ pub enum Event {
     Idle,
 }
 
-impl<USART: Instance, Otype, PULL> Serial<USART, Otype, PULL> {
+impl<USART: Instance, Otype> Serial<USART, Otype> {
     /// Starts listening to the USART by enabling the _Received data
     /// ready to be read (RXNE)_ interrupt and _Transmit data
     /// register empty (TXE)_ interrupt
