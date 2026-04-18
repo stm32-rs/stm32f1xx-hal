@@ -115,22 +115,25 @@ impl<MODE> ErasedPin<Output<MODE>> {
     }
 }
 
-#[cfg(not(any(feature = "xl", feature = "high")))]
-impl_pxx! {
-    ('A'::PAx),
-    ('B'::PBx),
-    ('C'::PCx),
-    ('D'::PDx),
-    ('E'::PEx)
-}
-
-#[cfg(any(feature = "xl", feature = "high"))]
-impl_pxx! {
-    ('A'::PAx),
-    ('B'::PBx),
-    ('C'::PCx),
-    ('D'::PDx),
-    ('E'::PEx),
-    ('F'::PFx),
-    ('G'::PGx)
+cfg_select! {
+    any(feature = "xl", feature = "high") => {
+        impl_pxx! {
+            ('A'::PAx),
+            ('B'::PBx),
+            ('C'::PCx),
+            ('D'::PDx),
+            ('E'::PEx),
+            ('F'::PFx),
+            ('G'::PGx)
+        }
+    }
+    _ => {
+        impl_pxx! {
+            ('A'::PAx),
+            ('B'::PBx),
+            ('C'::PCx),
+            ('D'::PDx),
+            ('E'::PEx)
+        }
+    }
 }

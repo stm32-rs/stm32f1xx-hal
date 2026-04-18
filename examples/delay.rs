@@ -18,14 +18,17 @@ fn main() -> ! {
 
     let mut gpioc = dp.GPIOC.split(&mut rcc);
 
-    #[cfg(feature = "stm32f100")]
-    let mut led = gpioc.pc9.into_push_pull_output(&mut gpioc.crh);
-
-    #[cfg(feature = "stm32f101")]
-    let mut led = gpioc.pc9.into_push_pull_output(&mut gpioc.crh);
-
-    #[cfg(any(feature = "stm32f103", feature = "stm32f105", feature = "stm32f107"))]
-    let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+    let mut led = cfg_select! {
+        feature = "stm32f100" => {
+            gpioc.pc9.into_push_pull_output(&mut gpioc.crh)
+        }
+        feature = "stm32f101" => {
+            gpioc.pc9.into_push_pull_output(&mut gpioc.crh)
+        }
+        _ => {
+            gpioc.pc13.into_push_pull_output(&mut gpioc.crh)
+        }
+    };
 
     //let mut delay = hal::timer::Timer::syst(cp.SYST, &rcc.clocks).delay();
     // or

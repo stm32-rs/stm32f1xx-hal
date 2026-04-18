@@ -325,18 +325,14 @@ where
 }
 
 /// Tracks the current pin state for dynamic pins
+#[derive(Default)]
 pub enum Dynamic {
+    #[default]
     InputFloating,
     InputPullUp,
     InputPullDown,
     OutputPushPull,
     OutputOpenDrain,
-}
-
-impl Default for Dynamic {
-    fn default() -> Self {
-        Dynamic::InputFloating
-    }
 }
 
 impl Active for Dynamic {}

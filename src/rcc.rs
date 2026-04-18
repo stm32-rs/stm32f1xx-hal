@@ -253,57 +253,56 @@ impl Rcc {
         }
 
         // set prescalers and clock source
-        #[cfg(feature = "connectivity")]
         rcc.cfgr().modify(|_, w| unsafe {
-            w.adcpre().variant(cfg.adcpre);
-            w.ppre2().bits(cfg.ppre2 as u8);
-            w.ppre1().bits(cfg.ppre1 as u8);
-            w.hpre().bits(cfg.hpre as u8);
-            w.otgfspre().variant(cfg.usbpre);
-            w.sw().bits(if cfg.pllmul.is_some() {
-                // PLL
-                0b10
-            } else if cfg.hse.is_some() {
-                // HSE
-                0b1
-            } else {
-                // HSI
-                0b0
-            })
-        });
-
-        #[cfg(feature = "stm32f103")]
-        rcc.cfgr().modify(|_, w| unsafe {
-            w.adcpre().variant(cfg.adcpre);
-            w.ppre2().bits(cfg.ppre2 as u8);
-            w.ppre1().bits(cfg.ppre1 as u8);
-            w.hpre().bits(cfg.hpre as u8);
-            w.usbpre().variant(cfg.usbpre);
-            w.sw().bits(if cfg.pllmul.is_some() {
-                // PLL
-                0b10
-            } else {
-                // HSE or HSI
-                u8::from(cfg.hse.is_some())
-            })
-        });
-
-        #[cfg(any(feature = "stm32f100", feature = "stm32f101"))]
-        rcc.cfgr().modify(|_, w| unsafe {
-            w.adcpre().variant(cfg.adcpre);
-            w.ppre2().bits(cfg.ppre2 as u8);
-            w.ppre1().bits(cfg.ppre1 as u8);
-            w.hpre().bits(cfg.hpre as u8);
-            w.sw().bits(if cfg.pllmul.is_some() {
-                // PLL
-                0b10
-            } else if cfg.hse.is_some() {
-                // HSE
-                0b1
-            } else {
-                // HSI
-                0b0
-            })
+            cfg_select! {
+                feature = "connectivity" => {
+                    w.adcpre().variant(cfg.adcpre);
+                    w.ppre2().bits(cfg.ppre2 as u8);
+                    w.ppre1().bits(cfg.ppre1 as u8);
+                    w.hpre().bits(cfg.hpre as u8);
+                    w.otgfspre().variant(cfg.usbpre);
+                    w.sw().bits(if cfg.pllmul.is_some() {
+                        // PLL
+                        0b10
+                    } else if cfg.hse.is_some() {
+                        // HSE
+                        0b1
+                    } else {
+                        // HSI
+                        0b0
+                    })
+                }
+                feature = "stm32f103" => {
+                    w.adcpre().variant(cfg.adcpre);
+                    w.ppre2().bits(cfg.ppre2 as u8);
+                    w.ppre1().bits(cfg.ppre1 as u8);
+                    w.hpre().bits(cfg.hpre as u8);
+                    w.usbpre().variant(cfg.usbpre);
+                    w.sw().bits(if cfg.pllmul.is_some() {
+                        // PLL
+                        0b10
+                    } else {
+                        // HSE or HSI
+                        u8::from(cfg.hse.is_some())
+                    })
+                }
+                any(feature = "stm32f100", feature = "stm32f101") => {
+                    w.adcpre().variant(cfg.adcpre);
+                    w.ppre2().bits(cfg.ppre2 as u8);
+                    w.ppre1().bits(cfg.ppre1 as u8);
+                    w.hpre().bits(cfg.hpre as u8);
+                    w.sw().bits(if cfg.pllmul.is_some() {
+                        // PLL
+                        0b10
+                    } else if cfg.hse.is_some() {
+                        // HSE
+                        0b1
+                    } else {
+                        // HSI
+                        0b0
+                    })
+                }
+            }
         });
 
         Self {
@@ -632,18 +631,21 @@ impl RawConfig {
         let (pllmul_bits, sysclk) = if pllmul == 1 {
             (None, if let Some(hse) = hse { hse } else { HSI })
         } else {
-            #[cfg(not(feature = "connectivity"))]
-            let pllmul = match pllmul {
-                1..=16 => pllmul,
-                0 => 1,
-                _ => 16,
-            };
-
-            #[cfg(feature = "connectivity")]
-            let pllmul = match pllmul {
-                4..=9 => pllmul,
-                0..=3 => 4,
-                _ => 9,
+            let pllmul = cfg_select! {
+                not(feature = "connectivity") => {
+                    match pllmul {
+                        1..=16 => pllmul,
+                        0 => 1,
+                        _ => 16,
+                    }
+                }
+                _ => {
+                    match pllmul {
+                        4..=9 => pllmul,
+                        0..=3 => 4,
+                        _ => 9,
+                    }
+                }
             };
 
             (Some(pllmul as u8 - 2), pllsrcclk * pllmul)
@@ -678,7 +680,7 @@ impl RawConfig {
         } else {
             36_000_000
         };
-        let ppre1_bits = match (hclk + pclk1 - 1) / pclk1 {
+        let ppre1_bits = match hclk.div_ceil(pclk1) {
             0 | 1 => PPre::Div1,
             2 => PPre::Div2,
             3..=5 => PPre::Div4,

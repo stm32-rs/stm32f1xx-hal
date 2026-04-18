@@ -48,8 +48,8 @@
 */
 #![allow(non_upper_case_globals)]
 
-use crate::bb;
 use crate::pac::{self, DBGMCU as DBG};
+use crate::{bb, cfg_if};
 
 use crate::rcc::{self, BusTimerClock, Clocks, Rcc};
 use core::convert::TryFrom;
@@ -58,14 +58,25 @@ use cortex_m::peripheral::SYST;
 
 use crate::time::Hertz;
 
-#[cfg(feature = "rtic1")]
-pub mod monotonic;
-#[cfg(feature = "rtic1")]
-pub use monotonic::*;
-#[cfg(feature = "rtic2")]
-pub mod monotonics;
-#[cfg(feature = "rtic2")]
-pub use monotonics::*;
+cfg_select! {
+    feature = "rtic1" => {
+        pub mod monotonic;
+        pub use monotonic::*;
+    }
+    feature = "rtic2" => {
+        cfg_if! {any(
+            feature = "rtic-tim2",
+            feature = "rtic-tim3",
+            feature = "rtic-tim4",
+            feature = "rtic-tim5"
+        ) => {
+            pub mod monotonics;
+            pub use monotonics::*;
+        }}
+    }
+    _ => {}
+}
+
 pub(crate) mod pins;
 pub mod pwm_input;
 pub use pins::*;
@@ -954,23 +965,20 @@ hal!(pac::TIM7: [Timer7, u16, m: tim6,]);
 #[cfg(all(feature = "stm32f103", feature = "high"))]
 hal!(pac::TIM8: [Timer8, u16, c: (4, 4, _aoe), m: tim1,]);
 
-#[cfg(feature = "xl")]
-hal!(pac::TIM9: [Timer9, u16, c: (2, 2),]);
-#[cfg(feature = "xl")]
-hal!(pac::TIM10: [Timer10, u16, c: (1, 1),]);
-#[cfg(feature = "xl")]
-hal!(pac::TIM11: [Timer11, u16, c: (1, 1),]);
+cfg_if! {feature = "xl" => {
+    hal!(pac::TIM9: [Timer9, u16, c: (2, 2),]);
+    hal!(pac::TIM10: [Timer10, u16, c: (1, 1),]);
+    hal!(pac::TIM11: [Timer11, u16, c: (1, 1),]);
+}}
 
-#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high")))]
-hal!(pac::TIM12: [Timer12, u16, c: (2, 2),]);
-#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high")))]
-hal!(pac::TIM13: [Timer13, u16, c: (1, 1),]);
-#[cfg(any(feature = "xl", all(feature = "stm32f100", feature = "high")))]
-hal!(pac::TIM14: [Timer14, u16, c: (1, 1),]);
+cfg_if! {any(feature = "xl", all(feature = "stm32f100", feature = "high")) => {
+    hal!(pac::TIM12: [Timer12, u16, c: (2, 2),]);
+    hal!(pac::TIM13: [Timer13, u16, c: (1, 1),]);
+    hal!(pac::TIM14: [Timer14, u16, c: (1, 1),]);
+}}
 
-#[cfg(feature = "stm32f100")]
-hal!(pac::TIM15: [Timer15, u16, c: (2, 2),]);
-#[cfg(feature = "stm32f100")]
-hal!(pac::TIM16: [Timer16, u16, c: (1, 1),]);
-#[cfg(feature = "stm32f100")]
-hal!(pac::TIM17: [Timer17, u16, c: (1, 1),]);
+cfg_if! {feature = "stm32f100" => {
+    hal!(pac::TIM15: [Timer15, u16, c: (2, 2),]);
+    hal!(pac::TIM16: [Timer16, u16, c: (1, 1),]);
+    hal!(pac::TIM17: [Timer17, u16, c: (1, 1),]);
+}}

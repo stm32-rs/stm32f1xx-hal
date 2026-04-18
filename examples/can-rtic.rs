@@ -55,10 +55,14 @@ mod app {
     use super::{enqueue_frame, PriorityFrame};
     use bxcan::{filter::Mask32, ExtendedId, Fifo, Frame, Interrupts, Rx0, StandardId, Tx};
     use heapless::binary_heap::{BinaryHeap, Max};
-    #[cfg(not(feature = "connectivity"))]
-    use stm32f1xx_hal::pac::CAN as CAN1;
-    #[cfg(feature = "connectivity")]
-    use stm32f1xx_hal::pac::CAN1;
+    cfg_select! {
+        feature = "connectivity" => {
+            use stm32f1xx_hal::pac::CAN1;
+        }
+        _ => {
+            use stm32f1xx_hal::pac::CAN as CAN1;
+        }
+    }
     use stm32f1xx_hal::{can::Can, prelude::*, rcc};
 
     #[local]
@@ -89,16 +93,14 @@ mod app {
         let can_rx_pin = gpioa.pa11;
         let can_tx_pin = gpioa.pa12;
 
-        #[cfg(not(feature = "connectivity"))]
-        let can = Can::new(
-            cx.device.CAN,
-            cx.device.USB,
-            (can_tx_pin, can_rx_pin),
-            &mut rcc,
-        );
-
-        #[cfg(feature = "connectivity")]
-        let can = Can::new(cx.device.CAN1, (can_tx_pin, can_rx_pin), &mut rcc);
+        let can = cfg_select! {
+            feature = "connectivity" => {
+                Can::new(cx.device.CAN1, (can_tx_pin, can_rx_pin), &mut rcc)
+            }
+            _ => {
+                Can::new(cx.device.CAN, cx.device.USB, (can_tx_pin, can_rx_pin), &mut rcc)
+            }
+        };
 
         // APB1 (PCLK1): 16MHz, Bit rate: 1000kBit/s, Sample Point 87.5%
         // Value was calculated with http://www.bittiming.can-wiki.info/

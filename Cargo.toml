@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.95"
 
 authors = [
     "Jorge Aparicio <jorge@japaric.io>",
