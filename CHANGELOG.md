@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Breaking changes
 
-- Bump `fugit` to `0.4`
+- Bump `fugit` to `0.4` [#568]
 - Remove `PULL` generic from `Input` mode [#512]
   Remove `as_push_pull_output`, `as_opendrain_output` [#512]
 - `rtic2` feature, renamed `rtic` to `rtic1` [#517]
@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#562]: https://github.com/stm32-rs/stm32f1xx-hal/pull/562
 [#563]: https://github.com/stm32-rs/stm32f1xx-hal/pull/563
 [#565]: https://github.com/stm32-rs/stm32f1xx-hal/pull/565
+[#568]: https://github.com/stm32-rs/stm32f1xx-hal/pull/568
 
 ## [v0.11.0] - 2025-09-09
 
