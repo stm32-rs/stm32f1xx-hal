@@ -10,7 +10,7 @@ use rtic_time::{
     timer_queue::TimerQueue, Monotonic,
 };
 
-pub struct MonoTimer<TIM, const FREQ: u32> {
+pub struct MonoTimer<TIM, const FREQ: u64> {
     _tim: PhantomData<TIM>,
 }
 /// `MonoTimer` with precision of 1 μs (1 MHz sampling)
@@ -20,7 +20,7 @@ pub struct MonoTimerBackend<TIM> {
     _tim: PhantomData<TIM>,
 }
 
-impl<TIM: 'static, const FREQ: u32> TimerQueueBasedMonotonic for MonoTimer<TIM, FREQ>
+impl<TIM: 'static, const FREQ: u64> TimerQueueBasedMonotonic for MonoTimer<TIM, FREQ>
 where
     MonoTimerBackend<TIM>: TimerQueueBackend<Ticks = u64>,
 {
@@ -30,7 +30,7 @@ where
 }
 
 pub trait MonoTimerExt: Sized {
-    fn monotonic<const FREQ: u32>(
+    fn monotonic<const FREQ: u64>(
         self,
         nvic: &mut cortex_m::peripheral::NVIC,
         rcc: &mut Rcc,
@@ -44,7 +44,7 @@ pub trait MonoTimerExt: Sized {
     }
 }
 
-impl<TIM: 'static, const FREQ: u32> embedded_hal::delay::DelayNs for MonoTimer<TIM, FREQ>
+impl<TIM: 'static, const FREQ: u64> embedded_hal::delay::DelayNs for MonoTimer<TIM, FREQ>
 where
     Self:
         Monotonic<Instant = fugit::TimerInstantU64<FREQ>, Duration = fugit::TimerDurationU64<FREQ>>,
@@ -83,7 +83,7 @@ where
     }
 }
 
-impl<TIM: 'static, const FREQ: u32> embedded_hal_async::delay::DelayNs for MonoTimer<TIM, FREQ>
+impl<TIM: 'static, const FREQ: u64> embedded_hal_async::delay::DelayNs for MonoTimer<TIM, FREQ>
 where
     Self:
         Monotonic<Instant = fugit::TimerInstantU64<FREQ>, Duration = fugit::TimerDurationU64<FREQ>>,
@@ -145,7 +145,7 @@ macro_rules! make_timer {
         static $tq: TimerQueue<MonoTimerBackend<pac::$timer>> = TimerQueue::new();
 
         impl MonoTimerExt for pac::$timer {
-            fn monotonic<const FREQ: u32>(
+            fn monotonic<const FREQ: u64>(
                 self,
                 nvic: &mut cortex_m::peripheral::NVIC,
                 rcc: &mut Rcc,
@@ -154,7 +154,7 @@ macro_rules! make_timer {
             }
         }
 
-        impl<const FREQ: u32> FTimer<pac::$timer, FREQ> {
+        impl<const FREQ: u64> FTimer<pac::$timer, FREQ> {
             pub fn monotonic(
                 mut self,
                 nvic: &mut cortex_m::peripheral::NVIC,

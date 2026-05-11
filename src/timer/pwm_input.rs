@@ -282,26 +282,26 @@ macro_rules! hal {
 
             match mode {
                 Frequency(f) => {
-                    let freq = f.raw();
+                    let freq = f.to_raw();
                     let max_freq = if freq > 5 { freq / 5 } else { 1 };
-                    let (arr, presc) = compute_arr_presc(max_freq, clk.raw());
+                    let (arr, presc) = compute_arr_presc(max_freq, clk.to_raw());
                     tim.arr().write(|w| w.arr().set(arr));
                     tim.psc().write(|w| w.psc().set(presc));
                 }
                 DutyCycle(f) => {
-                    let freq = f.raw();
+                    let freq = f.to_raw();
                     let max_freq = if freq > 2 {
                         freq / 2 + freq / 4 + freq / 8
                     } else {
                         1
                     };
-                    let (arr, presc) = compute_arr_presc(max_freq, clk.raw());
+                    let (arr, presc) = compute_arr_presc(max_freq, clk.to_raw());
                     tim.arr().write(|w| w.arr().set(arr));
                     tim.psc().write(|w| w.psc().set(presc));
                 }
                 RawFrequency(f) => {
-                    let freq = f.raw();
-                    let (arr, presc) = compute_arr_presc(freq, clk.raw());
+                    let freq = f.to_raw();
+                    let (arr, presc) = compute_arr_presc(freq, clk.to_raw());
                     tim.arr().write(|w| w.arr().set(arr));
                     tim.psc().write(|w| w.psc().set(presc));
                 }

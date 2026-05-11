@@ -39,7 +39,7 @@ impl SysDelay {
         // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
         const MAX_RVR: u32 = 0x00FF_FFFF;
 
-        let mut total_rvr = us.ticks() * (self.clk.raw() / 1_000_000);
+        let mut total_rvr = us.as_ticks() * (self.clk.to_raw() / 1_000_000);
 
         while total_rvr != 0 {
             let current_rvr = total_rvr.min(MAX_RVR);
@@ -59,16 +59,16 @@ impl SysDelay {
 }
 
 /// Periodic non-blocking timer that imlements [embedded_hal_02::blocking::delay] traits
-pub struct Delay<TIM, const FREQ: u32>(pub(super) FTimer<TIM, FREQ>);
+pub struct Delay<TIM, const FREQ: u64>(pub(super) FTimer<TIM, FREQ>);
 
-impl<T, const FREQ: u32> Deref for Delay<T, FREQ> {
+impl<T, const FREQ: u64> Deref for Delay<T, FREQ> {
     type Target = FTimer<T, FREQ>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T, const FREQ: u32> DerefMut for Delay<T, FREQ> {
+impl<T, const FREQ: u64> DerefMut for Delay<T, FREQ> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -82,10 +82,10 @@ pub type DelayUs<TIM> = Delay<TIM, 1_000_000>;
 /// NOTE: don't use this if your system frequency more than 65 MHz
 pub type DelayMs<TIM> = Delay<TIM, 1_000>;
 
-impl<TIM: Instance, const FREQ: u32> Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> Delay<TIM, FREQ> {
     /// Sleep for given time
     pub fn delay(&mut self, time: TimerDurationU32<FREQ>) {
-        let mut ticks = time.ticks().max(1) - 1;
+        let mut ticks = time.as_ticks().max(1) - 1;
         while ticks != 0 {
             let reload = ticks.min(TIM::max_auto_reload());
 
@@ -121,7 +121,7 @@ impl<TIM: Instance, const FREQ: u32> Delay<TIM, FREQ> {
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> fugit_timer::Delay<FREQ> for Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> fugit_timer::Delay<FREQ> for Delay<TIM, FREQ> {
     type Error = core::convert::Infallible;
 
     fn delay(&mut self, duration: TimerDurationU32<FREQ>) -> Result<(), Self::Error> {

@@ -39,7 +39,7 @@ impl<TIM: Instance> CounterHz<TIM> {
         // reset counter
         self.tim.reset_counter();
 
-        let (psc, arr) = compute_arr_presc(timeout.raw(), self.clk.raw());
+        let (psc, arr) = compute_arr_presc(timeout.to_raw(), self.clk.to_raw());
         self.tim.set_prescaler(psc);
         self.tim.set_auto_reload(arr)?;
 
@@ -112,7 +112,7 @@ impl<TIM: Instance> CounterHz<TIM> {
 
         // freq_divider is always bigger than 0, since (psc + 1) is always less than
         // timer_clock
-        let freq_divider = (self.clk.raw() / (psc + 1)) as u64;
+        let freq_divider = (self.clk.to_raw() / (psc + 1)) as u64;
         let cnt: u32 = self.tim.read_count().into();
         let cnt = cnt as u64;
 
@@ -123,16 +123,16 @@ impl<TIM: Instance> CounterHz<TIM> {
 }
 
 /// Periodic non-blocking timer that imlements [embedded_hal_02::timer::CountDown]
-pub struct Counter<TIM, const FREQ: u32>(pub(super) FTimer<TIM, FREQ>);
+pub struct Counter<TIM, const FREQ: u64>(pub(super) FTimer<TIM, FREQ>);
 
-impl<T, const FREQ: u32> Deref for Counter<T, FREQ> {
+impl<T, const FREQ: u64> Deref for Counter<T, FREQ> {
     type Target = FTimer<T, FREQ>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T, const FREQ: u32> DerefMut for Counter<T, FREQ> {
+impl<T, const FREQ: u64> DerefMut for Counter<T, FREQ> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -146,7 +146,7 @@ pub type CounterUs<TIM> = Counter<TIM, 1_000_000>;
 /// NOTE: don't use this if your system frequency more than 65 MHz
 pub type CounterMs<TIM> = Counter<TIM, 1_000>;
 
-impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> Counter<TIM, FREQ> {
     /// Releases the TIM peripheral
     pub fn release(mut self) -> FTimer<TIM, FREQ> {
         // stop counter
@@ -167,7 +167,7 @@ impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
         // reset counter
         self.tim.reset_counter();
 
-        self.tim.set_auto_reload(timeout.ticks() - 1)?;
+        self.tim.set_auto_reload(timeout.as_ticks() - 1)?;
 
         // Trigger update event to load the registers
         self.tim.trigger_update();
@@ -198,7 +198,7 @@ impl<TIM: Instance, const FREQ: u32> Counter<TIM, FREQ> {
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> fugit_timer::Timer<FREQ> for Counter<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> fugit_timer::Timer<FREQ> for Counter<TIM, FREQ> {
     type Error = Error;
 
     fn now(&mut self) -> TimerInstantU32<FREQ> {
@@ -225,7 +225,7 @@ impl Timer<SYST> {
     }
 
     /// Creates [SysCounter] with custom precision (core frequency recommended is known)
-    pub fn counter<const FREQ: u32>(self) -> SysCounter<FREQ> {
+    pub fn counter<const FREQ: u64>(self) -> SysCounter<FREQ> {
         SysCounter(self)
     }
 
@@ -253,7 +253,7 @@ impl DerefMut for SysCounterHz {
 
 impl SysCounterHz {
     pub fn start(&mut self, timeout: Hertz) -> Result<(), Error> {
-        let rvr = self.clk.raw() / timeout.raw() - 1;
+        let rvr = self.clk.to_raw() / timeout.to_raw() - 1;
 
         if rvr >= (1 << 24) {
             return Err(Error::WrongAutoReload);
@@ -287,22 +287,22 @@ impl SysCounterHz {
 pub type SysCounterUs = SysCounter<1_000_000>;
 
 /// SysTick timer with precision of 1 μs (1 MHz sampling)
-pub struct SysCounter<const FREQ: u32>(Timer<SYST>);
+pub struct SysCounter<const FREQ: u64>(Timer<SYST>);
 
-impl<const FREQ: u32> Deref for SysCounter<FREQ> {
+impl<const FREQ: u64> Deref for SysCounter<FREQ> {
     type Target = Timer<SYST>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<const FREQ: u32> DerefMut for SysCounter<FREQ> {
+impl<const FREQ: u64> DerefMut for SysCounter<FREQ> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<const FREQ: u32> SysCounter<FREQ> {
+impl<const FREQ: u64> SysCounter<FREQ> {
     /// Starts listening for an `event`
     pub fn listen(&mut self, event: SysEvent) {
         match event {
@@ -318,11 +318,11 @@ impl<const FREQ: u32> SysCounter<FREQ> {
     }
 
     pub fn now(&self) -> TimerInstantU32<FREQ> {
-        TimerInstantU32::from_ticks(SYST::get_current() / (self.clk.raw() / FREQ))
+        TimerInstantU32::from_ticks(SYST::get_current() / (self.clk.to_raw() / FREQ as u32))
     }
 
     pub fn start(&mut self, timeout: TimerDurationU32<FREQ>) -> Result<(), Error> {
-        let rvr = timeout.ticks() * (self.clk.raw() / FREQ) - 1;
+        let rvr = timeout.as_ticks() * (self.clk.to_raw() / FREQ as u32) - 1;
 
         if rvr >= (1 << 24) {
             return Err(Error::WrongAutoReload);
@@ -353,7 +353,7 @@ impl<const FREQ: u32> SysCounter<FREQ> {
     }
 }
 
-impl<const FREQ: u32> fugit_timer::Timer<FREQ> for SysCounter<FREQ> {
+impl<const FREQ: u64> fugit_timer::Timer<FREQ> for SysCounter<FREQ> {
     type Error = Error;
 
     fn now(&mut self) -> TimerInstantU32<FREQ> {

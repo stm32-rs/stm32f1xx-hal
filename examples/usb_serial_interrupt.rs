@@ -40,7 +40,7 @@ fn main() -> ! {
     // will not reset your device when you upload new firmware.
     let mut usb_dp = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
     usb_dp.set_low();
-    delay(rcc.clocks.sysclk().raw() / 100);
+    delay(rcc.clocks.sysclk().to_raw() / 100);
 
     let usb_dm = gpioa.pa11;
     let usb_dp = usb_dp.into_floating_input(&mut gpioa.crh);

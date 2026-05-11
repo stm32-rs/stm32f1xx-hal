@@ -89,7 +89,7 @@ impl IndependentWatchdog {
     }
 
     pub fn start(&mut self, period: MilliSeconds) {
-        self.setup(period.ticks());
+        self.setup(period.as_ticks());
 
         self.iwdg.kr().write(|w| unsafe { w.key().bits(KR_START) });
     }

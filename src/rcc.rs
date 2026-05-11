@@ -138,7 +138,7 @@ impl Config {
     /// The frequency specified must be the frequency of the external oscillator
     #[inline(always)]
     pub fn use_hse(mut self, freq: Hertz) -> Self {
-        self.hse = Some(freq.raw());
+        self.hse = Some(freq.to_raw());
         self
     }
 
@@ -159,35 +159,35 @@ impl Config {
     /// Sets the desired frequency for the HCLK clock
     #[inline(always)]
     pub fn hclk(mut self, freq: Hertz) -> Self {
-        self.hclk = Some(freq.raw());
+        self.hclk = Some(freq.to_raw());
         self
     }
 
     /// Sets the desired frequency for the PCKL1 clock
     #[inline(always)]
     pub fn pclk1(mut self, freq: Hertz) -> Self {
-        self.pclk1 = Some(freq.raw());
+        self.pclk1 = Some(freq.to_raw());
         self
     }
 
     /// Sets the desired frequency for the PCLK2 clock
     #[inline(always)]
     pub fn pclk2(mut self, freq: Hertz) -> Self {
-        self.pclk2 = Some(freq.raw());
+        self.pclk2 = Some(freq.to_raw());
         self
     }
 
     /// Sets the desired frequency for the SYSCLK clock
     #[inline(always)]
     pub fn sysclk(mut self, freq: Hertz) -> Self {
-        self.sysclk = Some(freq.raw());
+        self.sysclk = Some(freq.to_raw());
         self
     }
 
     /// Sets the desired frequency for the ADCCLK clock
     #[inline(always)]
     pub fn adcclk(mut self, freq: Hertz) -> Self {
-        self.adcclk = Some(freq.raw());
+        self.adcclk = Some(freq.to_raw());
         self
     }
 }
@@ -392,12 +392,12 @@ impl Clocks {
 
     /// Returns the frequency of the APB1 Timers
     pub const fn pclk1_tim(&self) -> Hertz {
-        Hertz::from_raw(self.pclk1.raw() * if self.ppre1() == 1 { 1 } else { 2 })
+        Hertz::from_raw(self.pclk1.to_raw() * if self.ppre1() == 1 { 1 } else { 2 })
     }
 
     /// Returns the frequency of the APB2 Timers
     pub const fn pclk2_tim(&self) -> Hertz {
-        Hertz::from_raw(self.pclk2.raw() * if self.ppre2() == 1 { 1 } else { 2 })
+        Hertz::from_raw(self.pclk2.to_raw() * if self.ppre2() == 1 { 1 } else { 2 })
     }
 
     pub(crate) const fn ppre1(&self) -> u8 {

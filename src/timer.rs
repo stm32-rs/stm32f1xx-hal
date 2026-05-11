@@ -162,7 +162,7 @@ pub enum Error {
 
 pub trait TimerExt: Sized {
     /// Non-blocking [Counter] with custom fixed precision
-    fn counter<const FREQ: u32>(self, rcc: &mut Rcc) -> Counter<Self, FREQ>;
+    fn counter<const FREQ: u64>(self, rcc: &mut Rcc) -> Counter<Self, FREQ>;
     /// Non-blocking [Counter] with fixed precision of 1 ms (1 kHz sampling)
     ///
     /// Can wait from 2 ms to 65 sec for 16-bit timer and from 2 ms to 49 days for 32-bit timer.
@@ -181,7 +181,7 @@ pub trait TimerExt: Sized {
     fn counter_hz(self, rcc: &mut Rcc) -> CounterHz<Self>;
 
     /// Blocking [Delay] with custom fixed precision
-    fn delay<const FREQ: u32>(self, rcc: &mut Rcc) -> Delay<Self, FREQ>;
+    fn delay<const FREQ: u64>(self, rcc: &mut Rcc) -> Delay<Self, FREQ>;
     /// Blocking [Delay] with fixed precision of 1 ms (1 kHz sampling)
     ///
     /// Can wait from 2 ms to 49 days.
@@ -199,13 +199,13 @@ pub trait TimerExt: Sized {
 }
 
 impl<TIM: Instance> TimerExt for TIM {
-    fn counter<const FREQ: u32>(self, rcc: &mut Rcc) -> Counter<Self, FREQ> {
+    fn counter<const FREQ: u64>(self, rcc: &mut Rcc) -> Counter<Self, FREQ> {
         FTimer::new(self, rcc).counter()
     }
     fn counter_hz(self, rcc: &mut Rcc) -> CounterHz<Self> {
         Timer::new(self, rcc).counter_hz()
     }
-    fn delay<const FREQ: u32>(self, rcc: &mut Rcc) -> Delay<Self, FREQ> {
+    fn delay<const FREQ: u64>(self, rcc: &mut Rcc) -> Delay<Self, FREQ> {
         FTimer::new(self, rcc).delay()
     }
 }
@@ -215,7 +215,7 @@ pub trait SysTimerExt: Sized {
     fn counter_hz(self, clocks: &Clocks) -> SysCounterHz;
 
     /// Creates timer with custom precision (core frequency recommended is known)
-    fn counter<const FREQ: u32>(self, clocks: &Clocks) -> SysCounter<FREQ>;
+    fn counter<const FREQ: u64>(self, clocks: &Clocks) -> SysCounter<FREQ>;
     /// Creates timer with precision of 1 μs (1 MHz sampling)
     fn counter_us(self, clocks: &Clocks) -> SysCounterUs {
         self.counter::<1_000_000>(clocks)
@@ -228,7 +228,7 @@ impl SysTimerExt for SYST {
     fn counter_hz(self, clocks: &Clocks) -> SysCounterHz {
         Timer::syst(self, clocks).counter_hz()
     }
-    fn counter<const FREQ: u32>(self, clocks: &Clocks) -> SysCounter<FREQ> {
+    fn counter<const FREQ: u64>(self, clocks: &Clocks) -> SysCounter<FREQ> {
         Timer::syst(self, clocks).counter()
     }
     fn delay(self, clocks: &Clocks) -> SysDelay {
@@ -908,7 +908,7 @@ impl<TIM: Instance + MasterTimer> Timer<TIM> {
 /// Timer wrapper for fixed precision timers.
 ///
 /// Uses `fugit::TimerDurationU32` for most of operations
-pub struct FTimer<TIM, const FREQ: u32> {
+pub struct FTimer<TIM, const FREQ: u64> {
     tim: TIM,
 }
 
@@ -920,7 +920,7 @@ pub type FTimerUs<TIM> = FTimer<TIM, 1_000_000>;
 /// NOTE: don't use this if your system frequency more than 65 MHz
 pub type FTimerMs<TIM> = FTimer<TIM, 1_000>;
 
-impl<TIM: Instance, const FREQ: u32> FTimer<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> FTimer<TIM, FREQ> {
     /// Initialize timer
     pub fn new(tim: TIM, rcc: &mut Rcc) -> Self {
         // Enable and reset the timer peripheral
@@ -935,8 +935,8 @@ impl<TIM: Instance, const FREQ: u32> FTimer<TIM, FREQ> {
     /// Calculate prescaler depending on `Clocks` state
     pub fn configure(&mut self, clocks: &Clocks) {
         let clk = TIM::Bus::timer_clock(clocks);
-        assert!(clk.raw() % FREQ == 0);
-        let psc = clk.raw() / FREQ;
+        assert!(clk.to_raw() % FREQ as u32 == 0);
+        let psc = clk.to_raw() / FREQ as u32;
         self.tim.set_prescaler(u16::try_from(psc - 1).unwrap());
     }
 
@@ -986,7 +986,7 @@ impl<TIM: Instance, const FREQ: u32> FTimer<TIM, FREQ> {
     }
 }
 
-impl<TIM: Instance + MasterTimer, const FREQ: u32> FTimer<TIM, FREQ> {
+impl<TIM: Instance + MasterTimer, const FREQ: u64> FTimer<TIM, FREQ> {
     pub fn set_master_mode(&mut self, mode: TIM::Mms) {
         self.tim.master_mode(mode)
     }

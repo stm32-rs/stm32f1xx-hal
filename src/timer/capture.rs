@@ -60,8 +60,8 @@ impl<TIM: Instance + WithCapture + SplitCapture> Timer<TIM> {
         // might as well enable for the auto-reload too
         self.tim.enable_preload(true);
 
-        let psc = self.clk.raw() / freq.raw();
-        assert!(self.clk.raw() % freq.raw() == 0);
+        let psc = self.clk.to_raw() / freq.to_raw();
+        assert!(self.clk.to_raw() % freq.to_raw() == 0);
         assert!(
             psc <= u16::MAX.into(),
             "PSC value {} exceeds 16-bit limit (65535)",
@@ -233,14 +233,14 @@ where
         let psc = self.tim.read_prescaler() as u32;
 
         // The frequency of the timer counter increment
-        (clk / (psc + 1)).raw()
+        (clk / (psc + 1)).to_raw()
     }
 
     /// Set the frequency of the timer counter increment
     pub fn set_timer_clock(&mut self, freq: Hertz) {
         let clk = self.clk;
-        let psc = clk.raw() / freq.raw();
-        assert!(self.clk.raw() % freq.raw() == 0);
+        let psc = clk.to_raw() / freq.to_raw();
+        assert!(self.clk.to_raw() % freq.to_raw() == 0);
         assert!(
             psc <= u16::MAX.into(),
             "PSC value {} exceeds 16-bit limit (65535)",
