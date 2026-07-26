@@ -1,0 +1,12 @@
+# LabWired system manifest for the stm32f1xx-hal `blinky` example.
+# Blue Pill layout: PC13 drives the onboard LED.
+name: "stm32f1xx-hal-blinky"
+chip: "chip.yaml"
+external_devices: []
+board_io:
+  - id: "led_pc13"
+    kind: "led"
+    peripheral: "gpioc"
+    pin: 13
+    signal: "output"
+    active_high: true

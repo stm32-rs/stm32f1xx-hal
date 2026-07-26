@@ -1,0 +1,27 @@
+name: labwired firmware test
+
+on:
+  push:
+    branches: [labwired-ci]
+  pull_request:
+
+jobs:
+  blinky:
+    name: LabWired blinky (stm32f103)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add Cortex-M3 target
+        run: rustup target add thumbv7m-none-eabi
+
+      - name: Build blinky example (stm32f103)
+        run: cargo build --release --features=stm32f103 --example blinky --target thumbv7m-none-eabi
+
+      - uses: labwired/firmware-test@v1
+        with:
+          script: tests/blinky.yaml
