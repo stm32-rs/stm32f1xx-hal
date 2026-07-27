@@ -2,7 +2,7 @@ name: labwired firmware test
 
 on:
   push:
-    branches: [labwired-ci]
+    branches: [master]
   pull_request:
 
 jobs:
