@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  blinky:
-    name: LabWired blinky (stm32f103)
+  simulate:
+    name: LabWired examples (stm32f103)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,9 +19,17 @@ jobs:
       - name: Add Cortex-M3 target
         run: rustup target add thumbv7m-none-eabi
 
-      - name: Build blinky example (stm32f103)
-        run: cargo build --release --features=stm32f103 --example blinky --target thumbv7m-none-eabi
+      - name: Build examples (stm32f103)
+        run: |
+          cargo build --release --features=stm32f103 --target thumbv7m-none-eabi \
+            --example blinky --example serial
 
-      - uses: labwired/firmware-test@v1
+      - name: Simulate blinky (GPIO + SysTick)
+        uses: labwired/firmware-test@v1
         with:
           script: tests/blinky.yaml
+
+      - name: Simulate serial (USART3 loopback)
+        uses: labwired/firmware-test@v1
+        with:
+          script: tests/serial.yaml

@@ -1,0 +1,6 @@
+# LabWired system manifest for the stm32f1xx-hal `serial` example.
+# USART3 on PB10/PB11; no board I/O is involved.
+name: "stm32f1xx-hal-serial"
+chip: "chip.yaml"
+external_devices: []
+board_io: []
