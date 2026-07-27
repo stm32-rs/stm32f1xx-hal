@@ -13,6 +13,7 @@ jobs:
     # the workflow, so a simulator bug on our side can never block your PRs.
     # Drop this line to make it blocking once you trust it.
     continue-on-error: true
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
