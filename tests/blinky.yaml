@@ -17,7 +17,7 @@
 schema_version: "1.0"
 inputs:
   firmware: "../target/thumbv7m-none-eabi/release/examples/blinky"
-  system: "./system.yaml"
+  chip: "stm32f103"
 limits:
   max_steps: 12000000
 assertions:

@@ -6,6 +6,10 @@
 # pushes bytes into the USART3 receive queue, so the unmodified example
 # runs exactly as it does on the bench.
 #
+# `chip: "stm32f103"` names a chip descriptor bundled with the LabWired CLI,
+# so this file is the entire configuration — there is no board manifest and
+# no vendored copy of anyone's register map in this repository.
+#
 # The example writes b'X', blocks reading a byte back, asserts the two are
 # equal, and then hits `asm::bkpt()`. A `bkpt` halts the simulator, so the
 # run stops there — and that stop is the pass signal:
@@ -23,7 +27,7 @@
 schema_version: "1.2"
 inputs:
   firmware: "../target/thumbv7m-none-eabi/release/examples/serial"
-  system: "./system-serial.yaml"
+  chip: "stm32f103"
 limits:
   max_steps: 2000000
 uart_injections:
