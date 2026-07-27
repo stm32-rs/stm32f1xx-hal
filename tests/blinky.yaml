@@ -1,0 +1,36 @@
+# LabWired regression test for stm32f1xx-hal examples/blinky.rs.
+#
+# blinky.rs has no external input to inject (no UART loopback, no sensor) —
+# it drives PC13 (the Blue Pill onboard LED) through a SysTick-driven 1 Hz
+# timer. Observable, self-contained behaviour: GPIOC gets configured for
+# push-pull output, and the LED output bit genuinely toggles over time.
+#
+# Both assertions are behavioural, not tautological:
+#   - the CRH assertion fails if GPIO setup regresses (wrong pin/mode/speed).
+#   - the ODR assertion fails if the timer/toggle logic breaks — it only
+#     passes because at 12,000,000 executed steps the LED is physically ON
+#     (empirically bracketed: OFF at 8,000,000 steps, ON from ~8,500,000 to
+#     ~16,000,000 steps, OFF again after ~20,000,000 steps, matching the
+#     ~8,000,000-step/half-period SysTick toggle at the default 8 MHz HSI
+#     clock). A build that stops toggling, or toggles at the wrong rate,
+#     fails this run.
+schema_version: "1.0"
+inputs:
+  firmware: "../target/thumbv7m-none-eabi/release/examples/blinky"
+  chip: "stm32f103"
+limits:
+  max_steps: 12000000
+assertions:
+  # GPIOC_CRH (0x40011004) pin 13 (bits 21:20) configured as push-pull
+  # 50 MHz output (0b11), proving `into_push_pull_output` actually ran.
+  - memory_value:
+      address: 0x40011004
+      expected_value: 0x00300000
+      mask: 0x00300000
+  # GPIOC_ODR (0x4001100C) bit 13: the LED output bit is HIGH at this step
+  # count only because the SysTick timer fired and `led.set_high()` ran.
+  - memory_value:
+      address: 0x4001100C
+      expected_value: 0x2000
+      mask: 0x2000
+  - expected_stop_reason: max_steps

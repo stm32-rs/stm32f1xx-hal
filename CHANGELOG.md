@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- CI job running the `blinky` and `serial` examples in a simulator
 - timer `Capture` support [#517]
 - `embedded_io::Read` trait implemented for `serial`
 - `dac` example

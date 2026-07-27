@@ -1,0 +1,49 @@
+# LabWired regression test for stm32f1xx-hal examples/serial.rs.
+#
+# The example is a USART3 loopback test: it needs PB10 (TX) and PB11 (RX)
+# shorted together on a real Blue Pill. The simulator supplies that wire
+# with a declarative RX injection instead of a jumper — `uart_injections`
+# pushes bytes into the USART3 receive queue, so the unmodified example
+# runs exactly as it does on the bench.
+#
+# `chip: "stm32f103"` names a chip descriptor bundled with the LabWired CLI,
+# so this file is the entire configuration — there is no board manifest and
+# no vendored copy of anyone's register map in this repository.
+#
+# The example writes b'X', blocks reading a byte back, asserts the two are
+# equal, and then hits `asm::bkpt()`. A `bkpt` halts the simulator, so the
+# run stops there — and that stop is the pass signal:
+#
+#   - the byte was transmitted   -> "X" appears in the captured TX stream
+#   - the byte was received      -> `block!(serial.rx.read())` returned
+#   - the two matched            -> `assert_eq!` did not panic
+#
+# If any of those fails the firmware never reaches the breakpoint: a missed
+# read blocks forever and a failed `assert_eq!` lands in `panic_halt`'s
+# spin loop. Either way the run ends on `max_steps`, not `halt`, and this
+# script fails. Verified by injecting b'Q' instead of b'X' (assertion
+# panics, stop reason becomes max_steps) and by removing the injection
+# entirely (read blocks, same result).
+schema_version: "1.2"
+inputs:
+  firmware: "../target/thumbv7m-none-eabi/release/examples/serial"
+  chip: "stm32f103"
+limits:
+  max_steps: 2000000
+uart_injections:
+  # Stands in for the TX/RX jumper the example's doc comment asks for.
+  # Buffered until the firmware has configured USART3 and reads it.
+  - uart: "usart3"
+    bytes: "X"
+    trigger: at_start
+assertions:
+  # USART3_CR1 (0x4000480C): UE | TE | RE set, proving `.serial(...)`
+  # actually brought the peripheral up rather than leaving it in reset.
+  - memory_value:
+      address: 0x4000480C
+      expected_value: 0x200C
+      mask: 0x200C
+  # The transmitted byte reached the TX line.
+  - uart_contains: "X"
+  # Execution reached `asm::bkpt()` — see the header comment.
+  - expected_stop_reason: halt
