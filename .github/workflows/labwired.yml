@@ -9,6 +9,10 @@ jobs:
   simulate:
     name: LabWired examples (stm32f103)
     runs-on: ubuntu-latest
+    # Advisory, not a merge gate: a failure here is reported but does not fail
+    # the workflow, so a simulator bug on our side can never block your PRs.
+    # Drop this line to make it blocking once you trust it.
+    continue-on-error: true
     permissions:
       contents: read
       id-token: write
