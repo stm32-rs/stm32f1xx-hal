@@ -166,7 +166,7 @@ impl<I2C: Instance> I2c<I2C> {
     fn init(&mut self) {
         let mode = &self.mode;
         // Calculate settings for I2C speed modes
-        let clock = self.pclk.raw();
+        let clock = self.pclk.to_raw();
         let clc_mhz = clock / 1_000_000;
 
         // Configure bus frequency into I2C peripheral
@@ -185,7 +185,7 @@ impl<I2C: Instance> I2c<I2C> {
         match mode {
             // I2C clock control calculation
             Mode::Standard { frequency } => {
-                let ccr = (clock / (frequency.raw() * 2)).max(4);
+                let ccr = (clock / (frequency.to_raw() * 2)).max(4);
 
                 // Set clock to standard mode with appropriate parameters for selected speed
                 self.i2c.ccr().write(|w| unsafe {
@@ -199,7 +199,7 @@ impl<I2C: Instance> I2c<I2C> {
                 duty_cycle,
             } => match duty_cycle {
                 DutyCycle::Ratio2to1 => {
-                    let ccr = (clock / (frequency.raw() * 3)).max(1);
+                    let ccr = (clock / (frequency.to_raw() * 3)).max(1);
 
                     // Set clock to fast mode with appropriate parameters for selected speed (2:1 duty cycle)
                     self.i2c.ccr().write(|w| unsafe {
@@ -207,7 +207,7 @@ impl<I2C: Instance> I2c<I2C> {
                     });
                 }
                 DutyCycle::Ratio16to9 => {
-                    let ccr = (clock / (frequency.raw() * 25)).max(1);
+                    let ccr = (clock / (frequency.to_raw() * 25)).max(1);
 
                     // Set clock to fast mode with appropriate parameters for selected speed (16:9 duty cycle)
                     self.i2c.ccr().write(|w| unsafe {

@@ -539,7 +539,7 @@ impl<USART: Instance, Otype> Serial<USART, Otype> {
 
 fn apply_config<USART: Instance>(usart: &USART, config: Config, clocks: &Clocks) {
     // Configure baud rate
-    let brr = USART::Bus::clock(clocks).raw() / config.baudrate.0;
+    let brr = USART::Bus::clock(clocks).to_raw() / config.baudrate.0;
     assert!(brr >= 16, "impossible baud rate");
     usart.brr().write(|w| unsafe { w.bits(brr as u16) });
 

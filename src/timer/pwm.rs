@@ -50,7 +50,7 @@ pub trait PwmExt
 where
     Self: Sized + Instance + WithPwm + Split,
 {
-    fn pwm<const FREQ: u32>(
+    fn pwm<const FREQ: u64>(
         self,
         time: TimerDurationU32<FREQ>,
         rcc: &mut Rcc,
@@ -71,7 +71,7 @@ impl<TIM> PwmExt for TIM
 where
     Self: Sized + Instance + WithPwm + Split,
 {
-    fn pwm<const FREQ: u32>(
+    fn pwm<const FREQ: u64>(
         self,
         time: TimerDurationU32<FREQ>,
         rcc: &mut Rcc,
@@ -89,7 +89,7 @@ where
     TIM: Sized + Instance + WithPwm,
     Self: Split,
 {
-    pub fn pwm<const FREQ: u32>(
+    pub fn pwm<const FREQ: u64>(
         self,
         time: TimerDurationU32<FREQ>,
         rcc: &mut Rcc,
@@ -131,7 +131,7 @@ impl<TIM: Instance + WithPwm> Timer<TIM> {
         // might as well enable for the auto-reload too
         self.tim.enable_preload(true);
 
-        let (psc, arr) = compute_arr_presc(freq.raw(), self.clk.raw());
+        let (psc, arr) = compute_arr_presc(freq.to_raw(), self.clk.to_raw());
         self.tim.set_prescaler(psc);
         self.tim.set_auto_reload(arr).unwrap();
 
@@ -142,20 +142,20 @@ impl<TIM: Instance + WithPwm> Timer<TIM> {
     }
 }
 
-impl<TIM: Instance + WithPwm + Split, const FREQ: u32> FTimer<TIM, FREQ> {
+impl<TIM: Instance + WithPwm + Split, const FREQ: u64> FTimer<TIM, FREQ> {
     pub fn pwm(mut self, time: TimerDurationU32<FREQ>) -> (PwmManager<TIM, FREQ>, TIM::Channels) {
         self._pwm_init(time);
         (PwmManager { timer: self }, TIM::split())
     }
 }
-impl<TIM: Instance + WithPwm, const FREQ: u32> FTimer<TIM, FREQ> {
+impl<TIM: Instance + WithPwm, const FREQ: u64> FTimer<TIM, FREQ> {
     fn _pwm_init(&mut self, time: TimerDurationU32<FREQ>) {
         // The reference manual is a bit ambiguous about when enabling this bit is really
         // necessary, but since we MUST enable the preload for the output channels then we
         // might as well enable for the auto-reload too
         self.tim.enable_preload(true);
 
-        self.tim.set_auto_reload(time.ticks() - 1).unwrap();
+        self.tim.set_auto_reload(time.as_ticks() - 1).unwrap();
 
         // Trigger update event to load the registers
         self.tim.trigger_update();
@@ -335,14 +335,14 @@ impl<TIM: Instance + WithPwm + Advanced> ErasedChannel<TIM> {
     chN_impl!();
 }
 
-pub struct PwmManager<TIM, const FREQ: u32>
+pub struct PwmManager<TIM, const FREQ: u64>
 where
     TIM: Instance + WithPwm,
 {
     pub(super) timer: FTimer<TIM, FREQ>,
 }
 
-impl<TIM, const FREQ: u32> PwmManager<TIM, FREQ>
+impl<TIM, const FREQ: u64> PwmManager<TIM, FREQ>
 where
     TIM: Instance + WithPwm + Split,
 {
@@ -353,7 +353,7 @@ where
     }
 }
 
-impl<TIM, const FREQ: u32> Deref for PwmManager<TIM, FREQ>
+impl<TIM, const FREQ: u64> Deref for PwmManager<TIM, FREQ>
 where
     TIM: Instance + WithPwm,
 {
@@ -363,7 +363,7 @@ where
     }
 }
 
-impl<TIM, const FREQ: u32> DerefMut for PwmManager<TIM, FREQ>
+impl<TIM, const FREQ: u64> DerefMut for PwmManager<TIM, FREQ>
 where
     TIM: Instance + WithPwm,
 {
@@ -409,7 +409,7 @@ where
     }
 }
 
-impl<TIM, const FREQ: u32> PwmManager<TIM, FREQ>
+impl<TIM, const FREQ: u64> PwmManager<TIM, FREQ>
 where
     TIM: Instance + WithPwm,
 {
@@ -427,7 +427,7 @@ where
 
     /// Set the PWM frequency for the timer from a duration
     pub fn set_period(&mut self, period: TimerDurationU32<FREQ>) {
-        self.tim.set_auto_reload(period.ticks() - 1).unwrap();
+        self.tim.set_auto_reload(period.as_ticks() - 1).unwrap();
         self.tim.cnt_reset();
     }
 }
@@ -457,7 +457,7 @@ where
     pub fn set_period(&mut self, period: Hertz) {
         let clk = self.clk;
 
-        let (psc, arr) = compute_arr_presc(period.raw(), clk.raw());
+        let (psc, arr) = compute_arr_presc(period.to_raw(), clk.to_raw());
         self.tim.set_prescaler(psc);
         self.tim.set_auto_reload(arr).unwrap();
         self.tim.cnt_reset();
@@ -508,7 +508,7 @@ macro_rules! impl_advanced {
     };
 }
 
-impl<TIM, const FREQ: u32> PwmManager<TIM, FREQ>
+impl<TIM, const FREQ: u64> PwmManager<TIM, FREQ>
 where
     TIM: Instance + WithPwm + Advanced,
 {

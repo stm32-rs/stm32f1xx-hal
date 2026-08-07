@@ -53,7 +53,7 @@ impl DelayMs<u8> for SysDelay {
 
 impl<TIM> Periodic for CounterHz<TIM> {}
 impl Periodic for SysCounterHz {}
-impl<const FREQ: u32> Periodic for SysCounter<FREQ> {}
+impl<const FREQ: u64> Periodic for SysCounter<FREQ> {}
 
 impl CountDown for SysCounterHz {
     type Time = Hertz;
@@ -107,7 +107,7 @@ impl<TIM: Instance> Cancel for CounterHz<TIM> {
     }
 }
 
-impl<const FREQ: u32> CountDown for SysCounter<FREQ> {
+impl<const FREQ: u64> CountDown for SysCounter<FREQ> {
     type Time = TimerDurationU32<FREQ>;
 
     fn start<T>(&mut self, timeout: T)
@@ -125,7 +125,7 @@ impl<const FREQ: u32> CountDown for SysCounter<FREQ> {
     }
 }
 
-impl<const FREQ: u32> Cancel for SysCounter<FREQ> {
+impl<const FREQ: u64> Cancel for SysCounter<FREQ> {
     type Error = Error;
 
     fn cancel(&mut self) -> Result<(), Self::Error> {
@@ -175,49 +175,49 @@ impl<TIM: Instance + WithPwm> embedded_hal_02::PwmPin for ErasedChannel<TIM> {
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> DelayUs<u32> for Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> DelayUs<u32> for Delay<TIM, FREQ> {
     /// Sleep for `us` microseconds
     fn delay_us(&mut self, us: u32) {
         self.delay(us.micros())
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> DelayMs<u32> for Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> DelayMs<u32> for Delay<TIM, FREQ> {
     /// Sleep for `ms` milliseconds
     fn delay_ms(&mut self, ms: u32) {
         self.delay(ms.millis())
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> DelayUs<u16> for Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> DelayUs<u16> for Delay<TIM, FREQ> {
     /// Sleep for `us` microseconds
     fn delay_us(&mut self, us: u16) {
         self.delay((us as u32).micros())
     }
 }
-impl<TIM: Instance, const FREQ: u32> DelayMs<u16> for Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> DelayMs<u16> for Delay<TIM, FREQ> {
     /// Sleep for `ms` milliseconds
     fn delay_ms(&mut self, ms: u16) {
         self.delay((ms as u32).millis())
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> DelayUs<u8> for Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> DelayUs<u8> for Delay<TIM, FREQ> {
     /// Sleep for `us` microseconds
     fn delay_us(&mut self, us: u8) {
         self.delay((us as u32).micros())
     }
 }
-impl<TIM: Instance, const FREQ: u32> DelayMs<u8> for Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> DelayMs<u8> for Delay<TIM, FREQ> {
     /// Sleep for `ms` milliseconds
     fn delay_ms(&mut self, ms: u8) {
         self.delay((ms as u32).millis())
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> Periodic for Counter<TIM, FREQ> {}
+impl<TIM: Instance, const FREQ: u64> Periodic for Counter<TIM, FREQ> {}
 
-impl<TIM: Instance, const FREQ: u32> CountDown for Counter<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> CountDown for Counter<TIM, FREQ> {
     type Time = TimerDurationU32<FREQ>;
 
     fn start<T>(&mut self, timeout: T)
@@ -235,7 +235,7 @@ impl<TIM: Instance, const FREQ: u32> CountDown for Counter<TIM, FREQ> {
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> Cancel for Counter<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> Cancel for Counter<TIM, FREQ> {
     type Error = Error;
 
     fn cancel(&mut self) -> Result<(), Self::Error> {

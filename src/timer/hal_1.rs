@@ -14,7 +14,7 @@ impl DelayNs for SysDelay {
     }
 }
 
-impl<TIM: Instance, const FREQ: u32> DelayNs for Delay<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> DelayNs for Delay<TIM, FREQ> {
     fn delay_ns(&mut self, ns: u32) {
         self.delay(ns.micros_at_least());
     }

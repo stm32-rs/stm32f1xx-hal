@@ -6,19 +6,19 @@ use core::ops::{Deref, DerefMut};
 pub use fugit::{self, ExtU32};
 use rtic_monotonic::Monotonic;
 
-pub struct MonoTimer<TIM, const FREQ: u32> {
+pub struct MonoTimer<TIM, const FREQ: u64> {
     timer: FTimer<TIM, FREQ>,
     ovf: u32,
 }
 
-impl<TIM, const FREQ: u32> Deref for MonoTimer<TIM, FREQ> {
+impl<TIM, const FREQ: u64> Deref for MonoTimer<TIM, FREQ> {
     type Target = FTimer<TIM, FREQ>;
     fn deref(&self) -> &Self::Target {
         &self.timer
     }
 }
 
-impl<TIM, const FREQ: u32> DerefMut for MonoTimer<TIM, FREQ> {
+impl<TIM, const FREQ: u64> DerefMut for MonoTimer<TIM, FREQ> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.timer
     }
@@ -27,7 +27,7 @@ impl<TIM, const FREQ: u32> DerefMut for MonoTimer<TIM, FREQ> {
 /// `MonoTimer` with precision of 1 μs (1 MHz sampling)
 pub type MonoTimerUs<TIM> = MonoTimer<TIM, 1_000_000>;
 
-impl<TIM: Instance, const FREQ: u32> MonoTimer<TIM, FREQ> {
+impl<TIM: Instance, const FREQ: u64> MonoTimer<TIM, FREQ> {
     /// Releases the TIM peripheral
     pub fn release(mut self) -> FTimer<TIM, FREQ> {
         // stop counter
@@ -37,7 +37,7 @@ impl<TIM: Instance, const FREQ: u32> MonoTimer<TIM, FREQ> {
 }
 
 pub trait MonoTimerExt: Sized {
-    fn monotonic<const FREQ: u32>(self, rcc: &mut Rcc) -> MonoTimer<Self, FREQ>;
+    fn monotonic<const FREQ: u64>(self, rcc: &mut Rcc) -> MonoTimer<Self, FREQ>;
     fn monotonic_us(self, rcc: &mut Rcc) -> MonoTimer<Self, 1_000_000> {
         self.monotonic::<1_000_000>(rcc)
     }
@@ -46,18 +46,18 @@ pub trait MonoTimerExt: Sized {
 macro_rules! mono {
     ($TIM:ty) => {
         impl MonoTimerExt for $TIM {
-            fn monotonic<const FREQ: u32>(self, rcc: &mut Rcc) -> MonoTimer<Self, FREQ> {
+            fn monotonic<const FREQ: u64>(self, rcc: &mut Rcc) -> MonoTimer<Self, FREQ> {
                 FTimer::new(self, rcc).monotonic()
             }
         }
 
-        impl<const FREQ: u32> FTimer<$TIM, FREQ> {
+        impl<const FREQ: u64> FTimer<$TIM, FREQ> {
             pub fn monotonic(self) -> MonoTimer<$TIM, FREQ> {
                 MonoTimer::<$TIM, FREQ>::_new(self)
             }
         }
 
-        impl<const FREQ: u32> MonoTimer<$TIM, FREQ> {
+        impl<const FREQ: u64> MonoTimer<$TIM, FREQ> {
             fn _new(timer: FTimer<$TIM, FREQ>) -> Self {
                 // Set auto-reload value.
                 timer.tim.arr().write(|w| w.arr().set(u16::MAX));
@@ -80,7 +80,7 @@ macro_rules! mono {
             }
         }
 
-        impl<const FREQ: u32> Monotonic for MonoTimer<$TIM, FREQ> {
+        impl<const FREQ: u64> Monotonic for MonoTimer<$TIM, FREQ> {
             type Instant = fugit::TimerInstantU32<FREQ>;
             type Duration = fugit::TimerDurationU32<FREQ>;
 
@@ -111,7 +111,9 @@ macro_rules! mono {
                 // how many ticks are left.
                 let val = match instant.checked_duration_since(now) {
                     None => cnt.wrapping_add(0xffff), // In the past, RTIC will handle this
-                    Some(x) if x.ticks() <= 0xffff => instant.duration_since_epoch().ticks() as u16, // Will not overflow
+                    Some(x) if x.as_ticks() <= 0xffff => {
+                        instant.duration_since_epoch().as_ticks() as u16
+                    } // Will not overflow
                     Some(_) => cnt.wrapping_add(0xffff), // Will overflow, run for as long as possible
                 };
 

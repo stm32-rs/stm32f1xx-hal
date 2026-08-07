@@ -522,7 +522,7 @@ impl Adc<pac::ADC1> {
             // sensor, this time can be found in the datasheets.
             // Here we are delaying for approximately 10us, considering 1.25 instructions per
             // cycle. Do we support a chip which needs more than 10us ?
-            delay(self.sysclk.raw() / 80_000);
+            delay(self.sysclk.to_raw() / 80_000);
             true
         } else {
             false
@@ -569,7 +569,7 @@ impl Adc<pac::ADC1> {
         // recommended ADC sampling for temperature sensor is 17.1 usec,
         // so use the following approximate settings
         // to support all ADC frequencies
-        let sample_time = match self.adcclk.raw() {
+        let sample_time = match self.adcclk.to_raw() {
             0..=1_200_000 => SampleTime::T_1,
             1_200_001..=1_500_000 => SampleTime::T_7,
             1_500_001..=2_400_000 => SampleTime::T_13,

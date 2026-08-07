@@ -55,7 +55,7 @@ fn main() -> ! {
     //// Operations affecting all defined channels on the Timer
 
     // Adjust period to 0.5 seconds
-    pwm_mgr.set_period(ms(500).into_rate());
+    pwm_mgr.set_period(ms(500).to_rate());
 
     asm::bkpt();
 

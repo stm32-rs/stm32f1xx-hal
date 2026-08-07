@@ -7,36 +7,44 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.12.0] - 2026-05-11
+
 ### Breaking changes
 
+- Bump `fugit` to `0.4` [#568]
 - Remove `PULL` generic from `Input` mode [#512]
   Remove `as_push_pull_output`, `as_opendrain_output` [#512]
-- `rtic2` feature, renamed `rtic` to `rtic1`
+- `rtic2` feature, renamed `rtic` to `rtic1` [#517]
 - move pin connecting to timer channels after `Pwm` initialization [#517]
-- `timer.rs` refactoring
+- `timer.rs` refactoring [#517]
 - bumped `embedded-io` dependency to v0.7.0 [#565]
 
 ### Changed
 
-- use `cfg_select`, bump MSRV to `1.95`
+- use `cfg_select`, bump MSRV to `1.95` [#562]
 - `timer.rs` refactoring [#553]
 - Add `rcc::Instance` trait [#557]
 - Demacrofy `RxDma`/`TxDma` implementations [#554]
-- Move pins inside `Tx`, `Rx`
+- Move pins inside `Tx`, `Rx` [#563]
 
 ### Added
 
 - CI job running the `blinky` and `serial` examples in a simulator
 - timer `Capture` support [#517]
-- `embedded_io::Read` trait implemented for `serial`
-- `dac` example
+- `embedded_io::Read` trait implemented for `serial` [#556]
+- `dac` example [#561]
 
 [#512]: https://github.com/stm32-rs/stm32f1xx-hal/pull/512
 [#517]: https://github.com/stm32-rs/stm32f1xx-hal/pull/517
 [#553]: https://github.com/stm32-rs/stm32f1xx-hal/pull/553
 [#554]: https://github.com/stm32-rs/stm32f1xx-hal/pull/554
+[#556]: https://github.com/stm32-rs/stm32f1xx-hal/pull/556
 [#557]: https://github.com/stm32-rs/stm32f1xx-hal/pull/557
+[#561]: https://github.com/stm32-rs/stm32f1xx-hal/pull/561
+[#562]: https://github.com/stm32-rs/stm32f1xx-hal/pull/562
+[#563]: https://github.com/stm32-rs/stm32f1xx-hal/pull/563
 [#565]: https://github.com/stm32-rs/stm32f1xx-hal/pull/565
+[#568]: https://github.com/stm32-rs/stm32f1xx-hal/pull/568
 
 ## [v0.11.0] - 2025-09-09
 
@@ -449,7 +457,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - First tagged version
 
-[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.12.0...HEAD
+[v0.12.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.11.0...v0.12.0
 [v0.11.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.10.0...v0.11.0
 [v0.10.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.9.0...v0.10.0
 [v0.9.0]: https://github.com/stm32-rs/stm32f1xx-hal/compare/v0.8.0...v0.9.0
